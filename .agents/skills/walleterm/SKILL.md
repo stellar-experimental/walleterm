@@ -6,6 +6,7 @@ description: Sign Stellar envelope or Soroban authorization digests with a selec
 # Walleterm signing
 
 `walleterm` lists public keys and signs one supplied 32-byte digest. It does not build XDR or submit transactions.
+Use [the site bridge skill](../walleterm-site-bridge/SKILL.md) for browser wallet login and website XDR requests.
 Use `walleterm --help` for the installed command contract. Use `stellar --version` before following a pinned reference.
 Use Stellar CLI to build, inspect, simulate, encode, and submit. Use Stellar Raven for protocol questions and contract discovery.
 

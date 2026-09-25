@@ -32,3 +32,5 @@ coverage.out
 !/evidence/README.md
 !/evidence/acceptance-summary.json
 !/evidence/protocol-acceptance.json
+!/evidence/stellarterm-testnet-2026-09-25.json
+!/evidence/sdf-demo-bridge-2026-09-25.json

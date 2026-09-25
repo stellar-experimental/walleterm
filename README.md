@@ -22,10 +22,10 @@ Keep that directory on `PATH`, including in non-interactive agent shells.
 Both commands work from any directory. They do not require a shell alias.
 Run `make install` again after source changes to update the installed binary.
 Use `make build` for a build under this checkout's `bin/` directory.
-`make install-skill` links this checkout's skill through `~/.agents/skills/walleterm`.
+`make install-skill` links this checkout's signing and site bridge skills through `~/.agents/skills`.
 Claude Code and Codex use links from their own skill directories to that shared path.
 OpenCode and Grok discover the shared path directly.
-Edit `.agents/skills/walleterm/` in this checkout. New sessions read those edits without another copy or install.
+Edit `.agents/skills/` in this checkout. New sessions read those edits without another copy or install.
 Keep this checkout at its current path. The installer preserves conflicting destinations and reports them.
 
 Generate an Ed25519 SSH key inside the 1Password desktop app.
@@ -49,6 +49,7 @@ Use the CLI or official SDK to calculate digests and insert returned signatures.
 Use Stellar Raven MCP for Stellar questions and contract discovery.
 See [Stellar CLI integration](docs/STELLAR-CLI.md) and [OpenZeppelin formats](docs/OPENZEPPELIN.md).
 The [companion skill](.agents/skills/walleterm/SKILL.md) gives agents the signing workflow.
+The [site bridge skill](.agents/skills/walleterm-site-bridge/SKILL.md) connects testnet websites through reviewed XDR requests.
 
 ## Boundaries
 

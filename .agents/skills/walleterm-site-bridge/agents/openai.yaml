@@ -1,0 +1,3 @@
+interface:
+  display_name: "Walleterm Site Bridge"
+  short_description: "Connect Stellar testnet sites to Walleterm"

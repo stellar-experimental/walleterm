@@ -17,10 +17,18 @@ The acceptance runs used Stellar testnet on 2026-09-25.
 [The protocol summary](protocol-acceptance.json) records the 38 CAP-71/CAP-85 transaction hashes and ledgers.
 [Protocol notes](../docs/PROTOCOL-UPDATES.md) explain the diagnostic limits and older account behavior.
 
+[The StellarTerm testnet record](stellarterm-testnet-2026-09-25.json) covers a live Freighter message bridge.
+It records a payment, trustline, offer, cancellation, and trustline removal.
+The test left no open offers or USDC trustline.
+
+[The SDF demo bridge record](sdf-demo-bridge-2026-09-25.json) covers the Asset Sandbox trustline and the confidential-token connection gate.
+It records the live hash, ledger, final trustline, page refresh error, and unsigned message request.
+The published Stellar Token Launchpad addresses redirected to a generic site.
+
 ## Tracked summaries and local records
 
-Git includes this index and the two reviewed summaries.
-The summaries contain public testnet addresses, transaction hashes, contract identifiers, and source hashes.
+Git includes this index, two acceptance summaries, and two site records.
+These files contain public testnet addresses, transaction hashes, contract identifiers, and source hashes.
 They contain no signing keys or vault identifiers.
 
 Raw evidence stays local and ignored: signer metadata, signed envelopes, signatures, RPC responses, checkpoints, and review scratch files.

@@ -1,0 +1,73 @@
+{
+  "observed_at": "2026-09-25T22:00:12Z",
+  "network": "TESTNET",
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "local_records": "evidence/site-live/multi-demo-2026-09-25",
+  "asset_sandbox": {
+    "site": "https://stellar.cheesecakelabs.com/sandbox/v1",
+    "official_directory": "https://developers.stellar.org/docs/tools/developer-tools/asset-tools",
+    "source_repository": "https://github.com/CheesecakeLabs/Stellar-Asset-Sandbox",
+    "repository_commit_inspected": "c29091ba04980ce21fc5cd12fe33c2dc4646f9ab",
+    "live_client": "main.e6cec403.js",
+    "source_note": "The live v1 client differs from the repository's v2 frontend.",
+    "wallet_transport": "Freighter window.postMessage",
+    "connection": "Dedicated testnet public key accepted",
+    "signing_request": "SUBMIT_TRANSACTION",
+    "signer": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+    "signed_with": "walleterm sign and 1Password",
+    "transaction": {
+      "hash": "5c1d11a0be8ba05269f17ce63b6585dd2e4b8b9e2c1ffbb5fee4165e512a98f4",
+      "successful": true,
+      "ledger": 4869946,
+      "sequence": "20897184853524498",
+      "declared_fee_stroops": "10000",
+      "charged_fee_stroops": "100",
+      "operation": "change_trust",
+      "asset_code": "WTBRG925",
+      "issuer": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+      "trustline_limit": "10.0000000",
+      "final_asset_balance": "0.0000000",
+      "signed_envelope_matches_horizon": true
+    },
+    "site_result": "Operation completed successfully and the same hash appeared in the page",
+    "site_listing_result": "Could not update asset listing at this time; No assets created",
+    "issuer_info_http_status": 500,
+    "scope": "The accepted transaction created a distribution-account trustline. It did not mint or transfer the asset.",
+    "screenshot": "evidence/site-live/multi-demo-2026-09-25/cheesecake/after-trustline-full.png"
+  },
+  "confidential_token": {
+    "site": "https://stellar-confidential-token-demo.billowing-moon-0c6f.workers.dev/wallet",
+    "official_announcement": "https://stellar.org/blog/developers/developer-preview-confidential-tokens-on-stellar",
+    "source_repository": "https://github.com/brozorec/stellar-confidential-token-demo",
+    "repository_commit_inspected": "9500ed774b13b08b5fe99370b60de3479edb492b",
+    "freighter_api_version": "4.1.0",
+    "connection": "Dedicated testnet public key accepted",
+    "captured_request": "SUBMIT_BLOB",
+    "message_length": 280,
+    "message_network": "Test SDF Network ; September 2015",
+    "message_token_contract": "CBF64DEOVQAXJFBSNGFEUT2AH4H7K5JBY3ZYJ5GVEINMNSDISWRG5N3F",
+    "message_purpose": "Derive a confidential spending key from a wallet signature",
+    "source_behavior": "Derives a private key from the signature and caches it under ctd:sk: in browser localStorage",
+    "signed": false,
+    "submitted": false,
+    "derived_key_storage_entries": 0,
+    "screenshot": "evidence/site-live/multi-demo-2026-09-25/confidential/pending-key-derivation.png",
+    "reason": "The project requires private keys to stay inside 1Password."
+  },
+  "stellar_token_launchpad": {
+    "directory": "https://communityfund.stellar.org/submissions/recyhIl215OlC9aTI",
+    "project": "Cryptix Stellar Token Launchpad, an SCF-funded project rather than an SDF-operated demo",
+    "published_site": "https://stellar.tokenlaunchpad.eu",
+    "published_site_result": "HTTP 301 to https://cryptix.ag/",
+    "alternate_site": "https://tokenlaunchpad.eu",
+    "alternate_site_result": "HTTP 301 to https://cryptix.ag/",
+    "testnet_wallet_flow_found": false,
+    "signed": false
+  },
+  "skill_changes": [
+    "Capture Freighter SUBMIT_BLOB and SUBMIT_AUTH_ENTRY requests without signing them.",
+    "Inspect deployed code when repository code differs from the live site.",
+    "Inspect message-signature effects before signing.",
+    "Distinguish accepted partial operations from completed user tasks and site refresh errors."
+  ]
+}
