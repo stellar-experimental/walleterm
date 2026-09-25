@@ -1,0 +1,47 @@
+{
+  "label": "G07-missing-inner",
+  "hash": "395e42235cd890ed4abaf9737e0385be41e56d0a59a8cbeb696cb3fe86c75f17",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "envelope_xdr": "AAAABQAAAABlbzeWNNDj7ylhZEtxVOxwuj+4QraJNwWPPc5acrXMwwAAAAAAAA+gAAAAAgAAAABZT1adrP4VVQaXR7rceDt+LGMsLpWFgVhel+CTY7LkXgAAA+gASj3hAAAACAAAAAEAAAAAAAAAAAAAAABqtprEAAAAAAAAAAEAAAAAAAAAAQAAAADBhcMJ7MtuSVkF0lNf3TUAsIYdFuiG5IlXvIAAgDOikAAAAAAAAAAAAAAAZAAAAAAAAAAAAAAAAAAAAAFytczDAAAAQFWzejIraHdf9VKV99ooQK61VNtpVXwyCH/Yc9oyBPi1CPqPZotL7F01Zpu4ZB+YamfbvqjuH4S/qQn3t1VK1Q4=",
+  "submittedAt": "2026-09-25T15:46:08.808Z",
+  "send": {
+    "status": "ERROR",
+    "hash": "395e42235cd890ed4abaf9737e0385be41e56d0a59a8cbeb696cb3fe86c75f17",
+    "latestLedger": 4865516,
+    "latestLedgerCloseTime": "1790351167",
+    "errorResult": {
+      "fee_charged": "200",
+      "result": {
+        "tx_fee_bump_inner_failed": {
+          "transaction_hash": "a9226ffb1b331a306128df193f440ef83e060eb592eee30cca24b60b580d2f32",
+          "result": {
+            "fee_charged": "0",
+            "result": "tx_bad_auth",
+            "ext": "v0"
+          }
+        }
+      },
+      "ext": "v0"
+    }
+  },
+  "result": {
+    "status": "ERROR",
+    "hash": "395e42235cd890ed4abaf9737e0385be41e56d0a59a8cbeb696cb3fe86c75f17",
+    "latestLedger": 4865516,
+    "latestLedgerCloseTime": "1790351167",
+    "errorResult": {
+      "fee_charged": "200",
+      "result": {
+        "tx_fee_bump_inner_failed": {
+          "transaction_hash": "a9226ffb1b331a306128df193f440ef83e060eb592eee30cca24b60b580d2f32",
+          "result": {
+            "fee_charged": "0",
+            "result": "tx_bad_auth",
+            "ext": "v0"
+          }
+        }
+      },
+      "ext": "v0"
+    }
+  }
+}

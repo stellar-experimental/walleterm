@@ -1,0 +1,101 @@
+{
+  "checked_at": "2026-09-25T17:33:52.258604+00:00",
+  "sources": {
+    "walleterm": "/Users/kalepail/Desktop/walleterm-v2/.agents/skills/walleterm",
+    "stellar-raven-jev": "/Users/kalepail/Desktop/stellar-raven-jev/skills/stellar-raven-jev"
+  },
+  "changes": [
+    {
+      "backup": "/Users/kalepail/.local/state/ai-tools/skill-backups/20260925-133352/.agents/skills/walleterm",
+      "previous": "/Users/kalepail/.agents/skills/walleterm"
+    },
+    {
+      "link": "/Users/kalepail/.agents/skills/walleterm",
+      "target": "/Users/kalepail/Desktop/walleterm-v2/.agents/skills/walleterm"
+    },
+    {
+      "link": "/Users/kalepail/.agents/skills/stellar-raven-jev",
+      "target": "/Users/kalepail/Desktop/stellar-raven-jev/skills/stellar-raven-jev"
+    },
+    {
+      "link": "/Users/kalepail/.codex/skills/stellar-raven-jev",
+      "target": "../../.agents/skills/stellar-raven-jev"
+    },
+    {
+      "backup": "/Users/kalepail/.local/state/ai-tools/skill-backups/20260925-133352/.claude/skills/stellar-raven-jev",
+      "previous": "/Users/kalepail/.claude/skills/stellar-raven-jev"
+    },
+    {
+      "link": "/Users/kalepail/.claude/skills/stellar-raven-jev",
+      "target": "../../.agents/skills/stellar-raven-jev"
+    }
+  ],
+  "links": {
+    "/Users/kalepail/.agents/skills/walleterm": "/Users/kalepail/Desktop/walleterm-v2/.agents/skills/walleterm",
+    "/Users/kalepail/.codex/skills/walleterm": "/Users/kalepail/Desktop/walleterm-v2/.agents/skills/walleterm",
+    "/Users/kalepail/.claude/skills/walleterm": "/Users/kalepail/Desktop/walleterm-v2/.agents/skills/walleterm",
+    "/Users/kalepail/.agents/skills/stellar-raven-jev": "/Users/kalepail/Desktop/stellar-raven-jev/skills/stellar-raven-jev",
+    "/Users/kalepail/.codex/skills/stellar-raven-jev": "/Users/kalepail/Desktop/stellar-raven-jev/skills/stellar-raven-jev",
+    "/Users/kalepail/.claude/skills/stellar-raven-jev": "/Users/kalepail/Desktop/stellar-raven-jev/skills/stellar-raven-jev"
+  },
+  "discovery_from_tmp": {
+    "codex": {
+      "walleterm": [
+        "- walleterm: Sign Stellar envelope or account authorization digests with a selected 1Password Ed25519 key. Use with Stellar CLI for classic transactions, fee bumps, native G-account auth, or pinned OpenZeppelin account auth. (file: r0/walleterm/SKILL.md)"
+      ],
+      "stellar-raven-jev": [
+        "- stellar-raven-jev: Use whenever you plan or run the `stellar-raven-jev` CLI, or answer a question about Stellar, Soroban, SEPs, CAPs, Stellar assets, wallets, anchors, or the Stellar ecosystem that needs cited evidence. Also use when the user names Jev or stellar-raven-jev. (file: r0/stellar-raven-jev/SKILL.md)"
+      ]
+    },
+    "grok": {
+      "walleterm": [
+        {
+          "name": "walleterm",
+          "source": {
+            "type": "user",
+            "path": "/Users/kalepail/.agents/skills/walleterm/SKILL.md"
+          }
+        }
+      ],
+      "stellar-raven-jev": [
+        {
+          "name": "stellar-raven-jev",
+          "source": {
+            "type": "user",
+            "path": "/Users/kalepail/.agents/skills/stellar-raven-jev/SKILL.md"
+          }
+        }
+      ]
+    },
+    "opencode": {
+      "walleterm": [
+        {
+          "name": "walleterm",
+          "source": "/Users/kalepail/.agents/skills/walleterm/SKILL.md"
+        }
+      ],
+      "stellar-raven-jev": [
+        {
+          "name": "stellar-raven-jev",
+          "source": "/Users/kalepail/.agents/skills/stellar-raven-jev/SKILL.md"
+        }
+      ]
+    }
+  },
+  "installer_checks": [
+    "fresh install",
+    "repeat install",
+    "source resolution",
+    "conflicting copy preserved"
+  ],
+  "claude_code": {
+    "status": "linked",
+    "runtime_prompt_probe": "not_run",
+    "paths": [
+      "/Users/kalepail/.claude/skills/walleterm/SKILL.md",
+      "/Users/kalepail/.claude/skills/stellar-raven-jev/SKILL.md"
+    ]
+  },
+  "validation": "both skill packages passed; all six paths resolve to their maintained source files",
+  "desktop_chat_cowork": "not installed; separate skill or plugin installation required"
+}

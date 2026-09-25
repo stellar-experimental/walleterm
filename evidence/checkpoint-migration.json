@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-09-25T17:13:38.261Z",
+  "source": "original deployment and acceptance records",
+  "old_snapshot": "live/contracts-state-before-binding.json",
+  "verified_wasm_files": [
+    "multisig_ed25519_verifier_example.wasm",
+    "multisig_threshold_policy_example.wasm",
+    "multisig_weighted_threshold_policy_example.wasm",
+    "walleterm_auth_target.wasm",
+    "walleterm_simple_account.wasm",
+    "multisig_account_example.wasm"
+  ],
+  "binding": {
+    "network": "Test SDF Network ; September 2015",
+    "keys": [
+      "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+      "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+      "GDAYLQYJ5TFW4SKZAXJFGX65GUALBBQ5C3UINZEJK66IAAEAGORJADBL"
+    ]
+  },
+  "contracts_unchanged": true
+}

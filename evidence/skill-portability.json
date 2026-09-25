@@ -1,0 +1,27 @@
+{
+  "checked_at": "2026-09-25T17:09:20Z",
+  "skill_source": ".agents/skills/walleterm",
+  "copied_test_directory": "/private/tmp/walleterm-skill.lPuokP/walleterm",
+  "checks": {
+    "skill_creator_quick_validate": "passed",
+    "relative_markdown_links_checked": 5,
+    "relative_markdown_links_result": "passed",
+    "oz_wasm_hashes_match_build_manifest": "passed",
+    "temporary_install_from_outside_checkout": "passed",
+    "temporary_install_repeat": "passed",
+    "temporary_unrelated_file_preserved": "passed",
+    "temporary_conflicting_skill_refused_before_copy": "passed",
+    "codex_and_claude_links_resolve_to_canonical_copy": "passed"
+  },
+  "observed_user_topology": {
+    "canonical_directory": "~/.agents/skills",
+    "codex_directory": "~/.codex/skills",
+    "claude_directory": "~/.claude/skills",
+    "codex_and_claude_common_pattern": "../../.agents/skills/<name>",
+    "walleterm_destination_existed_before_install": false
+  },
+  "global_install": "not_run",
+  "live_signing": "not_run",
+  "vault_access": "not_run",
+  "network_transactions": "not_run"
+}

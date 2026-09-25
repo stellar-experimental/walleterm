@@ -1,0 +1,21 @@
+{
+  "installed_at": "2026-09-25T17:10:56.494863+00:00",
+  "canonical": "/Users/kalepail/.agents/skills/walleterm",
+  "links": {
+    "/Users/kalepail/.codex/skills/walleterm": "/Users/kalepail/.agents/skills/walleterm",
+    "/Users/kalepail/.claude/skills/walleterm": "/Users/kalepail/.agents/skills/walleterm"
+  },
+  "validation": "Skill is valid!",
+  "updated_at": "2026-09-25T17:35:52.488836+00:00",
+  "previous_copy": "/var/folders/j9/g5kf8n6j6js86_zvj2lcr8kh0000gn/T/walleterm-skill-before-update-77_z20ly/walleterm",
+  "files": {
+    "SKILL.md": "57ae7fd4479fad362e3cd9e6529e61987bbaaffe8b361f8a3016923420b14ae4",
+    "references/openzeppelin.md": "635821292ef10bd57cbe55c732765a5b0867668eb3e9a7522a2869dcf1b45593",
+    "references/fee-bump.md": "4702aecb54338065c8ad55fc6c43fb4f5c4a7e5b9a23fa0b04fbad532124dbb9",
+    "references/classic-native.md": "b93404d5f16469c6db307f745e4ef75beda5b57c5695c086497dfd6482fa4225",
+    "references/acceptance.md": "4e11be44a485e14b8eaa833a83a0e47bd89b0e693643f01126a52b46bd8561d5"
+  },
+  "installation_mode": "local source symlink",
+  "source": "/Users/kalepail/Desktop/walleterm-v2/.agents/skills/walleterm",
+  "link_evidence": "skill-local-links.json"
+}

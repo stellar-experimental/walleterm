@@ -1,0 +1,29 @@
+{
+  "label": "G03-two-light-signers",
+  "hash": "5abef0c2ace044f74ccbdc9f1673722b45d5ee4e6f032f537772b62357890ba1",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "envelope_xdr": "AAAAAgAAAABZT1adrP4VVQaXR7rceDt+LGMsLpWFgVhel+CTY7LkXgAAA+gASj3hAAAABAAAAAEAAAAAAAAAAAAAAABqtpqmAAAAAAAAAAEAAAAAAAAAAQAAAADBhcMJ7MtuSVkF0lNf3TUAsIYdFuiG5IlXvIAAgDOikAAAAAAAAAAAAAAAZAAAAAAAAAACY7LkXgAAAEADGSty0GfyTgwgPPJZJp4emUv0a/QD0hFDjIza880S3UMvP/V8OGCgolnqobsdC+2q3H0+/UA/vLX1R/3au4cFgDOikAAAAEBgwEuWVWNA4WCPEoI9KsZ5m0gTVbd7rGK+F/aKn9vDJiYKcojHkEEEE+SA3ODz/deLrkezYJa1XjEvHe4mWUoO",
+  "submittedAt": "2026-09-25T15:45:38.507Z",
+  "send": {
+    "status": "ERROR",
+    "hash": "5abef0c2ace044f74ccbdc9f1673722b45d5ee4e6f032f537772b62357890ba1",
+    "latestLedger": 4865510,
+    "latestLedgerCloseTime": "1790351137",
+    "errorResult": {
+      "fee_charged": "100",
+      "result": "tx_bad_auth",
+      "ext": "v0"
+    }
+  },
+  "result": {
+    "status": "ERROR",
+    "hash": "5abef0c2ace044f74ccbdc9f1673722b45d5ee4e6f032f537772b62357890ba1",
+    "latestLedger": 4865510,
+    "latestLedgerCloseTime": "1790351137",
+    "errorResult": {
+      "fee_charged": "100",
+      "result": "tx_bad_auth",
+      "ext": "v0"
+    }
+  }
+}

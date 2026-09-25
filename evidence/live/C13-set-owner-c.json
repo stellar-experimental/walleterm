@@ -1,0 +1,1620 @@
+{
+  "label": "C13-set-owner-c",
+  "hash": "96bc3333abb8ab0d78b879c82c1e2b51aa2e923a417bfa80be696fe32b05665b",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "envelope_xdr": "AAAAAgAAAABlbzeWNNDj7ylhZEtxVOxwuj+4QraJNwWPPc5acrXMwwAAWU0ASj3gAAAAHgAAAAEAAAAAAAAAAAAAAABqtpvRAAAAAAAAAAEAAAAAAAAAGAAAAAAAAAABi2J3VWHaoGs3A1MjnEr3FlQ0zSGGiWmPDiG0pf5C0UEAAAAJc2V0X293bmVyAAAAAAAAAQAAAA0AAAAgwYXDCezLbklZBdJTX901ALCGHRbohuSJV7yAAIAzopAAAAABAAAAAgAAAAGLYndVYdqgazcDUyOcSvcWVDTNIYaJaY8OIbSl/kLRQXIbGNfidWhvAEo++gAAAA0AAABAU/8gjJMuyWfTHbvbh/na0bNrSrouWqICmeHTPku1HDnCo8REMqnz4u7+4WiQOuQTdNiizf4e0uDx551m5LAgAQAAAAAAAAABi2J3VWHaoGs3A1MjnEr3FlQ0zSGGiWmPDiG0pf5C0UEAAAAJc2V0X293bmVyAAAAAAAAAQAAAA0AAAAgwYXDCezLbklZBdJTX901ALCGHRbohuSJV7yAAIAzopAAAAAAAAAAAQAAAAAAAAABAAAAB4ckjjS5jErMgl9o6otGZsnouJtD73zfhu+fKErQioI9AAAAAgAAAAYAAAABi2J3VWHaoGs3A1MjnEr3FlQ0zSGGiWmPDiG0pf5C0UEAAAAUAAAAAQAAAAYAAAABi2J3VWHaoGs3A1MjnEr3FlQ0zSGGiWmPDiG0pf5C0UEAAAAVchsY1+J1aG8AAAAAABFPtAAAAAAAAADsAAAAAAAAWOkAAAABcrXMwwAAAEAPyaQ+eKCNDUNOYFHzPe95/Bp9iaqrOOZOyu6h8U4Wd/pD98vpZ12IPOxjO1ss9WPu5ZtfjDQSoFr4UApFrJcL",
+  "submittedAt": "2026-09-25T16:03:37.857Z",
+  "send": {
+    "status": "PENDING",
+    "hash": "96bc3333abb8ab0d78b879c82c1e2b51aa2e923a417bfa80be696fe32b05665b",
+    "latestLedger": 4865726,
+    "latestLedgerCloseTime": "1790352217"
+  },
+  "result": {
+    "status": "SUCCESS",
+    "txHash": "96bc3333abb8ab0d78b879c82c1e2b51aa2e923a417bfa80be696fe32b05665b",
+    "latestLedger": 4865727,
+    "latestLedgerCloseTime": "1790352222",
+    "oldestLedger": 4744768,
+    "oldestLedgerCloseTime": "1789747427",
+    "ledger": 4865727,
+    "createdAt": "1790352222",
+    "applicationOrder": 19,
+    "feeBump": false,
+    "envelopeXdr": {
+      "tx": {
+        "tx": {
+          "source_account": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+          "fee": 22861,
+          "seq_num": "20897180558557214",
+          "cond": {
+            "time": {
+              "min_time": "0",
+              "max_time": "1790352337"
+            }
+          },
+          "memo": "none",
+          "operations": [
+            {
+              "source_account": null,
+              "body": {
+                "invoke_host_function": {
+                  "host_function": {
+                    "invoke_contract": {
+                      "contract_address": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+                      "function_name": "set_owner",
+                      "args": [
+                        {
+                          "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                        }
+                      ]
+                    }
+                  },
+                  "auth": [
+                    {
+                      "credentials": {
+                        "address_v2": {
+                          "address": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+                          "nonce": "8222192860191352943",
+                          "signature_expiration_ledger": 4865786,
+                          "signature": {
+                            "bytes": "53ff208c932ec967d31dbbdb87f9dad1b36b4aba2e5aa20299e1d33e4bb51c39c2a3c44432a9f3e2eefee168903ae41374d8a2cdfe1ed2e0f1e79d66e4b02001"
+                          }
+                        }
+                      },
+                      "root_invocation": {
+                        "function": {
+                          "contract_fn": {
+                            "contract_address": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+                            "function_name": "set_owner",
+                            "args": [
+                              {
+                                "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                              }
+                            ]
+                          }
+                        },
+                        "sub_invocations": []
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "ext": {
+            "v1": {
+              "ext": "v0",
+              "resources": {
+                "footprint": {
+                  "read_only": [
+                    {
+                      "contract_code": {
+                        "hash": "87248e34b98c4acc825f68ea8b4666c9e8b89b43ef7cdf86ef9f284ad08a823d"
+                      }
+                    }
+                  ],
+                  "read_write": [
+                    {
+                      "contract_data": {
+                        "contract": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+                        "key": "ledger_key_contract_instance",
+                        "durability": "persistent"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+                        "key": {
+                          "ledger_key_nonce": {
+                            "nonce": "8222192860191352943"
+                          }
+                        },
+                        "durability": "temporary"
+                      }
+                    }
+                  ]
+                },
+                "instructions": 1134516,
+                "disk_read_bytes": 0,
+                "write_bytes": 236
+              },
+              "resource_fee": "22761"
+            }
+          }
+        },
+        "signatures": [
+          {
+            "hint": "72b5ccc3",
+            "signature": "0fc9a43e78a08d0d434e6051f33def79fc1a7d89aaab38e64ecaeea1f14e1677fa43f7cbe9675d883cec633b5b2cf563eee59b5f8c3412a05af8500a45ac970b"
+          }
+        ]
+      }
+    },
+    "resultXdr": {
+      "fee_charged": "12855",
+      "result": {
+        "tx_success": [
+          {
+            "op_inner": {
+              "invoke_host_function": {
+                "success": "cbbc48750debb8535093b3deaf88ac7f4cff87425576a58de2bac754acdb4616"
+              }
+            }
+          }
+        ]
+      },
+      "ext": "v0"
+    },
+    "resultMetaXdr": {
+      "v4": {
+        "ext": "v0",
+        "tx_changes_before": [
+          {
+            "state": {
+              "last_modified_ledger_seq": 4865727,
+              "data": {
+                "account": {
+                  "account_id": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+                  "balance": "199851365408",
+                  "seq_num": "20897180558557213",
+                  "num_sub_entries": 0,
+                  "inflation_dest": null,
+                  "flags": 0,
+                  "home_domain": "",
+                  "thresholds": "01000000",
+                  "signers": [],
+                  "ext": {
+                    "v1": {
+                      "liabilities": {
+                        "buying": "0",
+                        "selling": "0"
+                      },
+                      "ext": {
+                        "v2": {
+                          "num_sponsored": 0,
+                          "num_sponsoring": 0,
+                          "signer_sponsoring_i_ds": [],
+                          "ext": {
+                            "v3": {
+                              "ext": "v0",
+                              "seq_ledger": 4865725,
+                              "seq_time": "1790352212"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "ext": "v0"
+            }
+          },
+          {
+            "updated": {
+              "last_modified_ledger_seq": 4865727,
+              "data": {
+                "account": {
+                  "account_id": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+                  "balance": "199851365408",
+                  "seq_num": "20897180558557214",
+                  "num_sub_entries": 0,
+                  "inflation_dest": null,
+                  "flags": 0,
+                  "home_domain": "",
+                  "thresholds": "01000000",
+                  "signers": [],
+                  "ext": {
+                    "v1": {
+                      "liabilities": {
+                        "buying": "0",
+                        "selling": "0"
+                      },
+                      "ext": {
+                        "v2": {
+                          "num_sponsored": 0,
+                          "num_sponsoring": 0,
+                          "signer_sponsoring_i_ds": [],
+                          "ext": {
+                            "v3": {
+                              "ext": "v0",
+                              "seq_ledger": 4865727,
+                              "seq_time": "1790352222"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "ext": "v0"
+            }
+          }
+        ],
+        "operations": [
+          {
+            "ext": "v0",
+            "changes": [
+              {
+                "created": {
+                  "last_modified_ledger_seq": 4865727,
+                  "data": {
+                    "ttl": {
+                      "key_hash": "aec446b8afaba8e4d0c2c08299b32d69659a185ef35a0eb5f7d74792da27a965",
+                      "live_until_ledger_seq": 4866446
+                    }
+                  },
+                  "ext": "v0"
+                }
+              },
+              {
+                "created": {
+                  "last_modified_ledger_seq": 4865727,
+                  "data": {
+                    "contract_data": {
+                      "ext": "v0",
+                      "contract": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+                      "key": {
+                        "ledger_key_nonce": {
+                          "nonce": "8222192860191352943"
+                        }
+                      },
+                      "durability": "temporary",
+                      "val": "void"
+                    }
+                  },
+                  "ext": "v0"
+                }
+              },
+              {
+                "state": {
+                  "last_modified_ledger_seq": 4865655,
+                  "data": {
+                    "contract_data": {
+                      "ext": "v0",
+                      "contract": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+                      "key": "ledger_key_contract_instance",
+                      "durability": "persistent",
+                      "val": {
+                        "contract_instance": {
+                          "executable": {
+                            "wasm": "87248e34b98c4acc825f68ea8b4666c9e8b89b43ef7cdf86ef9f284ad08a823d"
+                          },
+                          "storage": [
+                            {
+                              "key": {
+                                "symbol": "owner"
+                              },
+                              "val": {
+                                "bytes": "594f569dacfe1555069747badc783b7e2c632c2e958581585e97e09363b2e45e"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "ext": "v0"
+                }
+              },
+              {
+                "updated": {
+                  "last_modified_ledger_seq": 4865727,
+                  "data": {
+                    "contract_data": {
+                      "ext": "v0",
+                      "contract": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+                      "key": "ledger_key_contract_instance",
+                      "durability": "persistent",
+                      "val": {
+                        "contract_instance": {
+                          "executable": {
+                            "wasm": "87248e34b98c4acc825f68ea8b4666c9e8b89b43ef7cdf86ef9f284ad08a823d"
+                          },
+                          "storage": [
+                            {
+                              "key": {
+                                "symbol": "owner"
+                              },
+                              "val": {
+                                "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "ext": "v0"
+                }
+              }
+            ],
+            "events": []
+          }
+        ],
+        "tx_changes_after": [],
+        "soroban_meta": {
+          "ext": {
+            "v1": {
+              "ext": "v0",
+              "total_non_refundable_resource_fee_charged": "10117",
+              "total_refundable_resource_fee_charged": "2638",
+              "rent_fee_charged": "2618"
+            }
+          },
+          "return_value": "void"
+        },
+        "events": [
+          {
+            "stage": "before_all_txs",
+            "event": {
+              "ext": "v0",
+              "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+              "type": "contract",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fee"
+                    },
+                    {
+                      "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+                    }
+                  ],
+                  "data": {
+                    "i128": "22861"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "stage": "after_all_txs",
+            "event": {
+              "ext": "v0",
+              "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+              "type": "contract",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fee"
+                    },
+                    {
+                      "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+                    }
+                  ],
+                  "data": {
+                    "i128": "-10006"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "diagnostic_events": [
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_call"
+                    },
+                    {
+                      "bytes": "8b62775561daa06b370353239c4af7165434cd218689698f0e21b4a5fe42d141"
+                    },
+                    {
+                      "symbol": "set_owner"
+                    }
+                  ],
+                  "data": {
+                    "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_call"
+                    },
+                    {
+                      "bytes": "8b62775561daa06b370353239c4af7165434cd218689698f0e21b4a5fe42d141"
+                    },
+                    {
+                      "symbol": "__check_auth"
+                    }
+                  ],
+                  "data": {
+                    "vec": [
+                      {
+                        "bytes": "c7dde487684058bff922c1793af697bd626fa5b3049e1438aebdcf44fd952a78"
+                      },
+                      {
+                        "bytes": "53ff208c932ec967d31dbbdb87f9dad1b36b4aba2e5aa20299e1d33e4bb51c39c2a3c44432a9f3e2eefee168903ae41374d8a2cdfe1ed2e0f1e79d66e4b02001"
+                      },
+                      {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "Contract"
+                              },
+                              {
+                                "map": [
+                                  {
+                                    "key": {
+                                      "symbol": "args"
+                                    },
+                                    "val": {
+                                      "vec": [
+                                        {
+                                          "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "key": {
+                                      "symbol": "contract"
+                                    },
+                                    "val": {
+                                      "address": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ"
+                                    }
+                                  },
+                                  {
+                                    "key": {
+                                      "symbol": "fn_name"
+                                    },
+                                    "val": {
+                                      "symbol": "set_owner"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_return"
+                    },
+                    {
+                      "symbol": "__check_auth"
+                    }
+                  ],
+                  "data": "void"
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_return"
+                    },
+                    {
+                      "symbol": "set_owner"
+                    }
+                  ],
+                  "data": "void"
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "read_entry"
+                    }
+                  ],
+                  "data": {
+                    "u64": "3"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "write_entry"
+                    }
+                  ],
+                  "data": {
+                    "u64": "2"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "ledger_read_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "ledger_write_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "236"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "read_key_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "write_key_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "read_data_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "write_data_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "236"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "read_code_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "write_code_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "emit_event"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "emit_event_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "4"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "cpu_insn"
+                    }
+                  ],
+                  "data": {
+                    "u64": "1064781"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "mem_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "2271098"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "invoke_time_nsecs"
+                    }
+                  ],
+                  "data": {
+                    "u64": "951745"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "max_rw_key_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "56"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "max_rw_data_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "164"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "max_rw_code_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "max_emit_event_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "events": {
+      "contractEventsXdr": [
+        []
+      ],
+      "transactionEventsXdr": [
+        {
+          "stage": "before_all_txs",
+          "event": {
+            "ext": "v0",
+            "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+            "type": "contract",
+            "body": {
+              "v0": {
+                "topics": [
+                  {
+                    "symbol": "fee"
+                  },
+                  {
+                    "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+                  }
+                ],
+                "data": {
+                  "i128": "22861"
+                }
+              }
+            }
+          }
+        },
+        {
+          "stage": "after_all_txs",
+          "event": {
+            "ext": "v0",
+            "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+            "type": "contract",
+            "body": {
+              "v0": {
+                "topics": [
+                  {
+                    "symbol": "fee"
+                  },
+                  {
+                    "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+                  }
+                ],
+                "data": {
+                  "i128": "-10006"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "returnValue": "void",
+    "diagnosticEventsXdr": [
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_call"
+                },
+                {
+                  "bytes": "8b62775561daa06b370353239c4af7165434cd218689698f0e21b4a5fe42d141"
+                },
+                {
+                  "symbol": "set_owner"
+                }
+              ],
+              "data": {
+                "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_call"
+                },
+                {
+                  "bytes": "8b62775561daa06b370353239c4af7165434cd218689698f0e21b4a5fe42d141"
+                },
+                {
+                  "symbol": "__check_auth"
+                }
+              ],
+              "data": {
+                "vec": [
+                  {
+                    "bytes": "c7dde487684058bff922c1793af697bd626fa5b3049e1438aebdcf44fd952a78"
+                  },
+                  {
+                    "bytes": "53ff208c932ec967d31dbbdb87f9dad1b36b4aba2e5aa20299e1d33e4bb51c39c2a3c44432a9f3e2eefee168903ae41374d8a2cdfe1ed2e0f1e79d66e4b02001"
+                  },
+                  {
+                    "vec": [
+                      {
+                        "vec": [
+                          {
+                            "symbol": "Contract"
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "args"
+                                },
+                                "val": {
+                                  "vec": [
+                                    {
+                                      "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "contract"
+                                },
+                                "val": {
+                                  "address": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "fn_name"
+                                },
+                                "val": {
+                                  "symbol": "set_owner"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_return"
+                },
+                {
+                  "symbol": "__check_auth"
+                }
+              ],
+              "data": "void"
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_return"
+                },
+                {
+                  "symbol": "set_owner"
+                }
+              ],
+              "data": "void"
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "read_entry"
+                }
+              ],
+              "data": {
+                "u64": "3"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "write_entry"
+                }
+              ],
+              "data": {
+                "u64": "2"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "ledger_read_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "ledger_write_byte"
+                }
+              ],
+              "data": {
+                "u64": "236"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "read_key_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "write_key_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "read_data_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "write_data_byte"
+                }
+              ],
+              "data": {
+                "u64": "236"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "read_code_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "write_code_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "emit_event"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "emit_event_byte"
+                }
+              ],
+              "data": {
+                "u64": "4"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "cpu_insn"
+                }
+              ],
+              "data": {
+                "u64": "1064781"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "mem_byte"
+                }
+              ],
+              "data": {
+                "u64": "2271098"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "invoke_time_nsecs"
+                }
+              ],
+              "data": {
+                "u64": "951745"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "max_rw_key_byte"
+                }
+              ],
+              "data": {
+                "u64": "56"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "max_rw_data_byte"
+                }
+              ],
+              "data": {
+                "u64": "164"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "max_rw_code_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "max_emit_event_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

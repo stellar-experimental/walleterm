@@ -1,0 +1,1231 @@
+{
+  "label": "upload-walleterm_auth_target.wasm",
+  "hash": "8b37365ec57c0687683e5c92dc6d8b575020cba9bffa6fc330565ae7ec175727",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "envelope_xdr": "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",
+  "submittedAt": "2026-09-25T15:57:18.518Z",
+  "send": {
+    "status": "PENDING",
+    "hash": "8b37365ec57c0687683e5c92dc6d8b575020cba9bffa6fc330565ae7ec175727",
+    "latestLedger": 4865650,
+    "latestLedgerCloseTime": "1790351837"
+  },
+  "result": {
+    "status": "SUCCESS",
+    "txHash": "8b37365ec57c0687683e5c92dc6d8b575020cba9bffa6fc330565ae7ec175727",
+    "latestLedger": 4865651,
+    "latestLedgerCloseTime": "1790351842",
+    "oldestLedger": 4744692,
+    "oldestLedgerCloseTime": "1789747047",
+    "ledger": 4865651,
+    "createdAt": "1790351842",
+    "applicationOrder": 5,
+    "feeBump": false,
+    "envelopeXdr": {
+      "tx": {
+        "tx": {
+          "source_account": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+          "fee": 7849323,
+          "seq_num": "20897180558557195",
+          "cond": {
+            "time": {
+              "min_time": "0",
+              "max_time": "1790351958"
+            }
+          },
+          "memo": "none",
+          "operations": [
+            {
+              "source_account": null,
+              "body": {
+                "invoke_host_function": {
+                  "host_function": {
+                    "upload_contract_wasm": "0061736d01000000012b0760027e7e017e60037e7e7e017e60017e017e60047e7e7e7e017e60027f7e0060027e7f017f60017f017e023108016c01300000016c01310000016c015f0001016c013700030162016a00000161013000020164015f0001017601670000030908040205060201000105030100110621047f01418080c0000b7f00418580c0000b7f00418580c0000b7f00419080c0000b074808066d656d6f7279020005636f756e74000c056f75746572000d0470696e67000e0570696e6732000f015f03010a5f5f646174615f656e6403020b5f5f686561705f6261736503030c01010aca06084701027f024020011009220142011000420152047f410005200142011001220142ff01834204520d012001422088a7210241010b210320002002360204200020033602000f0b000bdf0102037f017e230041106b22022400417b21030340027f0240024002402003044041012003418580c0006a2d0000220141df00460d041a200141306b41ff0171410a490d02200141c1006b41ff0171411a490d032001413b6b200141e1006b41ff0171411a490d041a20022001ad4208864201843703004284808080808080084284808080d000100421040c010b20022004420886420e8422043702040b20022000370308200220043703002002100b200241106a24000f0b2001412e6b0c010b200141356b0bad42ff01832004420686842104200341016a21030c000b000b6a01027f230041106b22022400200241086a20001008200228020c410020022802084101711b220320016a220120034f0440200010092001ad422086420484420110021a200010094201428480808080f010428480808080a0fa0310031a200241106a240020010f0b000b13002000ad42208642048442848080802010070b4501027f230041106b22012400200042ff018342cd00520440000b200141086a2000100820012802082102200135020c200141106a2400422086420484420420024101711b0bc90101027f230041206b22042400200042ff018342cd0052200142ff018342cd005272200242ff018342045272450440200010051a200420024284808080708337030820042000370300034020034110460440024041002103034020034110470440200441106a20036a200320046a290300370300200341086a21030c010b0b2001428ed8b3b70d200441106a100b1006220042ff01834204520d00200441206a24002000428480808070830f0b05200441106a20036a4202370300200341086a21030c010b0b000b000b3200200042ff018342cd0052200142ff018342045272450440200010051a20002001422088a7100aad4220864204840f0b000b5c01027f0240200042ff018342cd0052200142ff018342cd005272200242ff018342045272450440200010051a200110051a20002002422088a72203100a20012003100a22036a22042003490d012004ad4220864204840f0b000b000b0b0e0100418080c0000b05436f756e74009b040e636f6e747261637473706563763000000002000000000000000000000007446174614b65790000000001000000010000000000000005436f756e74000000000000010000001300000000000000376077686f60206d75737420617574686f72697a652e2052657475726e7320746865206e657720636f756e746572206f66206077686f602e000000000470696e6700000002000000000000000377686f000000001300000000000000016e000000000000040000000100000004000000000000000000000005636f756e7400000000000001000000000000000377686f0000000013000000010000000400000000000000436077686f60206d75737420617574686f72697a6520746869732063616c6c20616e6420746865206e65737465642060696e6e65722e70696e672877686f2c206e29602e00000000056f7574657200000000000003000000000000000377686f00000000130000000000000005696e6e65720000000000001300000000000000016e000000000000040000000100000004000000000000004660616020616e6420606260206d75737420626f746820617574686f72697a652e2052657475726e73207468652073756d206f6620626f7468206e657720636f756e746572732e00000000000570696e673200000000000003000000000000000161000000000000130000000000000001620000000000001300000000000000016e000000000000040000000100000004001e11636f6e7472616374656e766d6574617630000000000000001b00000000006f0e636f6e74726163746d65746176300000000000000005727376657200000000000006312e39332e3000000000000000000008727373646b7665720000002f32372e302e3623363039323661323064316639663061363639643566653535313633366634326131333032663063300000530e636f6e74726163746d65746176300000000000000006636c6976657200000000002f32372e312e30233865343032656132383230323935306232373266626162633334636161643464326636346665383700"
+                  },
+                  "auth": []
+                }
+              }
+            }
+          ],
+          "ext": {
+            "v1": {
+              "ext": "v0",
+              "resources": {
+                "footprint": {
+                  "read_only": [],
+                  "read_write": [
+                    {
+                      "contract_code": {
+                        "hash": "04a9a33cd3f56a0f16aca0db6b18e4b624416f3393cfeb1e0ce8bcc0d47fcdf5"
+                      }
+                    }
+                  ]
+                },
+                "instructions": 2675066,
+                "disk_read_bytes": 0,
+                "write_bytes": 1968
+              },
+              "resource_fee": "7849223"
+            }
+          }
+        },
+        "signatures": [
+          {
+            "hint": "72b5ccc3",
+            "signature": "097652e0560c5700ae2219ecca888b2c7b5b45e5f0c0d1c471ab5a2f1582deae79c43c3db66680db1afcce1875d8167540e1d118382b06e571d8d93f14f89300"
+          }
+        ]
+      }
+    },
+    "resultXdr": {
+      "fee_charged": "6819303",
+      "result": {
+        "tx_success": [
+          {
+            "op_inner": {
+              "invoke_host_function": {
+                "success": "9dfdd53b384e8c14dec323beb7e07bf93db5e80c59630260d171c64f36b324a7"
+              }
+            }
+          }
+        ]
+      },
+      "ext": "v0"
+    },
+    "resultMetaXdr": {
+      "v4": {
+        "ext": "v0",
+        "tx_changes_before": [
+          {
+            "state": {
+              "last_modified_ledger_seq": 4865651,
+              "data": {
+                "account": {
+                  "account_id": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+                  "balance": "199939195327",
+                  "seq_num": "20897180558557194",
+                  "num_sub_entries": 0,
+                  "inflation_dest": null,
+                  "flags": 0,
+                  "home_domain": "",
+                  "thresholds": "01000000",
+                  "signers": [],
+                  "ext": {
+                    "v1": {
+                      "liabilities": {
+                        "buying": "0",
+                        "selling": "0"
+                      },
+                      "ext": {
+                        "v2": {
+                          "num_sponsored": 0,
+                          "num_sponsoring": 0,
+                          "signer_sponsoring_i_ds": [],
+                          "ext": {
+                            "v3": {
+                              "ext": "v0",
+                              "seq_ledger": 4865650,
+                              "seq_time": "1790351837"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "ext": "v0"
+            }
+          },
+          {
+            "updated": {
+              "last_modified_ledger_seq": 4865651,
+              "data": {
+                "account": {
+                  "account_id": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+                  "balance": "199939195327",
+                  "seq_num": "20897180558557195",
+                  "num_sub_entries": 0,
+                  "inflation_dest": null,
+                  "flags": 0,
+                  "home_domain": "",
+                  "thresholds": "01000000",
+                  "signers": [],
+                  "ext": {
+                    "v1": {
+                      "liabilities": {
+                        "buying": "0",
+                        "selling": "0"
+                      },
+                      "ext": {
+                        "v2": {
+                          "num_sponsored": 0,
+                          "num_sponsoring": 0,
+                          "signer_sponsoring_i_ds": [],
+                          "ext": {
+                            "v3": {
+                              "ext": "v0",
+                              "seq_ledger": 4865651,
+                              "seq_time": "1790351842"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "ext": "v0"
+            }
+          }
+        ],
+        "operations": [
+          {
+            "ext": "v0",
+            "changes": [
+              {
+                "created": {
+                  "last_modified_ledger_seq": 4865651,
+                  "data": {
+                    "ttl": {
+                      "key_hash": "fa5253174013a0604b01a3ce986b730951de719aee83b03e9d25413beefe2bcc",
+                      "live_until_ledger_seq": 4986610
+                    }
+                  },
+                  "ext": "v0"
+                }
+              },
+              {
+                "created": {
+                  "last_modified_ledger_seq": 4865651,
+                  "data": {
+                    "contract_code": {
+                      "ext": {
+                        "v1": {
+                          "ext": "v0",
+                          "cost_inputs": {
+                            "ext": "v0",
+                            "n_instructions": 441,
+                            "n_functions": 8,
+                            "n_globals": 4,
+                            "n_table_entries": 0,
+                            "n_types": 7,
+                            "n_data_segments": 1,
+                            "n_elem_segments": 0,
+                            "n_imports": 8,
+                            "n_exports": 8,
+                            "n_data_segment_bytes": 5
+                          }
+                        }
+                      },
+                      "hash": "04a9a33cd3f56a0f16aca0db6b18e4b624416f3393cfeb1e0ce8bcc0d47fcdf5",
+                      "code": "0061736d01000000012b0760027e7e017e60037e7e7e017e60017e017e60047e7e7e7e017e60027f7e0060027e7f017f60017f017e023108016c01300000016c01310000016c015f0001016c013700030162016a00000161013000020164015f0001017601670000030908040205060201000105030100110621047f01418080c0000b7f00418580c0000b7f00418580c0000b7f00419080c0000b074808066d656d6f7279020005636f756e74000c056f75746572000d0470696e67000e0570696e6732000f015f03010a5f5f646174615f656e6403020b5f5f686561705f6261736503030c01010aca06084701027f024020011009220142011000420152047f410005200142011001220142ff01834204520d012001422088a7210241010b210320002002360204200020033602000f0b000bdf0102037f017e230041106b22022400417b21030340027f0240024002402003044041012003418580c0006a2d0000220141df00460d041a200141306b41ff0171410a490d02200141c1006b41ff0171411a490d032001413b6b200141e1006b41ff0171411a490d041a20022001ad4208864201843703004284808080808080084284808080d000100421040c010b20022004420886420e8422043702040b20022000370308200220043703002002100b200241106a24000f0b2001412e6b0c010b200141356b0bad42ff01832004420686842104200341016a21030c000b000b6a01027f230041106b22022400200241086a20001008200228020c410020022802084101711b220320016a220120034f0440200010092001ad422086420484420110021a200010094201428480808080f010428480808080a0fa0310031a200241106a240020010f0b000b13002000ad42208642048442848080802010070b4501027f230041106b22012400200042ff018342cd00520440000b200141086a2000100820012802082102200135020c200141106a2400422086420484420420024101711b0bc90101027f230041206b22042400200042ff018342cd0052200142ff018342cd005272200242ff018342045272450440200010051a200420024284808080708337030820042000370300034020034110460440024041002103034020034110470440200441106a20036a200320046a290300370300200341086a21030c010b0b2001428ed8b3b70d200441106a100b1006220042ff01834204520d00200441206a24002000428480808070830f0b05200441106a20036a4202370300200341086a21030c010b0b000b000b3200200042ff018342cd0052200142ff018342045272450440200010051a20002001422088a7100aad4220864204840f0b000b5c01027f0240200042ff018342cd0052200142ff018342cd005272200242ff018342045272450440200010051a200110051a20002002422088a72203100a20012003100a22036a22042003490d012004ad4220864204840f0b000b000b0b0e0100418080c0000b05436f756e74009b040e636f6e747261637473706563763000000002000000000000000000000007446174614b65790000000001000000010000000000000005436f756e74000000000000010000001300000000000000376077686f60206d75737420617574686f72697a652e2052657475726e7320746865206e657720636f756e746572206f66206077686f602e000000000470696e6700000002000000000000000377686f000000001300000000000000016e000000000000040000000100000004000000000000000000000005636f756e7400000000000001000000000000000377686f0000000013000000010000000400000000000000436077686f60206d75737420617574686f72697a6520746869732063616c6c20616e6420746865206e65737465642060696e6e65722e70696e672877686f2c206e29602e00000000056f7574657200000000000003000000000000000377686f00000000130000000000000005696e6e65720000000000001300000000000000016e000000000000040000000100000004000000000000004660616020616e6420606260206d75737420626f746820617574686f72697a652e2052657475726e73207468652073756d206f6620626f7468206e657720636f756e746572732e00000000000570696e673200000000000003000000000000000161000000000000130000000000000001620000000000001300000000000000016e000000000000040000000100000004001e11636f6e7472616374656e766d6574617630000000000000001b00000000006f0e636f6e74726163746d65746176300000000000000005727376657200000000000006312e39332e3000000000000000000008727373646b7665720000002f32372e302e3623363039323661323064316639663061363639643566653535313633366634326131333032663063300000530e636f6e74726163746d65746176300000000000000006636c6976657200000000002f32372e312e30233865343032656132383230323935306232373266626162633334636161643464326636346665383700"
+                    }
+                  },
+                  "ext": "v0"
+                }
+              }
+            ],
+            "events": []
+          }
+        ],
+        "tx_changes_after": [],
+        "soroban_meta": {
+          "ext": {
+            "v1": {
+              "ext": "v0",
+              "total_non_refundable_resource_fee_charged": "16471",
+              "total_refundable_resource_fee_charged": "6802732",
+              "rent_fee_charged": "6802536"
+            }
+          },
+          "return_value": {
+            "bytes": "04a9a33cd3f56a0f16aca0db6b18e4b624416f3393cfeb1e0ce8bcc0d47fcdf5"
+          }
+        },
+        "events": [
+          {
+            "stage": "before_all_txs",
+            "event": {
+              "ext": "v0",
+              "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+              "type": "contract",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fee"
+                    },
+                    {
+                      "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+                    }
+                  ],
+                  "data": {
+                    "i128": "7849323"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "stage": "after_all_txs",
+            "event": {
+              "ext": "v0",
+              "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+              "type": "contract",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fee"
+                    },
+                    {
+                      "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+                    }
+                  ],
+                  "data": {
+                    "i128": "-1030020"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "diagnostic_events": [
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "read_entry"
+                    }
+                  ],
+                  "data": {
+                    "u64": "1"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "write_entry"
+                    }
+                  ],
+                  "data": {
+                    "u64": "1"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "ledger_read_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "ledger_write_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "1968"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "read_key_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "write_key_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "read_data_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "write_data_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "read_code_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "write_code_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "1968"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "emit_event"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "emit_event_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "40"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "cpu_insn"
+                    }
+                  ],
+                  "data": {
+                    "u64": "2570402"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "mem_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "1618371"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "invoke_time_nsecs"
+                    }
+                  ],
+                  "data": {
+                    "u64": "279508"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "max_rw_key_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "36"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "max_rw_data_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "max_rw_code_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "1968"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "max_emit_event_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "events": {
+      "contractEventsXdr": [
+        []
+      ],
+      "transactionEventsXdr": [
+        {
+          "stage": "before_all_txs",
+          "event": {
+            "ext": "v0",
+            "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+            "type": "contract",
+            "body": {
+              "v0": {
+                "topics": [
+                  {
+                    "symbol": "fee"
+                  },
+                  {
+                    "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+                  }
+                ],
+                "data": {
+                  "i128": "7849323"
+                }
+              }
+            }
+          }
+        },
+        {
+          "stage": "after_all_txs",
+          "event": {
+            "ext": "v0",
+            "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+            "type": "contract",
+            "body": {
+              "v0": {
+                "topics": [
+                  {
+                    "symbol": "fee"
+                  },
+                  {
+                    "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+                  }
+                ],
+                "data": {
+                  "i128": "-1030020"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "returnValue": {
+      "bytes": "04a9a33cd3f56a0f16aca0db6b18e4b624416f3393cfeb1e0ce8bcc0d47fcdf5"
+    },
+    "diagnosticEventsXdr": [
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "read_entry"
+                }
+              ],
+              "data": {
+                "u64": "1"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "write_entry"
+                }
+              ],
+              "data": {
+                "u64": "1"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "ledger_read_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "ledger_write_byte"
+                }
+              ],
+              "data": {
+                "u64": "1968"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "read_key_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "write_key_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "read_data_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "write_data_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "read_code_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "write_code_byte"
+                }
+              ],
+              "data": {
+                "u64": "1968"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "emit_event"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "emit_event_byte"
+                }
+              ],
+              "data": {
+                "u64": "40"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "cpu_insn"
+                }
+              ],
+              "data": {
+                "u64": "2570402"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "mem_byte"
+                }
+              ],
+              "data": {
+                "u64": "1618371"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "invoke_time_nsecs"
+                }
+              ],
+              "data": {
+                "u64": "279508"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "max_rw_key_byte"
+                }
+              ],
+              "data": {
+                "u64": "36"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "max_rw_data_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "max_rw_code_byte"
+                }
+              ],
+              "data": {
+                "u64": "1968"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "max_emit_event_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

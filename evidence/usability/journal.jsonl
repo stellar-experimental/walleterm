@@ -1,0 +1,10 @@
+{"task":1,"step":"sign_request","key":"GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA","digest":"86d57ecd0f8d70ef533606f6c5e159eb01ab56d3409f86a291831a9ca45ab731","ts":"2026-09-25T17:18:06Z"}
+{"task":1,"step":"pre_send","original_hash":"86d57ecd0f8d70ef533606f6c5e159eb01ab56d3409f86a291831a9ca45ab731","ts":"2026-09-25T17:18:12Z"}
+{"task":1,"step":"send_returned","rc":0,"ts":"2026-09-25T17:18:17Z"}
+{"task":1,"step":"reconciled","original_hash":"86d57ecd0f8d70ef533606f6c5e159eb01ab56d3409f86a291831a9ca45ab731","status":"SUCCESS","ts":"2026-09-25T17:18:18Z"}
+{"task":2,"step":"sign_auth_request","key":"GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA","digest":"16027dafd8f365001d63e7ca6a66c0bf3119d3c35ab1732530f3f37620c1b740","ts":"2026-09-25T17:18:37Z"}
+{"task":2,"step":"sign_auth_request","key":"GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5","digest":"16027dafd8f365001d63e7ca6a66c0bf3119d3c35ab1732530f3f37620c1b740","ts":"2026-09-25T17:18:38Z"}
+{"task":2,"step":"sign_envelope_request","key":"GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA","digest":"05c4fe40ae4e0f651d0840914b9a74dc4d4b9f2366cf498446e700fc63d1f245","ts":"2026-09-25T17:18:47Z"}
+{"task":2,"step":"pre_send","original_hash":"05c4fe40ae4e0f651d0840914b9a74dc4d4b9f2366cf498446e700fc63d1f245","ts":"2026-09-25T17:18:48Z"}
+{"task":2,"step":"send_returned","rc":0,"ts":"2026-09-25T17:18:53Z"}
+{"task":2,"step":"reconciled","original_hash":"05c4fe40ae4e0f651d0840914b9a74dc4d4b9f2366cf498446e700fc63d1f245","status":"SUCCESS","ts":"2026-09-25T17:18:54Z"}

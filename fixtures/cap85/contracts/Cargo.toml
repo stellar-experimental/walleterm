@@ -1,0 +1,17 @@
+[workspace]
+resolver = "2"
+members = ["manager", "target-v1", "target-v2", "account"]
+
+[workspace.dependencies]
+# Protocol 28 SDK (CAP-85 executable references). Isolated from fixtures/contracts (SDK 27).
+soroban-sdk = "=28.0.0"
+
+[profile.release]
+opt-level = "z"
+overflow-checks = true
+debug = 0
+strip = "symbols"
+debug-assertions = false
+panic = "abort"
+codegen-units = 1
+lto = true

@@ -1,0 +1,29 @@
+{
+  "label": "G02-one-signature",
+  "hash": "d7e2998a412fc806891d1b36466a46e21b85594398c60b411bd02a02deb1f05c",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "envelope_xdr": "AAAAAgAAAABZT1adrP4VVQaXR7rceDt+LGMsLpWFgVhel+CTY7LkXgAAA+gASj3hAAAAAgAAAAEAAAAAAAAAAAAAAABqtpqcAAAAAAAAAAEAAAAAAAAAAQAAAADBhcMJ7MtuSVkF0lNf3TUAsIYdFuiG5IlXvIAAgDOikAAAAAAAAAAAAAAAZAAAAAAAAAABY7LkXgAAAED9f7Tn2OqJ0Qki98IHQrkTW0FRpeHbHFjvEk1htmNvibBqniM2QUqTBG2dTLlo3iLyi4esSd9c9xAE0DnHua0G",
+  "submittedAt": "2026-09-25T15:45:28.393Z",
+  "send": {
+    "status": "ERROR",
+    "hash": "d7e2998a412fc806891d1b36466a46e21b85594398c60b411bd02a02deb1f05c",
+    "latestLedger": 4865508,
+    "latestLedgerCloseTime": "1790351127",
+    "errorResult": {
+      "fee_charged": "100",
+      "result": "tx_bad_auth",
+      "ext": "v0"
+    }
+  },
+  "result": {
+    "status": "ERROR",
+    "hash": "d7e2998a412fc806891d1b36466a46e21b85594398c60b411bd02a02deb1f05c",
+    "latestLedger": 4865508,
+    "latestLedgerCloseTime": "1790351127",
+    "errorResult": {
+      "fee_charged": "100",
+      "result": "tx_bad_auth",
+      "ext": "v0"
+    }
+  }
+}

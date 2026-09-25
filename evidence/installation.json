@@ -1,0 +1,82 @@
+{
+  "checked_at": "2026-09-25T16:25:17.922007+00:00",
+  "checks": [
+    {
+      "shell": "-c",
+      "cwd": "/tmp",
+      "exit": 0,
+      "stdout": "/Users/kalepail/.local/bin/walleterm\n/Users/kalepail/.local/bin/stellar-walleterm\nwalleterm 0.1.0\nwalleterm 0.1.0"
+    },
+    {
+      "shell": "-lc",
+      "cwd": "/tmp",
+      "exit": 0,
+      "stdout": "/Users/kalepail/.local/bin/walleterm\n/Users/kalepail/.local/bin/stellar-walleterm\nwalleterm 0.1.0\nwalleterm 0.1.0"
+    },
+    {
+      "command": [
+        "walleterm",
+        "sign"
+      ],
+      "input": "{}",
+      "exit": 2,
+      "response": {
+        "ok": false,
+        "error": {
+          "code": "invalid_input",
+          "message": "The public key must be a canonical Ed25519 G-address."
+        }
+      }
+    },
+    {
+      "command": [
+        "stellar",
+        "walleterm",
+        "sign"
+      ],
+      "input": "{}",
+      "exit": 2,
+      "response": {
+        "ok": false,
+        "error": {
+          "code": "invalid_input",
+          "message": "The public key must be a canonical Ed25519 G-address."
+        }
+      }
+    },
+    {
+      "shell": "clean non-interactive zsh",
+      "exit": 0,
+      "stdout": "/Users/kalepail/.local/bin/walleterm\nwalleterm 0.1.0"
+    }
+  ],
+  "installed_binary": "/Users/kalepail/.local/bin/walleterm",
+  "alias": "/Users/kalepail/.local/bin/stellar-walleterm",
+  "sha256": "e93c4afcd452174fd24a9f89c21c75efc0fd1b5cb0cc35b821bd4ef79a02c819",
+  "previous_sha256": "99a24bb70c1dd93249db5cbe940df828000fbf6c296681e2c6763ab82cecbcac",
+  "refreshed_at": "2026-09-25T17:29:24.791568+00:00",
+  "followup_checks": [
+    {
+      "shell": "-c",
+      "initial_path": "/usr/bin:/bin:/usr/sbin:/sbin",
+      "cwd": "/tmp",
+      "exit": 0,
+      "stdout": "/Users/kalepail/.local/bin/walleterm\n/Users/kalepail/.local/bin/stellar-walleterm\nwalleterm 0.1.0\nwalleterm 0.1.0\n"
+    },
+    {
+      "shell": "-lc",
+      "initial_path": "/usr/bin:/bin:/usr/sbin:/sbin",
+      "cwd": "/tmp",
+      "exit": 0,
+      "stdout": "/Users/kalepail/.local/bin/walleterm\n/Users/kalepail/.local/bin/stellar-walleterm\nwalleterm 0.1.0\nwalleterm 0.1.0\n"
+    },
+    {
+      "case": "help includes installed skill",
+      "exit": 0
+    },
+    {
+      "case": "unwritable stdout version",
+      "exit": 1
+    }
+  ]
+}

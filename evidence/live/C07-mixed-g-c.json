@@ -1,0 +1,3363 @@
+{
+  "label": "C07-mixed-g-c",
+  "hash": "e49633b9634a0dc5933820222a7e05d83fc352d6a79c615bffc84a82e14a50ba",
+  "networkPassphrase": "Test SDF Network ; September 2015",
+  "envelope_xdr": "AAAAAgAAAABlbzeWNNDj7ylhZEtxVOxwuj+4QraJNwWPPc5acrXMwwAAujQASj3gAAAAGwAAAAEAAAAAAAAAAAAAAABqtpu6AAAAAAAAAAEAAAAAAAAAGAAAAAAAAAAB9AOV0V6gIPRvyr5iV3rCW1ANqwph6GTeOwJaAz/XUUIAAAAFcGluZzIAAAAAAAADAAAAEgAAAAAAAAAAWU9Wnaz+FVUGl0e63Hg7fixjLC6VhYFYXpfgk2Oy5F4AAAASAAAAAZ4ACfYuBURw6cDVK7CkV+9xEMyuuzX1lwpzVtf7zU7WAAAAAwAAAAEAAAACAAAAAgAAAAAAAAAAWU9Wnaz+FVUGl0e63Hg7fixjLC6VhYFYXpfgk2Oy5F5jPF3fiGqjmgBKPvUAAAAQAAAAAQAAAAEAAAARAAAAAQAAAAIAAAAPAAAACnB1YmxpY19rZXkAAAAAAA0AAAAgWU9Wnaz+FVUGl0e63Hg7fixjLC6VhYFYXpfgk2Oy5F4AAAAPAAAACXNpZ25hdHVyZQAAAAAAAA0AAABAEVhVtwUXqOFOhrL3CX2bQKbHcBRTQbIMFd4v89lryeSm8opdxiVznKYKJPysznQlfgF2s9dw2mJgAY7suvd2BAAAAAAAAAAB9AOV0V6gIPRvyr5iV3rCW1ANqwph6GTeOwJaAz/XUUIAAAAFcGluZzIAAAAAAAADAAAAEgAAAAAAAAAAWU9Wnaz+FVUGl0e63Hg7fixjLC6VhYFYXpfgk2Oy5F4AAAASAAAAAZ4ACfYuBURw6cDVK7CkV+9xEMyuuzX1lwpzVtf7zU7WAAAAAwAAAAEAAAAAAAAAAgAAAAGeAAn2LgVEcOnA1SuwpFfvcRDMrrs19ZcKc1bX+81O1g6nI1VYUo7jAEo+9QAAABEAAAABAAAAAgAAAA8AAAAQY29udGV4dF9ydWxlX2lkcwAAABAAAAABAAAAAQAAAAMAAAAAAAAADwAAAAdzaWduZXJzAAAAABEAAAABAAAAAgAAABAAAAABAAAAAwAAAA8AAAAIRXh0ZXJuYWwAAAASAAAAAW3MZ0IH1hJ+GLiV+xLLQl0AZEd1RFO8jHYsnUke/Qp6AAAADQAAACBlbzeWNNDj7ylhZEtxVOxwuj+4QraJNwWPPc5acrXMwwAAAA0AAABAKKJ0oHih8hlDgxWMbLTDm+yBe875cQOKuVog0U3igVvKJLLHry6YTi1pT/WTo7mV14r7CqPmYNvB3a35SB9TBQAAABAAAAABAAAAAwAAAA8AAAAIRXh0ZXJuYWwAAAASAAAAAW3MZ0IH1hJ+GLiV+xLLQl0AZEd1RFO8jHYsnUke/Qp6AAAADQAAACDBhcMJ7MtuSVkF0lNf3TUAsIYdFuiG5IlXvIAAgDOikAAAAA0AAABAH4/8vaCZ46sLqNpSPdaNtAZI9enBMKcSG+Br1RxkVHoQJxTff/f3ohVTKTet+IGqJBbH5G4dYvAUHTFKbPtxBgAAAAAAAAAB9AOV0V6gIPRvyr5iV3rCW1ANqwph6GTeOwJaAz/XUUIAAAAFcGluZzIAAAAAAAADAAAAEgAAAAAAAAAAWU9Wnaz+FVUGl0e63Hg7fixjLC6VhYFYXpfgk2Oy5F4AAAASAAAAAZ4ACfYuBURw6cDVK7CkV+9xEMyuuzX1lwpzVtf7zU7WAAAAAwAAAAEAAAAAAAAAAQAAAAAAAAAPAAAAAAAAAABZT1adrP4VVQaXR7rceDt+LGMsLpWFgVhel+CTY7LkXgAAAAYAAAABJ72sNRRTPVN38go86gwViYeK2WhICtW3ABecnqvPXXUAAAAQAAAAAQAAAAMAAAAPAAAADkFjY291bnRDb250ZXh0AAAAAAASAAAAAZ4ACfYuBURw6cDVK7CkV+9xEMyuuzX1lwpzVtf7zU7WAAAAAwAAAAAAAAABAAAABgAAAAEnvaw1FFM9U3fyCjzqDBWJh4rZaEgK1bcAF5yeq89ddQAAABQAAAABAAAABgAAAAFtzGdCB9YSfhi4lfsSy0JdAGRHdURTvIx2LJ1JHv0KegAAABQAAAABAAAABgAAAAGeAAn2LgVEcOnA1SuwpFfvcRDMrrs19ZcKc1bX+81O1gAAABAAAAABAAAAAgAAAA8AAAAPQ29udGV4dFJ1bGVEYXRhAAAAAAMAAAAAAAAAAQAAAAYAAAABngAJ9i4FRHDpwNUrsKRX73EQzK67NfWXCnNW1/vNTtYAAAAQAAAAAQAAAAIAAAAPAAAAClBvbGljeURhdGEAAAAAAAMAAAAAAAAAAQAAAAYAAAABngAJ9i4FRHDpwNUrsKRX73EQzK67NfWXCnNW1/vNTtYAAAAQAAAAAQAAAAIAAAAPAAAAClNpZ25lckRhdGEAAAAAAAMAAAAAAAAAAQAAAAYAAAABngAJ9i4FRHDpwNUrsKRX73EQzK67NfWXCnNW1/vNTtYAAAAQAAAAAQAAAAIAAAAPAAAAClNpZ25lckRhdGEAAAAAAAMAAAABAAAAAQAAAAYAAAABngAJ9i4FRHDpwNUrsKRX73EQzK67NfWXCnNW1/vNTtYAAAAQAAAAAQAAAAIAAAAPAAAAClNpZ25lckRhdGEAAAAAAAMAAAACAAAAAQAAAAYAAAABngAJ9i4FRHDpwNUrsKRX73EQzK67NfWXCnNW1/vNTtYAAAAUAAAAAQAAAAYAAAAB9AOV0V6gIPRvyr5iV3rCW1ANqwph6GTeOwJaAz/XUUIAAAAUAAAAAQAAAAcEqaM80/VqDxasoNtrGOS2JEFvM5PP6x4M6LzA1H/N9QAAAAcMINaWRKFlYvmKa+khAdjZVHXdPLxFkjwqK19qUSbw0AAAAAeHWwldVykRctLxA7AiQM23K8QVf8DVzn37yTSx2EIJtAAAAAeVJeSTNeLdi9bVR5gOQnOtRxBMLx0VXkn4NcRSVFvBagAAAAQAAAAGAAAAAAAAAABZT1adrP4VVQaXR7rceDt+LGMsLpWFgVhel+CTY7LkXgAAABVjPF3fiGqjmgAAAAAAAAAGAAAAAZ4ACfYuBURw6cDVK7CkV+9xEMyuuzX1lwpzVtf7zU7WAAAAFQ6nI1VYUo7jAAAAAAAAAAYAAAAB9AOV0V6gIPRvyr5iV3rCW1ANqwph6GTeOwJaAz/XUUIAAAAQAAAAAQAAAAIAAAAPAAAABUNvdW50AAAAAAAAEgAAAAAAAAAAWU9Wnaz+FVUGl0e63Hg7fixjLC6VhYFYXpfgk2Oy5F4AAAABAAAABgAAAAH0A5XRXqAg9G/KvmJXesJbUA2rCmHoZN47AloDP9dRQgAAABAAAAABAAAAAgAAAA8AAAAFQ291bnQAAAAAAAASAAAAAZ4ACfYuBURw6cDVK7CkV+9xEMyuuzX1lwpzVtf7zU7WAAAAAQBIPn8AAACQAAABoAAAAAAAALnQAAAAAXK1zMMAAABAFJUKoDxqpzu4GweMxFlJGZObqpdYjOZ1xo7kTMzns8o7Uh59hU+2HazK0mJww6bOjJRx0Xzy3REyNkp/Zuj0DA==",
+  "submittedAt": "2026-09-25T16:03:15.163Z",
+  "send": {
+    "status": "PENDING",
+    "hash": "e49633b9634a0dc5933820222a7e05d83fc352d6a79c615bffc84a82e14a50ba",
+    "latestLedger": 4865721,
+    "latestLedgerCloseTime": "1790352192"
+  },
+  "result": {
+    "status": "SUCCESS",
+    "txHash": "e49633b9634a0dc5933820222a7e05d83fc352d6a79c615bffc84a82e14a50ba",
+    "latestLedger": 4865722,
+    "latestLedgerCloseTime": "1790352197",
+    "oldestLedger": 4744763,
+    "oldestLedgerCloseTime": "1789747402",
+    "ledger": 4865722,
+    "createdAt": "1790352197",
+    "applicationOrder": 1,
+    "feeBump": false,
+    "envelopeXdr": {
+      "tx": {
+        "tx": {
+          "source_account": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+          "fee": 47668,
+          "seq_num": "20897180558557211",
+          "cond": {
+            "time": {
+              "min_time": "0",
+              "max_time": "1790352314"
+            }
+          },
+          "memo": "none",
+          "operations": [
+            {
+              "source_account": null,
+              "body": {
+                "invoke_host_function": {
+                  "host_function": {
+                    "invoke_contract": {
+                      "contract_address": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+                      "function_name": "ping2",
+                      "args": [
+                        {
+                          "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                        },
+                        {
+                          "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                        },
+                        {
+                          "u32": 1
+                        }
+                      ]
+                    }
+                  },
+                  "auth": [
+                    {
+                      "credentials": {
+                        "address_v2": {
+                          "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+                          "nonce": "7150693523005285274",
+                          "signature_expiration_ledger": 4865781,
+                          "signature": {
+                            "vec": [
+                              {
+                                "map": [
+                                  {
+                                    "key": {
+                                      "symbol": "public_key"
+                                    },
+                                    "val": {
+                                      "bytes": "594f569dacfe1555069747badc783b7e2c632c2e958581585e97e09363b2e45e"
+                                    }
+                                  },
+                                  {
+                                    "key": {
+                                      "symbol": "signature"
+                                    },
+                                    "val": {
+                                      "bytes": "115855b70517a8e14e86b2f7097d9b40a6c770145341b20c15de2ff3d96bc9e4a6f28a5dc625739ca60a24fcacce74257e0176b3d770da6260018eecbaf77604"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "root_invocation": {
+                        "function": {
+                          "contract_fn": {
+                            "contract_address": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+                            "function_name": "ping2",
+                            "args": [
+                              {
+                                "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                              },
+                              {
+                                "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                              },
+                              {
+                                "u32": 1
+                              }
+                            ]
+                          }
+                        },
+                        "sub_invocations": []
+                      }
+                    },
+                    {
+                      "credentials": {
+                        "address_v2": {
+                          "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+                          "nonce": "1055851487102668515",
+                          "signature_expiration_ledger": 4865781,
+                          "signature": {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "context_rule_ids"
+                                },
+                                "val": {
+                                  "vec": [
+                                    {
+                                      "u32": 0
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "signers"
+                                },
+                                "val": {
+                                  "map": [
+                                    {
+                                      "key": {
+                                        "vec": [
+                                          {
+                                            "symbol": "External"
+                                          },
+                                          {
+                                            "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                          },
+                                          {
+                                            "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                                          }
+                                        ]
+                                      },
+                                      "val": {
+                                        "bytes": "28a274a078a1f2194383158c6cb4c39bec817bcef971038ab95a20d14de2815bca24b2c7af2e984e2d694ff593a3b995d78afb0aa3e660dbc1ddadf9481f5305"
+                                      }
+                                    },
+                                    {
+                                      "key": {
+                                        "vec": [
+                                          {
+                                            "symbol": "External"
+                                          },
+                                          {
+                                            "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                          },
+                                          {
+                                            "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                                          }
+                                        ]
+                                      },
+                                      "val": {
+                                        "bytes": "1f8ffcbda099e3ab0ba8da523dd68db40648f5e9c130a7121be06bd51c64547a102714df7ff7f7a215532937adf881aa2416c7e46e1d62f0141d314a6cfb7106"
+                                      }
+                                    }
+                                  ]
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      },
+                      "root_invocation": {
+                        "function": {
+                          "contract_fn": {
+                            "contract_address": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+                            "function_name": "ping2",
+                            "args": [
+                              {
+                                "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                              },
+                              {
+                                "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                              },
+                              {
+                                "u32": 1
+                              }
+                            ]
+                          }
+                        },
+                        "sub_invocations": []
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          ],
+          "ext": {
+            "v1": {
+              "ext": "v0",
+              "resources": {
+                "footprint": {
+                  "read_only": [
+                    {
+                      "account": {
+                        "account_id": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CAT33LBVCRJT2U3X6IFDZ2QMCWEYPCWZNBEAVVNXAALZZHVLZ5OXKOMV",
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "AccountContext"
+                            },
+                            {
+                              "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                            },
+                            {
+                              "u32": 0
+                            }
+                          ]
+                        },
+                        "durability": "persistent"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CAT33LBVCRJT2U3X6IFDZ2QMCWEYPCWZNBEAVVNXAALZZHVLZ5OXKOMV",
+                        "key": "ledger_key_contract_instance",
+                        "durability": "persistent"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR",
+                        "key": "ledger_key_contract_instance",
+                        "durability": "persistent"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "ContextRuleData"
+                            },
+                            {
+                              "u32": 0
+                            }
+                          ]
+                        },
+                        "durability": "persistent"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "PolicyData"
+                            },
+                            {
+                              "u32": 0
+                            }
+                          ]
+                        },
+                        "durability": "persistent"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "SignerData"
+                            },
+                            {
+                              "u32": 0
+                            }
+                          ]
+                        },
+                        "durability": "persistent"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "SignerData"
+                            },
+                            {
+                              "u32": 1
+                            }
+                          ]
+                        },
+                        "durability": "persistent"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "SignerData"
+                            },
+                            {
+                              "u32": 2
+                            }
+                          ]
+                        },
+                        "durability": "persistent"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+                        "key": "ledger_key_contract_instance",
+                        "durability": "persistent"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+                        "key": "ledger_key_contract_instance",
+                        "durability": "persistent"
+                      }
+                    },
+                    {
+                      "contract_code": {
+                        "hash": "04a9a33cd3f56a0f16aca0db6b18e4b624416f3393cfeb1e0ce8bcc0d47fcdf5"
+                      }
+                    },
+                    {
+                      "contract_code": {
+                        "hash": "0c20d69644a16562f98a6be92101d8d95475dd3cbc45923c2a2b5f6a5126f0d0"
+                      }
+                    },
+                    {
+                      "contract_code": {
+                        "hash": "875b095d57291172d2f103b02240cdb72bc4157fc0d5ce7dfbc934b1d84209b4"
+                      }
+                    },
+                    {
+                      "contract_code": {
+                        "hash": "9525e49335e2dd8bd6d547980e4273ad47104c2f1d155e49f835c452545bc16a"
+                      }
+                    }
+                  ],
+                  "read_write": [
+                    {
+                      "contract_data": {
+                        "contract": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+                        "key": {
+                          "ledger_key_nonce": {
+                            "nonce": "7150693523005285274"
+                          }
+                        },
+                        "durability": "temporary"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+                        "key": {
+                          "ledger_key_nonce": {
+                            "nonce": "1055851487102668515"
+                          }
+                        },
+                        "durability": "temporary"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "Count"
+                            },
+                            {
+                              "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                            }
+                          ]
+                        },
+                        "durability": "persistent"
+                      }
+                    },
+                    {
+                      "contract_data": {
+                        "contract": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+                        "key": {
+                          "vec": [
+                            {
+                              "symbol": "Count"
+                            },
+                            {
+                              "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                            }
+                          ]
+                        },
+                        "durability": "persistent"
+                      }
+                    }
+                  ]
+                },
+                "instructions": 4734591,
+                "disk_read_bytes": 144,
+                "write_bytes": 416
+              },
+              "resource_fee": "47568"
+            }
+          }
+        },
+        "signatures": [
+          {
+            "hint": "72b5ccc3",
+            "signature": "14950aa03c6aa73bb81b078cc4594919939baa97588ce675c68ee44ccce7b3ca3b521e7d854fb61daccad26270c3a6ce8c9471d17cf2dd1132364a7f66e8f40c"
+          }
+        ]
+      }
+    },
+    "resultXdr": {
+      "fee_charged": "36769",
+      "result": {
+        "tx_success": [
+          {
+            "op_inner": {
+              "invoke_host_function": {
+                "success": "08aac9112604b660945674f61e9b0dd155129b8c80f90b82e6bf7054c26addd0"
+              }
+            }
+          }
+        ]
+      },
+      "ext": "v0"
+    },
+    "resultMetaXdr": {
+      "v4": {
+        "ext": "v0",
+        "tx_changes_before": [
+          {
+            "state": {
+              "last_modified_ledger_seq": 4865722,
+              "data": {
+                "account": {
+                  "account_id": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+                  "balance": "199851471187",
+                  "seq_num": "20897180558557210",
+                  "num_sub_entries": 0,
+                  "inflation_dest": null,
+                  "flags": 0,
+                  "home_domain": "",
+                  "thresholds": "01000000",
+                  "signers": [],
+                  "ext": {
+                    "v1": {
+                      "liabilities": {
+                        "buying": "0",
+                        "selling": "0"
+                      },
+                      "ext": {
+                        "v2": {
+                          "num_sponsored": 0,
+                          "num_sponsoring": 0,
+                          "signer_sponsoring_i_ds": [],
+                          "ext": {
+                            "v3": {
+                              "ext": "v0",
+                              "seq_ledger": 4865721,
+                              "seq_time": "1790352192"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "ext": "v0"
+            }
+          },
+          {
+            "updated": {
+              "last_modified_ledger_seq": 4865722,
+              "data": {
+                "account": {
+                  "account_id": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+                  "balance": "199851471187",
+                  "seq_num": "20897180558557211",
+                  "num_sub_entries": 0,
+                  "inflation_dest": null,
+                  "flags": 0,
+                  "home_domain": "",
+                  "thresholds": "01000000",
+                  "signers": [],
+                  "ext": {
+                    "v1": {
+                      "liabilities": {
+                        "buying": "0",
+                        "selling": "0"
+                      },
+                      "ext": {
+                        "v2": {
+                          "num_sponsored": 0,
+                          "num_sponsoring": 0,
+                          "signer_sponsoring_i_ds": [],
+                          "ext": {
+                            "v3": {
+                              "ext": "v0",
+                              "seq_ledger": 4865722,
+                              "seq_time": "1790352197"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "ext": "v0"
+            }
+          }
+        ],
+        "operations": [
+          {
+            "ext": "v0",
+            "changes": [
+              {
+                "state": {
+                  "last_modified_ledger_seq": 4865718,
+                  "data": {
+                    "contract_data": {
+                      "ext": "v0",
+                      "contract": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+                      "key": {
+                        "vec": [
+                          {
+                            "symbol": "Count"
+                          },
+                          {
+                            "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                          }
+                        ]
+                      },
+                      "durability": "persistent",
+                      "val": {
+                        "u32": 1
+                      }
+                    }
+                  },
+                  "ext": "v0"
+                }
+              },
+              {
+                "updated": {
+                  "last_modified_ledger_seq": 4865722,
+                  "data": {
+                    "contract_data": {
+                      "ext": "v0",
+                      "contract": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+                      "key": {
+                        "vec": [
+                          {
+                            "symbol": "Count"
+                          },
+                          {
+                            "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                          }
+                        ]
+                      },
+                      "durability": "persistent",
+                      "val": {
+                        "u32": 2
+                      }
+                    }
+                  },
+                  "ext": "v0"
+                }
+              },
+              {
+                "created": {
+                  "last_modified_ledger_seq": 4865722,
+                  "data": {
+                    "ttl": {
+                      "key_hash": "833673bdbaf2db2600b55d7c25593ee11a82a668f9dcdf2475868083cf8075fe",
+                      "live_until_ledger_seq": 4866441
+                    }
+                  },
+                  "ext": "v0"
+                }
+              },
+              {
+                "created": {
+                  "last_modified_ledger_seq": 4865722,
+                  "data": {
+                    "contract_data": {
+                      "ext": "v0",
+                      "contract": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+                      "key": {
+                        "ledger_key_nonce": {
+                          "nonce": "1055851487102668515"
+                        }
+                      },
+                      "durability": "temporary",
+                      "val": "void"
+                    }
+                  },
+                  "ext": "v0"
+                }
+              },
+              {
+                "state": {
+                  "last_modified_ledger_seq": 4865714,
+                  "data": {
+                    "contract_data": {
+                      "ext": "v0",
+                      "contract": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+                      "key": {
+                        "vec": [
+                          {
+                            "symbol": "Count"
+                          },
+                          {
+                            "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                          }
+                        ]
+                      },
+                      "durability": "persistent",
+                      "val": {
+                        "u32": 1
+                      }
+                    }
+                  },
+                  "ext": "v0"
+                }
+              },
+              {
+                "updated": {
+                  "last_modified_ledger_seq": 4865722,
+                  "data": {
+                    "contract_data": {
+                      "ext": "v0",
+                      "contract": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+                      "key": {
+                        "vec": [
+                          {
+                            "symbol": "Count"
+                          },
+                          {
+                            "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                          }
+                        ]
+                      },
+                      "durability": "persistent",
+                      "val": {
+                        "u32": 2
+                      }
+                    }
+                  },
+                  "ext": "v0"
+                }
+              },
+              {
+                "created": {
+                  "last_modified_ledger_seq": 4865722,
+                  "data": {
+                    "ttl": {
+                      "key_hash": "bddfabba455c56c4e1d78744e293bfcda89d1af32d1a7906dd41f7b055f689aa",
+                      "live_until_ledger_seq": 4866441
+                    }
+                  },
+                  "ext": "v0"
+                }
+              },
+              {
+                "created": {
+                  "last_modified_ledger_seq": 4865722,
+                  "data": {
+                    "contract_data": {
+                      "ext": "v0",
+                      "contract": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+                      "key": {
+                        "ledger_key_nonce": {
+                          "nonce": "7150693523005285274"
+                        }
+                      },
+                      "durability": "temporary",
+                      "val": "void"
+                    }
+                  },
+                  "ext": "v0"
+                }
+              }
+            ],
+            "events": [
+              {
+                "ext": "v0",
+                "contract_id": "CAT33LBVCRJT2U3X6IFDZ2QMCWEYPCWZNBEAVVNXAALZZHVLZ5OXKOMV",
+                "type": "contract",
+                "body": {
+                  "v0": {
+                    "topics": [
+                      {
+                        "symbol": "simple_enforced"
+                      },
+                      {
+                        "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                      }
+                    ],
+                    "data": {
+                      "map": [
+                        {
+                          "key": {
+                            "symbol": "authenticated_signers"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "vec": [
+                                  {
+                                    "symbol": "External"
+                                  },
+                                  {
+                                    "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                  },
+                                  {
+                                    "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                                  }
+                                ]
+                              },
+                              {
+                                "vec": [
+                                  {
+                                    "symbol": "External"
+                                  },
+                                  {
+                                    "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                  },
+                                  {
+                                    "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "context"
+                          },
+                          "val": {
+                            "vec": [
+                              {
+                                "symbol": "Contract"
+                              },
+                              {
+                                "map": [
+                                  {
+                                    "key": {
+                                      "symbol": "args"
+                                    },
+                                    "val": {
+                                      "vec": [
+                                        {
+                                          "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                                        },
+                                        {
+                                          "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                                        },
+                                        {
+                                          "u32": 1
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "key": {
+                                      "symbol": "contract"
+                                    },
+                                    "val": {
+                                      "address": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD"
+                                    }
+                                  },
+                                  {
+                                    "key": {
+                                      "symbol": "fn_name"
+                                    },
+                                    "val": {
+                                      "symbol": "ping2"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        },
+                        {
+                          "key": {
+                            "symbol": "context_rule_id"
+                          },
+                          "val": {
+                            "u32": 0
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "tx_changes_after": [],
+        "soroban_meta": {
+          "ext": {
+            "v1": {
+              "ext": "v0",
+              "total_non_refundable_resource_fee_charged": "28069",
+              "total_refundable_resource_fee_charged": "8600",
+              "rent_fee_charged": "5240"
+            }
+          },
+          "return_value": {
+            "u32": 4
+          }
+        },
+        "events": [
+          {
+            "stage": "before_all_txs",
+            "event": {
+              "ext": "v0",
+              "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+              "type": "contract",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fee"
+                    },
+                    {
+                      "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+                    }
+                  ],
+                  "data": {
+                    "i128": "47668"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "stage": "after_all_txs",
+            "event": {
+              "ext": "v0",
+              "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+              "type": "contract",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fee"
+                    },
+                    {
+                      "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+                    }
+                  ],
+                  "data": {
+                    "i128": "-10899"
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "diagnostic_events": [
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_call"
+                    },
+                    {
+                      "bytes": "f40395d15ea020f46fcabe62577ac25b500dab0a61e864de3b025a033fd75142"
+                    },
+                    {
+                      "symbol": "ping2"
+                    }
+                  ],
+                  "data": {
+                    "vec": [
+                      {
+                        "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                      },
+                      {
+                        "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                      },
+                      {
+                        "u32": 1
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_call"
+                    },
+                    {
+                      "bytes": "9e0009f62e054470e9c0d52bb0a457ef7110ccaebb35f5970a7356d7fbcd4ed6"
+                    },
+                    {
+                      "symbol": "__check_auth"
+                    }
+                  ],
+                  "data": {
+                    "vec": [
+                      {
+                        "bytes": "5a5620c184d05baed346d0598c80716beab3e7345616642cfe0f6ac5c5e897d0"
+                      },
+                      {
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "context_rule_ids"
+                            },
+                            "val": {
+                              "vec": [
+                                {
+                                  "u32": 0
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "signers"
+                            },
+                            "val": {
+                              "map": [
+                                {
+                                  "key": {
+                                    "vec": [
+                                      {
+                                        "symbol": "External"
+                                      },
+                                      {
+                                        "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                      },
+                                      {
+                                        "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                                      }
+                                    ]
+                                  },
+                                  "val": {
+                                    "bytes": "28a274a078a1f2194383158c6cb4c39bec817bcef971038ab95a20d14de2815bca24b2c7af2e984e2d694ff593a3b995d78afb0aa3e660dbc1ddadf9481f5305"
+                                  }
+                                },
+                                {
+                                  "key": {
+                                    "vec": [
+                                      {
+                                        "symbol": "External"
+                                      },
+                                      {
+                                        "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                      },
+                                      {
+                                        "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                                      }
+                                    ]
+                                  },
+                                  "val": {
+                                    "bytes": "1f8ffcbda099e3ab0ba8da523dd68db40648f5e9c130a7121be06bd51c64547a102714df7ff7f7a215532937adf881aa2416c7e46e1d62f0141d314a6cfb7106"
+                                  }
+                                }
+                              ]
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "Contract"
+                              },
+                              {
+                                "map": [
+                                  {
+                                    "key": {
+                                      "symbol": "args"
+                                    },
+                                    "val": {
+                                      "vec": [
+                                        {
+                                          "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                                        },
+                                        {
+                                          "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                                        },
+                                        {
+                                          "u32": 1
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  {
+                                    "key": {
+                                      "symbol": "contract"
+                                    },
+                                    "val": {
+                                      "address": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD"
+                                    }
+                                  },
+                                  {
+                                    "key": {
+                                      "symbol": "fn_name"
+                                    },
+                                    "val": {
+                                      "symbol": "ping2"
+                                    }
+                                  }
+                                ]
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_call"
+                    },
+                    {
+                      "bytes": "6dcc674207d6127e18b895fb12cb425d006447754453bc8c762c9d491efd0a7a"
+                    },
+                    {
+                      "symbol": "verify"
+                    }
+                  ],
+                  "data": {
+                    "vec": [
+                      {
+                        "bytes": "71fc55e8f55f55731577af04d630800cc441a11abca25332e3b173eae2ebccd0"
+                      },
+                      {
+                        "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                      },
+                      {
+                        "bytes": "28a274a078a1f2194383158c6cb4c39bec817bcef971038ab95a20d14de2815bca24b2c7af2e984e2d694ff593a3b995d78afb0aa3e660dbc1ddadf9481f5305"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR",
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_return"
+                    },
+                    {
+                      "symbol": "verify"
+                    }
+                  ],
+                  "data": {
+                    "bool": true
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_call"
+                    },
+                    {
+                      "bytes": "6dcc674207d6127e18b895fb12cb425d006447754453bc8c762c9d491efd0a7a"
+                    },
+                    {
+                      "symbol": "verify"
+                    }
+                  ],
+                  "data": {
+                    "vec": [
+                      {
+                        "bytes": "71fc55e8f55f55731577af04d630800cc441a11abca25332e3b173eae2ebccd0"
+                      },
+                      {
+                        "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                      },
+                      {
+                        "bytes": "1f8ffcbda099e3ab0ba8da523dd68db40648f5e9c130a7121be06bd51c64547a102714df7ff7f7a215532937adf881aa2416c7e46e1d62f0141d314a6cfb7106"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR",
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_return"
+                    },
+                    {
+                      "symbol": "verify"
+                    }
+                  ],
+                  "data": {
+                    "bool": true
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_call"
+                    },
+                    {
+                      "bytes": "27bdac3514533d5377f20a3cea0c1589878ad968480ad5b700179c9eabcf5d75"
+                    },
+                    {
+                      "symbol": "enforce"
+                    }
+                  ],
+                  "data": {
+                    "vec": [
+                      {
+                        "vec": [
+                          {
+                            "symbol": "Contract"
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "args"
+                                },
+                                "val": {
+                                  "vec": [
+                                    {
+                                      "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                                    },
+                                    {
+                                      "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                                    },
+                                    {
+                                      "u32": 1
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "contract"
+                                },
+                                "val": {
+                                  "address": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "fn_name"
+                                },
+                                "val": {
+                                  "symbol": "ping2"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "External"
+                              },
+                              {
+                                "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                              },
+                              {
+                                "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                              }
+                            ]
+                          },
+                          {
+                            "vec": [
+                              {
+                                "symbol": "External"
+                              },
+                              {
+                                "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                              },
+                              {
+                                "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                              }
+                            ]
+                          }
+                        ]
+                      },
+                      {
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "context_type"
+                            },
+                            "val": {
+                              "vec": [
+                                {
+                                  "symbol": "Default"
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "id"
+                            },
+                            "val": {
+                              "u32": 0
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "name"
+                            },
+                            "val": {
+                              "string": "multisig"
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "policies"
+                            },
+                            "val": {
+                              "vec": [
+                                {
+                                  "address": "CAT33LBVCRJT2U3X6IFDZ2QMCWEYPCWZNBEAVVNXAALZZHVLZ5OXKOMV"
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "policy_ids"
+                            },
+                            "val": {
+                              "vec": [
+                                {
+                                  "u32": 0
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "signer_ids"
+                            },
+                            "val": {
+                              "vec": [
+                                {
+                                  "u32": 0
+                                },
+                                {
+                                  "u32": 1
+                                },
+                                {
+                                  "u32": 2
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "signers"
+                            },
+                            "val": {
+                              "vec": [
+                                {
+                                  "vec": [
+                                    {
+                                      "symbol": "External"
+                                    },
+                                    {
+                                      "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                    },
+                                    {
+                                      "bytes": "594f569dacfe1555069747badc783b7e2c632c2e958581585e97e09363b2e45e"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "vec": [
+                                    {
+                                      "symbol": "External"
+                                    },
+                                    {
+                                      "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                    },
+                                    {
+                                      "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "vec": [
+                                    {
+                                      "symbol": "External"
+                                    },
+                                    {
+                                      "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                    },
+                                    {
+                                      "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "valid_until"
+                            },
+                            "val": "void"
+                          }
+                        ]
+                      },
+                      {
+                        "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CAT33LBVCRJT2U3X6IFDZ2QMCWEYPCWZNBEAVVNXAALZZHVLZ5OXKOMV",
+              "type": "contract",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "simple_enforced"
+                    },
+                    {
+                      "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                    }
+                  ],
+                  "data": {
+                    "map": [
+                      {
+                        "key": {
+                          "symbol": "authenticated_signers"
+                        },
+                        "val": {
+                          "vec": [
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "External"
+                                },
+                                {
+                                  "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                },
+                                {
+                                  "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                                }
+                              ]
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "External"
+                                },
+                                {
+                                  "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                },
+                                {
+                                  "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "context"
+                        },
+                        "val": {
+                          "vec": [
+                            {
+                              "symbol": "Contract"
+                            },
+                            {
+                              "map": [
+                                {
+                                  "key": {
+                                    "symbol": "args"
+                                  },
+                                  "val": {
+                                    "vec": [
+                                      {
+                                        "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                                      },
+                                      {
+                                        "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                                      },
+                                      {
+                                        "u32": 1
+                                      }
+                                    ]
+                                  }
+                                },
+                                {
+                                  "key": {
+                                    "symbol": "contract"
+                                  },
+                                  "val": {
+                                    "address": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD"
+                                  }
+                                },
+                                {
+                                  "key": {
+                                    "symbol": "fn_name"
+                                  },
+                                  "val": {
+                                    "symbol": "ping2"
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "context_rule_id"
+                        },
+                        "val": {
+                          "u32": 0
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CAT33LBVCRJT2U3X6IFDZ2QMCWEYPCWZNBEAVVNXAALZZHVLZ5OXKOMV",
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_return"
+                    },
+                    {
+                      "symbol": "enforce"
+                    }
+                  ],
+                  "data": "void"
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_return"
+                    },
+                    {
+                      "symbol": "__check_auth"
+                    }
+                  ],
+                  "data": "void"
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "fn_return"
+                    },
+                    {
+                      "symbol": "ping2"
+                    }
+                  ],
+                  "data": {
+                    "u32": 4
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "read_entry"
+                    }
+                  ],
+                  "data": {
+                    "u64": "19"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "write_entry"
+                    }
+                  ],
+                  "data": {
+                    "u64": "4"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "ledger_read_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "144"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "ledger_write_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "416"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "read_key_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "40"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "write_key_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "read_data_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "144"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "write_data_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "416"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "read_code_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "write_code_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "emit_event"
+                    }
+                  ],
+                  "data": {
+                    "u64": "1"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "emit_event_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "688"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "cpu_insn"
+                    }
+                  ],
+                  "data": {
+                    "u64": "4426444"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "mem_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "3966771"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "invoke_time_nsecs"
+                    }
+                  ],
+                  "data": {
+                    "u64": "1767378"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "max_rw_key_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "116"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "max_rw_data_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "144"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "max_rw_code_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "0"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "in_successful_contract_call": true,
+            "event": {
+              "ext": "v0",
+              "contract_id": null,
+              "type": "diagnostic",
+              "body": {
+                "v0": {
+                  "topics": [
+                    {
+                      "symbol": "core_metrics"
+                    },
+                    {
+                      "symbol": "max_emit_event_byte"
+                    }
+                  ],
+                  "data": {
+                    "u64": "680"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "events": {
+      "contractEventsXdr": [
+        [
+          {
+            "ext": "v0",
+            "contract_id": "CAT33LBVCRJT2U3X6IFDZ2QMCWEYPCWZNBEAVVNXAALZZHVLZ5OXKOMV",
+            "type": "contract",
+            "body": {
+              "v0": {
+                "topics": [
+                  {
+                    "symbol": "simple_enforced"
+                  },
+                  {
+                    "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                  }
+                ],
+                "data": {
+                  "map": [
+                    {
+                      "key": {
+                        "symbol": "authenticated_signers"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "vec": [
+                              {
+                                "symbol": "External"
+                              },
+                              {
+                                "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                              },
+                              {
+                                "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                              }
+                            ]
+                          },
+                          {
+                            "vec": [
+                              {
+                                "symbol": "External"
+                              },
+                              {
+                                "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                              },
+                              {
+                                "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "context"
+                      },
+                      "val": {
+                        "vec": [
+                          {
+                            "symbol": "Contract"
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "args"
+                                },
+                                "val": {
+                                  "vec": [
+                                    {
+                                      "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                                    },
+                                    {
+                                      "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                                    },
+                                    {
+                                      "u32": 1
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "contract"
+                                },
+                                "val": {
+                                  "address": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "fn_name"
+                                },
+                                "val": {
+                                  "symbol": "ping2"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "key": {
+                        "symbol": "context_rule_id"
+                      },
+                      "val": {
+                        "u32": 0
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        ]
+      ],
+      "transactionEventsXdr": [
+        {
+          "stage": "before_all_txs",
+          "event": {
+            "ext": "v0",
+            "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+            "type": "contract",
+            "body": {
+              "v0": {
+                "topics": [
+                  {
+                    "symbol": "fee"
+                  },
+                  {
+                    "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+                  }
+                ],
+                "data": {
+                  "i128": "47668"
+                }
+              }
+            }
+          }
+        },
+        {
+          "stage": "after_all_txs",
+          "event": {
+            "ext": "v0",
+            "contract_id": "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
+            "type": "contract",
+            "body": {
+              "v0": {
+                "topics": [
+                  {
+                    "symbol": "fee"
+                  },
+                  {
+                    "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+                  }
+                ],
+                "data": {
+                  "i128": "-10899"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "returnValue": {
+      "u32": 4
+    },
+    "diagnosticEventsXdr": [
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_call"
+                },
+                {
+                  "bytes": "f40395d15ea020f46fcabe62577ac25b500dab0a61e864de3b025a033fd75142"
+                },
+                {
+                  "symbol": "ping2"
+                }
+              ],
+              "data": {
+                "vec": [
+                  {
+                    "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                  },
+                  {
+                    "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                  },
+                  {
+                    "u32": 1
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_call"
+                },
+                {
+                  "bytes": "9e0009f62e054470e9c0d52bb0a457ef7110ccaebb35f5970a7356d7fbcd4ed6"
+                },
+                {
+                  "symbol": "__check_auth"
+                }
+              ],
+              "data": {
+                "vec": [
+                  {
+                    "bytes": "5a5620c184d05baed346d0598c80716beab3e7345616642cfe0f6ac5c5e897d0"
+                  },
+                  {
+                    "map": [
+                      {
+                        "key": {
+                          "symbol": "context_rule_ids"
+                        },
+                        "val": {
+                          "vec": [
+                            {
+                              "u32": 0
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "signers"
+                        },
+                        "val": {
+                          "map": [
+                            {
+                              "key": {
+                                "vec": [
+                                  {
+                                    "symbol": "External"
+                                  },
+                                  {
+                                    "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                  },
+                                  {
+                                    "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                                  }
+                                ]
+                              },
+                              "val": {
+                                "bytes": "28a274a078a1f2194383158c6cb4c39bec817bcef971038ab95a20d14de2815bca24b2c7af2e984e2d694ff593a3b995d78afb0aa3e660dbc1ddadf9481f5305"
+                              }
+                            },
+                            {
+                              "key": {
+                                "vec": [
+                                  {
+                                    "symbol": "External"
+                                  },
+                                  {
+                                    "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                  },
+                                  {
+                                    "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                                  }
+                                ]
+                              },
+                              "val": {
+                                "bytes": "1f8ffcbda099e3ab0ba8da523dd68db40648f5e9c130a7121be06bd51c64547a102714df7ff7f7a215532937adf881aa2416c7e46e1d62f0141d314a6cfb7106"
+                              }
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "vec": [
+                      {
+                        "vec": [
+                          {
+                            "symbol": "Contract"
+                          },
+                          {
+                            "map": [
+                              {
+                                "key": {
+                                  "symbol": "args"
+                                },
+                                "val": {
+                                  "vec": [
+                                    {
+                                      "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                                    },
+                                    {
+                                      "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                                    },
+                                    {
+                                      "u32": 1
+                                    }
+                                  ]
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "contract"
+                                },
+                                "val": {
+                                  "address": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD"
+                                }
+                              },
+                              {
+                                "key": {
+                                  "symbol": "fn_name"
+                                },
+                                "val": {
+                                  "symbol": "ping2"
+                                }
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_call"
+                },
+                {
+                  "bytes": "6dcc674207d6127e18b895fb12cb425d006447754453bc8c762c9d491efd0a7a"
+                },
+                {
+                  "symbol": "verify"
+                }
+              ],
+              "data": {
+                "vec": [
+                  {
+                    "bytes": "71fc55e8f55f55731577af04d630800cc441a11abca25332e3b173eae2ebccd0"
+                  },
+                  {
+                    "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                  },
+                  {
+                    "bytes": "28a274a078a1f2194383158c6cb4c39bec817bcef971038ab95a20d14de2815bca24b2c7af2e984e2d694ff593a3b995d78afb0aa3e660dbc1ddadf9481f5305"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR",
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_return"
+                },
+                {
+                  "symbol": "verify"
+                }
+              ],
+              "data": {
+                "bool": true
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_call"
+                },
+                {
+                  "bytes": "6dcc674207d6127e18b895fb12cb425d006447754453bc8c762c9d491efd0a7a"
+                },
+                {
+                  "symbol": "verify"
+                }
+              ],
+              "data": {
+                "vec": [
+                  {
+                    "bytes": "71fc55e8f55f55731577af04d630800cc441a11abca25332e3b173eae2ebccd0"
+                  },
+                  {
+                    "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                  },
+                  {
+                    "bytes": "1f8ffcbda099e3ab0ba8da523dd68db40648f5e9c130a7121be06bd51c64547a102714df7ff7f7a215532937adf881aa2416c7e46e1d62f0141d314a6cfb7106"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR",
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_return"
+                },
+                {
+                  "symbol": "verify"
+                }
+              ],
+              "data": {
+                "bool": true
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_call"
+                },
+                {
+                  "bytes": "27bdac3514533d5377f20a3cea0c1589878ad968480ad5b700179c9eabcf5d75"
+                },
+                {
+                  "symbol": "enforce"
+                }
+              ],
+              "data": {
+                "vec": [
+                  {
+                    "vec": [
+                      {
+                        "symbol": "Contract"
+                      },
+                      {
+                        "map": [
+                          {
+                            "key": {
+                              "symbol": "args"
+                            },
+                            "val": {
+                              "vec": [
+                                {
+                                  "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                                },
+                                {
+                                  "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                                },
+                                {
+                                  "u32": 1
+                                }
+                              ]
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "contract"
+                            },
+                            "val": {
+                              "address": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD"
+                            }
+                          },
+                          {
+                            "key": {
+                              "symbol": "fn_name"
+                            },
+                            "val": {
+                              "symbol": "ping2"
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "vec": [
+                      {
+                        "vec": [
+                          {
+                            "symbol": "External"
+                          },
+                          {
+                            "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                          },
+                          {
+                            "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                          }
+                        ]
+                      },
+                      {
+                        "vec": [
+                          {
+                            "symbol": "External"
+                          },
+                          {
+                            "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                          },
+                          {
+                            "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "map": [
+                      {
+                        "key": {
+                          "symbol": "context_type"
+                        },
+                        "val": {
+                          "vec": [
+                            {
+                              "symbol": "Default"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "id"
+                        },
+                        "val": {
+                          "u32": 0
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "name"
+                        },
+                        "val": {
+                          "string": "multisig"
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "policies"
+                        },
+                        "val": {
+                          "vec": [
+                            {
+                              "address": "CAT33LBVCRJT2U3X6IFDZ2QMCWEYPCWZNBEAVVNXAALZZHVLZ5OXKOMV"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "policy_ids"
+                        },
+                        "val": {
+                          "vec": [
+                            {
+                              "u32": 0
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "signer_ids"
+                        },
+                        "val": {
+                          "vec": [
+                            {
+                              "u32": 0
+                            },
+                            {
+                              "u32": 1
+                            },
+                            {
+                              "u32": 2
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "signers"
+                        },
+                        "val": {
+                          "vec": [
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "External"
+                                },
+                                {
+                                  "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                },
+                                {
+                                  "bytes": "594f569dacfe1555069747badc783b7e2c632c2e958581585e97e09363b2e45e"
+                                }
+                              ]
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "External"
+                                },
+                                {
+                                  "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                },
+                                {
+                                  "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                                }
+                              ]
+                            },
+                            {
+                              "vec": [
+                                {
+                                  "symbol": "External"
+                                },
+                                {
+                                  "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                                },
+                                {
+                                  "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "key": {
+                          "symbol": "valid_until"
+                        },
+                        "val": "void"
+                      }
+                    ]
+                  },
+                  {
+                    "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CAT33LBVCRJT2U3X6IFDZ2QMCWEYPCWZNBEAVVNXAALZZHVLZ5OXKOMV",
+          "type": "contract",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "simple_enforced"
+                },
+                {
+                  "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                }
+              ],
+              "data": {
+                "map": [
+                  {
+                    "key": {
+                      "symbol": "authenticated_signers"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "vec": [
+                            {
+                              "symbol": "External"
+                            },
+                            {
+                              "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                            },
+                            {
+                              "bytes": "656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3"
+                            }
+                          ]
+                        },
+                        {
+                          "vec": [
+                            {
+                              "symbol": "External"
+                            },
+                            {
+                              "address": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR"
+                            },
+                            {
+                              "bytes": "c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "context"
+                    },
+                    "val": {
+                      "vec": [
+                        {
+                          "symbol": "Contract"
+                        },
+                        {
+                          "map": [
+                            {
+                              "key": {
+                                "symbol": "args"
+                              },
+                              "val": {
+                                "vec": [
+                                  {
+                                    "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5"
+                                  },
+                                  {
+                                    "address": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ"
+                                  },
+                                  {
+                                    "u32": 1
+                                  }
+                                ]
+                              }
+                            },
+                            {
+                              "key": {
+                                "symbol": "contract"
+                              },
+                              "val": {
+                                "address": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD"
+                              }
+                            },
+                            {
+                              "key": {
+                                "symbol": "fn_name"
+                              },
+                              "val": {
+                                "symbol": "ping2"
+                              }
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "key": {
+                      "symbol": "context_rule_id"
+                    },
+                    "val": {
+                      "u32": 0
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CAT33LBVCRJT2U3X6IFDZ2QMCWEYPCWZNBEAVVNXAALZZHVLZ5OXKOMV",
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_return"
+                },
+                {
+                  "symbol": "enforce"
+                }
+              ],
+              "data": "void"
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_return"
+                },
+                {
+                  "symbol": "__check_auth"
+                }
+              ],
+              "data": "void"
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "fn_return"
+                },
+                {
+                  "symbol": "ping2"
+                }
+              ],
+              "data": {
+                "u32": 4
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "read_entry"
+                }
+              ],
+              "data": {
+                "u64": "19"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "write_entry"
+                }
+              ],
+              "data": {
+                "u64": "4"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "ledger_read_byte"
+                }
+              ],
+              "data": {
+                "u64": "144"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "ledger_write_byte"
+                }
+              ],
+              "data": {
+                "u64": "416"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "read_key_byte"
+                }
+              ],
+              "data": {
+                "u64": "40"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "write_key_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "read_data_byte"
+                }
+              ],
+              "data": {
+                "u64": "144"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "write_data_byte"
+                }
+              ],
+              "data": {
+                "u64": "416"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "read_code_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "write_code_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "emit_event"
+                }
+              ],
+              "data": {
+                "u64": "1"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "emit_event_byte"
+                }
+              ],
+              "data": {
+                "u64": "688"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "cpu_insn"
+                }
+              ],
+              "data": {
+                "u64": "4426444"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "mem_byte"
+                }
+              ],
+              "data": {
+                "u64": "3966771"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "invoke_time_nsecs"
+                }
+              ],
+              "data": {
+                "u64": "1767378"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "max_rw_key_byte"
+                }
+              ],
+              "data": {
+                "u64": "116"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "max_rw_data_byte"
+                }
+              ],
+              "data": {
+                "u64": "144"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "max_rw_code_byte"
+                }
+              ],
+              "data": {
+                "u64": "0"
+              }
+            }
+          }
+        }
+      },
+      {
+        "in_successful_contract_call": true,
+        "event": {
+          "ext": "v0",
+          "contract_id": null,
+          "type": "diagnostic",
+          "body": {
+            "v0": {
+              "topics": [
+                {
+                  "symbol": "core_metrics"
+                },
+                {
+                  "symbol": "max_emit_event_byte"
+                }
+              ],
+              "data": {
+                "u64": "680"
+              }
+            }
+          }
+        }
+      }
+    ]
+  }
+}

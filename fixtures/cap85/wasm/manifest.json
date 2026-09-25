@@ -1,0 +1,62 @@
+{
+  "built_at": "2026-09-25T18:12:28.440Z",
+  "cap": "CAP-0085 externally managed contract executables",
+  "workspaces": {
+    "contracts": {
+      "soroban_sdk": "28.0.0"
+    },
+    "contracts-sdk27": {
+      "soroban_sdk": "27.0.6"
+    }
+  },
+  "toolchain": {
+    "rustc": "rustc 1.93.0 (254b59607 2026-01-19)",
+    "cargo": "cargo 1.93.0 (083ac5135 2025-12-15)",
+    "stellar_cli": "stellar 27.1.0 (8e402ea28202950b272fbabc34caad4d2f64fe87)"
+  },
+  "target": "wasm32v1-none",
+  "profile": "release (opt-level z, lto, panic abort), stellar contract build default optimize",
+  "sources": {
+    "contracts/Cargo.toml": "76dd4ad8f65f0c25c2305b59dd0560971519d8ff7e8c2c236e94a6669819884d",
+    "contracts/Cargo.lock": "fc339a042e13c529df443a07a083ec50d2a0c2be4de3039a7345056225441172",
+    "contracts/manager/Cargo.toml": "95321a33a475e8df6e5cfbcd1cd3b3bea2f4926f4eb3e95d4f5322e6b8c8220d",
+    "contracts/manager/src/lib.rs": "daeddf3b5d6ab58786fa1401092f9ba1defff194021dd6eb673f60aa574fbaec",
+    "contracts/target-v1/Cargo.toml": "25d62bb5ff4375e0403644d62385bcf934609b64823c15c51465e9d88a853419",
+    "contracts/target-v1/src/lib.rs": "de7e2c68ded31176e8e7b22a8077400d612eb3a0101449cc32268009f050f992",
+    "contracts/target-v2/Cargo.toml": "f100d9ac2782b6a0ef1ab0322fdf9b272e1568c8c35c265b36c413752d4ffded",
+    "contracts/target-v2/src/lib.rs": "9c632e44db0f59ef484a20c44ad8d74cee586ea56f13cb9d8129f7f9e28e6cfb",
+    "contracts/account/Cargo.toml": "ac41317c9f7ae7ab4bf2fd5314921aa3e387b49ac618a318905122ac71cfb897",
+    "contracts/account/src/lib.rs": "55b2433808766aebfeb0e26080d843c1570833cdc1e6d6d4ea9e991ebc21fade",
+    "contracts-sdk27/Cargo.toml": "3060836c32e7059812ddd79b0d20f57092fd91b78a238d1940b661f9661596c0",
+    "contracts-sdk27/Cargo.lock": "38aa0e014a5b1ff97275bf414fb859b3a0c6cce0f981853953be0612a49c120d",
+    "contracts-sdk27/legacy-account/Cargo.toml": "56d423de0386f4b16a3de5e1356c847646962ca73ec4a48c2b0ccb22f75fcd4f",
+    "contracts-sdk27/legacy-account/src/lib.rs": "132a26c5f9770c457b6297ad41b18cd3db054c83db80060fc304747327f90083"
+  },
+  "artifacts": {
+    "cap85_account.wasm": {
+      "sha256": "cb8c23b2681fb882d6f7e793f4f59ead3332703adc3135eb33d052fdc825b78e",
+      "bytes": 6065,
+      "sdk": "soroban-sdk 28"
+    },
+    "cap85_legacy_account.wasm": {
+      "sha256": "374bc0ece798c922a36ff29759dda3b88bb2c5939b4fd2d985788e7481f993b3",
+      "bytes": 2542,
+      "sdk": "soroban-sdk 27"
+    },
+    "cap85_manager.wasm": {
+      "sha256": "d915a50e94b706705283301ea179b3715867a9bf45ba4029967695e066dd099e",
+      "bytes": 3346,
+      "sdk": "soroban-sdk 28"
+    },
+    "cap85_target_v1.wasm": {
+      "sha256": "b7ddc5072489e878f81bd4559c066212304313330cfb0444f95b130c9dc2a954",
+      "bytes": 2094,
+      "sdk": "soroban-sdk 28"
+    },
+    "cap85_target_v2.wasm": {
+      "sha256": "c12a263117c40ceca96c204c940caa2ace22a5c253de203bc93e6e9acaf54a3f",
+      "bytes": 2105,
+      "sdk": "soroban-sdk 28"
+    }
+  }
+}

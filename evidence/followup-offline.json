@@ -1,0 +1,47 @@
+{
+  "checked_at": "2026-09-25T17:24:05.576288+00:00",
+  "checks": [
+    {
+      "command": "node --test tests/submission.test.mjs tests/checkpoint.test.mjs",
+      "passed": 37
+    },
+    {
+      "command": "node tests/contracts.mjs",
+      "status": "passed"
+    },
+    {
+      "command": "node /tmp/walleterm-classic-unknown-check.mjs",
+      "status": "passed",
+      "signatures_after_unknown": 0,
+      "network_calls": 0,
+      "private_keys": 0
+    },
+    {
+      "command": "node tests/extended-contracts.mjs",
+      "status": "passed",
+      "scope": "offline XDR, signature, checkpoint, diagnostic checks"
+    }
+  ],
+  "sha256": {
+    "main.go": "6eae43a2e56d58562fb33b74b684a50cbb52b31f30dce99a46077f2f33a75b1a",
+    "main_test.go": "c5ad99b1ea85e6c7af0a981ce8930a402e67b5cc5abc40ecc8cbae2fc2cc6036",
+    "tests/submission.mjs": "28ac2b2eb967e3ae106e725cdd783ba13a82e2bff90d0070955bc663a3090e75",
+    "tests/submission.test.mjs": "bcd31a24c37438ea481d59f1f84f3bd30888e3355aff6d55056a15d4df489c42",
+    "tests/live-utils.mjs": "ca212e1877f88b25cc287554d9c9efb646fe895f9cf880cbcb335b97355c1a8f",
+    "tests/live.mjs": "7572b5366b772767025add3419b645c7a8d2cc41b6eca4ea064f7c93a4e3f0e0",
+    "tests/classic.mjs": "007909edec39f4dc509a30f6337d2184e3bd2e8242966985cc4a0866dd94b27c",
+    "tests/contracts.mjs": "f72039404f9ee1df8fa3f51e14ff5e11c23b453d22a689f00f0bf4526cb2da65",
+    "tests/checkpoint.test.mjs": "8fe746cf0cc3f93127dedc311266ae53c20e5bf3a7c7d27f13921937f7e4d240",
+    "tests/extended-contracts.mjs": "8ac60c6c669dec68bbf6fdf93519a8d524b759908603153f15e931b15290ead9"
+  },
+  "core_checks": {
+    "worker": "wt-astra",
+    "commands": [
+      "go test -count=1 ./...",
+      "go vet ./...",
+      "go test -race -count=1 ./..."
+    ],
+    "result": "passed",
+    "dependency_networking": "disabled"
+  }
+}

@@ -1,0 +1,5 @@
+/bin/
+/node_modules/
+/fixtures/**/target/
+/fixtures/.oz-src/
+/fixtures/vendor/

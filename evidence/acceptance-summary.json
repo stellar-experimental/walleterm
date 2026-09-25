@@ -1,0 +1,275 @@
+{
+  "date": "2026-09-25",
+  "network": "testnet",
+  "runtime": {
+    "language": "Go",
+    "third_party_dependencies": 0,
+    "commands": [
+      "list",
+      "sign"
+    ],
+    "platform": "macOS"
+  },
+  "classic": [
+    {
+      "id": "G01",
+      "status": "passed",
+      "timestamp": "2026-09-25T15:45:22.842Z"
+    },
+    {
+      "id": "G02",
+      "status": "passed",
+      "timestamp": "2026-09-25T15:45:32.563Z"
+    },
+    {
+      "id": "G03",
+      "status": "passed",
+      "timestamp": "2026-09-25T15:45:43.869Z"
+    },
+    {
+      "id": "G04",
+      "status": "passed",
+      "timestamp": "2026-09-25T15:45:53.298Z"
+    },
+    {
+      "id": "G05",
+      "status": "passed",
+      "timestamp": "2026-09-25T15:46:02.905Z"
+    },
+    {
+      "id": "G06",
+      "status": "passed",
+      "timestamp": "2026-09-25T15:46:08.533Z"
+    },
+    {
+      "id": "G07",
+      "status": "passed",
+      "timestamp": "2026-09-25T15:46:12.659Z"
+    },
+    {
+      "id": "G08",
+      "status": "passed",
+      "timestamp": "2026-09-25T15:46:14.060Z"
+    },
+    {
+      "id": "G09",
+      "status": "passed",
+      "timestamp": "2026-09-25T15:46:18.473Z"
+    },
+    {
+      "id": "G10",
+      "status": "passed",
+      "timestamp": "2026-09-25T15:46:42.345Z"
+    },
+    {
+      "id": "CLI01",
+      "status": "passed",
+      "timestamp": "2026-09-25T15:48:03.910Z"
+    }
+  ],
+  "contracts": [
+    {
+      "id": "C01",
+      "status": "passed",
+      "timestamp": "2026-09-25T16:02:37.768Z"
+    },
+    {
+      "id": "C02",
+      "status": "passed",
+      "timestamp": "2026-09-25T16:02:44.577Z"
+    },
+    {
+      "id": "C03",
+      "status": "passed",
+      "timestamp": "2026-09-25T16:02:53.858Z"
+    },
+    {
+      "id": "C04",
+      "status": "passed",
+      "timestamp": "2026-09-25T16:02:59.066Z"
+    },
+    {
+      "id": "C05",
+      "status": "passed",
+      "timestamp": "2026-09-25T16:03:07.758Z"
+    },
+    {
+      "id": "C06",
+      "status": "passed",
+      "timestamp": "2026-09-25T16:03:13.839Z"
+    },
+    {
+      "id": "C07",
+      "status": "passed",
+      "timestamp": "2026-09-25T16:03:19.145Z"
+    },
+    {
+      "id": "C08",
+      "status": "passed",
+      "timestamp": "2026-09-25T16:03:26.515Z"
+    },
+    {
+      "id": "C09",
+      "status": "covered_by",
+      "timestamp": "2026-09-25T16:03:26.517Z"
+    },
+    {
+      "id": "C10",
+      "status": "passed",
+      "timestamp": "2026-09-25T16:05:26.686Z"
+    },
+    {
+      "id": "C11",
+      "status": "passed",
+      "timestamp": "2026-09-25T16:03:34.141Z"
+    },
+    {
+      "id": "C12",
+      "status": "passed",
+      "timestamp": "2026-09-25T16:05:30.078Z"
+    },
+    {
+      "id": "C13",
+      "status": "passed",
+      "timestamp": "2026-09-25T16:03:52.412Z"
+    }
+  ],
+  "limitations": [
+    "Cached 1Password approval allowed later signatures.",
+    "Passkeys are not implemented.",
+    "CAP-71 delegate credentials and delegated C-address signers remain untested.",
+    "An unresolved submission that remains NOT_FOUND requires manual evidence review."
+  ],
+  "local_changes": [
+    "Created three dedicated 1Password test keys in Private.",
+    "Added those three items to the existing 1Password SSH agent configuration.",
+    "Kept the previous configuration at /tmp/walleterm-v2-agent-before.toml."
+  ],
+  "contract_credential_variants": [
+    "sorobanCredentialsAddressV2",
+    "sorobanCredentialsAddress"
+  ],
+  "contract_instances": {
+    "ed25519_verifier": {
+      "id": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR",
+      "wasm": "multisig_ed25519_verifier_example.wasm",
+      "tx": "0d1bf75d4ea4fcdc4d1bb58ea9ce4d09b5a0b75f40a0328dc718e957a36946cf"
+    },
+    "threshold_policy": {
+      "id": "CAT33LBVCRJT2U3X6IFDZ2QMCWEYPCWZNBEAVVNXAALZZHVLZ5OXKOMV",
+      "wasm": "multisig_threshold_policy_example.wasm",
+      "tx": "fc24103001e64fd357c97d3143fcafc82e6d794b59797f0bc5c32900211ec2b6"
+    },
+    "weighted_policy": {
+      "id": "CC6BXFFYDNQGYG3C25JCJYWKRTB4BRDFNAKK5QG6ASV2ZCP7PEV6DN2K",
+      "wasm": "multisig_weighted_threshold_policy_example.wasm",
+      "tx": "e3f84d2cf217ccd857f20ddf0fa0c77de22eca2b81e1b6fc59ccb4a86b6ae004"
+    },
+    "auth_target_1": {
+      "id": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+      "wasm": "walleterm_auth_target.wasm",
+      "tx": "0bc6afced26658d32de03d59e9bf2ba06f3c1b3ab64b646b18d5eb1709e9ef2f"
+    },
+    "auth_target_2": {
+      "id": "CA6NPSE7LHH7T5VVYQVO5EEIG4AH4XAVACZIVDZJKCTUY3RCDYLQ4XKS",
+      "wasm": "walleterm_auth_target.wasm",
+      "tx": "bb810bb5171c0e0ad41c0fa9bfc43a9f775c7a99dd1b9d589befce439c892f5a"
+    },
+    "simple_account_b": {
+      "id": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+      "wasm": "walleterm_simple_account.wasm",
+      "tx": "7a37c45d6408442debd2472e83c4353482785178060242c4f9e05df45e97754e"
+    },
+    "oz_basic_a": {
+      "id": "CCTHYTKMKC3TV2ZT2ZGGGXMUKE4VROVXLKQQRCU5FRYUCRBIYX5NYYMF",
+      "wasm": "multisig_account_example.wasm",
+      "tx": "5e035b9dc3b1aa141acd8397789dc95822e64a24b4103bff28b34fd206308439"
+    },
+    "oz_multisig_2of3": {
+      "id": "CCPAACPWFYCUI4HJYDKSXMFEK7XXCEGMV25TL5MXBJZVNV73ZVHNNJMZ",
+      "wasm": "multisig_account_example.wasm",
+      "tx": "c72b2948c6b3e70142f46403e61a05141e70f936ef578b6eb9d1caf0f06091ec"
+    },
+    "oz_weighted_a2_b1_c1_t2": {
+      "id": "CAICDOQDXSXMW4SR7BEPOYVYZFEXB33MHE4K5LTRL4HJB4VCP7SS2V6K",
+      "wasm": "multisig_account_example.wasm",
+      "tx": "b9959abe97e59b07d827c939cc60039f36756054d4def4bc6f5de83b8b5eb35d"
+    }
+  },
+  "corrections": [
+    "C10 initially expected OZ3016. The live no-policy rule returned OZ3002. Pinned source confirms this path. The corrected case passed.",
+    "C12 now asserts exact observed serialization errors and passed again."
+  ],
+  "followup_updated_at": "2026-09-25T17:27:45.309612+00:00",
+  "onepassword_lifecycle": {
+    "status": "passed",
+    "evidence": "1password-lifecycle.json",
+    "cases": [
+      "observed denial",
+      "pending cancellation",
+      "locked app connection closure"
+    ]
+  },
+  "submission_guard": {
+    "status": "passed_offline",
+    "unit_tests": 35,
+    "checkpoint_tests": 2,
+    "classic_unknown_restoration_signatures": 0,
+    "reconcile_command": "node tests/live.mjs reconcile"
+  },
+  "independent_installed_cli": {
+    "status": "passed",
+    "evidence": "usability/FINAL.md",
+    "payment": {
+      "hash": "86d57ecd0f8d70ef533606f6c5e159eb01ab56d3409f86a291831a9ca45ab731",
+      "fee_charged": 100,
+      "a_delta_stroops": -200,
+      "c_delta_stroops": 100
+    },
+    "oz_multisig": {
+      "hash": "05c4fe40ae4e0f651d0840914b9a74dc4d4b9f2366cf498446e700fc63d1f245",
+      "ledger": 4866629,
+      "fee_charged": 23603,
+      "count_before": 2,
+      "count_after": 3,
+      "return_value": "",
+      "counter_ok": true
+    }
+  },
+  "extended": [
+    {
+      "id": "E01",
+      "status": "passed",
+      "timestamp": "2026-09-25T17:25:18.353Z",
+      "title": "Native G-account weighted multisig (B: A, C weight 1, med 2)"
+    },
+    {
+      "id": "E02",
+      "status": "passed",
+      "timestamp": "2026-09-25T17:25:37.716Z",
+      "title": "OpenZeppelin Delegated(G_b) signer with __check_auth-rooted entry"
+    },
+    {
+      "id": "E03",
+      "status": "passed",
+      "timestamp": "2026-09-25T17:26:14.650Z",
+      "title": "OpenZeppelin contract-specific rule, threshold update, removal"
+    }
+  ],
+  "extended_instances": {
+    "oz_delegated_b": {
+      "id": "CDWTHR5MAJPZLGAK6EVGNFJMVZ6K77JJI6VQKXDFYSG5IG4F5H5VTJGQ",
+      "wasm": "multisig_account_example.wasm",
+      "wasm_sha256": "0c20d69644a16562f98a6be92101d8d95475dd3cbc45923c2a2b5f6a5126f0d0",
+      "tx": "2ab94d035882ba756248aefb04d3dd7329f2228ffbbfd557bb807360dbed3b99"
+    },
+    "oz_context_rules": {
+      "id": "CAMIDNADXL4CRIN3ZDF72H2T6PUGQT6URT6JZDTO4C3LSWU2BW74I5K6",
+      "wasm": "multisig_account_example.wasm",
+      "wasm_sha256": "0c20d69644a16562f98a6be92101d8d95475dd3cbc45923c2a2b5f6a5126f0d0",
+      "tx": "7b32e133d5377ef1f044996f822fd22303a4fe2f4d965659b6d8210368e6762e"
+    }
+  },
+  "extended_b_restored": true,
+  "pending_submission": null
+}
