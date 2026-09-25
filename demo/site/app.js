@@ -26,6 +26,18 @@ async function paymentRecipient() {
   }
   throw Error('No recent testnet recipient is available. Try the payment again.');
 }
+// A new 1Password key has no testnet account. Friendbot creates and funds it.
+async function sourceAccount() {
+  try { return await horizon(`/accounts/${account.address}`); }
+  catch (error) {
+    if (error.status !== 404) throw error;
+    status('This testnet account does not exist yet. Funding it with Friendbot.');
+    const response = await fetch(`https://friendbot.stellar.org/?addr=${encodeURIComponent(account.address)}`, { signal: AbortSignal.timeout(30000) });
+    // A funded account can still be missing from Horizon for a moment. Check it before failing.
+    try { return await horizon(`/accounts/${account.address}`); }
+    catch { throw Error(response.ok ? 'The funded account is not visible yet. Try again.' : 'Friendbot could not fund this testnet account. Try again later.'); }
+  }
+}
 function save() { if (pending) localStorage.setItem(STORAGE, JSON.stringify(pending)); else localStorage.removeItem(STORAGE); }
 function render() {
   $('actions').hidden = !account;
@@ -94,7 +106,7 @@ $('stop-scan').onclick = () => scanning?.abort();
 $('disconnect').onclick = () => action(async () => { await wallet.disconnect(); account = null; status('The website is disconnected.'); });
 async function build(kind) {
   if (!account || pending) return;
-  const source = await horizon(`/accounts/${account.address}`);
+  const source = await sourceAccount();
   let operation;
   const id = crypto.randomUUID();
   let recipient;

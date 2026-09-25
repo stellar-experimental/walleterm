@@ -3,7 +3,7 @@ export class WalletermClient {
   constructor(bridgeUrl, { fetch: fetcher = globalThis.fetch.bind(globalThis), pollInterval = 1000 } = {}) {
     const url = new URL(bridgeUrl);
     if (url.origin !== bridgeUrl || !(url.protocol === 'https:' || url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))) throw Error('Use the public bridge origin, without a path.');
-    this.url = url.origin; this.fetch = fetcher; this.pollInterval = pollInterval; this.token = null; this.connectionId = null;
+    this.url = url.origin; this.fetch = fetcher; this.pollInterval = pollInterval; this.token = null; this.connectionId = null; this.account = null;
   }
   async request(path, data, signal) {
     const response = await this.fetch(`${this.url}${path}`, {
@@ -13,7 +13,7 @@ export class WalletermClient {
     });
     const result = await response.json();
     if (!response.ok) {
-      if (response.status === 401) { this.token = null; this.connectionId = null; }
+      if (response.status === 401) { this.token = null; this.connectionId = null; this.account = null; }
       throw Object.assign(Error(result.error?.message || `Bridge request failed (${response.status}).`), { status: response.status });
     }
     return result;
@@ -43,14 +43,18 @@ export class WalletermClient {
       const publicKey = await selectWallet(signers, { signal });
       signal.throwIfAborted();
       const result = await this.request('/v1/select', { public_key: publicKey }, signal);
-      return { address: result.public_key, networkPassphrase: result.network_passphrase };
-    } catch (error) { await this.disconnect().catch(() => {}); this.token = null; this.connectionId = null; throw error; }
+      this.account = { address: result.public_key, networkPassphrase: result.network_passphrase };
+      return { ...this.account };
+    } catch (error) { await this.disconnect().catch(() => {}); this.token = null; this.connectionId = null; this.account = null; throw error; }
   }
   async getAddress() {
-    const result = await this.request('/v1/account'); this.connectionId = result.connection_id; return { address: result.public_key, networkPassphrase: result.network_passphrase };
+    const result = await this.request('/v1/account'); this.connectionId = result.connection_id;
+    this.account = { address: result.public_key, networkPassphrase: result.network_passphrase };
+    return { ...this.account };
   }
+  // Address and network default to the connected account, as in SEP-43.
   // Keep requestId after transport failure. Reuse it only with the exact same XDR.
-  async signTransaction(transactionXdr, { networkPassphrase, address, requestId = crypto.randomUUID(), onRequest = () => {}, signal = AbortSignal.timeout(300000) } = {}) {
+  async signTransaction(transactionXdr, { networkPassphrase = this.account?.networkPassphrase, address = this.account?.address, requestId = crypto.randomUUID(), onRequest = () => {}, signal = AbortSignal.timeout(300000) } = {}) {
     if (!this.token) throw Error('Connect the website first.');
     try {
       let result = await this.request('/v1/requests', { id: requestId, transaction_xdr: transactionXdr, network_passphrase: networkPassphrase, public_key: address }, signal);
@@ -66,7 +70,7 @@ export class WalletermClient {
   async disconnect() {
     if (this.token) {
       try { await this.request('/v1/disconnect', {}); } catch (error) { if (error.status !== 401) throw error; }
-      this.token = null; this.connectionId = null;
+      this.token = null; this.connectionId = null; this.account = null;
     }
   }
 }

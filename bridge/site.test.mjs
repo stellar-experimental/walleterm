@@ -67,3 +67,33 @@ test('recipient lookup reports failure without choosing an unchecked account', a
   f.run("account={address:'GSOURCE'}");
   await assert.rejects(f.run('paymentRecipient()'), /Horizon unavailable/);
 });
+
+test('demo funds a missing testnet account once with Friendbot', async () => {
+  const calls = []; let funded = false;
+  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    StellarSdk: {}, WalletermClient: class {}, localStorage: {getItem: () => null},
+    fetch: async url => {
+      calls.push(url);
+      if (url.startsWith('https://friendbot.stellar.org/')) { funded = true; return ok({}); }
+      return funded ? ok({account_id:'GNEW', sequence:'1'}) : {ok:false,status:404,json:async()=>({detail:'Account missing'})};
+    },
+  });
+  f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
+  f.run("account={address:'GNEW'}");
+  assert.equal((await f.run('sourceAccount()')).sequence, '1');
+  assert.deepEqual(calls, ['https://horizon-testnet.stellar.org/accounts/GNEW', 'https://friendbot.stellar.org/?addr=GNEW', 'https://horizon-testnet.stellar.org/accounts/GNEW']);
+});
+
+test('demo reports a Friendbot failure and does not hide Horizon errors', async () => {
+  const run = async responses => {
+    const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+      StellarSdk: {}, WalletermClient: class {}, localStorage: {getItem: () => null}, fetch: async () => responses.shift(),
+    });
+    f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
+    f.run("account={address:'GNEW'}");
+    return f.run('sourceAccount()');
+  };
+  const missing = () => ({ok:false,status:404,json:async()=>({detail:'Account missing'})});
+  await assert.rejects(run([missing(), {ok:false,status:400,json:async()=>({})}, missing()]), /Friendbot could not fund/);
+  await assert.rejects(run([{ok:false,status:503,json:async()=>({detail:'Horizon unavailable'})}]), /Horizon unavailable/);
+});

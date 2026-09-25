@@ -1,7 +1,7 @@
 # Historical mobile web proof
 
 The combined `web` command below was removed. `walleterm tunnel` and `walleterm demo` replace it.
-Its code remains in the `mobile-web-poc` branch history.
+Its code remains in git history before commit `1e96658`.
 These records describe the earlier proof. Use [WEB-BRIDGE.md](WEB-BRIDGE.md) for the current commands.
 Earlier live signing evidence does not establish acceptance of the new bridge.
 

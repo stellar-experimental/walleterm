@@ -68,7 +68,7 @@ export async function publicProbe(origin, { resolveHost = resolve4, requestGet =
       });
       response.on('end', () => {
         clearTimeout(timer);
-        try { resolve({ status: response.statusCode, paired: JSON.parse(body).paired }); }
+        try { resolve({ status: response.statusCode, service: JSON.parse(body).service }); }
         catch (error) { reject(error); }
       });
       response.on('error', error => { clearTimeout(timer); reject(error); });
@@ -78,15 +78,15 @@ export async function publicProbe(origin, { resolveHost = resolve4, requestGet =
   });
 }
 
-async function publicReady(origin, { signal } = {}) {
+export async function publicReady(origin, { signal, service, probe = publicProbe } = {}) {
   const deadline = Date.now() + 45000;
   let lastStatus = 'no response';
   while (Date.now() < deadline) {
     signal?.throwIfAborted();
     try {
-      const response = await publicProbe(origin, { signal });
+      const response = await probe(origin, { signal });
       lastStatus = `HTTP ${response.status}`;
-      if (response.status === 200 && response.paired === false) return;
+      if (response.status === 200 && response.service === service) return;
     } catch (error) { lastStatus = error.cause?.code || error.message; }
     await delay(350, undefined, { signal });
   }
@@ -160,19 +160,19 @@ export async function launchService(config, { spawnTunnel = startTunnel, create,
     const origin = await waitForTunnel(child, 30000, controller.signal);
     controller.signal.throwIfAborted();
     demo.setPublicOrigin(origin);
-    await bounded(ready(origin, { signal: controller.signal }), 45000, controller.signal, 'The public tunnel did not become ready. Check the Internet connection and try again.');
+    await bounded(ready(origin, { signal: controller.signal, service: demo.service }), 45000, controller.signal, 'The public tunnel did not become ready. Check the Internet connection and try again.');
     controller.signal.throwIfAborted();
-    output.write(`${config.label} is ready on Stellar testnet.\n\nPublic URL: ${origin}\n`);
+    output.write(`${config.label} is ready on Stellar testnet.\n`);
     if (demo.pairing) {
       const printPairing = async () => {
         const pairing = demo.pairing;
         const qr = await QRCode.toString(JSON.stringify(pairing), { type: 'terminal', small: true });
-        if (!controller.signal.aborted) output.write(`\nTunnel URL: ${pairing.url}\nConnection code: ${pairing.code}\nScan this QR code from the website's Scan tunnel button:\n${qr}\nThis code expires at ${pairing.expires_at}. It works once.\nReview signing requests in this terminal.\n`);
+        if (!controller.signal.aborted) output.write(`\nTunnel URL: ${pairing.url}\nConnection code: ${pairing.code}\nScan this QR code with the website's Scan tunnel button, not the phone camera:\n${qr}\nThis code expires at ${pairing.expires_at}. It works once.\nReview signing requests in this terminal.\n`);
       };
       await printPairing();
       demo.onPairingChanged(() => printPairing().catch(() => stop(1)));
     } else {
-      output.write(`\nScan to open this site on your phone:\n${await QRCode.toString(origin, { type: 'terminal', small: true })}\n`);
+      output.write(`\nPublic URL: ${origin}\nScan this QR code with your phone camera to open the site:\n${await QRCode.toString(origin, { type: 'terminal', small: true })}\n`);
     }
     controller.signal.throwIfAborted();
     output.write('Press Ctrl+C to stop this service.\n');

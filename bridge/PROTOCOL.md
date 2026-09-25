@@ -11,7 +11,7 @@ A connected website can list the public keys, comments, and fingerprints of all 
 The QR code contains `{"walleterm":2,"url":"...","code":"...","expires_at":"..."}`.
 A code works once and expires after five minutes. The bridge prints a new code after each use or expiry.
 During an open review, the bridge prints the new code after the review ends.
-Five incorrect codes lock connection until the tunnel restarts.
+Five incorrect codes replace the code and pause connection for one minute.
 
 ## Website routes
 

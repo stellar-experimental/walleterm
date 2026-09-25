@@ -25,9 +25,11 @@ walleterm demo
 Open the public demo URL or scan its QR code on your phone.
 
 1. In the demo, click Scan tunnel and scan the tunnel QR code. You can also type the URL and code.
+   Scan the demo QR code with your phone camera. Scan the tunnel QR code only with Scan tunnel.
 2. Click Connect wallet. The demo lists your 1Password Ed25519 keys.
 3. Select a dedicated testnet wallet.
 4. Create a transaction in the demo. The demo selects an existing testnet payment recipient automatically.
+   It funds a new testnet account with Friendbot. The offer action also needs a testnet USDC trustline.
 5. Review the transaction and signing key in the tunnel terminal. Type the displayed `sign` challenge to approve it, or press Enter to deny it.
 6. Approve the 1Password prompt on the Mac if it appears.
 7. Return to the demo. Submit the signed transaction separately.
@@ -64,12 +66,8 @@ const { address, networkPassphrase } = await wallet.connect({
 });
 
 // The website builds and reviews an unsigned supported testnet transaction.
-const requestId = crypto.randomUUID();
-const { signedTxXdr } = await wallet.signTransaction(unsignedXdr, {
-  address,
-  networkPassphrase,
-  requestId,
-});
+// The address and network default to the connected account, as in SEP-43.
+const { signedTxXdr } = await wallet.signTransaction(unsignedXdr);
 // The website verifies the result and asks the user before submission.
 await wallet.disconnect();
 ```
@@ -82,12 +80,6 @@ A changed transaction with the same ID fails. The bridge never signs twice for a
 SDK errors preserve `requestId` and a known terminal `requestState`.
 The adapter is local source code. It is not a published package or a registered Stellar Wallets Kit module.
 
-A future Wallets Kit module can wrap this client and provide its connection UI and metadata.
-The upstream kit exposes `getAddress` and `signTransaction`, with `signedTxXdr` results.
-See the [upstream repository](https://github.com/Creit-Tech/Stellar-Wallets-Kit), checked on 2026-09-25.
-That API similarity supports the adapter direction. It does not prove full Kit compatibility.
-An unchanged website still needs an integration or wallet-provider adapter.
-
 ## Supported transactions
 
 The bridge supports Stellar testnet and one unsigned classic operation per transaction:
@@ -96,13 +88,8 @@ The bridge supports Stellar testnet and one unsigned classic operation per trans
 - Set or delete a data entry.
 - Create, update, or cancel a sell offer with explicit assets and an exact rational price.
 
-The source must match the account selected for the website connection.
-The bridge requires a bounded fee and a transaction expiry within five minutes.
-It displays source, operation source, network, sequence, fee, memo, time bounds, operation fields, and hash.
-Unsupported operations, mainnet, Soroban, fee bumps, existing signatures, and extra preconditions fail before approval.
-This first version is a general website transport with deliberately bounded signing support.
-It does not support every Stellar application or account configuration.
-See [the protocol contract](../bridge/PROTOCOL.md) for endpoints and limits.
+Mainnet, Soroban, fee bumps, and other operations fail before approval.
+See [the protocol contract](../bridge/PROTOCOL.md) for exact limits.
 
 ## Approval and recovery
 
@@ -137,4 +124,14 @@ Quick Tunnels provide a temporary URL and no uptime guarantee. The URL changes o
 The Mac must remain awake and connected. Neither command installs a login service or automatically restarts.
 Each connection code expires after five minutes. A website session lasts one hour after key selection.
 Restart the bridge to revoke all website sessions.
+
+## Future work
+
+A future Wallets Kit module can wrap this client and provide its connection UI and metadata.
+The upstream kit exposes `getAddress` and `signTransaction`, with `signedTxXdr` results.
+See the [upstream repository](https://github.com/Creit-Tech/Stellar-Wallets-Kit), checked on 2026-09-25.
+That API similarity supports the adapter direction. It does not prove full Kit compatibility.
+An unchanged website still needs an integration or wallet-provider adapter.
 A stable named tunnel, longer session management, and production availability remain future work.
+Cloudflare terminates TLS and can read tokens and XDR. Add end-to-end encryption before any mainnet use.
+The bridge shows the website Origin as a claim. Verified website identity remains future work.

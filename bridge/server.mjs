@@ -50,7 +50,7 @@ export function createBridge({ port = 8787, stateDir, publicOrigin, listSigners 
   const records = new Map(), sessions = new Map();
   const controller = new AbortController(), jobs = new Set();
   let origin = publicOrigin || `http://127.0.0.1:${port}`;
-  let pairExpires, pairTimer, pairCode = newCode(), attempts = 0, closing = false, closePromise;
+  let pairExpires, pairTimer, pairCode = newCode(), attempts = 0, lockedUntil = 0, closing = false, closePromise;
   let pairingChanged = () => {}, queue = Promise.resolve(), reviewing = false, pairingDeferred = false;
   const reviews = new Map();
   function newCode() { return String(randomInt(100000000)).padStart(8, '0'); }
@@ -60,7 +60,7 @@ export function createBridge({ port = 8787, stateDir, publicOrigin, listSigners 
   }
   // Keep an open terminal review readable. Print a new code after the review ends.
   function announcePairing() { if (reviewing) pairingDeferred = true; else pairingChanged(); }
-  function rotateCode() { pairCode = newCode(); restartCodeTimer(); announcePairing(); }
+  function rotateCode() { pairCode = newCode(); attempts = 0; restartCodeTimer(); announcePairing(); }
   restartCodeTimer();
   try {
     for (const name of readdirSync(stateDir)) {
@@ -150,10 +150,12 @@ export function createBridge({ port = 8787, stateDir, publicOrigin, listSigners 
       }
       if (route === '/v1/connect' && req.method === 'POST') {
         const data = await body(req);
-        if (attempts >= 5) throw fail(429, 'Too many incorrect codes. Restart the tunnel for a new code.');
+        if (now() < lockedUntil) throw fail(429, 'Too many incorrect codes. Wait one minute, then use the new code in the tunnel terminal.');
         if (now() >= pairExpires) { rotateCode(); throw fail(403, 'The connection code expired. The tunnel terminal shows a new code after any open review.'); }
         if (Object.keys(data).length !== 1 || !equal(data.code, pairCode)) {
-          attempts++; throw fail(403, 'The connection code is incorrect.');
+          // Five failures replace the code and pause connection for one minute.
+          if (++attempts >= 5) { lockedUntil = now() + 60000; rotateCode(); }
+          throw fail(403, 'The connection code is incorrect.');
         }
         if (sessions.size >= 64) throw fail(429, 'The connection limit was reached. Disconnect a website or restart the tunnel.');
         const s = { id: randomUUID(), token: token(), origin: siteOrigin, public_key: null, expires: now() + 300000, revoked: false };
@@ -208,7 +210,7 @@ export function createBridge({ port = 8787, stateDir, publicOrigin, listSigners 
       }
       throw fail(404, 'The route does not exist.');
     }
-    if (route === '/api/session' && req.method === 'GET') return sendJson(res, 200, { paired: false, service: 'walleterm', protocol: 2 });
+    if (route === '/api/session' && req.method === 'GET') return sendJson(res, 200, { service: 'walleterm', protocol: 2 }); // Startup readiness probe.
     // No HTTP route can approve a signature. Only the local review callback can approve it.
     throw fail(404, 'Use this tunnel URL in a Walleterm-compatible website.');
   }
@@ -219,7 +221,7 @@ export function createBridge({ port = 8787, stateDir, publicOrigin, listSigners 
   });
   server.requestTimeout = 15000; server.headersTimeout = 10000; server.setTimeout(150000);
   return {
-    server, get pairing() { return { walleterm: 2, url: origin, code: pairCode, expires_at: iso(pairExpires) }; },
+    service: 'walleterm', server, get pairing() { return { walleterm: 2, url: origin, code: pairCode, expires_at: iso(pairExpires) }; },
     onPairingChanged(callback) { pairingChanged = callback; },
     setPublicOrigin(value) { if (!validOrigin(value)) throw Error('Use an HTTPS or loopback origin.'); origin = value; restartCodeTimer(); },
     setTunnelProcess: details => journal.record({ tunnel: details }),

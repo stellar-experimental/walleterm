@@ -22,10 +22,10 @@ A website connects with a single-use eight-digit code and selects one 1Password 
 The tunnel terminal reviews each transaction. No HTTP route can approve a signature.
 
 `demo` starts an independent website and its own public Quick Tunnel for phone testing.
-Its local listener binds `127.0.0.1:8788`.
+Its local listener binds `127.0.0.1` on port 8788 by default.
 Stopping the demo does not stop the bridge. Stopping the bridge does not stop the demo.
 The demo uses the same [browser client](../sdk/walleterm.js) that another integrated website can use.
-The demo selects a recent operation source and checks that its testnet account still exists.
+The demo pays the source account of a recent testnet operation. It checks that this account exists.
 The review shows the selected payment recipient. Neither command accepts `--recipient`.
 
 Both commands need Node.js 22 or later and the installed assets.
@@ -46,7 +46,7 @@ These interactive commands have no `--human` or `--public` flag.
 
 The public URL and connection code can go to a website. The code cannot approve a signature.
 A connected website can list all 1Password Ed25519 public keys, with their comments and fingerprints.
-Each code works once and expires after five minutes. Five incorrect codes lock connection until restart.
+Each code works once and expires after five minutes. Five incorrect codes replace the code and pause connection for one minute.
 A website session lasts one hour after key selection. Restart the tunnel to revoke all sessions.
 Website sessions and SDK credentials remain in memory. A website reload requires a new code.
 Each immutable transaction needs a typed `sign` challenge in the tunnel terminal.
@@ -54,8 +54,7 @@ The review shows the signing key's comment and fingerprint. Ctrl+C stops the tun
 A 1Password prompt can still require the Mac. Cached 1Password approval can suppress a fresh desktop prompt.
 The terminal review always remains required.
 
-The bridge supports one classic testnet operation: native payment, manageData, or manageSellOffer.
-It rejects unsupported operations, mainnet, Soroban, fee bumps, and extra signing conditions before approval.
+The bridge supports one classic testnet operation per transaction. See [the protocol](../bridge/PROTOCOL.md) for limits.
 An integration adapter is required. An unchanged website does not automatically discover Walleterm.
 
 `list` returns the Ed25519 public identities exposed by the explicit 1Password socket.

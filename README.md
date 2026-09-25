@@ -2,13 +2,9 @@
 
 A small macOS signing companion for agents using Stellar and 1Password.
 
-Run `walleterm tunnel` to start the independent testnet signing bridge.
-Run `walleterm demo` separately to try the example website.
-The demo uses the same browser client that another integrated website can use.
-See [the bridge guide](docs/WEB-BRIDGE.md) and [protocol](bridge/PROTOCOL.md).
-
 `walleterm` lists public Ed25519 keys and signs 32-byte digests through the 1Password desktop SSH agent.
-It verifies each signature before returning it. The runtime has no third-party Go dependencies.
+It verifies each signature before returning it. The Go binary has no third-party dependencies.
+`walleterm tunnel` also lets a testnet website request signatures that you approve in your terminal.
 
 ## Install
 
@@ -26,7 +22,7 @@ stellar walleterm --help
 `make install` installs the binary and `stellar-walleterm` executable alias into `~/.local/bin`.
 Keep that directory on `PATH`, including in non-interactive agent shells.
 Both commands work from any directory. They do not require a shell alias.
-Run `make install` again after source changes to update the binary and web files together.
+Run `make install` again after source changes to update the binary and bridge files together.
 The installer prepares all dependencies before it switches the command to a complete version.
 A failed build or npm install preserves the previous command. Existing processes keep their original files.
 Version directories stay under `~/.local/share/walleterm/releases` for running processes and rollback.
@@ -40,44 +36,6 @@ Keep this checkout at its current path. The installer preserves conflicting dest
 Generate an Ed25519 SSH key inside the 1Password desktop app.
 Enable that item in the 1Password SSH agent configuration.
 Keep its private-key field concealed. Use its public G-address to select it.
-
-## Start the signing bridge and demo
-
-In one terminal:
-
-```sh
-walleterm tunnel
-```
-
-It shows a public bridge URL, an eight-digit connection code, and a QR code.
-Keep this terminal visible. You approve each signing request here.
-
-In another terminal:
-
-```sh
-walleterm demo
-```
-
-Open the public demo URL or scan its QR code. In the demo, click Scan tunnel and scan the tunnel QR code.
-You can also type the bridge URL and code. Click Connect wallet and select a dedicated testnet wallet.
-Create a demo request. Type the `sign` challenge in the tunnel terminal, then approve 1Password if it asks.
-Submit the signed transaction from the demo.
-The demo selects an existing testnet payment recipient automatically. The bridge needs no recipient.
-
-Both commands show readable links and QR codes without extra flags.
-Either command can stop without stopping the other. Neither command starts automatically at login.
-Keep the Mac awake and the tunnel command running. The tunnel URL changes after a restart.
-Each connection code works once and expires after five minutes. A website session lasts one hour.
-Websites must reconnect after a reload or bridge restart.
-Use only dedicated testnet accounts. This version supports native payments, data entries, and sell offers.
-Other transaction types and mainnet requests fail before approval.
-
-The private bridge journal is `~/Library/Application Support/walleterm/bridge`.
-A crash can leave `.web-lock`; verify its recorded processes stopped before removing only the lock.
-Preserve request records. Interrupted signing remains unknown and never retries automatically.
-The demo stores its submitted hash and signed XDR in browser local storage.
-After an uncertain submission, check the original hash. Do not submit a replacement.
-See [the bridge guide](docs/WEB-BRIDGE.md) for recovery and integration details.
 
 ## Use
 
@@ -96,11 +54,31 @@ Use the CLI or official SDK to calculate digests and insert returned signatures.
 Use Stellar Raven MCP for Stellar questions and contract discovery.
 See [Stellar CLI integration](docs/STELLAR-CLI.md) and [OpenZeppelin formats](docs/OPENZEPPELIN.md).
 The [companion skill](.agents/skills/walleterm/SKILL.md) gives agents the signing workflow.
-The [site bridge skill](.agents/skills/walleterm-site-bridge/SKILL.md) connects testnet websites through reviewed XDR requests.
+The [site bridge skill](.agents/skills/walleterm-site-bridge/SKILL.md) lets an agent intercept an unchanged testnet website.
+
+## Connect a website
+
+Run the bridge in one terminal and the example website in another:
+
+```sh
+walleterm tunnel
+walleterm demo
+```
+
+The tunnel shows a public URL, an eight-digit connection code, and a QR code.
+Open the demo with your phone camera, or on your desktop. In the demo, click Scan tunnel for the tunnel QR code.
+You can also type the tunnel URL and code.
+Select a dedicated testnet wallet. Create a request in the demo.
+Approve it in the tunnel terminal by typing the displayed `sign` challenge, then in 1Password.
+The demo submits the signed transaction to testnet.
+
+A website integrates through [the browser client](sdk/walleterm.js). The code cannot approve a signature.
+The bridge supports testnet native payments, data entries, and sell offers.
+See [the bridge guide](docs/WEB-BRIDGE.md) for setup, recovery, and integration details.
 
 ## Boundaries
 
-The two commands are `list` and `sign`. Manage key creation, names, and archival in 1Password.
+The signing commands are `list` and `sign`. Manage key creation, names, and archival in 1Password.
 The signing command does not know a digest's network, amount, destination, or contract policy.
 Inspect and approve the source artifact before signing it.
 The 1Password prompt identifies the application and key. Cached approval can allow later signatures without another prompt.
@@ -124,7 +102,7 @@ npm test
 Tests run offline with mock keys after dependency installation and fixture compilation.
 The Node suite needs the CAP-71 Rust fixture build shown above.
 Install Rust and its `wasm32v1-none` target for that build.
-Node dependencies support the test tools only.
+The tunnel, demo, and test tools use the Node dependencies. The installer copies only the runtime files.
 See [the live test guide](docs/LIVE-TESTS.md) for fixture builds and dedicated 1Password test keys.
 Live tests request signatures and create testnet transactions and contracts.
 An unknown submission blocks further signing and submission across process restarts.
@@ -134,6 +112,8 @@ Run `node tests/live.mjs reconcile` to query the saved hash without submitting i
 
 The 2026-09-25 testnet run passed classic multisig, fee bumps, mixed G/C accounts, replay, and signer rotation.
 It also passed OpenZeppelin authorization, native CAP-71 delegation, and CAP-85 external executable tests.
+The earlier mobile web proof passed live signing on an iPhone and desktop Chrome.
+The current tunnel passed offline tests and a mock-key browser run. Live signing through it remains untested.
 See [the evidence index](evidence/README.md) for exact coverage and limits.
 
 Git includes source, lockfiles, pinned contract artifacts, and acceptance summaries.

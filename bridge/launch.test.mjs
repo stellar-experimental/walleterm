@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
 import { existsSync, readFileSync } from 'node:fs';
-import { launchService, publicProbe, tunnelOrigin, waitForTunnel } from './launch.mjs';
+import { launchService, publicProbe, publicReady, tunnelOrigin, waitForTunnel } from './launch.mjs';
 
 function fakeChild() {
   const child = new EventEmitter();
@@ -108,4 +108,11 @@ test('an exit immediately after the tunnel URL closes the listener', async () =>
   };
   await assert.rejects(launchService(config, f.options), /stopped/);
   assert.equal(f.output.length, 0); assert.equal(f.service.server.listening, false);
+});
+
+test('readiness requires the exact service name', async () => {
+  const seen = [];
+  const probe = async () => { seen.push(1); return seen.length === 1 ? { status: 200, service: 'walleterm-demo' } : { status: 200, service: 'walleterm' }; };
+  await publicReady('https://bridge-name.trycloudflare.com', { service: 'walleterm', probe });
+  assert.equal(seen.length, 2);
 });

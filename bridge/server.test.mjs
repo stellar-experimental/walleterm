@@ -54,15 +54,18 @@ async function fixture(t, options = {}) {
   return { bridge, directory, origin, request, connect, decide, result, client, calls: () => calls, reviews: () => reviews };
 }
 
-test('short codes expire, rotate once, and stop after five incorrect attempts', async t => {
+test('short codes expire, rotate once, and pause for one minute after five incorrect attempts', async t => {
   let clock = Date.now(); const f = await fixture(t, { now: () => clock });
   const original = f.bridge.pairing.code; assert.match(original, /^\d{8}$/);
   await f.connect(); assert.notEqual(f.bridge.pairing.code, original);
   assert.equal((await f.request('/v1/connect', { code: original })).status, 403);
   clock += 300001; assert.equal((await f.request('/v1/connect', { code: f.bridge.pairing.code })).status, 403);
   clock -= 300001;
-  for (let i = 0; i < 4; i++) assert.equal((await f.request('/v1/connect', { code: 'wrong' })).status, 403);
+  const beforeLock = f.bridge.pairing.code;
+  for (let i = 0; i < 5; i++) assert.equal((await f.request('/v1/connect', { code: 'wrong' })).status, 403);
+  assert.notEqual(f.bridge.pairing.code, beforeLock);
   assert.equal((await f.request('/v1/connect', { code: f.bridge.pairing.code })).status, 429);
+  clock += 60000; assert.equal((await f.request('/v1/connect', { code: f.bridge.pairing.code })).status, 201);
   assert.equal(f.calls(), 0);
 });
 
@@ -194,12 +197,13 @@ test('SDK uses the code and wallet picker, signs, and reconnects after revocatio
   const f = await fixture(t), site = 'https://adapter.example', client = f.client(site);
   const connect = () => client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
   assert.equal((await connect()).address, publicKey); const old = client.connectionId;
+  // The address and network default to the connected account.
   const request = input('sdk'); const result = await client.signTransaction(request.transaction_xdr, {
-    address: publicKey, networkPassphrase: Networks.TESTNET, requestId: request.id, onRequest: () => f.decide(),
-  }); assert.ok(result.signedTxXdr);
+    requestId: request.id, onRequest: () => f.decide(),
+  }); assert.ok(result.signedTxXdr); assert.equal(result.signerAddress, publicKey);
   await f.request('/v1/disconnect', {}, { site, token: client.token });
   await connect(); assert.notEqual(client.connectionId, old);
-  await client.disconnect(); assert.equal(client.token, null);
+  await client.disconnect(); assert.equal(client.token, null); assert.equal(client.account, null);
 });
 
 test('SDK preserves denied state and clears a canceled wallet selection', async t => {

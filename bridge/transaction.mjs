@@ -4,7 +4,7 @@ const reject = message => { throw Object.assign(Error(message), { status: 400 })
 const asset = value => value.isNative() ? { code: 'XLM' } : { code: value.code, issuer: value.issuer };
 export function inspectTransaction(input, publicKey, now = Date.now()) {
   if (input.network_passphrase !== Networks.TESTNET) reject('Only Stellar testnet is supported.');
-  if (input.public_key !== publicKey || !StrKey.isValidEd25519PublicKey(publicKey)) reject('The requested account differs from the approved account.');
+  if (input.public_key !== publicKey || !StrKey.isValidEd25519PublicKey(publicKey)) reject('The requested account differs from the selected account.');
   if (typeof input.transaction_xdr !== 'string' || input.transaction_xdr.length > 32768) reject('The transaction XDR is invalid or too large.');
   let envelope, tx;
   try {
@@ -15,7 +15,7 @@ export function inspectTransaction(input, publicKey, now = Date.now()) {
     reject('Use a classic v1 transaction with only time preconditions.');
   }
   if (tx.toXDR() !== input.transaction_xdr) reject('Use canonical transaction XDR.');
-  if (tx.source !== publicKey || tx.signatures.length || tx.operations.length !== 1) reject('Use one unsigned operation from the approved account.');
+  if (tx.source !== publicKey || tx.signatures.length || tx.operations.length !== 1) reject('Use one unsigned operation from the selected account.');
   if (BigInt(tx.fee) < 100n || BigInt(tx.fee) > 100000n) reject('The fee must be between 100 and 100000 stroops.');
   const min = Number(tx.timeBounds.minTime), max = Number(tx.timeBounds.maxTime);
   if (!Number.isSafeInteger(min) || !Number.isSafeInteger(max) || min > now / 1000 || max * 1000 <= now || max * 1000 > now + 300000) {
@@ -23,7 +23,7 @@ export function inspectTransaction(input, publicKey, now = Date.now()) {
   }
   if (BigInt(tx.sequence) <= 0n) reject('The transaction sequence must be positive.');
   const op = tx.operations[0];
-  if (op.source && op.source !== publicKey) reject('The operation source differs from the approved account.');
+  if (op.source && op.source !== publicKey) reject('The operation source differs from the selected account.');
   let operation;
   if (op.type === 'payment') {
     if (!op.asset.isNative() || !StrKey.isValidEd25519PublicKey(op.destination) || Number(op.amount) <= 0) reject('Use a native payment to a G-address.');
@@ -40,7 +40,7 @@ export function inspectTransaction(input, publicKey, now = Date.now()) {
     operation = { type: op.type, selling: asset(op.selling), buying: asset(op.buying), amount: op.amount,
       price_numerator: raw.price.n, price_denominator: raw.price.d, price_units: 'buying units per selling unit', offer_id: op.offerId,
       effect: Number(op.amount) === 0 ? 'Cancel this offer' : 'Create or update an offer; it can trade immediately' };
-  } else reject('This operation is not supported by bridge version 1.');
+  } else reject('The bridge does not support this operation.');
   const memo = tx.memo;
   const memoValue = memo.value;
   const details = { network: 'TESTNET', source: tx.source, operation_source: op.source || tx.source,
