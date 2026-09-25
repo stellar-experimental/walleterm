@@ -1,6 +1,8 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
 	"flag"
 	"io"
 	"os"
@@ -10,115 +12,105 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+	"time"
 )
 
-type webOptions struct {
-	signer    string
-	recipient string
-	stateDir  string
-	port      int
-	human     bool
+type serviceOptions struct {
+	Port     int    `json:"port"`
+	StateDir string `json:"stateDir,omitempty"`
 }
 
-func parseWebOptions(args []string) (webOptions, error) {
-	var result webOptions
-	flags := flag.NewFlagSet("web", flag.ContinueOnError)
+func serviceUsage(command string) string {
+	if command == "tunnel" {
+		return "walleterm tunnel [--port 8787] [--state-dir PATH]"
+	}
+	return "walleterm demo [--port 8788]"
+}
+
+func parseServiceOptions(command string, args []string) (serviceOptions, error) {
+	var config serviceOptions
+	flags := flag.NewFlagSet(command, flag.ContinueOnError)
 	flags.SetOutput(io.Discard)
-	flags.StringVar(&result.signer, "signer", "", "testnet signer G-address")
-	flags.StringVar(&result.recipient, "recipient", "", "testnet recipient G-address")
-	flags.StringVar(&result.stateDir, "state-dir", "", "durable web journal directory")
-	flags.IntVar(&result.port, "port", 8787, "loopback server port")
-	flags.BoolVar(&result.human, "human", false, "show pairing link and QR code")
-	if err := flags.Parse(args); err != nil || flags.NArg() != 0 {
-		return result, failure("invalid_input", "Use web with --signer, --recipient, and optional --port, --state-dir, --human.")
+	port := 8788
+	if command == "tunnel" {
+		port = 8787
+		flags.StringVar(&config.StateDir, "state-dir", "", "private bridge journal")
 	}
-	if _, err := decodeAddress(result.signer); err != nil {
-		return result, failure("invalid_input", "The signer must be a canonical Ed25519 G-address.")
+	flags.IntVar(&config.Port, "port", port, "loopback server port")
+	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || config.Port < 1 || config.Port > 65535 {
+		return config, failure("invalid_input", "Use "+serviceUsage(command)+".")
 	}
-	if _, err := decodeAddress(result.recipient); err != nil {
-		return result, failure("invalid_input", "The recipient must be a canonical Ed25519 G-address.")
-	}
-	if result.port < 1 || result.port > 65535 {
-		return result, failure("invalid_input", "The port must be between 1 and 65535.")
-	}
-	if result.stateDir == "" {
-		home, err := os.UserHomeDir()
+	if command == "tunnel" {
+		if config.StateDir == "" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return config, failure("start_failed", "The home directory is unavailable.")
+			}
+			config.StateDir = filepath.Join(home, "Library", "Application Support", "walleterm", "bridge")
+		}
+		absolute, err := filepath.Abs(config.StateDir)
 		if err != nil {
-			return result, failure("web_start_failed", "The home directory is unavailable.")
+			return config, failure("invalid_input", "The state directory is invalid.")
 		}
-		result.stateDir = filepath.Join(home, "Library", "Application Support", "walleterm", "web")
+		config.StateDir = absolute
 	}
-	absolute, err := filepath.Abs(result.stateDir)
-	if err != nil {
-		return result, failure("invalid_input", "The state directory is invalid.")
-	}
-	result.stateDir = absolute
-	return result, nil
+	return config, nil
 }
 
-func webLauncher(executable string) (string, error) {
-	base := filepath.Dir(executable)
-	for _, candidate := range []string{
-		filepath.Join(base, "..", "share", "walleterm", "poc", "launcher.mjs"),
-		filepath.Join(base, "..", "poc", "launcher.mjs"),
-	} {
-		path := filepath.Clean(candidate)
-		if info, err := os.Stat(path); err == nil && !info.IsDir() {
-			return path, nil
-		}
+func runServiceCommand(command string, args []string, out io.Writer) int {
+	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
+		return writeOutput(out, serviceUsage(command)+"\nRequires Node.js 22 or later and cloudflared. Shows public links and QR codes.\nThe signing bridge requires macOS and the 1Password SSH agent.\nPress Ctrl+C to stop this service.\n")
 	}
-	return "", failure("web_start_failed", "The web assets are missing. Run make install from the web proof checkout.")
-}
-
-func runWeb(args []string, out io.Writer) int {
-	config, err := parseWebOptions(args)
+	config, err := parseServiceOptions(command, args)
 	if err != nil {
-		return outputError(out, config.human, err)
+		return outputError(out, true, err)
 	}
-	if runtime.GOOS != "darwin" {
-		return outputError(out, config.human, failure("unsupported_platform", "The 1Password web companion requires macOS."))
+	if command == "tunnel" && runtime.GOOS != "darwin" {
+		return outputError(out, true, failure("unsupported_platform", "The signing bridge requires macOS."))
 	}
 	node, err := exec.LookPath("node")
 	if err != nil {
-		return outputError(out, config.human, failure("web_start_failed", "Install Node.js to run the web companion."))
+		return outputError(out, true, failure("start_failed", "Install Node.js 22 or later. On macOS, run: brew install node"))
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	version, versionErr := exec.CommandContext(ctx, node, "--version").Output()
+	major, parseErr := strconv.Atoi(strings.Split(strings.TrimPrefix(strings.TrimSpace(string(version)), "v"), ".")[0])
+	if versionErr != nil || parseErr != nil || major < 22 {
+		return outputError(out, true, failure("start_failed", "Install Node.js 22 or later."))
 	}
 	if _, err := exec.LookPath("cloudflared"); err != nil {
-		return outputError(out, config.human, failure("web_start_failed", "Install cloudflared to run the web companion."))
+		return outputError(out, true, failure("start_failed", "Install cloudflared. On macOS, run: brew install cloudflared"))
 	}
 	binary, err := os.Executable()
 	if err != nil {
-		return outputError(out, config.human, failure("web_start_failed", "The walleterm executable path is unavailable."))
+		return outputError(out, true, err)
 	}
 	binary, err = filepath.EvalSymlinks(binary)
 	if err != nil {
-		return outputError(out, config.human, failure("web_start_failed", "The walleterm executable path is invalid."))
+		return outputError(out, true, err)
 	}
-	launcher, err := webLauncher(binary)
+	directory := "demo"
+	if command == "tunnel" {
+		directory = "bridge"
+	}
+	entry := filepath.Clean(filepath.Join(filepath.Dir(binary), "..", directory, "entry.mjs"))
+	if info, err := os.Stat(entry); err != nil || info.IsDir() {
+		return outputError(out, true, failure("start_failed", "The service files are missing. Run make install from the bridge checkout."))
+	}
+	encoded, err := json.Marshal(config)
 	if err != nil {
-		return outputError(out, config.human, err)
+		return outputError(out, true, err)
 	}
-	command := webCommand(node, launcher, config)
 	environment := make([]string, 0, len(os.Environ())+1)
-	for _, entry := range os.Environ() {
-		if !strings.HasPrefix(entry, "WALLETERM_BINARY=") {
-			environment = append(environment, entry)
+	for _, value := range os.Environ() {
+		if !strings.HasPrefix(value, "WALLETERM_BINARY=") {
+			environment = append(environment, value)
 		}
 	}
 	environment = append(environment, "WALLETERM_BINARY="+binary)
-	if err := syscall.Exec(node, command, environment); err != nil {
-		return outputError(out, config.human, failure("web_start_failed", "The web companion could not start."))
+	if err := syscall.Exec(node, []string{node, entry, string(encoded)}, environment); err != nil {
+		return outputError(out, true, failure("start_failed", "The service could not start."))
 	}
 	return 0
-}
-
-func webCommand(node, launcher string, config webOptions) []string {
-	command := []string{node, launcher, "--recipient", config.recipient,
-		"--port", strconv.Itoa(config.port), "--state-dir", config.stateDir}
-	if config.signer != "" {
-		command = append(command, "--signer", config.signer)
-	}
-	if config.human {
-		command = append(command, "--human")
-	}
-	return command
 }

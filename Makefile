@@ -10,16 +10,8 @@ build:
 	go build -o bin/walleterm .
 	ln -sf walleterm bin/stellar-walleterm
 
-install: build
-	install -d "$(PREFIX)/share/walleterm/poc/site" "$(PREFIX)/share/walleterm/tests"
-	install -m 644 package.json package-lock.json "$(PREFIX)/share/walleterm/"
-	install -m 644 poc/launcher.mjs poc/server.mjs poc/testnet.mjs "$(PREFIX)/share/walleterm/poc/"
-	install -m 644 poc/site/index.html poc/site/app.js poc/site/style.css "$(PREFIX)/share/walleterm/poc/site/"
-	install -m 644 tests/submission.mjs "$(PREFIX)/share/walleterm/tests/"
-	npm ci --prefix "$(PREFIX)/share/walleterm" --omit=dev --ignore-scripts --no-audit --no-fund
-	install -d "$(PREFIX)/bin"
-	install -m 755 bin/walleterm "$(PREFIX)/bin/walleterm"
-	ln -sfn walleterm "$(PREFIX)/bin/stellar-walleterm"
+install:
+	node scripts/install.mjs "$(PREFIX)"
 
 install-skill:
 	@set -eu; \

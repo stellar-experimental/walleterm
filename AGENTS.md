@@ -12,8 +12,12 @@ Target macOS first. Permit human approval through 1Password.
 - Use the official Stellar CLI for transaction construction, network access, and submission where practical.
 - Use Stellar Raven MCP for Stellar research and contract discovery.
 - Research with `parallel-cli` and primary sources. Record source versions and evidence.
-- Return JSON by default. Provide one human-readable output flag.
-- Keep commands, flags, dependencies, and code minimal. Do not build speculative abstractions.
+- Return JSON for commands consumed by agents. Use readable output for interactive setup and service commands.
+- Build only the requested features. Keep commands, dependencies, and code minimal.
+- Prefer one clear workflow with sensible defaults. Derive routine values from reliable context or live data when practical.
+- Add flags, parameters, settings, or prompts only for meaningful choices that cannot be inferred safely.
+- Automate setup and discovery. Keep consequential choices visible for review and preserve required human approval.
+- Do not add speculative abstractions or configuration for hypothetical future needs.
 - Keep custom contracts and complex orchestration in test fixtures unless an accepted use case requires runtime support.
 
 Read `docs/INTERFACE.md` before changing the CLI. Read `docs/PLAN.md` for phase ownership and acceptance.

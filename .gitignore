@@ -3,4 +3,3 @@
 /fixtures/**/target/
 /fixtures/.oz-src/
 /fixtures/vendor/
-/poc/.state/

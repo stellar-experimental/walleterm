@@ -1,7 +1,14 @@
-# Mobile web proof
+# Historical mobile web proof
+
+The combined `web` command below was removed. `walleterm tunnel` and `walleterm demo` replace it.
+Its code remains in the `mobile-web-poc` branch history.
+These records describe the earlier proof. Use [WEB-BRIDGE.md](WEB-BRIDGE.md) for the current commands.
+Earlier live signing evidence does not establish acceptance of the new bridge.
 
 Status: local tests and live iPhone, desktop Chrome, 1Password, and testnet acceptance passed on 2026-09-25.
 The live iPhone used Wi-Fi through iPhone Mirroring. A cellular-only connection remains untested.
+Picker and tunnel hardening passed 68 offline tests and a public browser check on 2026-09-25.
+Those checks did not repeat live signing. See [the hardening evidence](../evidence/mobile-poc/picker-tunnel-hardening.json).
 Desktop Chrome used the same public tunnel and completed all four testnet actions.
 This proof runs only on Stellar testnet. The current `web` command runs a fixed site and its tunnel.
 It does not provide the general signing service for other websites.
@@ -26,7 +33,8 @@ The phone review remains mandatory for each request. See [1Password authorizatio
 
 ## Demo actions
 
-The signer is a dedicated 1Password testnet key. Set it explicitly with `DEMO_SIGNER`.
+The browser lists Ed25519 keys from the 1Password SSH agent. Select a dedicated testnet key before preparing an action.
+`--signer G...` suggests a key but does not select it.
 Set a dedicated recipient with `DEMO_RECIPIENT`. The server offers these fixed actions:
 
 | Action | Exact operation | Expected effect |
@@ -61,10 +69,12 @@ make install
 Start the site and tunnel with dedicated testnet public keys:
 
 ```sh
-walleterm web --signer G... --recipient G... --human
+walleterm web --recipient G... --signer G... --human
 ```
 
 The CLI starts both processes and shows a QR code and a copyable pairing link. Scan the code or open the link in a browser.
+Omit `--signer` when the caller has no preferred key. The browser still lists available keys.
+A paired browser can open `/?preferred=G...` to emphasize a listed key. The user must select the key.
 The link expires after five minutes and pairs one browser. Restart the command to pair another browser.
 The browser stores a session cookie for one hour. Keep the pairing link private.
 The default output is one JSON `web_ready` event. Use `--human` for the terminal QR code.
@@ -72,6 +82,33 @@ Press Ctrl+C to stop the site and tunnel. The CLI preserves the journal in `~/Li
 Use `--state-dir PATH` to select a different journal. Preserve a live journal for reconciliation.
 Quick Tunnels have no uptime guarantee. They suit this proof, not a permanent signer endpoint.
 Cloudflare documents [Quick Tunnel limits](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/).
+
+## Shutdown and recovery
+
+The command uses a private temporary Cloudflare configuration and a restricted child environment.
+It keeps your existing Cloudflare configuration and credentials unchanged.
+The site and metrics listen only on loopback. The public route serves the fixed demo site and its paired API.
+A parent pipe connects the command to the tunnel supervisor. Closing that pipe stops the tunnel child.
+The supervisor also receives kernel EOF after a hard parent crash.
+Startup, network checks, and shutdown have deadlines. Shutdown closes incomplete browser requests.
+The command terminates a child that ignores normal termination.
+
+Each journal has one owner. A second command with the same journal fails with a specific error.
+Normal exit removes `.web-lock`. It preserves all submission records.
+A hard crash can leave `.web-lock/owner.json` in the selected state directory.
+That file records the original process and tunnel supervisor, including the temporary tunnel directory and local port.
+The temporary directory's `child.json` records the cloudflared process.
+Check those process identities and confirm that they stopped before removing only `.web-lock`.
+A reused PID does not identify the original process. Do not kill a process from its PID alone.
+Never delete submission journals to bypass recovery. Restart with the same state directory and reconcile the original hash.
+
+The installer builds and installs dependencies in a separate version directory.
+It switches `~/.local/bin/walleterm` only after that version is complete.
+Existing processes continue with their original version. A failed build or dependency install leaves the command unchanged.
+
+The tunnel is a development service. Cloudflare provides no production availability guarantee for Quick Tunnels.
+See [Cloudflare Quick Tunnels](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/).
+The check used cloudflared `2026.9.1` and documentation marked updated April 20, 2026.
 
 ## Acceptance
 

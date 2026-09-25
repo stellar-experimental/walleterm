@@ -2,11 +2,15 @@
   "name": "walleterm-test-fixtures",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "test:live": "node tests/live.mjs"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "17.1.0",
+    "jsqr": "1.4.0",
     "qrcode": "1.5.4"
   }
 }

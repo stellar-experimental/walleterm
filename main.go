@@ -63,18 +63,22 @@ func run(args []string, in io.Reader, out, diagnostic io.Writer, socketPath stri
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
 		return writeOutput(out, `walleterm list [--human]
 walleterm sign [--human] < request.json
-walleterm web --signer G... --recipient G... [--port 8787] [--state-dir PATH] [--human]
+walleterm tunnel [--port 8787] [--state-dir PATH]
+walleterm demo [--port 8788]
 walleterm --help
 walleterm --version
 
-JSON is the default output format. --human changes only the output format.
+List and sign return JSON by default. --human changes their output format.
+Tunnel and demo print readable public links and QR codes.
 List output: {"ok":true,"signers":[{"public_key":"G...","fingerprint":"SHA256:...","comment":"..."}]}
 Sign input:  {"public_key":"G...","digest":"64 lowercase hexadecimal characters"}
 Sign output: {"ok":true,"public_key":"G...","digest":"...","signature":"128 lowercase hexadecimal characters","verified":true}
 Finish sign input with EOF.
 
 Use 1Password desktop to create, manage, and approve signers.
-Web starts a local testnet site and a temporary Cloudflare Tunnel. --human prints a pairing QR code.
+Tunnel starts the testnet signing bridge. It prints a connection code and QR code for websites.
+Approve each signing request in the tunnel terminal and in 1Password.
+Demo starts an independent example website with its own temporary public URL and QR code.
 The agent signs the 32 digest bytes. It cannot inspect the network, amount, destination, or contract policy.
 Inspect the source transaction before you compute the digest. 1Password does not display Stellar transaction details.
 Use Stellar CLI to construct, inspect, and submit transactions.
@@ -85,8 +89,8 @@ Companion skill: ~/.agents/skills/walleterm/SKILL.md (install with make install-
 	if len(args) == 1 && args[0] == "--version" {
 		return writeOutput(out, "walleterm "+version+"\n")
 	}
-	if len(args) > 0 && args[0] == "web" {
-		return runWeb(args[1:], out)
+	if len(args) > 0 && (args[0] == "tunnel" || args[0] == "demo") {
+		return runServiceCommand(args[0], args[1:], out)
 	}
 	human := false
 	command := ""
