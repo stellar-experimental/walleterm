@@ -62,6 +62,23 @@ const unknown = (error, expectedHash = hash) => {
   assert.equal(error.hash, expectedHash);
   return true;
 };
+
+test('archived rejection cannot clear a newer attempt with the same hash', async t => {
+  let sends = 0;
+  const { guard, gateFile, options } = setup(t, { send: async () => {
+    sends++;
+    if (sends === 1) return { status: 'ERROR', hash, errorResult: {} };
+    throw new Error('The response was lost.');
+  } });
+  const oldAttempt = '11111111-1111-4111-8111-111111111111';
+  const newAttempt = '22222222-2222-4222-8222-222222222222';
+  await assert.rejects(guard.send(tx, 'old', { attempt: oldAttempt }), error => error.code === 'known_rejection');
+  await assert.rejects(guard.send(tx, 'new', { attempt: newAttempt }), unknown);
+  const restarted = createSubmissionGuard(options);
+  assert.throws(() => restarted.recoverKnownRejection(hash, oldAttempt), unknown);
+  assert.equal(restarted.recoverKnownRejection(hash, newAttempt), null);
+  assert.equal(JSON.parse(readFileSync(gateFile, 'utf8')).attempt, newAttempt);
+});
 async function resultAfterTick(promise, clock, ms = 5) {
   // Attach a rejection handler before advancing the injected clock.
   const result = promise.then(value => ({ value }), error => ({ error }));

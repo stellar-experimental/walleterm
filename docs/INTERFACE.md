@@ -8,9 +8,55 @@ The binary name is `walleterm`. A `stellar-walleterm` alias enables Stellar CLI 
 ```text
 walleterm list [--human]
 walleterm sign [--human] < request.json
+walleterm tunnel [--port 8787] [--state-dir PATH]
+walleterm demo [--port 8788]
 walleterm --help
 walleterm --version
 ```
+
+`tunnel` starts the independent signing bridge and its Cloudflare Quick Tunnel.
+It needs no recipient, demo, website build, or network connection to Stellar.
+It accepts supported unsigned testnet XDR through the [bridge protocol](../bridge/PROTOCOL.md).
+It returns signed XDR to the requesting website. It never builds or submits transactions.
+A website connects with a single-use eight-digit code and selects one 1Password key.
+The tunnel terminal reviews each transaction. No HTTP route can approve a signature.
+
+`demo` starts an independent website and its own public Quick Tunnel for phone testing.
+Its local listener binds `127.0.0.1:8788`.
+Stopping the demo does not stop the bridge. Stopping the bridge does not stop the demo.
+The demo uses the same [browser client](../sdk/walleterm.js) that another integrated website can use.
+The demo selects a recent operation source and checks that its testnet account still exists.
+The review shows the selected payment recipient. Neither command accepts `--recipient`.
+
+Both commands need Node.js 22 or later and the installed assets.
+Public mode needs cloudflared. The signing bridge also needs macOS and the 1Password SSH agent.
+Each public service owns a private temporary Cloudflare configuration and a supervised child process.
+Only PATH, HOME, TMPDIR, and LANG enter the tunnel environment. Existing Cloudflare configuration remains unchanged.
+Listeners and tunnel metrics bind loopback. Ctrl+C stops only that command's server and tunnel.
+A parent pipe stops the tunnel after a parent crash. Shutdown uses bounded termination and cleanup.
+
+The bridge journal defaults to `~/Library/Application Support/walleterm/bridge`.
+It must be private, owned by the current user, and have permissions `0700`.
+An exclusive `.web-lock` records process ownership. After a crash, verify recorded processes stopped before removing only that lock.
+Never delete request records to bypass recovery. Restart marks interrupted signing unknown and never retries it.
+
+`tunnel` and `demo` always print readable public links and QR codes.
+The bridge prints its URL, connection code, and a QR code with both. The demo prints a QR code for its public website.
+These interactive commands have no `--human` or `--public` flag.
+
+The public URL and connection code can go to a website. The code cannot approve a signature.
+A connected website can list all 1Password Ed25519 public keys, with their comments and fingerprints.
+Each code works once and expires after five minutes. Five incorrect codes lock connection until restart.
+A website session lasts one hour after key selection. Restart the tunnel to revoke all sessions.
+Website sessions and SDK credentials remain in memory. A website reload requires a new code.
+Each immutable transaction needs a typed `sign` challenge in the tunnel terminal.
+The review shows the signing key's comment and fingerprint. Ctrl+C stops the tunnel, including during a review.
+A 1Password prompt can still require the Mac. Cached 1Password approval can suppress a fresh desktop prompt.
+The terminal review always remains required.
+
+The bridge supports one classic testnet operation: native payment, manageData, or manageSellOffer.
+It rejects unsupported operations, mainnet, Soroban, fee bumps, and extra signing conditions before approval.
+An integration adapter is required. An unchanged website does not automatically discover Walleterm.
 
 `list` returns the Ed25519 public identities exposed by the explicit 1Password socket.
 It does not prove vault membership. Comments are display metadata, never signer identifiers.
@@ -53,8 +99,8 @@ Return one JSON object on standard output and exit nonzero on failure.
 Use stable codes: `invalid_input`, `unsupported_platform`, `agent_unavailable`, `agent_protocol`, `key_not_found`, `signing_refused`, `timeout`, `invalid_signature`, `output_error`.
 Use exit code 2 for invalid input and exit code 1 for other failures.
 Use exit code 0 for success, help, and version.
-Help and version use plain text. All other output defaults to JSON.
-`--human` changes formatting only. It does not change signing behavior or error status.
+Help, version, tunnel, and demo use readable text. List and sign default to JSON.
+`--human` applies to list and sign and changes formatting only. It does not change signing behavior or error status.
 Print a concise key and digest notice to standard error before requesting a signature.
 If that notice fails, return `output_error` without requesting a signature.
 If a result cannot be written, exit nonzero without retrying signing or output.

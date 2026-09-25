@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-25",
+  "branch": "mobile-web-poc",
+  "command": "walleterm web --signer G... --recipient G... --port 8791 --state-dir PATH --human",
+  "install_prefix": "/tmp/walleterm-web-install",
+  "browser": "Chromium through agent-browser",
+  "first_run": {
+    "terminal_qr_rendered": true,
+    "public_pairing": "paired",
+    "replayed_link_in_second_browser": "rejected",
+    "transaction": {
+      "kind": "note",
+      "hash": "c0c23158b04399826d3df901728fcaaa53057b289fe1025942b564b07716b226",
+      "status": "SUCCESS",
+      "ledger": 4868872
+    },
+    "ctrl_c": "closed the local listener and stopped the tunnel"
+  },
+  "final_startup_order": {
+    "loopback_listener_before_tunnel": true,
+    "json_ready_event": true,
+    "public_pairing": "paired",
+    "live_transaction": "not repeated after startup-order change"
+  },
+  "checks": {
+    "node_tests": 47,
+    "go_test": "passed",
+    "go_vet": "passed",
+    "git_diff_check": "passed"
+  }
+}

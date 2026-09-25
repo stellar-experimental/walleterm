@@ -10,10 +10,8 @@ build:
 	go build -o bin/walleterm .
 	ln -sf walleterm bin/stellar-walleterm
 
-install: build
-	install -d "$(PREFIX)/bin"
-	install -m 755 bin/walleterm "$(PREFIX)/bin/walleterm"
-	ln -sfn walleterm "$(PREFIX)/bin/stellar-walleterm"
+install:
+	node scripts/install.mjs "$(PREFIX)"
 
 install-skill:
 	@set -eu; \

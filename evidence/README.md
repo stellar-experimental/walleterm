@@ -25,9 +25,12 @@ The test left no open offers or USDC trustline.
 It records the live hash, ledger, final trustline, page refresh error, and unsigned message request.
 The published Stellar Token Launchpad addresses redirected to a generic site.
 
+[The mobile web proof](mobile-poc/README.md) covers the earlier combined `web` command on an iPhone and desktop Chrome.
+The current `walleterm tunnel` bridge passed offline tests and a mock-key browser run. Live signing through it remains untested.
+
 ## Tracked summaries and local records
 
-Git includes this index, two acceptance summaries, and two site records.
+Git includes this index, two acceptance summaries, two site records, and the mobile proof index and JSON summaries.
 These files contain public testnet addresses, transaction hashes, contract identifiers, and source hashes.
 They contain no signing keys or vault identifiers.
 

@@ -1,0 +1,100 @@
+{
+  "checked_at": "2026-09-25T21:17:00.967851+00:00",
+  "base_commit": "9bf15ebd990cdf4fc58f04a3dcadcc0c713e7b95",
+  "working_tree_changes": "uncommitted",
+  "resolved_picker_findings": [
+    "key-list failure preserves request recovery",
+    "server selection and offers update the browser",
+    "removed keys block new preparation",
+    "expected signer prevents stale-tab preparation"
+  ],
+  "resolved_tunnel_findings": [
+    "private config and allowed child environment",
+    "loopback site and metrics",
+    "exclusive private journal",
+    "bounded startup and shutdown",
+    "parent crash stops supervised cloudflared",
+    "atomic complete-version installation",
+    "effective SDK timeout and cancellation"
+  ],
+  "offline_tests": {
+    "node_passed": 68,
+    "node_failed": 0,
+    "node_skipped": 0,
+    "go_test": "passed",
+    "go_vet": "passed",
+    "git_diff_check": "passed",
+    "crash_test": "actual parent SIGKILL and stubborn mock child exited",
+    "transport_test": "actual SDK request path with offline stalled adapter; timeout=10000 and abort verified"
+  },
+  "independent_review": {
+    "agent": "wt-picker-astra",
+    "model": "gpt-6-astra",
+    "effort": "high",
+    "surface": "Herdr w44:pD",
+    "remaining_material_findings": 0,
+    "limits": "Reviewer sandbox denied some socket binds. Parent ran those tests successfully."
+  },
+  "installed_release": "/Users/kalepail/.local/share/walleterm/releases/304e1bb0ac0c219ee8d8ad7e",
+  "installed_runtime_matches_source": true,
+  "public_test": {
+    "cloudflared_version": "2026.9.1",
+    "conflicting_environment_ignored": [
+      "TUNNEL_URL",
+      "TUNNEL_HELLO_WORLD",
+      "TUNNEL_METRICS",
+      "TUNNEL_LOGLEVEL"
+    ],
+    "pairing": "passed",
+    "public_keys": 5,
+    "explicit_selection": "passed",
+    "prepare_and_cancel": "passed",
+    "simulated_list_failure_kept_review": "passed",
+    "second_journal_owner_rejected": true,
+    "metrics_bind": "127.0.0.1",
+    "shutdown_exit_code": 0,
+    "parent_supervisor_and_tunnel_exited": true,
+    "lock_released": true,
+    "journal_events": [
+      "paired",
+      "signer_selected",
+      "prepared",
+      "canceled"
+    ],
+    "signature_requests": 0,
+    "submissions": 0
+  },
+  "limits": [
+    "No new live signature or transaction acceptance was tested.",
+    "The public check used desktop Chromium, not a phone or cellular connection.",
+    "Quick Tunnels remain a development service.",
+    "A hard crash may require verified removal of only the stale lock."
+  ],
+  "sources": [
+    {
+      "url": "https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/",
+      "page_updated": "2026-04-20",
+      "extraction": "parallel-cli",
+      "accessed": "2026-09-25"
+    },
+    {
+      "package": "@stellar/stellar-sdk",
+      "version": "17.1.0",
+      "evidence": "Installed RpcServer and http-client source plus runtime regression."
+    }
+  ],
+  "sha256": {
+    "package.json": "c3e95d5acb252e9adbf5c67dc4a0ca68b07bd5af4335276c1c88e515d35f0d9c",
+    "package-lock.json": "b5ae19071e779c8a52008c52fb477ad74f07590395f6dfbbd8ea754f0e233674",
+    "poc/launcher.mjs": "5dcc2f9c86060072707a79fa6c5c42d52feb10755b4e51dc8c16a529bf2b2d96",
+    "poc/server.mjs": "52d5298f09cd47a624b8c7aeb1a33ddc6f8b4a650af8eb694bdf294563c1e4c9",
+    "poc/runtime.mjs": "9ac95b324f748889be6dfd68cc62cbf6f3537fc13fd012c41681ac4cb5e929d7",
+    "poc/tunnel-child.mjs": "182f2021eda94a466031610052c81080da31c429f7997c8f617039a27f4ac56c",
+    "poc/testnet.mjs": "6249151cf0acc0be7ed2a9376b9e8241e5c50958005d96cf2fbe0ec64cae2b22",
+    "poc/site/app.js": "77bbcf84cee52cd4e3eea626f8f6c72f1886a14036560593c32c049e28aca928",
+    "poc/site/index.html": "fa9d3382a0020f8744a2b012df331d942ef2a0d29daf6bc1e79c94995b4620b6",
+    "poc/site/style.css": "9d2656cb57b1f91d7458273a03418b9776b6a0de6b199d2b4df6f564abc86211",
+    "tests/submission.mjs": "63dbe3b6b23230c8430bab90842a7fdd33e3ec100a0bf8c649cfe1a7941b802f"
+  },
+  "screenshot": "picker-recovery.png"
+}

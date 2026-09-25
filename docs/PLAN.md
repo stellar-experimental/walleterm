@@ -11,6 +11,8 @@ See [the acceptance summary](../evidence/acceptance-summary.json) for coverage a
 - Require one explicit public key and one 32-byte digest per signature.
 - Verify each returned signature before reporting success.
 - Keep network calls, XDR assembly, and contract adapters outside the Go binary.
+- Keep the testnet website bridge in `tunnel` and `demo`. See [the web bridge](WEB-BRIDGE.md).
+  These commands do not change `list`, `sign`, or their byte contract.
 
 The [interface](INTERFACE.md) defines the input, output, socket checks, and limits.
 Use Stellar CLI or the official SDK to build and inspect transactions.
