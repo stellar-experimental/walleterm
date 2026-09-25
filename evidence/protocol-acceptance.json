@@ -1,0 +1,538 @@
+{
+  "at": "2026-09-25T18:39:00.139803+00:00",
+  "network": "testnet",
+  "protocol": 28,
+  "production_signer_changed": false,
+  "suites": {
+    "cap71": {
+      "rows": [
+        {
+          "id": "CAP71-01",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:21:17.445Z"
+        },
+        {
+          "id": "CAP71-02",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:21:24.219Z"
+        },
+        {
+          "id": "CAP71-03",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:21:29.469Z"
+        },
+        {
+          "id": "CAP71-04",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:21:35.109Z"
+        },
+        {
+          "id": "CAP71-05",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:21:36.696Z"
+        },
+        {
+          "id": "CAP71-06",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:21:37.997Z"
+        },
+        {
+          "id": "CAP71-07",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:31:56.005Z"
+        },
+        {
+          "id": "CAP71-08",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:31:58.015Z"
+        },
+        {
+          "id": "CAP71-09",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:31:58.884Z"
+        },
+        {
+          "id": "CAP71-10",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:32:03.793Z"
+        },
+        {
+          "id": "CAP71-11",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:32:09.023Z"
+        },
+        {
+          "id": "CAP71-12",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:32:18.059Z"
+        }
+      ],
+      "successful_transactions": 19,
+      "transactions": [
+        {
+          "id": "CAP71-upload-cap71_target.wasm.submission",
+          "hash": "d15cb9890da2c7250cebdc6af6248bd8942cef28d2eed6dcafa61b79bdc62ac0",
+          "ledger": 4867367,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:20:22.705Z"
+        },
+        {
+          "id": "CAP71-deploy-target.submission",
+          "hash": "44c3843790f47b3aff1919b11e46b5096c504977b00cdcd4580fc420044413f8",
+          "ledger": 4867368,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:20:27.952Z"
+        },
+        {
+          "id": "CAP71-upload-cap71_delegate.wasm.submission",
+          "hash": "207c2bc027cee1fb373b6d10f5261ddea1bb43ac6ea08626e17e187240447200",
+          "ledger": 4867369,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:20:33.210Z"
+        },
+        {
+          "id": "CAP71-deploy-any.submission",
+          "hash": "1373ff63b82a6a1401ea9f3d1c3f3821a16f8bc1e5badfef161b9f0569248ca1",
+          "ledger": 4867370,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:20:38.464Z"
+        },
+        {
+          "id": "CAP71-deploy-both.submission",
+          "hash": "27ee9541d0758f05ce95c97e405ba46f5fd89e713a40ac0e5fddaef3a4244b05",
+          "ledger": 4867371,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:20:42.252Z"
+        },
+        {
+          "id": "CAP71-deploy-weighted.submission",
+          "hash": "ae071922eb0746a254abd314eef48cd0594ed366a6db6d009d7a0862181e5e17",
+          "ledger": 4867372,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:20:47.659Z"
+        },
+        {
+          "id": "CAP71-deploy-chain.submission",
+          "hash": "68892c536bdc13faa2858db3a2b1e4704bc1fd58cbfca93246561112af6e687d",
+          "ledger": 4867373,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:20:53.009Z"
+        },
+        {
+          "id": "CAP71-upload-cap71_raw_account.wasm.submission",
+          "hash": "332fe1b2954963ea1aae7350160f6323dd716e929ef38fff0a427de82152321d",
+          "ledger": 4867374,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:20:58.272Z"
+        },
+        {
+          "id": "CAP71-deploy-raw1.submission",
+          "hash": "3567ef1210129c2cabc54969e4da6c747fde95fb96b63cd2165817cb37bdf8f5",
+          "ledger": 4867375,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:21:03.679Z"
+        },
+        {
+          "id": "CAP71-deploy-raw2.submission",
+          "hash": "393d78ddce672f3f2cbbd5c28b166ad718fc312503cbc3a26ba2a37e2882e09b",
+          "ledger": 4867376,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:21:07.510Z"
+        },
+        {
+          "id": "CAP71-direct-a.submission",
+          "hash": "78a865d48afc073d53416504a0feaa9af57dc830e0a76287e40296cb1ac2e173",
+          "ledger": 4867377,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:21:13.026Z"
+        },
+        {
+          "id": "CAP71-direct-c.submission",
+          "hash": "3127e230e3f65131e402f8923208c7497d3470333e598b1e091191dc34924bed",
+          "ledger": 4867378,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:21:17.255Z"
+        },
+        {
+          "id": "CAP71-2of2.submission",
+          "hash": "6e54a65dbb7d0d0bdb9dfe44ff82b4d53cc32e8ffc7c023e9e99eb54108a2dbc",
+          "ledger": 4867379,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:21:23.197Z"
+        },
+        {
+          "id": "CAP71-weighted-a.submission",
+          "hash": "a7cdb29586b3716485ec6e9665ff6cb49f837d1ce59a4315ca7cba3bf24f190f",
+          "ledger": 4867380,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:21:28.286Z"
+        },
+        {
+          "id": "CAP71-nested.submission",
+          "hash": "ad126572929c5d7324e84908e6c132d7488a2627fcdc8f593bf43df3025a1f77",
+          "ledger": 4867381,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:21:33.648Z"
+        },
+        {
+          "id": "CAP71-replay-source.submission",
+          "hash": "39ac1388a5894703da8ab1f2bb0633186a65fed4229076890af2215841060969",
+          "ledger": 4867507,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:32:02.884Z"
+        },
+        {
+          "id": "CAP71-substitution-source.submission",
+          "hash": "94e3575ce5711cb5af1ddf8feeb73a19b0e5bf07d6e63e46a4be2bc7fb5cc9a4",
+          "ledger": 4867508,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:32:08.259Z"
+        },
+        {
+          "id": "CAP71-v2-source.submission",
+          "hash": "64e4493e22eb37f48807634509227c04a984cf205c92879a4f0dcfb079a86545",
+          "ledger": 4867509,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:32:13.005Z"
+        },
+        {
+          "id": "CAP71-v2-destination-control.submission",
+          "hash": "363536f6b5e1605a30bb007aab14bcf5b6ec1651506ab729e3d9036199a13a53",
+          "ledger": 4867510,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:32:17.875Z"
+        }
+      ],
+      "checkpoint": "live/cap71-state.json",
+      "events": "live/results-cap71.json",
+      "contracts": {
+        "target": "CDRL4A47ZXDTHQPO6Y4VOWW36Z5TETUHY7SSZVMST73UEELSM5TVBLP6",
+        "any": "CC73POVDYKSRUFSMDJQFBVNJZTMIQP7KH7XI63INJ64YQIJZIAED4M7T",
+        "both": "CC3Q2D3SPXSSSOCMHYYPITRKGNE5DWS3M635MFYX525QVSQZOENMZB5U",
+        "weighted": "CAJJPFEJH7ILY2LGEQCXLBY3YJNSDLNFMH44MB2SHC3DJXYLO4OP2PGF",
+        "chain": "CCVGP6DQERHBVELUAQQ4PXEPPZIVBHJOMBNVNKHOJH4DZ5EA4Y5FDIKP",
+        "raw1": "CAJ5MPOT2FAS5UL6HVGLHXHYCFUGT6BMYQQ2DT672ADUJUP6HEEBIIYN",
+        "raw2": "CB7PHJGGIQ4N5GCFTYZ6KBHZQN2WJSBY6GNH2A2O5QLAINI7FDIQ7Q2Z"
+      }
+    },
+    "cap85": {
+      "rows": [
+        {
+          "id": "X01",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:34:59.694Z"
+        },
+        {
+          "id": "X02",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:35:07.915Z"
+        },
+        {
+          "id": "X03",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:35:17.783Z"
+        },
+        {
+          "id": "X04",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:35:29.395Z"
+        },
+        {
+          "id": "X05",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:35:37.678Z"
+        },
+        {
+          "id": "X06",
+          "status": "passed",
+          "timestamp": "2026-09-25T18:35:53.556Z"
+        },
+        {
+          "id": "X07",
+          "status": "observed",
+          "timestamp": "2026-09-25T18:35:58.093Z"
+        }
+      ],
+      "successful_transactions": 19,
+      "transactions": [
+        {
+          "id": "X-upload-cap85_manager.wasm.submission",
+          "hash": "c14c3096f0ad2caeb4a690809fae553f36557b02d9551a547b3500cdee124aa9",
+          "ledger": 4867536,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:34:27.980Z"
+        },
+        {
+          "id": "X-upload-cap85_target_v1.wasm.submission",
+          "hash": "582adaaa928740959ed1fe9b40789ebf5c8ed8056b4a21e555f25224fd1b92e2",
+          "ledger": 4867537,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:34:33.338Z"
+        },
+        {
+          "id": "X-upload-cap85_target_v2.wasm.submission",
+          "hash": "28a050de925a89cb35f960a3c790b02d343cfe6a3a2aa17031d57af76fd0e483",
+          "ledger": 4867538,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:34:38.567Z"
+        },
+        {
+          "id": "X-upload-cap85_account.wasm.submission",
+          "hash": "85348638e21f0634a2490bab21c0d7c7f31d39a9d1e417de8587764e8663cb6e",
+          "ledger": 4867539,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:34:42.253Z"
+        },
+        {
+          "id": "X-upload-cap85_legacy_account.wasm.submission",
+          "hash": "6826d27be5715e554ef044f0f8766095dc6814aa473c2102f162b34e30540fc0",
+          "ledger": 4867540,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:34:47.860Z"
+        },
+        {
+          "id": "X-deploy-manager.submission",
+          "hash": "d6aeaba9ab68bf96feda0a6009fe4fb76a23047a5242533a347ae04b2fe99ec6",
+          "ledger": 4867541,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:34:53.179Z"
+        },
+        {
+          "id": "X01-set-executable-v1.submission",
+          "hash": "977ec203ab01ac72907031c1cac87911661a997728fa4a43c82b0e1a49e3a85d",
+          "ledger": 4867542,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:34:58.527Z"
+        },
+        {
+          "id": "X02-deploy-external-ref.submission",
+          "hash": "2afa4c427e63a040b08efd2681472be65e5e94ad3992c4c3371b046dd86a39cb",
+          "ledger": 4867543,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:35:03.338Z"
+        },
+        {
+          "id": "X02-ping.submission",
+          "hash": "088a39915b90e474fdd9e1100bac7078b80a94ca11f3cce40b44352419c6a518",
+          "ledger": 4867544,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:35:07.753Z"
+        },
+        {
+          "id": "X03-set-executable-v2.submission",
+          "hash": "d107e652fea1b9dbc8402976ca75e245acb830de60bdbd4c449081c116b42207",
+          "ledger": 4867545,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:35:13.244Z"
+        },
+        {
+          "id": "X03-ping.submission",
+          "hash": "e958b0c3e613f7539ea85d141f75cdc6ea2765b4e2e107f1f65853b48f526f5c",
+          "ledger": 4867546,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:35:17.620Z"
+        },
+        {
+          "id": "X-deploy-account28.submission",
+          "hash": "c27a09634ecb21116fee4e03481d6edced6fdbb1ad7fac5a27880429d5862a09",
+          "ledger": 4867547,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:35:22.989Z"
+        },
+        {
+          "id": "X04-account-creates-external-ref.submission",
+          "hash": "83fc0d8e0916504ba4f5ea8d1f1ec74fbfc44e39800c09ded5bc4aeb42017df6",
+          "ledger": 4867548,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:35:28.495Z"
+        },
+        {
+          "id": "X-deploy-legacy27.submission",
+          "hash": "ac4e765000f062476862a74ba7bc78c6198200242fd98fffe2ae3f1fb62adbeb",
+          "ledger": 4867549,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:35:33.151Z"
+        },
+        {
+          "id": "X05-legacy-reads-wasm.submission",
+          "hash": "0640253569a011109e62c6a918d1a052b63e54918f84f1bf74a7b7c74c0d6ace",
+          "ledger": 4867550,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:35:37.663Z"
+        },
+        {
+          "id": "X-deploy-target_plain.submission",
+          "hash": "56b120a3cf220d5d4c2ae755e9150deddafffcd82b5eeb924324efca6bd1eb9e",
+          "ledger": 4867551,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:35:43.028Z"
+        },
+        {
+          "id": "X06-adopt-ref.submission",
+          "hash": "d90b4c13c2a799902f7477b994bd037b8747c319c34f5af1122d0e97cca3dd2f",
+          "ledger": 4867552,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:35:47.610Z"
+        },
+        {
+          "id": "X06-adopt-wasm.submission",
+          "hash": "33d59ebb36af8b6cc67e45cd6bc3f0f9a141e0626a453bc0cfefee8323d03beb",
+          "ledger": 4867553,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:35:53.275Z"
+        },
+        {
+          "id": "X07-simple-ignores-external-ref.submission",
+          "hash": "01943b70a9a732c2751a2247d3757c1f510910f2b7ac9bec39914f15b92a77ae",
+          "ledger": 4867554,
+          "transaction_status": "SUCCESS",
+          "timestamp": "2026-09-25T18:35:57.543Z"
+        }
+      ],
+      "checkpoint": "live/cap85-state.json",
+      "events": "live/results-cap85.json",
+      "contracts": {
+        "manager": {
+          "id": "CDKJN34VXSECF4MNUE3P6NKEAI2CA6DIPHFHWOQI6E3DGHGTGOFVNBUA",
+          "executable": {
+            "type": "wasm",
+            "file": "cap85_manager.wasm",
+            "wasm_hash": "d915a50e94b706705283301ea179b3715867a9bf45ba4029967695e066dd099e"
+          },
+          "tx": "d6aeaba9ab68bf96feda0a6009fe4fb76a23047a5242533a347ae04b2fe99ec6"
+        },
+        "target_ref": {
+          "id": "CDQXZP7HGPPLL5V6CLYHTNOKSAFRR6WYYNZCYZQQYWKAP4CF6G225FWQ",
+          "executable": {
+            "type": "external_ref",
+            "owner": "CDKJN34VXSECF4MNUE3P6NKEAI2CA6DIPHFHWOQI6E3DGHGTGOFVNBUA",
+            "tag": "target"
+          },
+          "tx": "2afa4c427e63a040b08efd2681472be65e5e94ad3992c4c3371b046dd86a39cb"
+        },
+        "account28": {
+          "id": "CDFU5KMK3SBOW5R5WMKRG464Y6NPX6PJIOFUU3CNI5BQTKSA4EB2OVYY",
+          "executable": {
+            "type": "wasm",
+            "file": "cap85_account.wasm",
+            "wasm_hash": "cb8c23b2681fb882d6f7e793f4f59ead3332703adc3135eb33d052fdc825b78e"
+          },
+          "tx": "c27a09634ecb21116fee4e03481d6edced6fdbb1ad7fac5a27880429d5862a09"
+        },
+        "legacy27": {
+          "id": "CCJWYAMYHKD32CTJL7EAJX5KKZAR37E67I4EI7T3K74GK4FPJ2QWLGKL",
+          "executable": {
+            "type": "wasm",
+            "file": "cap85_legacy_account.wasm",
+            "wasm_hash": "374bc0ece798c922a36ff29759dda3b88bb2c5939b4fd2d985788e7481f993b3"
+          },
+          "tx": "ac4e765000f062476862a74ba7bc78c6198200242fd98fffe2ae3f1fb62adbeb"
+        },
+        "target_plain": {
+          "id": "CA6B7FNOXOZ6YTCKVUIQGJXWBWVG6AAHBRHA47SH5O6GQ7LTA4RU5LNA",
+          "executable": {
+            "type": "wasm",
+            "file": "cap85_target_v1.wasm",
+            "wasm_hash": "b7ddc5072489e878f81bd4559c066212304313330cfb0444f95b130c9dc2a954"
+          },
+          "tx": "56b120a3cf220d5d4c2ae755e9150deddafffcd82b5eeb924324efca6bd1eb9e"
+        }
+      }
+    }
+  },
+  "cap71_delegate_array_evidence": [
+    {
+      "row": "CAP71-07",
+      "level": "root",
+      "basis": "successful_unmutated_control_and_exact_delegate_array_mutation",
+      "diagnostic_available": false,
+      "observed_error": "HostError: Error(Auth, InvalidInput)\nDebugInfo not available\n",
+      "control_ledger": 4867505,
+      "mutated_ledger": 4867505,
+      "expiration": 4867625,
+      "specific_reason_observed": false
+    },
+    {
+      "row": "CAP71-07",
+      "level": "nested",
+      "basis": "successful_unmutated_control_and_exact_delegate_array_mutation",
+      "diagnostic_available": false,
+      "observed_error": "HostError: Error(Auth, InvalidInput)\nDebugInfo not available\n",
+      "control_ledger": 4867505,
+      "mutated_ledger": 4867505,
+      "expiration": 4867625,
+      "specific_reason_observed": false
+    },
+    {
+      "row": "CAP71-08",
+      "level": "root",
+      "basis": "successful_unmutated_control_and_exact_delegate_array_mutation",
+      "diagnostic_available": false,
+      "observed_error": "HostError: Error(Auth, InvalidInput)\nDebugInfo not available\n",
+      "control_ledger": 4867505,
+      "mutated_ledger": 4867505,
+      "expiration": 4867625,
+      "specific_reason_observed": false
+    },
+    {
+      "row": "CAP71-08",
+      "level": "nested",
+      "basis": "successful_unmutated_control_and_exact_delegate_array_mutation",
+      "diagnostic_available": false,
+      "observed_error": "HostError: Error(Auth, InvalidInput)\nDebugInfo not available\n",
+      "control_ledger": 4867506,
+      "mutated_ledger": 4867506,
+      "expiration": 4867626,
+      "specific_reason_observed": false
+    }
+  ],
+  "cap85_observations": {
+    "simple_ignores_contexts_external_ref": {
+      "account": "CCFWE52VMHNKA2ZXANJSHHCK64LFINGNEGDIS2MPBYQ3JJP6ILIUD5MZ",
+      "outcome": "submitted",
+      "observed": "accepted",
+      "hash": "01943b70a9a732c2751a2247d3757c1f510910f2b7ac9bec39914f15b92a77ae"
+    },
+    "oz_sdk27_external_ref": {
+      "account": "CCTHYTKMKC3TV2ZT2ZGGGXMUKE4VROVXLKQQRCU5FRYUCRBIYX5NYYMF",
+      "outcome": "simulation_rejected",
+      "observed": "rejected"
+    }
+  },
+  "limits": [
+    "CAP71-07/08 observed Auth/InvalidInput with successful paired controls. The RPC omitted diagnostics, so specific reason text was not observable.",
+    "The duplicate mutation proves invalid-array rejection; it cannot distinguish duplicate rejection from ordering rejection.",
+    "X07 records observed SDK 27 simple-account acceptance and pinned OpenZeppelin rejection. It is not a separate passing assertion row.",
+    "Coverage applies to these fixtures and signature adapters. Passkeys and OpenZeppelin Delegated C-address adapters remain untested.",
+    "CAP-72 remains outside this implementation. An unresolved NOT_FOUND submission requires manual evidence review."
+  ],
+  "reviews": {
+    "cap71": "review-cap71.md",
+    "cap85": "review-cap85.md",
+    "cap85_fixes": "cap85-review-resolution.json",
+    "skill": "review-protocol-skill.md",
+    "skill_forward_test": "protocol-skill-forward/validation.json"
+  },
+  "offline": {
+    "cap71_node": 17,
+    "cap71_rust": 8,
+    "cap85_regressions_node": 9,
+    "cap85_rust": 14,
+    "cap85_adapter_self_test": "passed",
+    "shared_submission_and_checkpoint_node": 37
+  },
+  "final_state": {
+    "evidence": "protocol-after.json",
+    "signers_and_thresholds_unchanged": true,
+    "pending_submission": null,
+    "local_inflight": null
+  },
+  "installation": "protocol-installation.json",
+  "source_sha256": {
+    "tests/cap71.mjs": "9b82ee6f8c9407760c63ef1bb3068d0e5417a59be8f0df8ab32ff108e2c244e7",
+    "tests/cap71.test.mjs": "60cfeade7a473c3c1ca3f7ceae6fe6bef016d0d5e93b51d63be39086cf18ddbc",
+    "tests/cap85.mjs": "3e68d3f746cf78b185667a7ce63df2ab0de404333431a08efaf6be120733d73d",
+    "tests/cap85.test.mjs": "406734eb0dfe1ff59ec0e5aa827c8ccdbe084e2661bb660e8188a908392c3750",
+    "tests/live.mjs": "b7f43a11426c087c1fb594e963cc9068b7dcb501bc6385bf867f435c6be87bd5"
+  }
+}

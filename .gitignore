@@ -3,3 +3,32 @@
 /fixtures/**/target/
 /fixtures/.oz-src/
 /fixtures/vendor/
+
+# Local configuration and credentials.
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.1pux
+*.1pif
+
+# Generated files.
+.DS_Store
+*.log
+*.tmp
+*.swp
+*.swo
+coverage.out
+**/test_snapshots/
+
+# Keep run state, signer metadata, and review scratch files on this machine.
+# Never delete unresolved submission journals as part of cleanup.
+/evidence/*
+!/evidence/README.md
+!/evidence/acceptance-summary.json
+!/evidence/protocol-acceptance.json

@@ -5,7 +5,7 @@ import { mkdtempSync, writeFileSync, readFileSync, readdirSync, rmSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { signTree, replaceAddress, corruptDelegateOrder, removeGLeafSignature, loadCheckpoint, saveCheckpoint, assertRejection, runCap71 } from './cap71.mjs';
+import { signTree, replaceAddress, corruptDelegateOrder, removeGLeafSignature, loadCheckpoint, saveCheckpoint, assertRejection, enforceDelegateOrder, runCap71 } from './cap71.mjs';
 import { addressCredentials } from './contracts.mjs';
 import { UnknownSubmission } from './submission.mjs';
 
@@ -137,6 +137,88 @@ test('error oracle checks exact contract code and duplicate diagnostic', () => {
   assertRejection(sdk, simulation('Error(Auth, InvalidInput)', 'delegated signers contain duplicate address'), {
     code: 'Error(Auth, InvalidInput)', reason: 'delegated signers contain duplicate address',
   });
+});
+
+async function pairedFixture({ mode = 'duplicate', nested = false, control, mutated } = {}) {
+  const ctx = context();
+  const leaves = [{ address: keys.a.publicKey }, { address: keys.c.publicKey }];
+  const tree = nested ? [{ address: contract(3), nestedDelegates: leaves }] : leaves;
+  const signed = await signTree(ctx, entry(), tree, 200, 'offline-pair', 28);
+  const tx = new sdk.TransactionBuilder(new sdk.Account(keys.a.publicKey, '1'), { fee: '100', networkPassphrase: ctx.networkPassphrase })
+    .addOperation(sdk.Operation.invokeContractFunction({ contract: contract(2), function: 'ping', args: [sdk.xdr.ScVal.scvU32(1)], auth: [signed.entry] }))
+    .setTimeout(120).build();
+  const calls = [];
+  const success = { transactionData: {}, result: { retval: sdk.xdr.ScVal.scvU32(1) }, latestLedger: 100 };
+  const noDebug = { error: 'HostError: Error(Auth, InvalidInput)\nDebugInfo not available', latestLedger: 101, events: [] };
+  ctx.rpc = { async simulateTransaction(received, _resource, authMode) {
+    assert.equal(authMode, 'enforce'); calls.push(received);
+    return calls.length === 1 ? (control ?? success) : (mutated ?? noDebug);
+  } };
+  ctx.sign = ctx.send = ctx.signDigest = async () => { throw new Error('Paired comparisons must not sign or submit'); };
+  return { ctx, tx, calls, signed, run: () => enforceDelegateOrder(ctx, tx, { mode, nested, label: 'offline-pair' }) };
+}
+
+test('paired root and nested comparisons use a successful control and preserve signed fields', async () => {
+  for (const mode of ['duplicate', 'unordered']) for (const nested of [false, true]) {
+    const f = await pairedFixture({ mode, nested });
+    const result = await f.run();
+    assert.equal(f.calls.length, 2);
+    assert.equal(f.calls[0].toXDR(), f.tx.toXDR());
+    const original = f.signed.entry; const altered = result.entry;
+    assert.deepEqual(addressCredentials(original).toXdr(), addressCredentials(altered).toXdr());
+    assert.deepEqual(original.rootInvocation.toXdr(), altered.rootInvocation.toXdr());
+    const flatten = nodes => nodes.flatMap(n => [[sdk.Address.fromScAddress(n.address).toString(), n.signature.toXdr('base64')], ...flatten(n.nestedDelegates)]);
+    const originals = new Map(flatten(original.credentials.addressWithDelegates.delegates));
+    for (const [address, signature] of flatten(altered.credentials.addressWithDelegates.delegates)) assert.equal(signature, originals.get(address));
+    assert.equal(result.paired.control.digest, result.paired.mutated.digest);
+    assert.equal(result.paired.control.auth_xdr, original.toXdr('base64'));
+    assert.equal(result.paired.mutated.auth_xdr, altered.toXdr('base64'));
+    assert.equal(result.paired.control.unsigned_tx_xdr, f.calls[0].toXDR());
+    assert.equal(result.paired.mutated.unsigned_tx_xdr, f.calls[1].toXDR());
+    assert.equal(result.paired.control.ledger, 100);
+    assert.equal(result.paired.mutated.ledger, 101);
+    assert.equal(result.paired.diagnostic_available, false);
+    assert.equal(result.paired.basis, 'successful_unmutated_control_and_exact_delegate_array_mutation');
+    assert.equal(result.paired.control.expiration, 200);
+  }
+});
+
+test('paired comparison rejects failed or incomplete controls before mutation simulation', async () => {
+  for (const control of [
+    { error: 'Error(Crypto, InvalidInput)', latestLedger: 100 },
+    { result: {}, latestLedger: 100 },
+    { transactionData: {}, result: {}, restorePreamble: { transactionData: {} }, latestLedger: 100 },
+  ]) {
+    const f = await pairedFixture({ control });
+    await assert.rejects(f.run(), /Unmutated delegate control failed/);
+    assert.equal(f.calls.length, 1);
+  }
+});
+
+test('paired comparison rejects wrong errors and available contradictory diagnostics', async () => {
+  for (const error of [
+    'HostError: Error(Auth, ExistingValue)\nDebugInfo not available',
+    'HostError: Error(Auth, InvalidAction)\nError(Auth, InvalidInput)',
+    'HostError: Error(Auth, InvalidInput)\nsignature has expired',
+    'HostError: Error(Auth, InvalidInput)',
+  ]) {
+    const f = await pairedFixture({ mutated: { error, latestLedger: 101 } });
+    await assert.rejects(f.run(), /Unexpected mutated delegate error|Expected diagnostic/);
+  }
+  const f = await pairedFixture({ mutated: {
+    error: 'HostError: Error(Auth, InvalidInput)\ndelegated signers contain duplicate address', latestLedger: 101,
+  } });
+  assert.equal((await f.run()).paired.diagnostic_available, true);
+});
+
+test('paired comparison rejects expired, nearly expired, missing, or reversed ledger evidence', async () => {
+  for (const latestLedger of [200, 195, undefined, 99]) {
+    const f = await pairedFixture({ mutated: { error: 'HostError: Error(Auth, InvalidInput)\nDebugInfo not available', latestLedger } });
+    await assert.rejects(f.run(), /expiration is not safely valid|Invalid comparison ledger/);
+  }
+  const f = await pairedFixture({ control: { transactionData: {}, result: {}, latestLedger: 195 } });
+  await assert.rejects(f.run(), /expiration is not safely valid/);
+  assert.equal(f.calls.length, 1);
 });
 
 test('checkpoint fails closed on corruption, binding change, and interrupted submission', t => {

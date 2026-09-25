@@ -1,4 +1,4 @@
-// Contract-account acceptance lane for docs/TEST-MATRIX.md rows C01-C13.
+// Contract-account acceptance for docs/TEST-MATRIX.md rows C01-C13.
 // Exports runContracts(ctx). ctx comes from tests/live-utils.mjs.
 // `node tests/contracts.mjs` runs the offline self-test: no network, no agent.
 //

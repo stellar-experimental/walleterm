@@ -7,6 +7,9 @@ It verifies each signature before returning it. The runtime has no third-party G
 
 ## Install
 
+Install Go, the 1Password desktop app, and the Stellar CLI first.
+Enable the 1Password SSH agent in the desktop app.
+
 ```sh
 make install
 make install-skill
@@ -37,7 +40,7 @@ walleterm list --human
 printf '%s\n' '{"public_key":"G...","digest":"64 lowercase hexadecimal characters"}' | walleterm sign
 ```
 
-Success returns JSON containing the public key, digest, raw signature in hexadecimal, and `verified: true`.
+Signing success returns JSON with the public key, digest, hexadecimal signature, and `verified: true`.
 Failure returns JSON with a stable error code and a nonzero exit status.
 See [the interface](docs/INTERFACE.md) for exact fields and limits.
 
@@ -61,23 +64,30 @@ Use dedicated wallet keys. A shared SSH key can authorize other systems with the
 The runtime supports Ed25519. Passkeys remain a separate future task.
 Contract accounts require their exact authorization digest and signature structure.
 
-## Tests and execution plan
+## Tests
 
 ```sh
 make test
 npm ci --ignore-scripts
-node tests/live.mjs classic
-node tests/live.mjs contracts
-node tests/live.mjs extended
+cargo build --locked --manifest-path fixtures/cap71/Cargo.toml --workspace --release --target wasm32v1-none
+npm test
 ```
 
-Live tests use dedicated testnet keys and request 1Password approvals.
-They create testnet transactions and contracts.
+Tests run offline with mock keys after dependency installation and fixture compilation.
+The Node suite needs the CAP-71 Rust fixture build shown above.
+Install Rust and its `wasm32v1-none` target for that build.
+Node dependencies support the test tools only.
+See [the live test guide](docs/LIVE-TESTS.md) for fixture builds and dedicated 1Password test keys.
+Live tests request signatures and create testnet transactions and contracts.
 An unknown submission blocks further signing and submission across process restarts.
 Run `node tests/live.mjs reconcile` to query the saved hash without submitting it again.
-Read [the plan](docs/PLAN.md) and [test matrix](docs/TEST-MATRIX.md) before running them.
 
-The live raw signing proof passed. See [the evidence](evidence/1password-feasibility.json).
-All ten classic scenarios and the Stellar CLI pipeline passed on testnet.
-Contract acceptance also passed, including OpenZeppelin multisig, mixed G/C accounts, nested calls, replay, and rotation.
-See [the evidence index](evidence/README.md) for coverage, corrections, and limits.
+## Verified coverage
+
+The 2026-09-25 testnet run passed classic multisig, fee bumps, mixed G/C accounts, replay, and signer rotation.
+It also passed OpenZeppelin authorization, native CAP-71 delegation, and CAP-85 external executable tests.
+See [the evidence index](evidence/README.md) for exact coverage and limits.
+
+Git includes source, lockfiles, pinned contract artifacts, and acceptance summaries.
+Local signer metadata, submission journals, raw evidence, and build caches stay ignored.
+Keep unresolved submission journals until their original transaction hashes are resolved.

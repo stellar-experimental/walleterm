@@ -143,6 +143,55 @@ export function assertRejection(sdk, simulation, expected) {
   return text;
 }
 
+// Only the order/duplicate negatives use this paired oracle. Other negatives remain strict.
+export async function enforceDelegateOrder(ctx, controlTx, { mode, nested = false, label }) {
+  const { sdk, rpc, networkPassphrase } = ctx;
+  assert(['duplicate', 'unordered'].includes(mode));
+  assert.equal(controlTx.operations.length, 1);
+  assert.equal(controlTx.signatures.length, 0);
+  const op = controlTx.operations[0];
+  assert.equal(op.auth.length, 1);
+  const original = op.auth[0];
+  const expiration = addressCredentials(original).signatureExpirationLedger;
+  const preimage = sdk.buildAuthorizationEntryPreimage(original, expiration, networkPassphrase);
+  const payloadDigest = sha(preimage.toXdr()).toString('hex');
+  const replaceAuth = entry => sdk.TransactionBuilder.cloneFrom(controlTx).clearOperations().addOperation(
+    sdk.Operation.invokeHostFunction({ source: op.source, func: op.func, auth: [entry] })).build();
+  assert.equal(replaceAuth(original).toXDR(), controlTx.toXDR(), 'Control reconstruction changed transaction fields');
+  const fresh = (sim, earlier = 0) => {
+    assert(Number.isSafeInteger(sim.latestLedger) && sim.latestLedger >= earlier, 'Invalid comparison ledger');
+    assert(expiration - sim.latestLedger >= 10, 'Delegate comparison expiration is not safely valid');
+  };
+  const control = await rpc.simulateTransaction(controlTx, undefined, 'enforce');
+  assert(sdk.rpc.Api.isSimulationSuccess(control) && !sdk.rpc.Api.isSimulationError(control) &&
+    !sdk.rpc.Api.isSimulationRestore(control) && control.result, `Unmutated delegate control failed: ${control.error ?? 'no successful result'}`);
+  fresh(control);
+  const controlEvidence = { outcome: 'enforce_success', ledger: control.latestLedger,
+    auth_xdr: original.toXdr('base64'), unsigned_tx_xdr: controlTx.toXDR(), digest: payloadDigest, expiration };
+  ctx.record(`${label}:control`, 'passed', controlEvidence);
+
+  // This helper changes only array duplication or order, including at the nested level.
+  const entry = corruptDelegateOrder(sdk, original, mode, nested);
+  assert.equal(addressCredentials(entry).toXdr('base64'), addressCredentials(original).toXdr('base64'));
+  assert.equal(entry.rootInvocation.toXdr('base64'), original.rootInvocation.toXdr('base64'));
+  assert.equal(sdk.buildAuthorizationEntryPreimage(entry, expiration, networkPassphrase).toXdr('base64'), preimage.toXdr('base64'));
+  const tx = replaceAuth(entry);
+  const sim = await rpc.simulateTransaction(tx, undefined, 'enforce');
+  fresh(sim, control.latestLedger);
+  assert(sdk.rpc.Api.isSimulationError(sim), 'Mutated delegate array unexpectedly succeeded');
+  const expected = { code: 'Error(Auth, InvalidInput)', reason: mode === 'duplicate'
+    ? 'delegated signers contain duplicate address' : 'delegated signer addresses are not in sorted order' };
+  const top = String(sim.error).match(/^(?:HostError: )?(Error\([^)]*\))/)?.[1];
+  assert.equal(top, expected.code, 'Unexpected mutated delegate error');
+  const unavailable = !(sim.events?.length) && /^(?:HostError: )?Error\(Auth, InvalidInput\)\s*\nDebugInfo not available$/.test(String(sim.error).trim());
+  const error = unavailable ? errorText(sdk, sim) : assertRejection(sdk, sim, expected);
+  const paired = { basis: 'successful_unmutated_control_and_exact_delegate_array_mutation', mode, nested,
+    diagnostic_available: !unavailable, minimum_expiration_margin_ledgers: 10, control: controlEvidence,
+    mutated: { outcome: 'enforce_rejected', ledger: sim.latestLedger, auth_xdr: entry.toXdr('base64'),
+      unsigned_tx_xdr: tx.toXDR(), digest: payloadDigest, expiration, error } };
+  return { entry, tx, sim, error, expected, paired };
+}
+
 export async function runCap71(ctx) {
   const selected = new Set((ctx.rows ?? process.env.WALLETERM_ROWS?.split(',') ?? ROW_IDS).map(s => s.trim()));
   for (const id of selected) assert(ROW_IDS.includes(id), `Unknown CAP71 row: ${id}`);
@@ -232,7 +281,7 @@ export async function runCap71(ctx) {
   const expected = code => ({ code: `Error(Contract, #${code})` });
   const crypto = { code: 'Error(Crypto, InvalidInput)' };
 
-  async function call(label, who, { delegates = tree('a'), raw = false, presigned, mutate, expect, expired = false } = {}) {
+  async function call(label, who, { delegates = tree('a'), raw = false, presigned, mutate, expect, expired = false, orderMutation } = {}) {
     ctx.assertClear();
     if (state.checks[label]) return state.checks[label];
     let evidence = state.steps[label];
@@ -271,15 +320,23 @@ export async function runCap71(ctx) {
         signed = { entry: authorized, signatures };
       } else signed = await signTree(ctx, entries[0], delegates, expiration, label, protocol);
       let entry = mutate ? mutate(clone(sdk, signed.entry)) : signed.entry;
+      let tx, sim, comparison;
+      if (orderMutation) {
+        assert(!mutate && !raw && !presigned && !expired, 'Order comparison must use a fresh unmutated native entry');
+        const controlTx = await txFor(sdk.Operation.invokeHostFunction({ func: recordedTx.operations[0].func, auth: [signed.entry] }));
+        comparison = await enforceDelegateOrder(ctx, controlTx, { ...orderMutation, label });
+        assert.deepEqual(expect, comparison.expected);
+        ({ entry, tx, sim } = comparison);
+      } else ({ tx, sim } = await simFor(sdk.Operation.invokeHostFunction({ func: recordedTx.operations[0].func, auth: [entry] }), 'enforce'));
       const credentials = addressCredentials(entry);
       const actualPreimage = sdk.buildAuthorizationEntryPreimage(entry, credentials.signatureExpirationLedger, ctx.networkPassphrase);
-      const { tx, sim } = await simFor(sdk.Operation.invokeHostFunction({ func: recordedTx.operations[0].func, auth: [entry] }), 'enforce');
       evidence = { who, state_before: before, protocol, credential_type: entry.credentials.type,
         preimage_type: actualPreimage.type, nonce: String(credentials.nonce), expiration: credentials.signatureExpirationLedger,
         actual_preimage_xdr: actualPreimage.toXdr('base64'), actual_digest: sha(actualPreimage.toXdr()).toString('hex'),
-        signatures: signed.signatures, auth_xdr: entry.toXdr('base64'), unsigned_tx_xdr: tx.toXDR(), ledger_at_enforce: sim.latestLedger };
+        signatures: signed.signatures, auth_xdr: entry.toXdr('base64'), unsigned_tx_xdr: tx.toXDR(), ledger_at_enforce: sim.latestLedger,
+        ...(comparison ? { paired_control: comparison.paired } : {}) };
       if (expect) {
-        evidence.error = assertRejection(sdk, sim, expect);
+        evidence.error = comparison ? comparison.error : assertRejection(sdk, sim, expect);
         evidence.expected = expect;
         evidence.outcome = 'simulation_rejected';
       } else evidence = await submit(label, tx, sim, evidence);
@@ -311,8 +368,8 @@ export async function runCap71(ctx) {
     ...['duplicate', 'unordered'].map((mode, index) => [`CAP71-0${index + 7}`, async () => {
       const expect = { code: 'Error(Auth, InvalidInput)', reason: mode === 'duplicate'
         ? 'delegated signers contain duplicate address' : 'delegated signer addresses are not in sorted order' };
-      return { root: await call(`CAP71-${mode}`, c.both, { delegates: tree('a', 'c'), mutate: e => corruptDelegateOrder(sdk, e, mode), expect }),
-        nested: await call(`CAP71-${mode}-nested`, c.chain, { delegates: nested(), mutate: e => corruptDelegateOrder(sdk, e, mode, true), expect }) };
+      return { root: await call(`CAP71-${mode}`, c.both, { delegates: tree('a', 'c'), orderMutation: { mode }, expect }),
+        nested: await call(`CAP71-${mode}-nested`, c.chain, { delegates: nested(), orderMutation: { mode, nested: true }, expect }) };
     }]),
     ['CAP71-09', async () => call('CAP71-expired', c.any, { expired: true, expect: { code: 'Error(Auth, InvalidInput)', reason: 'signature has expired' } })],
     ['CAP71-10', async () => {

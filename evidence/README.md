@@ -1,50 +1,35 @@
-# Verification evidence
+# Acceptance evidence
 
-Date: 2026-09-25. Network: Stellar testnet.
+The acceptance runs used Stellar testnet on 2026-09-25.
 
-| Check | Result | Evidence |
-| --- | --- | --- |
-| Raw 1Password Ed25519 signing | Passed | `1password-feasibility.json` |
-| Go protocol tests and static checks | Passed | `make test` |
-| Installation and executable alias | Passed | `installation.json`; fresh shells from `/tmp` |
-| Classic G01-G10 | Passed | `live/results-classic.json` |
-| Official Stellar CLI pipeline | Passed | `CLI01` in `live/results-classic.json` |
-| Contract fixture deployment | Passed | `live/contracts-state.json` |
-| Contract C01-C13 | Passed; C09 is a coverage reference | `live/results-contracts.json` |
-| Live approval denial | Passed | `1password-lifecycle.json`; observed Deny returned no signature |
-| Cached approval | Observed | Later signature requests succeeded without new prompts |
-| Locked desktop app and connection loss | Passed | `1password-lifecycle.json`; agent closed the connection after about 60 seconds |
-| Pending request cancellation | Passed | `1password-lifecycle.json`; SIGINT returned no signature |
-| Portable skill installation | Passed | `skill-installation.json`, `skill-portability.json` |
-| Submission recovery guard | Passed offline | 35 cases in `tests/submission.test.mjs` |
-| Independent installed CLI use | Passed | `usability/FINAL.md`; payment and legacy OpenZeppelin multisig authorization |
-| Extended authorization E01-E03 | Passed | `live/results-extended.json`; native multisig, delegated signatures, and rule changes |
-| Passkeys | Not implemented | The runtime supports Ed25519 |
+| Suite | Result |
+| --- | --- |
+| 1Password signing | Raw Ed25519 signatures passed independent verification |
+| Classic | G01-G10 and the Stellar CLI pipeline passed |
+| Contract accounts | C01-C08 and C10-C13 passed; C09 references sponsor coverage |
+| Extended authorization | E01-E03 passed |
+| Native CAP-71 delegation | CAP71-01 through CAP71-12 passed |
+| CAP-85 external executables | X01-X06 passed; X07 recorded observations |
+| Approval failures | Observed denial, cancellation, and locked-app connection closure returned no signature |
+| Passkeys | Not implemented |
 
-`tool-versions.json` records the local tool versions.
-`../fixtures/wasm/manifest.json` records the contract source commit and WASM hashes.
-`REVIEW.md` records review findings and their corrections.
-`review-followup-resolutions.md` records the final review corrections.
-`review-guard-integration.md` records the independent guard integration review.
-`acceptance-summary.json` combines the recorded results and remaining limits.
+[The acceptance summary](acceptance-summary.json) records all suites and their limits.
+[The protocol summary](protocol-acceptance.json) records the 38 CAP-71/CAP-85 transaction hashes and ledgers.
+[Protocol notes](../docs/PROTOCOL-UPDATES.md) explain the diagnostic limits and older account behavior.
 
-## Read the records
+## Tracked summaries and local records
 
-The result files contain events and outcomes. A `prepared` event is not a passed acceptance test.
-The transaction files contain signed public envelopes, transaction hashes, RPC responses, and ledger results.
-`live/signatures.jsonl` contains public signing requests and independently verified signatures.
-Local unit tests use isolated mock keys. Live tests use only the dedicated 1Password keys.
+Git includes this index and the two reviewed summaries.
+The summaries contain public testnet addresses, transaction hashes, contract identifiers, and source hashes.
+They contain no signing keys or vault identifiers.
 
-G02 configured thresholds before adding signers in one transaction. The actual transaction passed.
-Its hash is `0b94d56d41dbc6d0b9f3ac52ee8b603e570fc39bc4447b45d612bd12db8626e6`.
-Its ledger is `4865508`. The classic suite restored the original signer settings.
+Raw evidence stays local and ignored: signer metadata, signed envelopes, signatures, RPC responses, checkpoints, and review scratch files.
+Paths in the summaries identify those local records. A fresh clone does not contain them.
+Source hashes identify the tested revision; later comment edits can change file hashes without changing behavior.
 
-## Local application changes
+A `prepared` event records intent. It does not establish a passed test.
+A `passed_previous_run` event reuses earlier evidence. It is not a new live run.
+An `observed` event records an outcome without an acceptance assertion.
 
-The three dedicated keys are in the Private vault. `public-test-keys.json` records their public metadata.
-The existing 1Password SSH agent configuration gained three explicit item entries.
-The previous configuration is saved at `/tmp/walleterm-v2-agent-before.toml`.
-Existing vault items remain unchanged.
-
-Earlier denial attempts returned signatures. The later observed Deny established refusal behavior.
-The tests kept the existing approval settings. The user unlocked 1Password after the failure tests.
+Preserve unresolved submission journals and checkpoints. Ignored files are not disposable while a transaction outcome remains unknown.
+See [live test setup](../docs/LIVE-TESTS.md) before starting a new run.

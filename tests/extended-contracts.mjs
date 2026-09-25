@@ -5,8 +5,8 @@
 // E02 OpenZeppelin `Signer::Delegated(G_b)`: a second auth entry rooted at oz.__check_auth([auth_digest]).
 // E03 OpenZeppelin contract-specific context rule, threshold update through `execute`, rule removal.
 //
-// Seams from tests/contracts.mjs: invoke (with extraAuth), submitSourceOnly, checkCheckpoint, UnknownSubmission,
-// addressCredentials, and the ScVal builders. Deployments use an isolated wrapper and an own checkpoint file.
+// Shared helpers: invoke (with extraAuth), submitSourceOnly, checkCheckpoint, UnknownSubmission,
+// addressCredentials, and the ScVal builders. Deployments use a separate checkpoint file.
 // The baseline checkpoint (nine instances) is validated and read only.
 import { readFileSync, writeFileSync, openSync, fsyncSync, closeSync, renameSync, existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';

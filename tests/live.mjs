@@ -13,9 +13,12 @@ const runners = {
   cap85: ['cap85', 'runCap85'],
 };
 if (!runners[selected]) throw new Error('Use classic, contracts, extended, cap71, cap85, or reconcile');
-ctx.assertClear();
-ctx.record('environment', 'passed', { network: 'testnet', version: await ctx.rpc.getVersionInfo(), keys: Object.fromEntries(Object.entries(ctx.keys).map(([name, key]) => [name, key.publicKey])) });
-for (const key of Object.values(ctx.keys)) await ctx.fund(key);
+// CAP-85 reconciles both journals before it funds or signs anything.
+if (selected !== 'cap85') {
+  ctx.assertClear();
+  ctx.record('environment', 'passed', { network: 'testnet', version: await ctx.rpc.getVersionInfo(), keys: Object.fromEntries(Object.entries(ctx.keys).map(([name, key]) => [name, key.publicKey])) });
+  for (const key of Object.values(ctx.keys)) await ctx.fund(key);
+}
 const [file, run] = runners[selected];
 const module = await import(`./${file}.mjs`);
 await module[run](ctx);

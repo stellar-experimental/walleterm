@@ -1,7 +1,0 @@
-{
-  "variant": "address",
-  "expiration_ledger": 4866775,
-  "signature_payload": "78eda8e8b513e06f4d54e7b36a72a2856667dcec80d9cb5a95016d68f628b4fd",
-  "context_rule_ids_xdr": "0000001000000001000000010000000300000000",
-  "auth_digest": "16027dafd8f365001d63e7ca6a66c0bf3119d3c35ab1732530f3f37620c1b740"
-}

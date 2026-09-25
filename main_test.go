@@ -19,7 +19,7 @@ import (
 
 // SEP-23 v1.3.0, valid non-multiplexed account test case.
 const sep23Address = "GA7QYNF7SOWQ3GLR2BGMZEHXAVIRZA4KVWLTJJFC7MGXUA74P7UJVSGZ"
-const sep23Key = "3f0c34bf93ad0d9971d04ccc90f705511c838aad9734a4a2fb0d7a03fc7fe89a"
+const sep23Key = "3f0c34bf93ad0d9971d04ccc90f705511c838aad9734a4a2fb0d7a03fc7fe89a" // gitleaks:allow -- Published public-key test vector.
 
 func TestStrKeyPublishedVector(t *testing.T) {
 	key, _ := hex.DecodeString(sep23Key)

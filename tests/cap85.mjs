@@ -18,7 +18,7 @@ const MANIFEST = new URL('../fixtures/cap85/wasm/manifest.json', import.meta.url
 const WASM_DIR = new URL('../fixtures/cap85/wasm/', import.meta.url);
 const EXPIRY_LEDGERS = 60;
 // The checkpoint path travels with the state object (symbol key: copied by spread, ignored by JSON).
-// saveState has no default path, so offline tests can never write the live checkpoint by accident.
+// Offline tests bind temporary paths. saveState requires an explicit or previously bound path.
 const FILE = Symbol('checkpoint-file');
 export const TAG = 'target';
 export const ROW_IDS = ['X01', 'X02', 'X03', 'X04', 'X05', 'X06', 'X07'];
@@ -274,7 +274,8 @@ export async function reconcileInflight(ctx, state) {
   }
   const result = await ctx.rpc.getTransaction(inflight.hash);
   if (result.status === 'SUCCESS') {
-    const reconciled = { outcome: 'reconciled', hash: inflight.hash, ledger: result.ledger, status: result.status, predicted: inflight.predicted, retval_address: inflight.predicted?.contract, note: 'result recovered from the network after an interrupted attempt' };
+    const counter = await checkCounter(ctx, inflight);
+    const reconciled = { outcome: 'reconciled', hash: inflight.hash, ledger: result.ledger, status: result.status, predicted: inflight.predicted, retval_address: inflight.predicted?.contract, ...counter, note: 'result recovered from the network after an interrupted attempt' };
     state.steps[inflight.key] = reconciled;
     delete state.inflight; saveState(state);
     ctx.record(`${inflight.row}.${inflight.label}`, 'reconciled', reconciled);
@@ -286,6 +287,30 @@ export async function reconcileInflight(ctx, state) {
     return { cleared: true, label: inflight.label, reason: 'previous attempt FAILED' };
   }
   throw new UnknownSubmission(inflight.label, inflight.hash, new Error(`interrupted attempt has status ${result.status}; reconcile before any new signing`));
+}
+export async function checkCounter(ctx, inflight) {
+  const increment = { 'X02:ping': 1, 'X03:ping': 2 }[inflight.key];
+  if (!increment) return {};
+  const check = inflight.counter_check;
+  if (!check || !Number.isSafeInteger(check.before) || check.before < 0 || check.increment !== increment || !check.target || check.who !== ctx.keys.a.publicKey) {
+    throw new Error(`${inflight.key}: missing or invalid durable counter precondition`);
+  }
+  const after = await readU32(ctx, check.target, 'count', [addr(ctx.sdk, check.who)]);
+  if (after !== check.before + increment) throw new Error(`${inflight.key}: counter mismatch ${check.before} -> ${after}, expected +${increment}`);
+  return { count_before: check.before, count_after: after };
+}
+export async function prepareCap85(ctx, state) {
+  // The shared gate queries only its saved hash. Unknown outcomes stop this path.
+  await ctx.reconcile();
+  const result = await reconcileInflight(ctx, state);
+  ctx.assertClear();
+  return result;
+}
+export function assertCreatedReference(details, manager, wasmHash) {
+  const exe = details.created_instance_executable;
+  if (!details.created || details.created !== details.external_ref_creation_passes.predicted?.contract || exe?.type !== 'external_ref' || exe.owner !== manager || exe.tag !== TAG || details.created_version !== 2 || details.created_resolved_wasm !== wasmHash) {
+    throw new Error('X04: created contract must use the expected manager, tag, and v2 executable');
+  }
 }
 const stepper = (ctx, state, rowId, details) => async (label, fn, predicted) => {
   const key = `${rowId}:${label}`;
@@ -364,13 +389,12 @@ async function x02(ctx, state) {
   details.version = await readU32(ctx, target, 'version');
   details.resolved_wasm = await readOptionalHash(ctx, manager, 'resolved_wasm', [addr(sdk, target)]);
   if (details.version !== 1 || details.resolved_wasm !== state.wasm[FILES.v1].hash) throw new Error(`X02: expected v1, got version ${details.version} resolved ${details.resolved_wasm}`);
-  // Before and after counts live inside the step, so a resumed run keeps the original delta.
+  // Persist the precondition before submission; reconciliation repeats the same check.
   details.ping = await step('ping', async () => {
     const before = await readU32(ctx, target, 'count', [addr(sdk, keys.a.publicKey)]);
+    state.inflight.counter_check = { target, who: keys.a.publicKey, before, increment: 1 }; saveState(state);
     const r = await submitSource(ctx, state, call(sdk, target, 'ping', addr(sdk, keys.a.publicKey), u32(sdk, 1)), 'X02-ping');
-    const after = await readU32(ctx, target, 'count', [addr(sdk, keys.a.publicKey)]);
-    if (after !== before + 1) throw new Error(`X02: v1 should add 1, counter went ${before} -> ${after}`);
-    return { ...r, count_before: before, count_after: after };
+    return { ...r, ...await checkCounter(ctx, state.inflight) };
   });
   return details;
 }
@@ -389,17 +413,16 @@ async function x03(ctx, state) {
   if (details.version !== 2 || details.resolved_wasm !== v2 || details.instance_executable.type !== 'external_ref') throw new Error(`X03: expected v2 behind the same reference, got version ${details.version}`);
   details.ping = await step('ping', async () => {
     const before = await readU32(ctx, target, 'count', [addr(sdk, keys.a.publicKey)]);
+    state.inflight.counter_check = { target, who: keys.a.publicKey, before, increment: 2 }; saveState(state);
     const r = await submitSource(ctx, state, call(sdk, target, 'ping', addr(sdk, keys.a.publicKey), u32(sdk, 1)), 'X03-ping');
-    const after = await readU32(ctx, target, 'count', [addr(sdk, keys.a.publicKey)]);
-    if (after !== before + 2) throw new Error(`X03: v2 should add 2, counter went ${before} -> ${after}`);
-    return { ...r, count_before: before, count_after: after };
+    return { ...r, ...await checkCounter(ctx, state.inflight) };
   });
   return details;
 }
 
 async function x04(ctx, state, manifest) {
   const { sdk, keys } = ctx;
-  const manager = state.contracts.manager?.id; if (!manager) throw new Error('X04 needs X01');
+  const manager = state.contracts.manager?.id; if (!manager || !state.done.X03) throw new Error('X04 needs X03 (v2 reference)');
   const details = { title: 'SDK 28 custom account authorizes creation only through the trusted ExternalRef' };
   const step = stepper(ctx, state, 'X04', details);
   const account = await deployWasm(ctx, state, manifest, step, 'account28', FILES.account28, [bytes(sdk, keys.c.rawPublicKey), addr(sdk, manager)]);
@@ -412,6 +435,8 @@ async function x04(ctx, state, manifest) {
   details.created = created;
   details.created_instance_executable = await readInstanceExecutable(ctx, created);
   details.created_version = await readU32(ctx, created, 'version');
+  details.created_resolved_wasm = await readOptionalHash(ctx, manager, 'resolved_wasm', [addr(sdk, created)]);
+  assertCreatedReference(details, manager, state.wasm[FILES.v2].hash);
   details.wasm_creation_rejected = await step('account-rejects-wasm', () => invokeOperation(ctx, state, { operation: createContractOp(sdk, { deployer: account, executable: wasmExecutable(sdk, state.wasm[FILES.v1].hash), salt: randomBytes(32), constructorArgs: [addr(sdk, keys.b.publicKey)] }), authorizers: signer, label: 'X04-account-rejects-wasm', expect: X.accountNotExternalRef }));
   return details;
 }
@@ -481,10 +506,10 @@ export async function runCap85(ctx) {
   const network = await ctx.rpc.getNetwork();
   if (network.passphrase !== sdk.Networks.TESTNET) throw new Error(`cap85 runs on testnet only; RPC reports ${network.passphrase}`);
   if (!(network.protocolVersion >= 28)) throw new Error(`cap85 needs protocol 28 or later, network reports ${network.protocolVersion}`);
+  const reconciled = await prepareCap85(ctx, state);
+  if (reconciled) ctx.record('X-inflight', 'reconciled', reconciled);
   for (const key of [ctx.keys.a, ctx.keys.b, ctx.keys.c]) await ctx.fund(key);
   ctx.record('X-setup', 'passed', { protocol_version: network.protocolVersion, network: network.passphrase, manifest: { soroban_sdk: manifest.workspaces, toolchain: manifest.toolchain, artifacts: manifest.artifacts }, payer: ctx.keys.a.publicKey });
-  const reconciled = await reconcileInflight(ctx, state);
-  if (reconciled) ctx.record('X-inflight', 'reconciled', reconciled);
   for (const row of ROWS) {
     if (!selected.has(row.id)) { ctx.record(row.id, 'not_run', { reason: 'not selected' }); continue; }
     if (state.done[row.id]) { ctx.record(row.id, row.status === 'observed' ? 'observed_previous_run' : 'passed_previous_run', { reused_evidence: true, ...state.done[row.id] }); continue; }

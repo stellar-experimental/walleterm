@@ -13,15 +13,12 @@
 - Test complex multisig and multiple accounts on Stellar testnet.
 - Use Herdr with Astra, Fable, Opus, Grok, and Sol for suitable tasks.
 - Use Stellar Raven MCP and `parallel-cli` for research.
-- Dedicated test items may use vault `kxx6p3pmtgq2hsrsjh4gakqfdi`.
+- Use a vault authorized for dedicated test items.
 - Use new dedicated test keys. Preserve all existing vault items.
 
 ## Current evidence
 
-The workspace started empty, without Git metadata.
-The installed Stellar CLI reports version 27.1.0.
-The installed 1Password CLI reports version 2.39.0.
-The standard macOS 1Password SSH agent socket exists.
+The acceptance run used Stellar CLI 27.1.0 and 1Password CLI 2.39.0.
 The live signing feasibility check passed with a fresh desktop-generated key.
 Independent Node.js verification passed, and an altered payload failed verification.
 G01-G10 passed on testnet, including weighted multisig, fee bumps, multiple sources, and signer rotation.

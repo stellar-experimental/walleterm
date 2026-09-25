@@ -1,10 +1,10 @@
 # CAP-85 fixtures: externally managed contract executables
 
-Status: built locally. No key was created. No vault was read. No signature was
-made. No network state was changed by the build. Live rows run only through the
-parent harness (`node tests/live.mjs cap85`) inside a granted live window.
+These contracts are test fixtures. Do not use them as production accounts.
+The build does not access keys or change network state.
+X01-X06 passed on testnet; X07 recorded observations. See `../../docs/PROTOCOL-UPDATES.md` for the limits.
 
-Specification: CAP-0085 (cached at `/tmp/walleterm-protocol-review/cap-0085.txt`).
+Specification: [CAP-0085](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0085.md).
 Testnet reports protocol 28, which activates CAP-85. The installed
 `@stellar/stellar-sdk` 17.1.0 carries the CAP-85 XDR
 (`contractExecutableExternalRef`, `scvExecutableTag`, `createContractV2`).
@@ -55,8 +55,8 @@ protocol 28 test host:
   decodes its contexts) accepts an `ExternalRef` creation context.
 
 So "SDK 27 account" is not one behavior. Accounts that decode contexts break.
-Accounts that ignore contexts do not. Row X05 records the live outcome for
-both, plus the OpenZeppelin 0.7.x account (decodes contexts).
+Accounts that ignore contexts do not. X05 tests the context-reading fixture.
+X07 records the baseline simple account and the OpenZeppelin 0.7.x account.
 
 ## Rows (`tests/cap85.mjs`)
 
@@ -65,7 +65,7 @@ both, plus the OpenZeppelin 0.7.x account (decodes contexts).
 | X01 | Upload five wasm files, deploy the manager (admin key B), point `target` at v1 with B's auth entry. Read the entry through the contract and through the ledger. Negatives: stale version `Error(Contract, #2)`; unknown Wasm hash `Error(Storage, MissingValue)` with host diagnostic `Wasm does not exist`; key C signing B's admin entry `Error(Contract, #5)` with `signer does not belong to account`. |
 | X02 | Deploy a target through `ExternalRef` with deployer A. Check the derived address, the instance executable (owner and tag), `version() == 1`, the resolved Wasm hash, and one `ping` with its before and after counts. |
 | X03 | B moves the reference to v2. Same address reports `version() == 2`, the resolved hash is v2, and one `ping` grows the counter by 2. |
-| X04 | The SDK 28 account (owner key C) authorizes a creation through `ExternalRef`. The same account rejects a Wasm creation with `Error(Contract, #2)`. |
+| X04 | The SDK 28 account (owner key C) authorizes a creation through `ExternalRef`. Check the derived address, owner, tag, v2 version, and resolved hash. The account rejects a Wasm creation with `Error(Contract, #2)`. |
 | X05 | The SDK 27 context-reading account rejects an `ExternalRef` creation with `Error(Value, MissingValue)` and accepts a Wasm creation. |
 | X06 | A Wasm-deployed target adopts the reference (`version` becomes 2), then adopts v1 Wasm again. |
 | X07 | Observation only, status `observed`: `simple_account_b` (ignores contexts, expected to accept) and `oz_basic_a` (matches contexts, expected to reject) with an `ExternalRef` creation. Outcomes are recorded, not asserted. |
@@ -97,6 +97,12 @@ send. A rerun that finds a marker queries that hash: `SUCCESS` reconciles the
 step from the network, `FAILED` clears it for a rerun, anything else fails
 closed. Finished steps and rows are reported as `passed_previous_run`.
 
+Startup reconciles the shared submission journal and the local checkpoint before funding or signing.
+X02 and X03 persist their counter preconditions before submission.
+SUCCESS recovery checks the original counter delta before it caches the step.
+A missing precondition or incorrect counter keeps the checkpoint and stops the run.
+X04 requires X03's v2 reference and checks its owner, tag, version, and resolved hash.
+
 The runner accepts the testnet passphrase only, checks the RPC network and
 protocol 28, and stops at the first failed row.
 
@@ -105,4 +111,5 @@ protocol 28, and stops at the first failed row.
 ```sh
 sh fixtures/cap85/build.sh      # both workspaces, tests, manifest
 node tests/cap85.mjs            # offline self-test, no agent, no network
+node --test tests/cap85.test.mjs # recovery and executable regression tests
 ```

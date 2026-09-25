@@ -3,20 +3,6 @@
 This work started on 2026-09-25. It extends the existing Ed25519 testnet acceptance suite.
 The production signing interface remains one selected public key and one 32-byte digest.
 
-## Ownership
-
-| Owner | Files | Task |
-| --- | --- | --- |
-| wt-astra | `fixtures/cap71/**`, `tests/cap71.mjs`, `tests/cap71.test.mjs` | Native delegation contracts, adapter, and tests |
-| wt-fable | `fixtures/cap85/**`, `tests/cap85.mjs`, `tests/cap85.test.mjs` | External executable reference contracts, adapter, and tests |
-| wt-opus | `.agents/skills/walleterm/**` | Holistic skill review and focused improvements |
-| Parent | Shared harness, documentation, acceptance summaries | Integration and serialized live execution |
-
-Workers request ownership changes before editing shared files.
-The parent assigns independent reviews after each implementation is ready.
-Only the parent or its designated live worker signs and submits testnet transactions.
-The existing submission guard stops signing and submission after an unknown outcome.
-
 ## Acceptance
 
 ### CAP-71
@@ -57,3 +43,51 @@ The existing submission guard stops signing and submission after an unknown outc
 
 CAP-72 remains a draft. Passkeys remain outside this work.
 Neither item blocks these Ed25519 compatibility tests.
+
+## Completed acceptance
+
+Both live suites completed on protocol 28 testnet on 2026-09-25.
+
+| Suite | Result | Successful transactions |
+| --- | --- | --- |
+| CAP-71 | CAP71-01 through CAP71-12 passed | 19 |
+| CAP-85 | X01-X06 passed; X07 recorded observations | 19 |
+
+The 38 transactions include uploads, deployments, and positive controls.
+Negative cases used live enforce simulation and checked unchanged state where applicable.
+The test accounts kept their original signers and thresholds. Both local checkpoints and the shared submission gate are clear.
+The Go source and installed binary hashes remain unchanged.
+The installed `walleterm` command and `stellar walleterm` plugin command both work from `/tmp`.
+
+CAP71-07 initially stopped because the RPC omitted its diagnostic reason.
+The corrected test uses a successful identical control and changes only the delegate array.
+CAP71-07 and CAP71-08 then passed at root and nested levels.
+They returned exactly `Error(Auth, InvalidInput)` with no diagnostic reason.
+The duplicate case proves invalid-array rejection; it cannot distinguish duplicate rejection from ordering rejection.
+The evidence retains the expected reason as an expectation. That reason was not observable live.
+
+All three CAP-85 review blockers were resolved before live execution.
+SUCCESS recovery now checks durable counter preconditions. Startup reconciles both journals before funding or signing.
+X04 checks the created address, reference owner, tag, version, and resolved hash.
+It requires version 2 because X03 upgrades the reference first.
+The nine focused regression tests and the adapter self-test passed.
+The shared submission and checkpoint tests passed all 37 cases.
+
+X07 observed different behavior in two older accounts.
+The simple account accepted external-reference creation. The pinned OpenZeppelin account rejected its unsupported `ExternalRef` context.
+X07 remains an observation row. It does not count as an asserted pass.
+
+The skill review and independent offline usage test completed.
+The skill now covers native delegation and executable resolution through optional references.
+The local skill links resolve to the maintained project source. Its structure and relative links validate.
+
+## Evidence
+
+- [Protocol results and all transaction hashes](../evidence/protocol-acceptance.json)
+- [Evidence storage and interpretation](../evidence/README.md)
+
+Raw reviews, account snapshots, installation checks, and skill usage artifacts remain local under `evidence/`.
+The protocol summary lists their paths. Git excludes these machine-specific records.
+
+Passkeys, CAP-72, and OpenZeppelin `Delegated` C-address adapters remain outside these claims.
+Native CAP-71 C-address delegation passed with the dedicated fixtures.

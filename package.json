@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test": "node --test tests/*.test.mjs && node tests/contracts.mjs && node tests/extended-contracts.mjs && node tests/cap85.mjs",
     "test:live": "node tests/live.mjs"
   },
   "devDependencies": {

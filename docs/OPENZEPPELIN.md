@@ -1,8 +1,7 @@
 # OpenZeppelin Stellar Smart Accounts: Ed25519 signing compatibility
 
-Status: source research dated 2026-09-25. The research worker made no signatures or network changes.
-The parent later proved live raw signing; see `../evidence/1password-feasibility.json`.
-The pinned OpenZeppelin accounts also passed testnet acceptance. See `../evidence/acceptance-summary.json`.
+This reference pins source research and testnet acceptance from 2026-09-25.
+See [the acceptance summary](../evidence/acceptance-summary.json) for tested account formats and limits.
 
 This document records what the OpenZeppelin `stellar-accounts` crate requires
 from an external Ed25519 signer, such as a key in the 1Password SSH agent.
@@ -346,7 +345,9 @@ The local `stellar-xdr 27.0.0` defines two auth preimage arms:
 
 The live protocol 28 tests returned `sorobanCredentialsAddressV2` for G-account and C-account authorization.
 SDK 17.1.0 `authorizeEntry` selected the `WITH_ADDRESS` preimage. These signatures passed live verification.
-Legacy address credentials use the other arm. Local checks cover that path; this run makes no live V1 claim.
+Legacy address credentials use the other arm.
+An independent installed-CLI test passed one OpenZeppelin multisig call with legacy `address` credentials.
+That result does not establish coverage for every legacy account format.
 OpenZeppelin consumes the resulting 32-byte host payload, then applies its additional hash.
 
 ## 5. Signer roles: G-address versus C-address
@@ -408,9 +409,9 @@ Verified from primary sources:
   when configured so. Keys never leave 1Password
   (1Password agent security page).
 
-The parent verified that the installed 1Password agent accepts a 32-byte arbitrary `data` value.
-See `../evidence/1password-feasibility.json` for the exact payload and independent verification. The Git commit signing docs show that it signs SSHSIG data for
-`ssh-keygen -Y sign`, so it does sign non-session data. The recorded proof establishes the 32-byte case.
+The live signing proof verified a signature over 32 arbitrary bytes from the 1Password agent.
+The local `evidence/1password-feasibility.json` records the payload and independent verification.
+Git excludes raw run evidence; see [the evidence index](../evidence/README.md).
 
 Mapping for the companion:
 
@@ -425,9 +426,8 @@ Mapping for the companion:
 1. `stellar contract invoke ... --build-only` produces the envelope XDR.
    Simulation returns the auth entry for the C-address with
    `signature: void`.
-2. The companion computes `signature_payload` from the preimage (section 4,
-   open item 4.1), then `auth_digest` (section 2.3).
-3. The companion asks the 1Password agent to sign `auth_digest`.
+2. The caller computes `signature_payload` from the preimage (section 4.1), then `auth_digest` (section 2.3).
+3. The caller asks `walleterm` to sign `auth_digest` through the 1Password agent.
 4. The companion builds the `AuthPayload` `ScVal` (section 2.2), sets it in
    `SorobanAddressCredentials.signature`, sets `nonce` and
    `signatureExpirationLedger`, and re-simulates in enforce mode

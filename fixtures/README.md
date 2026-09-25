@@ -99,11 +99,15 @@ cases change both the call arguments and the entry after signing and expect
 `Error(Crypto, InvalidInput)`. Tree-mismatch cases change only the entry and
 expect `Error(Auth, InvalidAction)`.
 
-## Not implemented
+## Extended coverage
 
 `node tests/live.mjs extended` passed E01-E03 on testnet.
 These rows cover native G multisig, OpenZeppelin delegated G signers, and contract-specific rules.
 They also cover threshold updates, rule removal, and nested delegated calls.
 The extended runner keeps a separate checkpoint and labels reused evidence `passed_previous_run`.
 It preserves account B's original settings and restores them after E01.
-CAP-71 delegate credentials, delegated C-address signers, and passkeys remain outside these claims.
+The separate `cap71/` fixtures cover native delegated credentials, including nested C-address delegates.
+CAP71-01 through CAP71-12 passed on protocol 28 testnet.
+See `../docs/PROTOCOL-UPDATES.md` for evidence and diagnostic limits.
+The `cap85/` fixtures cover external executable references and account context compatibility.
+Passkeys remain outside these Ed25519 claims.

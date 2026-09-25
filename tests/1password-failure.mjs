@@ -1,17 +1,19 @@
 // Parent-operated live lifecycle probe. Uses only dedicated test key A.
 // Arguments: evidence label, optional delay before SIGINT (milliseconds).
 import { spawn } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHash, createPublicKey, verify } from 'node:crypto';
 import { homedir } from 'node:os';
+import { StrKey } from '@stellar/stellar-sdk';
 
 const [label, cancelAfter] = process.argv.slice(2);
 if (!/^[a-z0-9-]+$/.test(label ?? '')) throw new Error('Provide a lowercase evidence label');
 const metadata = JSON.parse(readFileSync(new URL('../evidence/public-test-keys.json', import.meta.url)));
 const raw = Buffer.from(metadata.keys[0].raw_public_key_hex, 'hex');
-const key = 'GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA';
+const key = StrKey.encodeEd25519PublicKey(raw);
 const digest = createHash('sha256').update(`walleterm lifecycle test: ${label}`).digest();
 const file = new URL(`../evidence/live/1password-${label}.json`, import.meta.url);
+mkdirSync(new URL('../evidence/live/', import.meta.url), { recursive: true });
 const started = Date.now();
 const result = { label, started_at: new Date(started).toISOString(), public_key: key, digest: digest.toString('hex'), network_calls: 0 };
 const child = spawn(`${homedir()}/.local/bin/walleterm`, ['sign'], { stdio: ['pipe', 'pipe', 'pipe'] });

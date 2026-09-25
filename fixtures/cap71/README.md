@@ -32,13 +32,13 @@ They also check membership, thresholds, extra invalid signatures, ordering, expi
 Node tests verify SDK tree construction, signing records, error reasons, checkpoints, and mocked adapter execution.
 These tests do not prove protocol-28 testnet acceptance.
 
-## Parent integration
+## Live runner
 
 `tests/cap71.mjs` exports `runCap71(ctx)`.
 It uses the existing `sdk`, `rpc`, `keys`, `networkPassphrase`, `record`, `signDigest`, `sign`, `send`, and `assertClear` fields.
 Tests can override the checkpoint path with `ctx.cap71Checkpoint`.
 The normal checkpoint is `evidence/live/cap71-state.json`.
-The parent runs this command only after review and live authorization:
+Run this command after review and live authorization:
 
 ```sh
 node tests/live.mjs cap71
@@ -90,6 +90,5 @@ Never remove a successful row or an unresolved `inflight` entry to force a retry
 - [Delegate Auth example](https://developers.stellar.org/docs/build/smart-contracts/example-contracts/delegate-auth): membership and empty-delegate checks.
 - [CustomAccount 27.0.2](https://docs.rs/soroban-sdk/27.0.2/soroban_sdk/struct.CustomAccount.html): `get_delegated_signers` and `delegate_auth`.
 
-The CAP copies came from `/tmp/walleterm-protocol-review`.
 The official example was read through Stellar Raven on 2026-09-25.
 Local `soroban-env-host 27.0.1` supplies the tested host behavior.
