@@ -1,7 +1,8 @@
 # Mobile web proof
 
-Status: local tests and live iPhone, 1Password, and testnet acceptance passed on 2026-09-25.
+Status: local tests and live iPhone, desktop Chrome, 1Password, and testnet acceptance passed on 2026-09-25.
 The live iPhone used Wi-Fi through iPhone Mirroring. A cellular-only connection remains untested.
+Desktop Chrome used the same public tunnel and completed all four testnet actions.
 This proof runs only on Stellar testnet. It leaves the `walleterm` CLI interface unchanged.
 
 ## Goal and route
@@ -37,6 +38,7 @@ Set a dedicated recipient with `DEMO_RECIPIENT`. The server offers these fixed a
 The testnet USDC issuer is `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`.
 Circle lists this issuer in its [USDC addresses](https://developers.circle.com/stablecoins/usdc-contract-addresses).
 The offer needs an authorized trustline and free buying capacity. The server checks both before it builds the offer.
+The server rejects a new offer when Horizon reports an existing offer on the signer.
 An offer can trade before cancellation. The server must inspect the offer effect after submission.
 
 ## Run
@@ -86,4 +88,7 @@ The submission guard keeps an unresolved hash in `poc/.state/`. Preserve that di
 
 The Astra review found and rechecked recovery risks. The final attempt-bound recovery check passed.
 See [live acceptance evidence](../evidence/mobile-poc/live-acceptance.json) for transaction hashes and account state.
+See [desktop Chrome evidence](../evidence/mobile-poc/browser-acceptance.json) for its separate transaction hashes and account state.
+Another offer, `826443`, appeared before the Chrome offer. The Chrome run created and canceled only `826445`.
+That run exposed a missing existing-offer check. The server now rejects new offers when Horizon reports an open offer.
 The phone observed no new 1Password desktop prompt during these four signatures. Cached approval can explain this result.

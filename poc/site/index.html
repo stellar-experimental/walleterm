@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#eaf2f7">
-  <title>Walleterm phone demo</title>
+  <title>Walleterm signing demo</title>
   <link rel="stylesheet" href="/style.css">
   <script src="/app.js" defer></script>
 </head>
@@ -16,7 +16,7 @@
     </header>
 
     <section class="intro">
-      <p class="section-name">Phone to desktop signing</p>
+      <p class="section-name">Browser to desktop signing</p>
       <h1>Send a request.<br>Keep the key at home.</h1>
       <p class="lede">This page sends a testnet action to your Mac. Review it here before 1Password signs it.</p>
     </section>
@@ -24,15 +24,15 @@
     <div id="message" class="message" role="status" aria-live="polite">Checking the connection…</div>
 
     <section id="pair-panel" class="panel hidden" aria-labelledby="pair-title">
-      <h2 id="pair-title">Pair this phone</h2>
+      <h2 id="pair-title">Pair this browser</h2>
       <p>Open the pairing link shown on your Mac. The link works once for five minutes.</p>
-      <p class="small">This demo accepts one phone session at a time.</p>
+      <p class="small">This demo accepts one browser session at a time.</p>
     </section>
 
     <section id="app-panel" class="hidden">
       <div class="connection">
         <span class="connection-dot" aria-hidden="true"></span>
-        <div><strong>Phone paired</strong><span id="signer-short"></span></div>
+        <div><strong>Browser paired</strong><span id="signer-short"></span></div>
       </div>
 
       <section id="actions" aria-labelledby="actions-title">

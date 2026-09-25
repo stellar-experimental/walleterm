@@ -22,6 +22,8 @@ The agent then found stale Horizon offer checks. The server now queries the exac
 The agent found a rejection archive collision when two attempts used the same hash.
 The server now stores the submission attempt ID before sending and uses it during recovery.
 The final focused Astra check found no remaining issue in that recovery path.
+The later Chrome run found that offer preparation ignored an existing offer on the signer.
+The server now blocks new offers when Horizon lists any existing offer. A live Chrome retry showed that block.
 
 The [local tests](../poc/server.test.mjs) and [live acceptance](../evidence/mobile-poc/live-acceptance.json) are separate evidence.
 The iPhone test used Wi-Fi through iPhone Mirroring. It did not prove cellular-only operation.

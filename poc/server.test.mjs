@@ -61,7 +61,34 @@ test('the offer lookup uses its exact RPC ledger key', async () => {
   assert.deepEqual(found, { exists: false, latestLedger: 999 });
 });
 
-test('a paired phone can review, sign, and submit four bounded testnet actions', async () => {
+test('a new offer is blocked when the signer already has an offer', async () => {
+  const source = keypair();
+  const recipient = keypair();
+  const port = 18000 + Math.floor(Math.random() * 2000);
+  const origin = `http://localhost:${port}`;
+  const stateDir = mkdtempSync(join(tmpdir(), 'walleterm-existing-offer-'));
+  let accountCalls = 0;
+  const demo = createDemo({ signer: source.address, recipient: recipient.address, port, publicOrigin: origin, stateDir,
+    rpcClient: { getAccount: async () => { accountCalls++; return new Account(source.address, '1'); } },
+    offerChecks: { offerPreflight: async () => ({ existingOfferIds: ['826443'] }) },
+  });
+  await demo.listen();
+  try {
+    const paired = await fetch(`${origin}/api/pair`, { method: 'POST', headers: { origin, 'content-type': 'application/json' },
+      body: JSON.stringify({ code: new URL(demo.pairUrl).hash.slice(6) }) });
+    const cookie = paired.headers.get('set-cookie').split(';')[0];
+    const response = await fetch(`${origin}/api/prepare`, { method: 'POST', headers: { origin, cookie, 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'offer' }) });
+    assert.equal(response.status, 409);
+    assert.match((await response.json()).error, /already has an open offer/);
+    assert.equal(accountCalls, 0);
+  } finally {
+    await demo.close();
+    rmSync(stateDir, { recursive: true, force: true });
+  }
+});
+
+test('a paired browser can review, sign, and submit four bounded testnet actions', async () => {
   const source = keypair();
   const recipient = keypair();
   const port = 18000 + Math.floor(Math.random() * 2000);

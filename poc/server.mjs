@@ -257,7 +257,7 @@ export function createDemo({
         json(res, 200, { paired: true }, { 'Set-Cookie': `${COOKIE}=${session}; HttpOnly; SameSite=Strict; Path=/; Max-Age=3600${parsedOrigin.protocol === 'https:' ? '; Secure' : ''}` });
         return;
       }
-      if (!authenticated(req)) throw fail(401, 'Scan the desktop pairing link first.');
+      if (!authenticated(req)) throw fail(401, 'Open the desktop pairing link first.');
       if (url.pathname === '/api/prepare') {
         if (busy || pending || submittedContext()) throw fail(409, 'Finish the current request first.');
         busy = true;
@@ -267,7 +267,10 @@ export function createDemo({
           const id = token();
           if (input.kind === 'offer') {
             if (trackedOfferId) throw fail(409, 'Cancel the current demo offer before opening another.');
-            await offerChecks.offerPreflight(signer);
+            const preflight = await offerChecks.offerPreflight(signer);
+            if (preflight.existingOfferIds.length) {
+              throw fail(409, 'The signer already has an open offer. Clear it outside this demo before opening another.');
+            }
           }
           if (input.kind === 'cancel_offer') {
             if (!trackedOfferId) throw fail(409, 'No demo offer needs cancellation.');

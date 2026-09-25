@@ -94,7 +94,7 @@ async function init() {
     history.replaceState(null, '', '/');
     try {
       await request('/api/pair', { code });
-      message('This phone is paired.', 'success');
+      message('This browser is paired.', 'success');
     } catch (error) { message(error.message, 'error'); }
   }
   try {
@@ -126,7 +126,7 @@ $('approve').addEventListener('click', () => run(async () => {
   const hash = pending.hash;
   await request('/api/approve', { id: pending.id });
   await waitFor(hash, ['signed']);
-  message('The signed transaction returned to this phone.', 'success');
+  message('The signed transaction returned to this browser.', 'success');
 }));
 $('cancel').addEventListener('click', () => run(async () => {
   await request('/api/cancel', { id: pending.id });
