@@ -1,6 +1,7 @@
 # Mobile web proof
 
-Status: local browser and mock signing tests passed. Live 1Password and phone acceptance are pending.
+Status: local tests and live iPhone, 1Password, and testnet acceptance passed on 2026-09-25.
+The live iPhone used Wi-Fi through iPhone Mirroring. A cellular-only connection remains untested.
 This proof runs only on Stellar testnet. It leaves the `walleterm` CLI interface unchanged.
 
 ## Goal and route
@@ -83,4 +84,6 @@ Record each expected result and its observation separately.
 The submission guard keeps an unresolved hash in `poc/.state/`. Preserve that directory during recovery.
 `NOT_FOUND` alone does not prove that a submission failed. See Stellar's [getTransaction result rules](https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getTransaction).
 
-The Astra review is in `/tmp/walleterm-mobile-poc-astra.md`. It records sources and the initial risk findings.
+The Astra review found and rechecked recovery risks. The final attempt-bound recovery check passed.
+See [live acceptance evidence](../evidence/mobile-poc/live-acceptance.json) for transaction hashes and account state.
+The phone observed no new 1Password desktop prompt during these four signatures. Cached approval can explain this result.
