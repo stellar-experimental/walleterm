@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { launch, tunnelOrigin, waitForTunnel } from './launcher.mjs';
+import { launch, publicProbe, tunnelOrigin, waitForTunnel } from './launcher.mjs';
 
 test('a split cloudflared URL selects only the tunnel origin', async () => {
   const child = new EventEmitter();
@@ -78,4 +78,22 @@ test('a public readiness failure closes the listener and tunnel', async () => {
     assert.equal(killed, true);
     assert.equal(closed, true);
   } finally { process.exitCode = previousExitCode; }
+});
+
+test('a public HTML error rejects the probe without an uncaught callback error', async () => {
+  const request = new EventEmitter();
+  request.destroy = error => request.emit('error', error);
+  const response = new EventEmitter();
+  response.statusCode = 530;
+  await assert.rejects(publicProbe('https://demo-name.trycloudflare.com', {
+    resolveHost: async () => ['104.16.231.132'],
+    requestGet: (_url, _options, callback) => {
+      queueMicrotask(() => {
+        callback(response);
+        response.emit('data', '<html>Cloudflare error</html>');
+        response.emit('end');
+      });
+      return request;
+    },
+  }), SyntaxError);
 });

@@ -64,11 +64,11 @@ export function waitForTunnel(child, timeoutMs = 30000) {
   });
 }
 
-async function publicProbe(origin) {
+export async function publicProbe(origin, { resolveHost = resolve4, requestGet = get } = {}) {
   const host = new URL(origin).hostname;
-  const [address] = await resolve4(host);
+  const [address] = await resolveHost(host);
   return new Promise((resolve, reject) => {
-    const request = get(`${origin}/api/session`, {
+    const request = requestGet(`${origin}/api/session`, {
       timeout: 2500,
       lookup: (_hostname, options, callback) => {
         const done = typeof options === 'function' ? options : callback;
