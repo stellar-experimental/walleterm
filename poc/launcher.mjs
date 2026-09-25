@@ -77,7 +77,10 @@ async function publicProbe(origin) {
     }, response => {
       let body = '';
       response.on('data', chunk => { body += chunk; if (body.length > 4096) request.destroy(Error('The response is too large.')); });
-      response.on('end', () => resolve({ status: response.statusCode, paired: JSON.parse(body).paired }));
+      response.on('end', () => {
+        try { resolve({ status: response.statusCode, paired: JSON.parse(body).paired }); }
+        catch (error) { reject(error); }
+      });
       response.on('error', reject);
     });
     request.on('timeout', () => request.destroy(Error('The public request timed out.')));

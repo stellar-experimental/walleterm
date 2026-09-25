@@ -97,11 +97,7 @@ func runWeb(args []string, out io.Writer) int {
 	if err != nil {
 		return outputError(out, config.human, err)
 	}
-	command := []string{node, launcher, "--signer", config.signer, "--recipient", config.recipient,
-		"--port", strconv.Itoa(config.port), "--state-dir", config.stateDir}
-	if config.human {
-		command = append(command, "--human")
-	}
+	command := webCommand(node, launcher, config)
 	environment := make([]string, 0, len(os.Environ())+1)
 	for _, entry := range os.Environ() {
 		if !strings.HasPrefix(entry, "WALLETERM_BINARY=") {
@@ -113,4 +109,16 @@ func runWeb(args []string, out io.Writer) int {
 		return outputError(out, config.human, failure("web_start_failed", "The web companion could not start."))
 	}
 	return 0
+}
+
+func webCommand(node, launcher string, config webOptions) []string {
+	command := []string{node, launcher, "--recipient", config.recipient,
+		"--port", strconv.Itoa(config.port), "--state-dir", config.stateDir}
+	if config.signer != "" {
+		command = append(command, "--signer", config.signer)
+	}
+	if config.human {
+		command = append(command, "--human")
+	}
+	return command
 }

@@ -54,3 +54,28 @@ test('the web command owns both processes and reports one pairing link', async (
   assert.equal(killed, true);
   assert.equal(closed, true);
 });
+
+test('a public readiness failure closes the listener and tunnel', async () => {
+  const child = new EventEmitter();
+  child.stdout = new PassThrough();
+  child.stderr = new PassThrough();
+  let killed = false;
+  let closed = false;
+  child.kill = () => { killed = true; };
+  const previousExitCode = process.exitCode;
+  try {
+    await assert.rejects(launch(['--signer', 'GTEST', '--recipient', 'GDEST', '--state-dir', '/tmp/demo'], {
+      spawnTunnel: () => {
+        queueMicrotask(() => child.stderr.write('https://demo-name.trycloudflare.com\n'));
+        return child;
+      },
+      create: () => ({
+        server: { listening: true }, setPublicOrigin: () => {},
+        listen: async () => {}, close: async () => { closed = true; },
+      }),
+      ready: async () => { throw Error('Invalid public response.'); },
+    }), /Invalid public response/);
+    assert.equal(killed, true);
+    assert.equal(closed, true);
+  } finally { process.exitCode = previousExitCode; }
+});
