@@ -108,11 +108,12 @@ export function createSubmissionGuard({ rpc, directory, record, networkPassphras
     return { outcome, matches };
   }
 
-  async function send(tx, label, { expectFailure = false } = {}) {
+  async function send(tx, label, { expectFailure = false, attempt = randomUUID() } = {}) {
     assertClear();
+    if (!/^[a-f0-9-]{36}$/.test(attempt)) throw new TypeError('The submission attempt is invalid.');
     const hash = Buffer.from(tx.hash()).toString('hex');
     if (!/^[a-f0-9]{64}$/.test(hash)) throw new TypeError('The transaction hash must contain 32 bytes.');
-    const gate = { attempt: randomUUID(), label, hash, networkPassphrase, expectFailure, submittedAt: timestamp() };
+    const gate = { attempt, label, hash, networkPassphrase, expectFailure, submittedAt: timestamp() };
     const deadline = clock.now() + timeoutMs;
     persist(archiveFile(gate), { stage: 'prepared', ...gate, envelope_xdr: tx.toXDR() }, 'wx');
     try { persist(gateFile, gate, 'wx'); }
@@ -137,7 +138,10 @@ export function createSubmissionGuard({ rpc, directory, record, networkPassphras
       completed = finish(gate, result, sent);
     } catch (cause) { throw blocked(gate, cause); }
     if (!completed.matches) {
-      throw new Error(`${label}: expected ${expectFailure ? 'protocol rejection' : 'SUCCESS'}, got ${completed.outcome.status}`);
+      const error = new Error(`${label}: expected ${expectFailure ? 'protocol rejection' : 'SUCCESS'}, got ${completed.outcome.status}`);
+      error.code = 'known_rejection';
+      error.outcome = completed.outcome;
+      throw error;
     }
     return completed.outcome;
   }
@@ -157,5 +161,24 @@ export function createSubmissionGuard({ rpc, directory, record, networkPassphras
     } catch (cause) { throw blocked(gate, cause); }
   }
 
-  return { send, assertClear, reconcile };
+  function recoverKnownRejection(hash, attempt) {
+    if (!/^[a-f0-9]{64}$/.test(hash)) throw new TypeError('The transaction hash is invalid.');
+    if (!/^[a-f0-9-]{36}$/.test(attempt)) throw new TypeError('The submission attempt is invalid.');
+    const gate = pending();
+    if (gate && (gate.hash !== hash || gate.attempt !== attempt)) {
+      throw blocked(gate, new Error('A different submission remains unresolved.'), false);
+    }
+    let contents;
+    try { contents = readFileSync(join(root, `submission-${attempt}.jsonl`), 'utf8'); }
+    catch (error) { if (error.code === 'ENOENT') return null; throw error; }
+    const events = contents.trim().split('\n').map(line => JSON.parse(line));
+    const prepared = events.find(event => event.stage === 'prepared' && event.hash === hash && event.attempt === attempt);
+    const terminal = [...events].reverse().find(event => event.stage === 'terminal' && event.hash === hash &&
+      (event.status === 'ERROR' || event.status === 'FAILED'));
+    if (!prepared || !terminal) return null;
+    if (gate) clear(gate);
+    return { hash, status: terminal.status, ledger: terminal.ledger ?? null };
+  }
+
+  return { send, assertClear, reconcile, pending, recoverKnownRejection };
 }

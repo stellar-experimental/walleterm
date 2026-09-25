@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#eaf2f7">
+  <title>Walleterm phone demo</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topline">
+      <div class="brand"><span class="mark" aria-hidden="true">✳</span> walleterm</div>
+      <span class="network">Stellar testnet</span>
+    </header>
+
+    <section class="intro">
+      <p class="section-name">Phone to desktop signing</p>
+      <h1>Send a request.<br>Keep the key at home.</h1>
+      <p class="lede">This page sends a testnet action to your Mac. Review it here before 1Password signs it.</p>
+    </section>
+
+    <div id="message" class="message" role="status" aria-live="polite">Checking the connection…</div>
+
+    <section id="pair-panel" class="panel hidden" aria-labelledby="pair-title">
+      <h2 id="pair-title">Pair this phone</h2>
+      <p>Open the pairing link shown on your Mac. The link works once for five minutes.</p>
+      <p class="small">This demo accepts one phone session at a time.</p>
+    </section>
+
+    <section id="app-panel" class="hidden">
+      <div class="connection">
+        <span class="connection-dot" aria-hidden="true"></span>
+        <div><strong>Phone paired</strong><span id="signer-short"></span></div>
+      </div>
+
+      <section id="actions" aria-labelledby="actions-title">
+        <div class="section-head"><h2 id="actions-title">Choose a testnet action</h2><p>One action runs at a time.</p></div>
+        <div class="action-list">
+          <button class="action" data-kind="note"><span class="action-symbol">≡</span><span class="action-copy"><strong>Write a test note</strong><small>Record a short value on the account.</small></span><span aria-hidden="true">›</span></button>
+          <button class="action" data-kind="payment"><span class="action-symbol">↗</span><span class="action-copy"><strong>Pay 0.01 test XLM</strong><small>Send test XLM to the demo account.</small></span><span aria-hidden="true">›</span></button>
+          <button class="action" data-kind="offer"><span class="action-symbol">⇄</span><span class="action-copy"><strong>Open a DEX offer</strong><small>Offer 0.1 test XLM for testnet USDC.</small></span><span aria-hidden="true">›</span></button>
+          <button id="cancel-offer-action" class="action hidden" data-kind="cancel_offer"><span class="action-symbol">×</span><span class="action-copy"><strong>Cancel the DEX offer</strong><small>Remove this demo's resting offer.</small></span><span aria-hidden="true">›</span></button>
+        </div>
+      </section>
+
+      <section id="review" class="panel hidden" aria-labelledby="review-title">
+        <p class="step">Review the exact request</p>
+        <h2 id="review-title">Ready to sign</h2>
+        <dl id="details" class="details"></dl>
+        <p class="notice">1Password may ask for approval on the Mac. Its prompt does not show these transaction details.</p>
+        <div class="controls"><button id="approve" class="primary">Approve and sign</button><button id="cancel" class="secondary">Cancel</button></div>
+      </section>
+
+      <section id="signed" class="panel hidden" aria-labelledby="signed-title">
+        <p class="step">Signature received</p>
+        <h2 id="signed-title">The Mac signed this request.</h2>
+        <p>The signed transaction returned to this page. Send it to testnet when you are ready.</p>
+        <details><summary>Show signed XDR</summary><textarea id="signed-xdr" readonly aria-label="Signed XDR"></textarea></details>
+        <button id="submit" class="primary">Send to testnet</button>
+        <button id="discard" class="secondary hidden">Discard this failed request</button>
+      </section>
+
+      <section id="result" class="panel hidden" aria-labelledby="result-title">
+        <p class="step">Ledger result</p>
+        <h2 id="result-title">Testnet result</h2>
+        <dl id="result-details" class="details"></dl>
+        <button id="again" class="secondary">Choose another action</button>
+      </section>
+      <button id="reconcile" class="secondary hidden">Check the original transaction hash</button>
+    </section>
+
+    <footer><p>The Mac keeps the private key inside 1Password. This demo uses testnet only.</p></footer>
+  </main>
+</body>
+</html>
