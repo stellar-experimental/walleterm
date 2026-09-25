@@ -13,7 +13,8 @@ walleterm --help
 walleterm --version
 ```
 
-`web` is an optional testnet companion. It leaves the `list` and `sign` signing contract unchanged.
+`web` currently runs an optional fixed testnet site. It leaves the `list` and `sign` signing contract unchanged.
+It is not the general website signing bridge. It does not accept transaction requests from other websites.
 It starts the local web server and a Cloudflare Quick Tunnel as child work of one long-running command.
 It stops both when the command receives SIGINT or SIGTERM, or when the tunnel exits.
 It requires local `node`, `cloudflared`, and the installed web assets. It never accepts a private key.
@@ -21,7 +22,7 @@ The signer and recipient must be explicit canonical G-addresses. The server bind
 The default port is 8787. The default journal is `~/Library/Application Support/walleterm/web`.
 Keep the journal after an uncertain submission. A restart creates a new pairing link but preserves the journal.
 
-After both the tunnel and site respond, JSON mode prints one ready event:
+After both the tunnel and demo site respond, JSON mode prints one ready event:
 
 ```json
 {"ok":true,"event":"web_ready","url":"https://...trycloudflare.com","pair_url":"https://...trycloudflare.com/pair#code=...","expires_at":"...","state_dir":"..."}

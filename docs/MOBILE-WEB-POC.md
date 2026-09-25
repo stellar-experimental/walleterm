@@ -3,7 +3,8 @@
 Status: local tests and live iPhone, desktop Chrome, 1Password, and testnet acceptance passed on 2026-09-25.
 The live iPhone used Wi-Fi through iPhone Mirroring. A cellular-only connection remains untested.
 Desktop Chrome used the same public tunnel and completed all four testnet actions.
-This proof runs only on Stellar testnet. It leaves the `walleterm` CLI interface unchanged.
+This proof runs only on Stellar testnet. The current `web` command runs a fixed site and its tunnel.
+It does not provide the general signing service for other websites.
 
 ## Goal and route
 
