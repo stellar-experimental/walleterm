@@ -8,9 +8,30 @@ The binary name is `walleterm`. A `stellar-walleterm` alias enables Stellar CLI 
 ```text
 walleterm list [--human]
 walleterm sign [--human] < request.json
+walleterm web --signer G... --recipient G... [--port 8787] [--state-dir PATH] [--human]
 walleterm --help
 walleterm --version
 ```
+
+`web` is an optional testnet companion. It leaves the `list` and `sign` signing contract unchanged.
+It starts the local web server and a Cloudflare Quick Tunnel as child work of one long-running command.
+It stops both when the command receives SIGINT or SIGTERM, or when the tunnel exits.
+It requires local `node`, `cloudflared`, and the installed web assets. It never accepts a private key.
+The signer and recipient must be explicit canonical G-addresses. The server binds `127.0.0.1`.
+The default port is 8787. The default journal is `~/Library/Application Support/walleterm/web`.
+Keep the journal after an uncertain submission. A restart creates a new pairing link but preserves the journal.
+
+After both the tunnel and site respond, JSON mode prints one ready event:
+
+```json
+{"ok":true,"event":"web_ready","url":"https://...trycloudflare.com","pair_url":"https://...trycloudflare.com/pair#code=...","expires_at":"...","state_dir":"..."}
+```
+
+`--human` prints a QR code, the same copyable link, its expiry, and a stop instruction.
+The QR code and link contain one 256-bit pairing code. They expire after five minutes and work once.
+The browser clears the URL fragment before sending the code through HTTPS. The server issues one session cookie.
+Keep the pairing link private. A different browser needs a new command run after the first browser pairs.
+No short-link service or six-digit code is part of this interface.
 
 `list` returns the Ed25519 public identities exposed by the explicit 1Password socket.
 It does not prove vault membership. Comments are display metadata, never signer identifiers.

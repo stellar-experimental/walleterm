@@ -63,6 +63,7 @@ func run(args []string, in io.Reader, out, diagnostic io.Writer, socketPath stri
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
 		return writeOutput(out, `walleterm list [--human]
 walleterm sign [--human] < request.json
+walleterm web --signer G... --recipient G... [--port 8787] [--state-dir PATH] [--human]
 walleterm --help
 walleterm --version
 
@@ -73,6 +74,7 @@ Sign output: {"ok":true,"public_key":"G...","digest":"...","signature":"128 lowe
 Finish sign input with EOF.
 
 Use 1Password desktop to create, manage, and approve signers.
+Web starts a local testnet site and a temporary Cloudflare Tunnel. --human prints a pairing QR code.
 The agent signs the 32 digest bytes. It cannot inspect the network, amount, destination, or contract policy.
 Inspect the source transaction before you compute the digest. 1Password does not display Stellar transaction details.
 Use Stellar CLI to construct, inspect, and submit transactions.
@@ -82,6 +84,9 @@ Companion skill: ~/.agents/skills/walleterm/SKILL.md (install with make install-
 	}
 	if len(args) == 1 && args[0] == "--version" {
 		return writeOutput(out, "walleterm "+version+"\n")
+	}
+	if len(args) > 0 && args[0] == "web" {
+		return runWeb(args[1:], out)
 	}
 	human := false
 	command := ""

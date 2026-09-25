@@ -51,22 +51,24 @@ node --test poc/server.test.mjs tests/submission.test.mjs
 go test ./...
 ```
 
-Start a temporary tunnel in one terminal:
+Install the CLI and web files:
 
 ```sh
-cloudflared tunnel --url http://127.0.0.1:8787 --no-autoupdate
+make install
 ```
 
-Copy its HTTPS origin. Start the server in another terminal with explicit testnet public keys:
+Start the site and tunnel with dedicated testnet public keys:
 
 ```sh
-PUBLIC_ORIGIN='https://YOUR-TUNNEL.trycloudflare.com' \
-DEMO_SIGNER='G...' DEMO_RECIPIENT='G...' \
-DEMO_STATE_DIR='poc/.state/live' node poc/server.mjs
+walleterm web --signer G... --recipient G... --human
 ```
 
-The server prints a one-time pairing link. Open that link on the phone. Keep the URL fragment out of screenshots and logs.
-Use a separate `DEMO_STATE_DIR` for each local mock or live run. Preserve the live directory for reconciliation.
+The CLI starts both processes and shows a QR code and a copyable pairing link. Scan the code or open the link in a browser.
+The link expires after five minutes and pairs one browser. Restart the command to pair another browser.
+The browser stores a session cookie for one hour. Keep the pairing link private.
+The default output is one JSON `web_ready` event. Use `--human` for the terminal QR code.
+Press Ctrl+C to stop the site and tunnel. The CLI preserves the journal in `~/Library/Application Support/walleterm/web`.
+Use `--state-dir PATH` to select a different journal. Preserve a live journal for reconciliation.
 Quick Tunnels have no uptime guarantee. They suit this proof, not a permanent signer endpoint.
 Cloudflare documents [Quick Tunnel limits](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/do-more-with-tunnels/trycloudflare/).
 

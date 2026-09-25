@@ -2,7 +2,8 @@
 
 A small macOS signing companion for agents using Stellar and 1Password.
 
-The [mobile web proof](docs/MOBILE-WEB-POC.md) pairs one phone with a Mac through a temporary Cloudflare Tunnel.
+The [mobile web proof](docs/MOBILE-WEB-POC.md) pairs one browser with a Mac through a temporary Cloudflare Tunnel.
+Run `walleterm web --signer G... --recipient G... --human` to start both processes and show a pairing QR code.
 
 `walleterm` lists public Ed25519 keys and signs 32-byte digests through the 1Password desktop SSH agent.
 It verifies each signature before returning it. The runtime has no third-party Go dependencies.

@@ -111,7 +111,7 @@ function review(tx, kind, signer, recipient, id, offerId) {
     sequence: tx.sequence, valid_until: new Date(Number(tx.timeBounds.maxTime) * 1000).toISOString(),
     hash: Buffer.from(tx.hash()).toString('hex') };
 }
-function signDigest(publicKey, digest, command = 'walleterm') {
+function signDigest(publicKey, digest, command = process.env.WALLETERM_BINARY || 'walleterm') {
   return new Promise((resolve, reject) => {
     const child = spawn(command, ['sign'], { stdio: ['pipe', 'pipe', 'pipe'] });
     let output = '';
@@ -145,11 +145,17 @@ export function createDemo({
   if (!StrKey.isValidEd25519PublicKey(signer) || !StrKey.isValidEd25519PublicKey(recipient)) {
     throw Error('Set DEMO_SIGNER and DEMO_RECIPIENT to testnet G-addresses.');
   }
-  const origin = publicOrigin || `http://localhost:${port}`;
-  const parsedOrigin = new URL(origin);
-  if (parsedOrigin.origin !== origin || (parsedOrigin.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(parsedOrigin.hostname))) {
-    throw Error('PUBLIC_ORIGIN must be one HTTPS origin or a loopback HTTP origin.');
+  let origin;
+  let parsedOrigin;
+  function setPublicOrigin(value) {
+    const parsed = new URL(value);
+    if (parsed.origin !== value || (parsed.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(parsed.hostname))) {
+      throw Error('PUBLIC_ORIGIN must be one HTTPS origin or a loopback HTTP origin.');
+    }
+    origin = value;
+    parsedOrigin = parsed;
   }
+  setPublicOrigin(publicOrigin || `http://localhost:${port}`);
   mkdirSync(stateDir, { recursive: true, mode: 0o700 });
   const offerFile = join(stateDir, 'demo-offer.json');
   const requestFile = join(stateDir, 'submitted-request.json');
@@ -401,13 +407,18 @@ export function createDemo({
   });
   return {
     server,
-    pairUrl: `${origin}/pair#code=${pairCode}`,
+    get pairUrl() { return `${origin}/pair#code=${pairCode}`; },
+    pairExpiresAt: new Date(pairExpires).toISOString(),
+    setPublicOrigin,
     listen: async () => {
       if (!rpcClient) {
         const network = await client.getNetwork();
         if (network.passphrase !== Networks.TESTNET) throw Error('The RPC endpoint is not Stellar testnet.');
       }
-      return new Promise(resolve => server.listen(port, '127.0.0.1', resolve));
+      return new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(port, '127.0.0.1', () => { server.off('error', reject); resolve(); });
+      });
     },
     close: () => new Promise(resolve => server.close(resolve)),
   };

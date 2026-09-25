@@ -7,6 +7,9 @@ See `../evidence/acceptance-summary.json` for final outcomes and explicit limits
 See `../evidence/1password-feasibility.json` for the independent signature check.
 See `INTERFACE.md` for the frozen two-command contract.
 
+The accepted mobile and browser proof adds the separate `web` command in `INTERFACE.md`.
+It does not change the two signing commands or their byte contract.
+
 ## Product boundary
 
 Build a macOS CLI that lists public signers and requests Ed25519 signatures from the 1Password desktop SSH agent.
