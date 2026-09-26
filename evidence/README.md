@@ -25,6 +25,11 @@ The test left no open offers or USDC trustline.
 It records the live hash, ledger, final trustline, page refresh error, and unsigned message request.
 The published Stellar Token Launchpad addresses redirected to a generic site.
 
+[The confidential-token recheck](confidential-token-2026-09-26.json) records the first capture and the later authorized signing test.
+The user permitted the demo's separate confidential key in browser storage.
+Walleterm signed the message and four accepted transactions: registration, a 0.01 XLM deposit, merge, and withdrawal.
+The Stellar signing key stayed inside 1Password. The final confidential balances were zero.
+
 [The mobile web proof](mobile-poc/README.md) covers the earlier combined `web` command on an iPhone and desktop Chrome.
 [The tunnel record](tunnel-testnet-2026-09-25.json) covers live signing through `walleterm tunnel` and `walleterm demo` over public Quick Tunnels.
 It records desktop and real iPhone runs: payments, data notes, offers, offer cancellations, terminal denials, and one 1Password agent error.

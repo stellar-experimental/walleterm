@@ -34,6 +34,7 @@ coverage.out
 !/evidence/protocol-acceptance.json
 !/evidence/stellarterm-testnet-2026-09-25.json
 !/evidence/sdf-demo-bridge-2026-09-25.json
+!/evidence/confidential-token-2026-09-26.json
 !/evidence/tunnel-testnet-2026-09-25.json
 !/evidence/browser-qa-2026-09-25/
 /evidence/browser-qa-2026-09-25/*

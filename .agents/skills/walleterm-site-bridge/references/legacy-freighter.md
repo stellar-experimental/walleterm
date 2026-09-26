@@ -1,64 +1,102 @@
 # Legacy Freighter message transport
 
-Use this reference only after you confirm the site's loaded code uses these exact messages.
-[StellarTerm testnet build 2409](https://stellarterm.com/testnet) used them on 2026-09-25.
-The source project recorded five accepted transactions in `evidence/stellarterm-testnet-2026-09-25.json`.
-That historical record is not bundled with this skill. The test used Stellar CLI 27.1.0 and Stellar SDK 17.1.0.
-This transport does not use `walleterm tunnel` or its transaction limits.
+Use this reference only when the loaded client uses the exact `window.postMessage` protocol below.
+Confirm the deployed API version and response consumer before injecting the helper.
+This transport uses direct signing. It does not use `walleterm tunnel` or its transaction limits.
 
-The tested client sent `window.postMessage` requests with `source: "FREIGHTER_EXTERNAL_MSG_REQUEST"`. It used `REQUEST_CONNECTION_STATUS`, `REQUEST_ACCESS`, and `SUBMIT_TRANSACTION`. It accepted responses with `source: "FREIGHTER_EXTERNAL_MSG_RESPONSE"` and the field `messagedId`. Keep that spelling. The request contained `transactionXdr`, `network`, `networkPassphrase`, and `accountToSign`. Some fields were empty, so the site banner and endpoint supplied independent network evidence.
+## Protocol and helper limits
 
-The site also checked `window.freighter` synchronously. The helper's `--legacy-flag` sets it only when the site needs that check. Modern Freighter clients may use different objects, promises, and response shapes. Inspect the actual site before using this helper.
+Requests use `source: "FREIGHTER_EXTERNAL_MSG_REQUEST"` and `messageId`.
+Responses use `source: "FREIGHTER_EXTERNAL_MSG_RESPONSE"` and `messagedId`. Keep that spelling.
+The helper handles connection status, public-key access, and testnet network queries.
+It captures signing requests without signing them.
 
-The helper also captures `SUBMIT_BLOB` and `SUBMIT_AUTH_ENTRY` from clients that use this transport. It does not return signatures for those requests. Inspect the exact payload and its use before choosing another signer path. A signed message that becomes a browser-stored private key conflicts with projects that keep private keys inside 1Password. The OpenZeppelin confidential-token demo had this behavior on 2026-09-25.
+| Request | Captured payload | Response after review |
+| --- | --- | --- |
+| `SUBMIT_TRANSACTION` | `transactionXdr`, supplied account and network fields | `signedTransaction` contains the signed V1 envelope |
+| `SUBMIT_BLOB` | `blob`, supplied account and API version | For confirmed API v4, `signedBlob` contains base64 signature bytes; `signerAddress` identifies the signer |
+| `SUBMIT_AUTH_ENTRY` | `entryXdr`, supplied account and network fields | Use the credential's matching direct-signing adapter and confirmed response format |
+
+The helper's `reply` command supports `SUBMIT_TRANSACTION` only.
+Use [message signing](message-signing.md) for `SUBMIT_BLOB`.
+For `SUBMIT_AUTH_ENTRY`, use the matching core `walleterm` reference before creating a bounded reply.
+Inspect the helper's unsupported-request list when the client needs another method.
+Choose another adapter when the confirmed transport differs.
+
+Some clients check `window.freighter` synchronously.
+Use `--legacy-flag` only when the loaded client needs that check.
+The helper refuses to replace an existing Freighter provider.
+Missing account or network fields do not establish identity or network permission.
+Use the [transaction review](interception.md#return-one-reviewed-transaction) to resolve them before signing.
 
 ## Capture
 
-Run commands from this skill directory, or use its absolute path. Load `agent-browser skills get core` first. Use one named browser session.
+Run commands from this skill directory, or use its absolute path.
+Load `agent-browser skills get core` first. Use one named browser session.
+Set `WEBSITE_URL`, `WEBSITE_ORIGIN`, and `SELECTED_G_ADDRESS` from the reviewed task context.
+Use the exact origin, without a path or trailing slash.
 
 ```sh
+set -o pipefail
 export AGENT_BROWSER_SESSION="$(agent-browser session id --scope worktree --prefix walleterm-site)"
-agent-browser open https://stellarterm.com/testnet
+agent-browser open "$WEBSITE_URL"
 agent-browser snapshot -i
-bun scripts/legacy-freighter.ts inject --public-key G... --origin https://stellarterm.com --legacy-flag | agent-browser eval --stdin
+bun scripts/legacy-freighter.ts inject \
+  --public-key "$SELECTED_G_ADDRESS" \
+  --origin "$WEBSITE_ORIGIN" | agent-browser eval --stdin
 ```
 
-After injection, use a site route change to rerender a page that already displayed an absent-wallet state. A full reload clears the bridge. Log in through the site's wallet button. Read pending requests before touching Walleterm.
+Use the website's wallet controls after injection.
+If the page cached an absent-wallet state, use a route change to rerender it.
+A full reload clears the injected bridge.
+Wait for the signing request before capturing its payload.
 
 ```sh
+agent-browser wait --fn 'window.__walletermBridge.requests.some(r => !r.responded)'
 agent-browser eval 'window.__walletermBridge.pending()'
-agent-browser eval 'window.__walletermBridge.requests[0].transactionXdr' > request.json
+agent-browser eval 'window.__walletermBridge.unsupported'
+```
+
+Choose the pending numeric request index from that result. Use its matching payload field from the protocol table.
+For a transaction, set `REQUEST_INDEX` to that index and save the unsigned envelope:
+
+```sh
+agent-browser eval "window.__walletermBridge.requests[$REQUEST_INDEX].transactionXdr" > request.json
 bun -e 'const fs=require("node:fs");fs.writeFileSync("unsigned.xdr",JSON.parse(fs.readFileSync("request.json","utf8"))+"\n",{mode:0o600})'
 stellar tx decode unsigned.xdr
 stellar tx hash --network-passphrase 'Test SDF Network ; September 2015' unsigned.xdr
 ```
 
-The pending list shows the request index and site network fields. The request file contains public XDR. Keep it fixed after review. Compare the decoded operation with the user's grant. Use a new file for each request.
-
-For a `SUBMIT_BLOB` request, inspect `window.__walletermBridge.requests[index].blob` and the site's use of its signature. For `SUBMIT_AUTH_ENTRY`, inspect `entryXdr`, account, and network passphrase. The `reply` command accepts only `SUBMIT_TRANSACTION`. It leaves other requests pending without signing.
+Save the request's identity and supplied account and network fields alongside its payload.
+Keep the reviewed artifact fixed. Use new files for each request.
 
 ## Return one reviewed V1 envelope
 
-Put the selected full G-address and reviewed digest in `sign-request.json`. Send one signing request. The helper accepts only a V1 transaction envelope. Read the core `walleterm` skill for other signature formats.
+Complete the transaction review before requesting a signature.
+Put the selected G-address and reviewed digest in `sign-request.json`. Set `REVIEWED_HASH` to that digest.
+The attach helper supports V1 envelopes, including Soroban bodies. It does not review contract effects or authorization.
 
 ```sh
 walleterm sign < sign-request.json > signature.json
 python3 scripts/classic-attach.py \
   --unsigned unsigned.xdr \
   --signature signature.json \
-  --expected-public-key SELECTED_G_ADDRESS \
+  --expected-public-key "$SELECTED_G_ADDRESS" \
   --network-passphrase 'Test SDF Network ; September 2015' \
-  --expected-hash REVIEWED_HASH \
+  --expected-hash "$REVIEWED_HASH" \
   --output signed.xdr
 bun scripts/legacy-freighter.ts reply \
-  --index 0 \
-  --public-key SELECTED_G_ADDRESS \
+  --index "$REQUEST_INDEX" \
+  --public-key "$SELECTED_G_ADDRESS" \
   --unsigned-xdr unsigned.xdr \
   --signed-xdr signed.xdr \
-  --expected-hash REVIEWED_HASH | agent-browser eval --stdin
+  --expected-hash "$REVIEWED_HASH" | agent-browser eval --stdin
 ```
 
-The attach and reply helpers verify the new Ed25519 signature for the selected key and reviewed hash.
-The reply helper also checks both hashes, the V1 body, and the earlier signatures. The page bridge checks the original XDR against the pending request. The site can submit after the reply. Query the original hash before any retry if the result becomes uncertain.
+Require a successful exit from each command before continuing.
+The attach and reply helpers verify the new Ed25519 signature, transaction body, digest, and earlier signatures.
+The page bridge checks the original XDR against the pending request.
+The website can submit immediately after the reply. Reconcile the original hash before retrying an uncertain result.
 
-The helper supports testnet only. It does not sign, submit, or verify ledger success. The agent must check Horizon or RPC after each return. Record final balances, trustlines, offers, and contract state as applicable.
+The helper supports testnet only. It does not sign, submit, or verify ledger success.
+Check RPC or Horizon after each return. Record the ledger result and the resulting state separately.
