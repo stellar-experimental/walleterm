@@ -99,7 +99,7 @@ You can also type the tunnel URL and code.
 Review the permission for the displayed wallets, then select a dedicated testnet wallet.
 The demo changes wallets within that connection. It needs no new scan or code.
 New wallets require a new connection. Wallet changes preserve transaction records and the session expiry.
-The services check public access every 15 seconds and report their state every minute.
+The services check public access every 15 seconds. Healthy checks produce no log output.
 They replace failed public tunnels with bounded retries. Each replacement prints a new URL and QR code.
 See [connection recovery and signing deadlines](docs/CONNECTION-LIFECYCLE.md).
 Create a request in the demo.

@@ -373,7 +373,6 @@ export async function launchService(
           }
           if (failures) report('The public connection recovered.');
           failures = 0;
-          if (Date.now() - lastStatus >= 60000) report('The public connection is available.');
           continue;
         } catch {
           controller.signal.throwIfAborted();

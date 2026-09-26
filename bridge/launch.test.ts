@@ -90,6 +90,29 @@ async function until(check: () => boolean) {
   assert.ok(check(), 'The service did not reach the expected state.');
 }
 
+test('healthy checks stay silent after a minute and keep monitoring public access', async () => {
+  let now = Date.now(),
+    probes = 0;
+  const clock = spyOn(Date, 'now').mockImplementation(() => now);
+  onTestFinished(() => clock.mockRestore());
+  const f = lifecycle();
+  f.options.healthIntervalMs = 2;
+  f.options.probe = async () => {
+    probes++;
+    return { status: 200, service: 'walleterm' };
+  };
+  const running = await launchService(config, f.options);
+  try {
+    const startup = [...f.output];
+    now += 60001;
+    await until(() => probes >= 3);
+    assert.deepEqual(f.output, startup);
+    assert.equal(f.count(), 1);
+  } finally {
+    await running.stop(0);
+  }
+});
+
 test('public health failures recover without replacing a healthy tunnel process', async () => {
   const f = lifecycle();
   f.options.healthIntervalMs = 2;
