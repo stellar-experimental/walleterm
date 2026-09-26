@@ -33,6 +33,7 @@ type ScanMock = (video: unknown, options: { signal: AbortSignal }) => unknown;
 interface ConnectUI {
   open(): void;
   close(): void;
+  toggleMenu(): void;
   scan(): Promise<void>;
   update(): void;
   connect(): Promise<void>;
@@ -166,6 +167,7 @@ test('an old canceled scan cannot hide the camera after immediate reopening', as
 
 test('changing a wallet uses the current client and does not open the scanner', async () => {
   let scans = 0,
+    refreshes = 0,
     selected: string | undefined,
     changed: Change | undefined;
   const f = fixture(() => {
@@ -182,7 +184,9 @@ test('changing a wallet uses the current client and does not open the scanner', 
     client,
     account: { address: 'GFIRST' },
     update() {},
-    refresh: async () => {},
+    refresh: async () => {
+      refreshes++;
+    },
     onChange: (value: Change) => {
       changed = value;
     },
@@ -190,10 +194,34 @@ test('changing a wallet uses the current client and does not open the scanner', 
   await f.ui.changeWallet({ public_key: 'GSECOND' });
   assert.equal(selected, 'GSECOND');
   assert.equal(scans, 0);
+  assert.equal(refreshes, 0);
   assert.equal(f.ui.dialog.open, false);
   assert.equal(f.ui.client, client);
   assert.equal(changed?.client, client);
   assert.equal(changed?.account?.address, 'GSECOND');
+});
+
+test('opening the wallet menu renders known wallets without another lookup', () => {
+  const f = fixture(() => {});
+  const wallets = [{ public_key: 'GFIRST' }, { public_key: 'GSECOND' }];
+  let refreshes = 0,
+    shown: MockSigner[] = [];
+  Object.assign(f.ui, {
+    account: { address: 'GFIRST' },
+    wallets,
+    update() {},
+    rows: (_target: unknown, keys: MockSigner[]) => {
+      shown = keys;
+    },
+    refresh: async () => {
+      refreshes++;
+    },
+  });
+  f.node('menu').hidden = true;
+  f.ui.toggleMenu();
+  assert.equal(refreshes, 0);
+  assert.equal(shown, wallets);
+  assert.equal(f.node('menu').hidden, false);
 });
 
 test('the connection UI publishes the recovered account after a lost selection response', async () => {

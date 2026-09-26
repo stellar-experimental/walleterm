@@ -180,3 +180,122 @@ test('an unset vault preserves agent discovery without a 1Password CLI call', as
   assert.deepEqual(await availableSigners(f.options), [f.signer]);
   assert.deepEqual(f.calls, []);
 });
+
+function vaultItems(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: String.fromCharCode(97 + i).repeat(26),
+    vault: { id: 'kxx6p3pmtgq2hsrsjh4gakqfdi', name: 'Private' },
+    category: 'SSH_KEY',
+  }));
+}
+
+test('public key reads overlap with at most four active reads', async () => {
+  const items = vaultItems(9);
+  const f = vaultFixture({ items });
+  const read = f.options.readVault!;
+  const gate = Promise.withResolvers<void>();
+  let active = 0,
+    peak = 0,
+    started = 0;
+  f.options.readVault = async (args, options) => {
+    if (args[0] !== 'read') return read(args, options);
+    active++;
+    started++;
+    peak = Math.max(peak, active);
+    await gate.promise;
+    try {
+      return await read(args, options);
+    } finally {
+      active--;
+    }
+  };
+  const pending = availableSigners(f.options);
+  try {
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(started, 4);
+  } finally {
+    gate.resolve();
+    assert.deepEqual(await pending, [f.signer]);
+  }
+  assert.equal(started, 9);
+  assert.equal(peak, 4);
+  assert.equal(active, 0);
+});
+
+test('a failed public key read cancels its batch and waits for cleanup', async () => {
+  const items = vaultItems(5);
+  const f = vaultFixture({ items });
+  const read = f.options.readVault!;
+  const failRead = Promise.withResolvers<void>();
+  const cleanup = Promise.withResolvers<void>();
+  let started = 0,
+    canceled = 0,
+    settled = false;
+  f.options.readVault = async (args, options) => {
+    if (args[0] !== 'read') return read(args, options);
+    const index = started++;
+    if (index === 0) {
+      await failRead.promise;
+      throw Error('Private CLI diagnostics');
+    }
+    await new Promise<void>((resolve) =>
+      options.signal.addEventListener(
+        'abort',
+        () => {
+          canceled++;
+          resolve();
+        },
+        { once: true },
+      ),
+    );
+    await cleanup.promise;
+    throw Error('Canceled');
+  };
+  const rejected = assert.rejects(availableSigners(f.options), (error) => {
+    settled = true;
+    return requestError(error).message === 'A public key in the selected vault is unavailable.';
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  failRead.resolve();
+  await new Promise((resolve) => setImmediate(resolve));
+  try {
+    assert.equal(started, 4);
+    assert.equal(canceled, 3);
+    assert.equal(settled, false);
+  } finally {
+    cleanup.resolve();
+    await rejected;
+  }
+  assert.equal(started, 4, 'A failed lookup must not start another batch');
+});
+
+test('caller cancellation stops concurrent public key reads without returning wallets', async () => {
+  const items = vaultItems(5);
+  const f = vaultFixture({ items });
+  const read = f.options.readVault!;
+  const controller = new AbortController();
+  let started = 0,
+    canceled = 0;
+  f.options.signal = controller.signal;
+  f.options.readVault = async (args, options) => {
+    if (args[0] !== 'read') return read(args, options);
+    started++;
+    await new Promise<void>((resolve) =>
+      options.signal.addEventListener(
+        'abort',
+        () => {
+          canceled++;
+          resolve();
+        },
+        { once: true },
+      ),
+    );
+    throw Error('Canceled');
+  };
+  const rejected = assert.rejects(availableSigners(f.options), /public key.*unavailable/);
+  await new Promise((resolve) => setImmediate(resolve));
+  controller.abort();
+  await rejected;
+  assert.equal(started, 4);
+  assert.equal(canceled, 4);
+});

@@ -280,8 +280,9 @@ export class WalletermConnect {
     this.$('menu').hidden = false;
     this.trigger.setAttribute('aria-expanded', 'true');
     this.message(this.busy ? 'Wait for the current action before changing the connection.' : '', true);
+    this.renderWallets();
+    this.update();
     this.$('copy').focus();
-    this.refresh();
   }
   rows(target: HTMLElement, keys: Signer[], choose: (key: Signer) => void, active?: string | null) {
     target.replaceChildren();
@@ -311,36 +312,30 @@ export class WalletermConnect {
       target.append(row);
     }
   }
-  async refresh({ quiet = false } = {}) {
+  renderWallets() {
+    this.rows(this.$('wallets'), this.wallets, (key) => this.changeWallet(key), this.account?.address);
+  }
+  async refresh() {
     if (!this.client || this.busy || this.working || this.refreshing) return;
     const client = this.client;
     this.refreshing = true;
     this.update();
-    if (!quiet) this.message('Refreshing wallets. Unlock 1Password if it asks.', true);
+    this.message('Refreshing wallets. Unlock 1Password if it asks.', true);
     try {
       const keys = await client.listWallets();
       if (client !== this.client) return;
       this.wallets = keys;
-      this.rows(
-        this.$('wallets'),
-        keys,
-        (key) => {
-          if (this.busy || this.working || key.public_key === this.account?.address) return;
-          this.changeWallet(key);
-        },
-        this.account?.address,
+      this.renderWallets();
+      this.message(
+        keys.length
+          ? 'Wallets are up to date.'
+          : 'No wallets are available. Check the 1Password SSH agent, then refresh.',
+        true,
       );
-      if (!quiet || !keys.length)
-        this.message(
-          keys.length
-            ? 'Wallets are up to date.'
-            : 'No wallets are available. Check the 1Password SSH agent, then refresh.',
-          true,
-        );
     } catch (errorValue) {
       const error = requestError(errorValue);
       if (client === this.client) {
-        if (!quiet) this.message(error.message, true);
+        this.message(error.message, true);
         this.sync();
       }
     } finally {
@@ -382,7 +377,6 @@ export class WalletermConnect {
       this.phase = '';
       this.selectingKey = null;
       this.setWorking(false);
-      if (this.account) await this.refresh({ quiet: true });
     }
   }
   open() {

@@ -121,7 +121,12 @@ export async function availableSigners(options: SignerOptions = {}): Promise<Sig
   const vault = options.vault ?? process.env.OP_VAULT;
   if (vault === undefined || vault === '') return signers;
   if (!vault.trim()) throw fail(502, 'Set OP_VAULT to a 1Password vault name or ID.');
-  const signal = AbortSignal.any([...(options.signal ? [options.signal] : []), AbortSignal.timeout(120000)]);
+  const controller = new AbortController();
+  const signal = AbortSignal.any([
+    ...(options.signal ? [options.signal] : []),
+    controller.signal,
+    AbortSignal.timeout(120000),
+  ]);
   const read = (args: string[]) => (options.readVault || readVault)(args, { signal });
   let items;
   try {
@@ -133,37 +138,55 @@ export async function availableSigners(options: SignerOptions = {}): Promise<Sig
   }
   if (!Array.isArray(items) || items.length > 1024)
     throw fail(502, 'The selected vault returned an invalid key list.');
-  const allowed = new Set();
-  for (const item of items) {
+  const references = items.map((item) => {
     // References use IDs, never item titles or agent comments.
     if (
       !/^[a-z2-7]{26}$/.test(item?.id || '') ||
       !/^[a-z2-7]{26}$/.test(item?.vault?.id || '') ||
       item.category !== 'SSH_KEY' ||
-      !(item.vault.id === vault || item.vault.name?.toLowerCase() === vault.toLowerCase())
+      !(
+        item.vault.id === vault ||
+        (typeof item.vault.name === 'string' && item.vault.name.toLowerCase() === vault.toLowerCase())
+      )
     ) {
       throw fail(502, 'The selected vault returned an invalid key item.');
     }
-    let publicKey;
+    return `op://${item.vault.id}/${item.id}/public key`;
+  });
+  const allowed = new Set<string>();
+  // Bound CLI processes without retaining vault permissions between requests.
+  for (let offset = 0; offset < references.length; offset += 4) {
+    signal.throwIfAborted();
+    const reads = references.slice(offset, offset + 4).map(async (reference) => {
+      let publicKey;
+      try {
+        publicKey = await read(['read', '--no-newline', reference]);
+      } catch {
+        throw fail(502, 'A public key in the selected vault is unavailable.');
+      }
+      const [algorithm, encoded] = publicKey.trim().split(/\s+/);
+      if (algorithm !== 'ssh-ed25519') return;
+      const blob = Buffer.from(encoded || '', 'base64');
+      if (
+        blob.length !== 51 ||
+        blob.toString('base64') !== encoded ||
+        blob.readUInt32BE(0) !== 11 ||
+        blob.toString('ascii', 4, 15) !== 'ssh-ed25519' ||
+        blob.readUInt32BE(15) !== 32
+      ) {
+        throw fail(502, 'An Ed25519 public key in the selected vault is invalid.');
+      }
+      allowed.add(StrKey.encodeEd25519PublicKey(blob.subarray(19)));
+    });
     try {
-      publicKey = await read(['read', '--no-newline', `op://${item.vault.id}/${item.id}/public key`]);
-    } catch {
-      throw fail(502, 'A public key in the selected vault is unavailable.');
+      await Promise.all(reads);
+    } catch (error) {
+      controller.abort();
+      await Promise.allSettled(reads);
+      throw error;
     }
-    const [algorithm, encoded] = publicKey.trim().split(/\s+/);
-    if (algorithm !== 'ssh-ed25519') continue;
-    const blob = Buffer.from(encoded || '', 'base64');
-    if (
-      blob.length !== 51 ||
-      blob.toString('base64') !== encoded ||
-      blob.readUInt32BE(0) !== 11 ||
-      blob.toString('ascii', 4, 15) !== 'ssh-ed25519' ||
-      blob.readUInt32BE(15) !== 32
-    ) {
-      throw fail(502, 'An Ed25519 public key in the selected vault is invalid.');
-    }
-    allowed.add(StrKey.encodeEd25519PublicKey(blob.subarray(19)));
   }
+  signal.throwIfAborted();
   return signers.filter((item) => allowed.has(item.public_key));
 }
 
