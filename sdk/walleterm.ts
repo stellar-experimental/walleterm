@@ -102,7 +102,7 @@ export class WalletermClient {
     }
     return result;
   }
-  async wait(signal: AbortSignal) {
+  async wait(signal: AbortSignal, milliseconds = this.pollInterval) {
     signal.throwIfAborted();
     await new Promise<void>((resolve, reject) => {
       const stop = () => {
@@ -112,7 +112,7 @@ export class WalletermClient {
       const timer = setTimeout(() => {
         signal.removeEventListener('abort', stop);
         resolve();
-      }, this.pollInterval);
+      }, milliseconds);
       signal.addEventListener('abort', stop, { once: true });
     });
   }
@@ -262,14 +262,22 @@ export class WalletermClient {
     return { ...this.account };
   }
   // Retry after a network error or a 5xx response. Stop when the connection changes.
-  async retry<T>(send: () => Promise<T>, signal: AbortSignal, token: string, generation: number): Promise<T> {
+  async retry<T>(
+    send: () => Promise<T>,
+    signal: AbortSignal,
+    token: string,
+    generation: number,
+    onRetry?: () => void,
+  ): Promise<T> {
+    let failures = 0;
     for (;;) {
       try {
         return await send();
       } catch (errorValue) {
         const error = requestError(errorValue);
         if (signal.aborted || (error.status && error.status < 500)) throw error;
-        await this.wait(signal);
+        onRetry?.();
+        await this.wait(signal, Math.min(this.pollInterval * 2 ** Math.min(failures++, 3), 5000));
         if (this.token !== token || this.generation !== generation)
           throw Error('The website connection changed. Build a new transaction.');
       }
@@ -285,6 +293,7 @@ export class WalletermClient {
       networkPassphrase = this.account?.networkPassphrase,
       address = this.account?.address,
       signal = AbortSignal.timeout(300000),
+      onProgress,
     }: SignOptions = {},
   ) {
     const token = this.token;
@@ -301,6 +310,15 @@ export class WalletermClient {
       this.request(cancel, {}, undefined, { keepalive: true, token }).catch(() => {});
     };
     this.page?.addEventListener?.('pagehide', leave);
+    // Observers must not interrupt signing or alter cancellation behavior.
+    const notify = (progress: Parameters<NonNullable<SignOptions['onProgress']>>[0]) => {
+      try {
+        onProgress?.(progress);
+      } catch {
+        /* Ignore display errors. */
+      }
+    };
+    const retrying = () => notify({ state: 'retrying' });
     let result;
     try {
       // The bridge returns the same request for a repeated ID, so a lost response is safe to resend.
@@ -321,7 +339,9 @@ export class WalletermClient {
         signal,
         token,
         generation,
+        retrying,
       );
+      notify({ state: result.state, expiresAt: result.expires_at });
       while (['pending', 'approved', 'signing'].includes(result.state)) {
         await this.wait(signal);
         result = await this.retry(
@@ -329,7 +349,9 @@ export class WalletermClient {
           signal,
           token,
           generation,
+          retrying,
         );
+        notify({ state: result.state, expiresAt: result.expires_at });
       }
       signal.throwIfAborted();
       if (this.token !== token || this.generation !== generation)
@@ -337,9 +359,10 @@ export class WalletermClient {
     } catch (caught) {
       const error = requestError(caught);
       error.canceled = false;
-      for (let attempt = 0; attempt < 3 && !error.canceled; attempt++) {
+      const cancellation = AbortSignal.timeout(10000);
+      for (let attempt = 0; attempt < 3 && !error.canceled && !cancellation.aborted; attempt++) {
         try {
-          const canceled = await this.request(cancel, {}, undefined, { token });
+          const canceled = await this.request(cancel, {}, cancellation, { token });
           error.canceled = true;
           if (canceled.state === 'unknown') error.requestState = 'unknown';
         } catch (value) {
@@ -372,12 +395,17 @@ export class WalletermClient {
       }
       // A slow disconnect must not clear a newer connection.
       if (this.token === token) {
-        this.token = null;
-        this.account = null;
-        this.generation++;
-        this.selecting = false;
-        for (const stop of this.signings) stop.abort(Error('The website disconnected.'));
+        this.forgetConnection();
       }
     }
+  }
+  // Local discard cannot prove that the bridge revoked its session.
+  forgetConnection() {
+    this.token = null;
+    this.account = null;
+    this.generation++;
+    this.selecting = false;
+    this.selectionUncertain = null;
+    for (const stop of this.signings) stop.abort(Error('The website disconnected.'));
   }
 }

@@ -1,4 +1,4 @@
-import { test } from 'bun:test';
+import { onTestFinished, spyOn, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { EventEmitter } from 'node:events';
 import { existsSync, readFileSync } from 'node:fs';
@@ -43,6 +43,7 @@ function lifecycle() {
     },
     setPublicOrigin(origin) {
       this.origin = origin;
+      this.pairing.url = origin;
     },
     async listen() {
       this.server.listening = true;
@@ -56,6 +57,7 @@ function lifecycle() {
     signal: controller.signal,
     create: () => service,
     ready: async () => {},
+    probe: async () => ({ status: 200, service: 'walleterm' }),
     environment: {
       PATH: '/bin',
       HOME: '/mock',
@@ -82,6 +84,196 @@ function lifecycle() {
   return { controller, child, output, service, options, count: () => spawned, rotate, spawned: spawnedWith };
 }
 const config = { port: 8791, label: 'Walleterm tunnel' };
+async function until(check: () => boolean) {
+  const deadline = performance.now() + 1000;
+  while (!check() && performance.now() < deadline) await new Promise((resolve) => setTimeout(resolve, 2));
+  assert.ok(check(), 'The service did not reach the expected state.');
+}
+
+test('public health failures recover without replacing a healthy tunnel process', async () => {
+  const f = lifecycle();
+  f.options.healthIntervalMs = 2;
+  let probes = 0;
+  f.options.probe = async () => {
+    if (++probes < 3) throw Error('Offline');
+    return { status: 200, service: 'walleterm' };
+  };
+  const running = await launchService(config, f.options);
+  try {
+    await until(() => f.output.join('').includes('public connection recovered'));
+    assert.equal(f.count(), 1);
+    assert.equal(f.service.closed, false);
+    assert.match(f.output.join(''), /public connection is unavailable/);
+  } finally {
+    await running.stop(0);
+  }
+});
+
+test('a stopped tunnel gets a new URL without restarting the local service', async () => {
+  const f = lifecycle();
+  f.options.healthIntervalMs = 2;
+  f.options.recoveryDelayMs = 1;
+  const replacement = fakeChild();
+  let spawns = 0;
+  f.options.spawnTunnel = () => {
+    const child = spawns++ ? replacement : f.child;
+    queueMicrotask(() =>
+      child.stderr.write(`https://${child === replacement ? 'new-name' : 'bridge-name'}.trycloudflare.com`),
+    );
+    return child;
+  };
+  const running = await launchService(config, f.options);
+  try {
+    f.child.exitCode = 1;
+    f.child.emit('exit', 1, null);
+    await until(
+      () => running.origin.includes('new-name') && f.output.join('').includes('Use the new public URL'),
+    );
+    assert.equal(spawns, 2);
+    assert.equal(f.service.closed, false);
+    assert.equal(running.child, replacement);
+  } finally {
+    await running.stop(0);
+  }
+  assert.equal(replacement.killed, true);
+});
+
+test('six failed public health checks replace an unreachable tunnel', async () => {
+  const f = lifecycle();
+  f.options.healthIntervalMs = 2;
+  f.options.recoveryDelayMs = 1;
+  const children = [f.child];
+  let probes = 0;
+  f.options.probe = async () => {
+    probes++;
+    return { status: 200, service: children.length === 1 ? 'wrong-service' : 'walleterm' };
+  };
+  f.options.spawnTunnel = () => {
+    const child = children.length === 1 && !probes ? f.child : fakeChild();
+    if (child !== f.child) children.push(child);
+    queueMicrotask(() => child.stderr.write('https://bridge-name.trycloudflare.com'));
+    return child;
+  };
+  const running = await launchService(config, f.options);
+  try {
+    await until(() => f.output.join('').includes('Use the new public URL'));
+    assert.ok(probes >= 6);
+    assert.equal(children.length, 2);
+    assert.equal(f.child.killed, true);
+    assert.equal(f.service.closed, false);
+  } finally {
+    await running.stop(0);
+  }
+});
+
+test('recovery pauses after three replacement attempts and preserves the local service', async () => {
+  const f = lifecycle();
+  f.options.healthIntervalMs = 2;
+  f.options.recoveryDelayMs = 1;
+  let spawns = 0,
+    readyCalls = 0;
+  f.options.spawnTunnel = () => {
+    const child = spawns++ ? fakeChild() : f.child;
+    queueMicrotask(() => child.stderr.write('https://bridge-name.trycloudflare.com'));
+    return child;
+  };
+  f.options.ready = async () => {
+    if (++readyCalls > 1) throw Error('Unavailable');
+  };
+  const running = await launchService(config, f.options);
+  f.child.exitCode = 1;
+  f.child.emit('exit', 1, null);
+  await until(() => f.output.join('').includes('recovery is paused'));
+  assert.equal(spawns, 4);
+  assert.equal(f.service.closed, false);
+  await new Promise((resolve) => setTimeout(resolve, 15));
+  assert.equal(spawns, 4);
+  await running.stop(0);
+});
+
+test('a paused replacement prints its new URL once when a later public probe succeeds', async () => {
+  const f = lifecycle();
+  f.options.healthIntervalMs = 2;
+  f.options.recoveryDelayMs = 1;
+  let spawns = 0,
+    readyCalls = 0,
+    online = false;
+  f.options.spawnTunnel = () => {
+    const child = spawns++ ? fakeChild() : f.child;
+    queueMicrotask(() => child.stderr.write(`https://replacement-${spawns}.trycloudflare.com`));
+    return child;
+  };
+  f.options.ready = async () => {
+    if (++readyCalls > 1) throw Error('Unavailable');
+  };
+  f.options.probe = async () => ({ status: online ? 200 : 503, service: 'walleterm' });
+  const running = await launchService(config, f.options);
+  try {
+    f.child.exitCode = 1;
+    f.child.emit('exit', 1, null);
+    await until(() => f.output.join('').includes('recovery is paused'));
+    const newUrl = running.origin;
+    assert.equal(
+      f.output.some((line) => line.includes(`Tunnel URL: ${newUrl}`)),
+      false,
+    );
+    online = true;
+    await until(() => f.output.some((line) => line.includes(`Tunnel URL: ${newUrl}`)));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal(f.output.filter((line) => line.includes(`Tunnel URL: ${newUrl}`)).length, 1);
+    assert.equal(spawns, 4);
+    assert.equal(f.service.closed, false);
+  } finally {
+    await running.stop(0);
+  }
+});
+
+test('paused recovery resumes after the oldest restart leaves the ten-minute window', async () => {
+  let clock = Date.now();
+  const now = spyOn(Date, 'now').mockImplementation(() => clock);
+  onTestFinished(() => now.mockRestore());
+  const f = lifecycle();
+  f.options.healthIntervalMs = 2;
+  f.options.recoveryDelayMs = 1;
+  let spawns = 0,
+    readyCalls = 0;
+  f.options.spawnTunnel = () => {
+    const child = spawns++ ? fakeChild() : f.child;
+    queueMicrotask(() => child.stderr.write(`https://replacement-${spawns}.trycloudflare.com`));
+    return child;
+  };
+  f.options.ready = async () => {
+    if (++readyCalls > 1 && spawns < 5) throw Error('Unavailable');
+  };
+  f.options.probe = async () => ({ status: spawns >= 5 ? 200 : 503, service: 'walleterm' });
+  const running = await launchService(config, f.options);
+  try {
+    f.child.exitCode = 1;
+    f.child.emit('exit', 1, null);
+    await until(() => f.output.join('').includes('recovery is paused'));
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    assert.equal(spawns, 4);
+    clock += 600001;
+    await until(() => spawns === 5 && f.output.join('').includes('Use the new public URL'));
+    assert.equal(f.service.closed, false);
+  } finally {
+    await running.stop(0);
+  }
+});
+
+test('shutdown during recovery cannot create another tunnel', async () => {
+  const f = lifecycle();
+  f.options.healthIntervalMs = 2;
+  f.options.recoveryDelayMs = 1000;
+  const running = await launchService(config, f.options);
+  f.child.exitCode = 1;
+  f.child.emit('exit', 1, null);
+  await until(() => f.output.join('').includes('Restarting the public tunnel'));
+  await running.stop(0);
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  assert.equal(f.count(), 1);
+  assert.equal(f.service.closed, true);
+});
 
 test('a split cloudflared URL selects only the tunnel origin', async () => {
   const child = fakeChild();

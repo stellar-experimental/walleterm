@@ -24,6 +24,7 @@ export interface RequestResult {
   state: RequestState;
   signed_xdr?: string;
   message?: string;
+  expires_at?: string;
 }
 export interface AccountResult {
   public_key: string | null;
@@ -54,6 +55,7 @@ export interface ConnectOptions {
 export interface SignOptions extends SignalOptions {
   networkPassphrase?: string;
   address?: string | null;
+  onProgress?: (progress: { state: RequestState | 'retrying'; expiresAt?: string }) => void;
 }
 export interface Connection {
   url: string;

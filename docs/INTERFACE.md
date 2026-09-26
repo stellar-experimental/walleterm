@@ -36,6 +36,12 @@ Both commands need Bun 1.4.2 or later and the installed assets.
 `make install` builds the browser JavaScript and installs the TypeScript service files.
 Public mode needs cloudflared. The signing bridge also needs macOS and the 1Password SSH agent.
 Each public service owns a private temporary Cloudflare configuration and a supervised child process.
+Each service checks its public URL every 15 seconds and reports its state every minute.
+An exit or six failed checks starts tunnel recovery. The local server stays running.
+Recovery permits three replacement attempts per ten minutes, with delays of two, four, and eight seconds.
+Each replacement prints its new URL and QR code. Recovery never repeats signing or submission.
+Recovery pauses when another replacement exceeds this limit. Public checks continue, and the local server stays available.
+Recovery resumes when the oldest attempt leaves the ten-minute window. See [connection recovery](CONNECTION-LIFECYCLE.md).
 Only PATH, HOME, TMPDIR, and LANG enter the tunnel environment. Existing Cloudflare configuration remains unchanged.
 Listeners and tunnel metrics bind loopback. Ctrl+C stops only that command's server and tunnel.
 A parent pipe stops the tunnel after a parent crash. Shutdown uses bounded termination and cleanup.

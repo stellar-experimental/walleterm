@@ -68,6 +68,9 @@ An identical retry returns the same request. A changed payload with the same ID 
 A signing request lasts at most five minutes. The bridge scopes request IDs to a website session.
 A connection permits 1000 requests. The bridge permits 32 active requests and 64 live connections.
 The browser SDK keeps credentials in memory. A reload requires a new connection code.
+The connection UI checks the account every 15 seconds while the page is visible.
+Focus, restored pages, and network recovery also trigger a check.
+Network failures preserve credentials. A 401 response clears the session and requires a new code.
 
 ## Approval
 
@@ -94,3 +97,7 @@ The bridge never retries a signing request. The terminal prints a line for each 
 A signed transaction applies at most once, because its sequence number and five-minute expiry limit it.
 Cancellation or revocation during signing can suppress delivery but cannot undo a signature already produced.
 Each bridge process permits one active signing operation.
+The SDK retries identical request IDs after network failures and server errors.
+Retry delays increase from one second to five seconds. Successful polling uses one-second intervals.
+The SDK never retries the signer itself. It bounds cancellation checks to ten seconds and three attempts.
+Unconfirmed cancellation preserves signing uncertainty. An optional `onProgress` callback reports request states and network retries.

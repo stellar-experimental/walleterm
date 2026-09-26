@@ -31,12 +31,16 @@ interface Change {
 type ScanMock = (video: unknown, options: { signal: AbortSignal }) => unknown;
 // The members of the VM WalletermConnect instance that these tests drive.
 interface ConnectUI {
+  checkHealth(): Promise<void>;
+  state: string;
+  onStateChange: (state: string) => void;
   open(): void;
   close(): void;
   toggleMenu(): void;
   scan(): Promise<void>;
   update(): void;
   connect(): Promise<void>;
+  disconnect(): Promise<void>;
   refresh(): Promise<void>;
   changeWallet(key: MockSigner): Promise<void>;
   chooseWallet(client: object, keys: MockSigner[], signal: AbortSignal): Promise<string>;
@@ -99,9 +103,150 @@ function fixture(scanConnection: ScanMock, WalletermClient?: unknown) {
     assert.ok(handler, `Node ${name} has no click handler.`);
     return handler;
   };
-  return { ui, node, click, focused: () => focused };
+  return { ui, node, click, context, focused: () => focused };
 }
 const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+test('health checks retain credentials through a network failure and recover the connection', async () => {
+  const f = fixture(() => {});
+  const states: string[] = [];
+  let online = false,
+    calls = 0;
+  const client = {
+    token: 'session',
+    generation: 1,
+    url: 'https://bridge.example',
+    async getAddress() {
+      calls++;
+      if (!online) throw Error('Offline');
+      return { address: 'GORIGINAL', networkPassphrase: 'testnet' };
+    },
+  };
+  Object.assign(f.ui, {
+    client,
+    account: { address: 'GORIGINAL' },
+    wallets: [],
+    onStateChange: (state: string) => states.push(state),
+  });
+  await f.ui.checkHealth();
+  assert.equal(f.ui.state, 'unreachable');
+  assert.equal(client.token, 'session');
+  assert.equal(f.node('reconnect').hidden, false);
+  online = true;
+  await f.ui.checkHealth();
+  assert.equal(calls, 2);
+  assert.deepEqual(states, ['unreachable', 'connected']);
+  assert.equal(f.node('health').hidden, true);
+});
+
+test('an expired session removes the account and requires a new code', async () => {
+  const f = fixture(() => {});
+  const expired = vm.runInContext("Object.assign(Error('Expired'), {status:401})", f.context);
+  const client = {
+    token: 'session',
+    generation: 1,
+    url: 'https://bridge.example',
+    async getAddress() {
+      this.token = '';
+      throw expired;
+    },
+  };
+  let changes = 0;
+  Object.assign(f.ui, { client, account: { address: 'GORIGINAL' }, wallets: [], onChange: () => changes++ });
+  await f.ui.checkHealth();
+  assert.equal(f.ui.state, 'expired');
+  assert.equal(f.ui.client, null);
+  assert.equal(f.ui.account, null);
+  assert.equal(changes, 1);
+  assert.match(f.node('health').textContent ?? '', /session expired/);
+});
+
+test('health checks do not overlap or overwrite a newer connection', async () => {
+  const f = fixture(() => {});
+  const response = Promise.withResolvers<{ address: string }>();
+  let calls = 0;
+  const client = {
+    generation: 1,
+    getAddress: () => {
+      calls++;
+      return response.promise;
+    },
+  };
+  Object.assign(f.ui, { client, account: { address: 'GORIGINAL' }, state: 'connected' });
+  const pending = f.ui.checkHealth();
+  await f.ui.checkHealth();
+  f.ui.client = { generation: 2 };
+  f.ui.account = { address: 'GNEW' };
+  response.resolve({ address: 'GOLD' });
+  await pending;
+  assert.equal(calls, 1);
+  assert.equal(f.ui.account.address, 'GNEW');
+  assert.equal(f.ui.state, 'connected');
+});
+
+test('manual replacement connects to a new tunnel when the previous tunnel cannot revoke its session', async () => {
+  class Replacement {
+    token = 'new-session';
+    url = 'https://new.example';
+    async connect() {
+      return { address: 'GNEW', networkPassphrase: 'testnet' };
+    }
+    async disconnect() {}
+  }
+  const f = fixture(() => {}, Replacement);
+  let forgotten = 0;
+  const previous = {
+    token: 'old-session',
+    url: 'https://old.example',
+    async disconnect() {
+      throw Error('The old tunnel is unavailable.');
+    },
+    forgetConnection() {
+      forgotten++;
+      this.token = '';
+    },
+  };
+  Object.assign(f.ui, {
+    client: previous,
+    account: { address: 'GOLD' },
+    state: 'unreachable',
+    wallets: [],
+    onChange() {},
+    onBusyChange() {},
+  });
+  f.node('url').value = 'https://new.example';
+  f.node('code').value = '12345678';
+  await f.ui.connect();
+  assert.equal(f.ui.account?.address, 'GNEW');
+  assert.equal(f.ui.state, 'connected');
+  assert.equal(forgotten, 1);
+  assert.match(f.node('health').textContent ?? '', /did not confirm disconnection/);
+});
+
+test('manual disconnection discards an unreachable session locally and reports unconfirmed revocation', async () => {
+  const f = fixture(() => {});
+  const previous = {
+    token: 'session',
+    url: 'https://bridge.example',
+    async disconnect() {
+      throw Error('Offline');
+    },
+    forgetConnection() {
+      this.token = '';
+    },
+  };
+  Object.assign(f.ui, {
+    client: previous,
+    account: { address: 'GOLD' },
+    wallets: [],
+    onChange() {},
+    onBusyChange() {},
+  });
+  await f.ui.disconnect();
+  assert.equal(f.ui.client, null);
+  assert.equal(f.ui.account, null);
+  assert.match(f.node('health').textContent ?? '', /did not confirm session revocation/);
+});
 
 test('opening the connection dialog focuses Scan and leaves camera access to an explicit action', () => {
   let calls = 0;

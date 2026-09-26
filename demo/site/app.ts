@@ -96,6 +96,7 @@ let wallet: WalletermClient | null = null;
 let account: WalletAccount | null = null;
 let pending: Journal | null = null;
 let signingController: AbortController | null = null;
+let signingDeadline = 0;
 let selectedAction: Action | null = null;
 let busy = false,
   journalBlocked = false,
@@ -103,6 +104,7 @@ let busy = false,
   actionProgress = '';
 const connection = new WalletermConnect($('wallet-connection'), {
   onBusyChange: () => render(),
+  onStateChange: () => render(),
   onChange(value) {
     const previousAddress = account?.address;
     wallet = value.client;
@@ -319,6 +321,7 @@ function render() {
     $(name).disabled =
       !account ||
       !wallet?.token ||
+      connection.state === 'unreachable' ||
       busy ||
       connection.working ||
       (!!pending && !hasFinishedTransaction()) ||
@@ -339,19 +342,31 @@ function render() {
     checking: 'Checking the original transaction…',
     clearing: '',
   };
-  const progress = busy ? actionProgress || progressNames[actionPhase] || '' : '';
+  let progress = busy
+    ? actionPhase === 'signing' && signingController?.signal.aborted
+      ? progressNames.signing
+      : actionProgress || progressNames[actionPhase] || ''
+    : '';
+  let countdown = '';
+  if (actionPhase === 'signing' && signingController && signingDeadline) {
+    const seconds = Math.max(0, Math.ceil((signingDeadline - Date.now()) / 1000));
+    countdown = seconds ? ` ${seconds}s remaining.` : ' Confirming cancellation…';
+  }
   for (const [name, phase] of [
     ['sign', 'signing'],
     ['submit', 'submitting'],
     ['check', 'checking'],
   ] as const)
     $(name).setAttribute('aria-busy', String(busy && actionPhase === phase));
-  $('review-progress').textContent = progress;
+  // Announce state changes, without repeating the countdown each second.
+  if ($('review-progress-state').textContent !== progress) $('review-progress-state').textContent = progress;
+  $('review-countdown').textContent = countdown;
   $('review-progress').hidden = !progress;
+  $('review-status').hidden = !!progress;
   $('record-state').classList.toggle('demo-loading', !!progress);
   $('review-title').textContent = title;
   $('record-title').textContent = title;
-  $('record-state').textContent = progress || state;
+  $('record-state').textContent = progress ? progress + countdown : state;
   $('transaction-record').hidden = !pending && !(busy && selectedAction);
   const needsStatusCheck = pending && ['submitting', 'unknown'].includes(pending.state);
   $('review-note').textContent = busy
@@ -404,7 +419,12 @@ function render() {
   $('check').textContent = busy && actionPhase === 'checking' ? 'Checking…' : 'Check transaction status';
   $('sign').hidden = pending.state !== 'review' && !(busy && actionPhase === 'signing');
   $('sign').disabled =
-    busy || connection.working || journalBlocked || !pending.xdr || !connectedTo(pending.address);
+    busy ||
+    connection.working ||
+    connection.state === 'unreachable' ||
+    journalBlocked ||
+    !pending.xdr ||
+    !connectedTo(pending.address);
   $('sign').textContent = busy && actionPhase === 'signing' ? 'Signing…' : 'Sign';
   $('cancel-request').hidden = pending.state !== 'waiting' || !signingController;
   $('cancel-request').disabled = !signingController || signingController.signal.aborted;
@@ -558,10 +578,39 @@ async function requestSignature() {
     client = wallet,
     controller = new AbortController();
   signingController = controller;
-  render();
+  const timer = setInterval(() => {
+    if (signingController !== controller) return;
+    if (signingDeadline && Date.now() >= signingDeadline && !controller.signal.aborted)
+      controller.abort(Error('The signing request timed out.'));
+    render();
+  }, 1000);
   try {
+    signingDeadline = Math.min(
+      Date.now() + 300000,
+      Number(classicTransaction(record.xdr).timeBounds.maxTime) * 1000,
+    );
+    render();
     const result = await client.signTransaction(record.xdr, {
-      signal: AbortSignal.any([controller.signal, AbortSignal.timeout(300000)]),
+      signal: AbortSignal.any([
+        controller.signal,
+        AbortSignal.timeout(Math.max(1, signingDeadline - Date.now())),
+      ]),
+      onProgress({ state, expiresAt }) {
+        if (pending !== record || signingController !== controller) return;
+        const expires = Date.parse(expiresAt || '');
+        if (Number.isFinite(expires)) signingDeadline = Math.min(signingDeadline, expires);
+        actionProgress =
+          state === 'retrying'
+            ? 'The tunnel is unavailable. Retrying the same request…'
+            : state === 'pending'
+              ? 'Waiting for the signing request…'
+              : state === 'approved'
+                ? 'Checking the selected wallet…'
+                : state === 'signing'
+                  ? 'Waiting for 1Password on your Mac…'
+                  : '';
+        render();
+      },
     });
     if (pending !== record || signingController !== controller)
       throw Error('The transaction record changed during signing.');
@@ -594,6 +643,8 @@ async function requestSignature() {
         ' The bridge did not confirm the cancellation. Decline the 1Password prompt if it appears.';
     throw error;
   } finally {
+    clearInterval(timer);
+    signingDeadline = 0;
     if (signingController === controller) signingController = null;
   }
 }

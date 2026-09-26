@@ -50,6 +50,10 @@ try {
 The component keeps connection credentials in memory. Reloading requires a new code.
 The demo stores only its existing transaction recovery record.
 
+The connection health message uses normal document flow.
+Let the host container grow when a message appears.
+The demo places the message below the header controls and above the page content.
+
 `WalletermClient.listWallets({ signal })` refreshes public wallet metadata without changing the selected account.
 The wallet picker receives an empty list when discovery returns no keys. It can refresh or cancel.
 Discovery and selection requests allow 135 seconds. Other requests allow 15 seconds.
@@ -100,6 +104,63 @@ Avenir Next, Avenir, and system fonts provide the text. Connection codes use the
 The layout uses a header dropdown, a centered dialog, and a separate transaction workspace.
 The design review removed the permanent connection form and replaced the native select with readable wallet rows.
 The component uses scoped CSS and native dialog focus control. Small screens keep the dropdown within the viewport.
+
+## Recovery UI review on 2026-09-26
+
+The current design supports the recovery changes.
+The header owns connection controls and connection messages.
+The transaction dialog owns signing progress, the countdown, and cancellation.
+The saved transaction record remains available after an unknown result.
+This review found three display issues and fixed them.
+
+| Issue | Change |
+| --- | --- |
+| The mobile health message covered the network label. | The header now reserves a separate row for the message. |
+| The countdown changed a screen reader status every second. | State changes use a status. The countdown uses a timer with `aria-live="off"`. |
+| An old signing instruction remained visible during a retry. | Active progress replaces the old instruction. The result message returns when progress stops. |
+
+The desktop menu stays aligned with the connection button.
+The mobile menu stays within the screen and permits scrolling.
+The dialog keeps Cancel visible at 320 × 568.
+The dialog body scrolls when the transaction details exceed its available height.
+Escape restores focus to the transaction button or connection button.
+A replaced public URL still requires the current URL and code.
+
+### Checks
+
+The browser used a local bridge and an isolated mock wallet.
+The mock signing function returned no signature.
+The browser permitted network traffic only to `127.0.0.1`.
+The account response used local mock data.
+No check used a 1Password item, Friendbot, or a live Stellar account.
+
+| Check | Result |
+| --- | --- |
+| 320 × 568, 390 × 844, 768 × 1024, 1440 × 1000 | The checked states showed no horizontal overflow. |
+| Connection loss and recovery | The failure message appeared. The same session recovered after the network block ended. |
+| Expired session | The connection cleared and the current-code instruction appeared. |
+| Unconfirmed disconnection | The notice stayed visible without covering page content. |
+| Signing wait and network retry | The countdown and Cancel stayed visible on a small screen. |
+| Failed cancellation | The unknown result remained in the transaction record. |
+| Keyboard | Escape restored focus. Native dialogs kept their focus controls. |
+| Automated accessibility | The checked menu, signing, and expiry states had zero confirmed WCAG 2 A/AA violations. |
+| Accessibility limits | The page checks left decorative symbol contrast unresolved. The signing dialog had no incomplete checks. |
+| Local tests | 41 connection and demo tests passed. Type checks, formatting, and whitespace checks passed. |
+| Installation | The installed HTML, CSS, and application source matched the checked source. |
+
+Local screenshots remain in the ignored `evidence/ui-lifecycle-2026-09-26/` directory.
+Git does not include these screenshots.
+The files cover the original overlap, signing, retries, menus, unconfirmed disconnection, and session expiry.
+
+Reference checks used five Mobbin recovery screens.
+[Zoom](https://mobbin.com/screens/d49906e1-327c-4fa7-8159-cdbb1a573ce7) places a timeout explanation beside Retry and Leave.
+[Dropbox Dash](https://mobbin.com/screens/f10e8de9-fc45-47d7-8ada-238f1ea8d062) places the connection error above Try again and Close window.
+These references support keeping recovery instructions near their controls.
+They do not establish the safety of signing or submission.
+
+This review did not test a physical iPhone, VoiceOver, hardware sleep, or a live 1Password prompt.
+The display changes did not change signing, cancellation, submission, or transaction recovery rules.
+Existing service processes require a restart to load the installed UI changes.
 
 ## Earlier connection UI verification on 2026-09-26
 

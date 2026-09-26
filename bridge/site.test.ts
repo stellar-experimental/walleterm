@@ -83,6 +83,7 @@ function contextFor(html: string, extras: Record<string, unknown> = {}) {
     location: { hash: '' },
     history: { replaceState() {} },
     setInterval() {},
+    clearInterval() {},
     Option: class {},
     navigator: { locks: { request: async (_name: string, fn: () => unknown) => fn() } },
     ...extras,
@@ -104,6 +105,56 @@ function contextFor(html: string, extras: Record<string, unknown> = {}) {
 }
 const app = () => browserScript(new URL('../demo/site/app.ts', import.meta.url));
 const ok = (data: unknown) => ({ ok: true, json: async () => data });
+test('signing shows retry progress and stops at the server expiry after the page wakes', async () => {
+  let now = Date.now(),
+    tick: (() => void) | undefined,
+    cleared = false;
+  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    Date: class extends Date {
+      static override now() {
+        return now;
+      }
+    },
+    StellarSdk: {
+      Networks: { TESTNET: 'testnet' },
+      TransactionBuilder: { fromXDR: () => ({ timeBounds: { maxTime: Math.floor(now / 1000) + 180 } }) },
+    },
+    localStorage: { getItem: () => null, setItem() {} },
+    setInterval(fn: () => void) {
+      tick = fn;
+      return 1;
+    },
+    clearInterval() {
+      cleared = true;
+    },
+  });
+  f.run(app());
+  const signing = f.promise(`
+    pending={kind:'note', state:'waiting', address:'GORIGINAL', xdr:'mock', hash:'hash'};
+    busy=true; actionPhase='signing';
+    wallet={signTransaction: (_xdr, options) => new Promise((_resolve,reject) => {
+      options.onProgress({state:'retrying', expiresAt:new Date(Date.now()+10000).toISOString()});
+      options.signal.addEventListener('abort', () => reject(Object.assign(Error('Timed out'),{canceled:false})),{once:true});
+    })};
+    requestSignature().catch(() => {});
+  `);
+  assert.match(f.el('review-progress-state').textContent, /Retrying the same request/);
+  assert.equal(f.el('review-status').hidden, true);
+  assert.match(f.el('review-countdown').textContent, /10s remaining/);
+  const announcement = f.el('review-progress-state').textContent;
+  now += 1000;
+  assert.ok(tick);
+  tick();
+  assert.equal(f.el('review-progress-state').textContent, announcement);
+  assert.match(f.el('review-countdown').textContent, /9s remaining/);
+  now += 10001;
+  assert.ok(tick);
+  tick();
+  await signing;
+  assert.equal(f.run('pending.state'), 'signing_unknown');
+  assert.equal(f.run('signingController'), null);
+  assert.equal(cleared, true);
+});
 test('wallet changes preserve the original transaction journal and signer', () => {
   for (const state of ['signed', 'unknown', 'signing_unknown']) {
     let stored: string | null | undefined;
@@ -131,7 +182,12 @@ test('wallet changes preserve the original transaction journal and signer', () =
 
 test('an unknown signing outcome remains distinct from a confirmed cancellation', async () => {
   const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
-    StellarSdk: { Networks: { TESTNET: 'testnet' } },
+    StellarSdk: {
+      Networks: { TESTNET: 'testnet' },
+      TransactionBuilder: {
+        fromXDR: () => ({ timeBounds: { maxTime: Math.floor(Date.now() / 1000) + 180 } }),
+      },
+    },
     localStorage: { getItem: () => null, setItem() {} },
   });
   f.run(app());
@@ -147,7 +203,12 @@ test('demo denial and expiry finish the request; unknown submission remains prot
   const source = app();
   let stored: string | null | undefined;
   const f = contextFor(html, {
-    StellarSdk: { Networks: { TESTNET: 'testnet' } },
+    StellarSdk: {
+      Networks: { TESTNET: 'testnet' },
+      TransactionBuilder: {
+        fromXDR: () => ({ timeBounds: { maxTime: Math.floor(Date.now() / 1000) + 180 } }),
+      },
+    },
     WalletermClient: class {},
     localStorage: {
       getItem: () => stored || null,
@@ -734,7 +795,7 @@ test('only an active request shows progress; stopped signing cannot be canceled 
   assert.equal(f.el('review-progress').hidden, false);
   f.click('cancel-request');
   assert.equal(f.el('cancel-request').disabled, true);
-  assert.match(f.el('review-progress').textContent, /Canceling/);
+  assert.match(f.el('review-progress-state').textContent, /Canceling/);
   f.run("busy=false; pending.state='signing_unknown'; signingController=null; render()");
   assert.equal(f.el('review-progress').hidden, true);
   f.run("busy=true; pending.state='submitting'; actionPhase='submitting'; render()");

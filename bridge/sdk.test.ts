@@ -98,3 +98,92 @@ test('an empty wallet picker can refresh discovery within its current connection
   assert.equal(result.address, 'GAVAILABLE');
   assert.equal(listings, 2);
 });
+
+test('signing retries preserve the request ID and report network recovery', async () => {
+  const bodies: string[] = [],
+    states: string[] = [];
+  let posts = 0;
+  const client = new WalletermClient('https://bridge.example', {
+    pollInterval: 1,
+    page: null,
+    fetch: async (input, options) => {
+      if (requestUrl(input).endsWith('/v1/requests')) {
+        bodies.push(String(options?.body));
+        if (++posts < 3) throw TypeError('Offline');
+        return Response.json({ state: 'signing', expires_at: '2026-09-26T00:00:00Z' });
+      }
+      return Response.json({ state: 'signed', signed_xdr: 'signature' });
+    },
+  });
+  client.token = 'session';
+  client.account = { address: 'GMOCK', networkPassphrase: 'testnet' };
+  const result = await client.signTransaction('transaction', {
+    onProgress(progress) {
+      states.push(progress.state);
+      if (progress.state === 'signing') throw Error('Display failure');
+    },
+  });
+  assert.equal(result.signedTxXdr, 'signature');
+  assert.equal(new Set(bodies).size, 1);
+  assert.deepEqual(states, ['retrying', 'retrying', 'signing', 'signed']);
+});
+
+test('an unreachable bridge bounds cancellation and preserves signing uncertainty', async () => {
+  const originalTimeout = AbortSignal.timeout.bind(AbortSignal);
+  const timeouts: number[] = [];
+  const timeout = spyOn(AbortSignal, 'timeout').mockImplementation((milliseconds) => {
+    timeouts.push(milliseconds);
+    return originalTimeout(milliseconds === 10000 ? 10 : milliseconds);
+  });
+  onTestFinished(() => timeout.mockRestore());
+  const controller = new AbortController();
+  let cancellations = 0;
+  const client = new WalletermClient('https://bridge.example', {
+    page: null,
+    fetch: async (input, options) => {
+      if (!requestUrl(input).endsWith('/cancel')) return Response.json({ state: 'signing' });
+      cancellations++;
+      const signal = requestSignal(options);
+      return new Promise((_resolve, reject) => {
+        if (signal.aborted) reject(signal.reason);
+        else signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+    },
+  });
+  client.token = 'session';
+  client.account = { address: 'GMOCK', networkPassphrase: 'testnet' };
+  await assert.rejects(
+    client.signTransaction('transaction', {
+      signal: controller.signal,
+      onProgress: () => controller.abort(Error('Canceled')),
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof Error && 'canceled' in error);
+      assert.equal(error.canceled, false);
+      return true;
+    },
+  );
+  assert.ok(timeouts.includes(10000));
+  assert.equal(cancellations, 1);
+});
+
+test('failed remote disconnection retains credentials until an explicit local discard', async () => {
+  const client = new WalletermClient('https://bridge.example', {
+    fetch: async () => {
+      throw TypeError('Offline');
+    },
+  });
+  const active = new AbortController();
+  client.signings.add(active);
+  client.token = 'session';
+  client.account = { address: 'GMOCK', networkPassphrase: 'testnet' };
+  const generation = client.generation;
+  await assert.rejects(client.disconnect(), /Offline/);
+  assert.equal(client.token, 'session');
+  assert.equal(active.signal.aborted, false);
+  client.forgetConnection();
+  assert.equal(client.token, null);
+  assert.equal(client.account, null);
+  assert.equal(client.generation, generation + 1);
+  assert.equal(active.signal.aborted, true);
+});

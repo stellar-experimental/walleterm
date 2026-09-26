@@ -15,6 +15,7 @@ interface ConnectElements {
   continue: HTMLButtonElement;
   scan: HTMLButtonElement;
   disconnect: HTMLButtonElement;
+  reconnect: HTMLButtonElement;
   refresh: HTMLButtonElement;
   'retry-wallets': HTMLButtonElement;
   copy: HTMLButtonElement;
@@ -26,12 +27,22 @@ export interface ConnectionChange {
 export interface ConnectUIOptions {
   onChange?: (value: ConnectionChange) => void;
   onBusyChange?: (busy: boolean) => void;
+  onStateChange?: (state: ConnectionState) => void;
 }
+export type ConnectionState = 'disconnected' | 'connected' | 'unreachable' | 'expired';
 
 export class WalletermConnect {
   element: HTMLElement;
   onChange: (value: ConnectionChange) => void;
   onBusyChange: (busy: boolean) => void;
+  onStateChange: (state: ConnectionState) => void;
+  state: ConnectionState = 'disconnected';
+  notice = '';
+  checking = false;
+  healthTimer: ReturnType<typeof setInterval> | undefined;
+  wake = () => {
+    if (!document.hidden) void this.checkHealth();
+  };
   client: WalletermClient | null = null;
   account: Account | null = null;
   wallets: Signer[] = [];
@@ -55,13 +66,18 @@ export class WalletermConnect {
     // The template above defines the element type for each data-wt name.
     return node as K extends keyof ConnectElements ? ConnectElements[K] : HTMLElement;
   }
-  constructor(element: HTMLElement, { onChange = () => {}, onBusyChange = () => {} }: ConnectUIOptions = {}) {
+  constructor(
+    element: HTMLElement,
+    { onChange = () => {}, onBusyChange = () => {}, onStateChange = () => {} }: ConnectUIOptions = {},
+  ) {
     this.element = element;
     this.onChange = onChange;
     this.onBusyChange = onBusyChange;
+    this.onStateChange = onStateChange;
     element.classList.add('wt-connect');
     element.innerHTML = `
       <button type="button" class="wt-trigger" aria-haspopup="dialog" aria-expanded="false"><span class="wt-mark" aria-hidden="true">w</span><span data-wt="trigger-label">Connect Walleterm</span><span data-wt="chevron" hidden aria-hidden="true">⌄</span></button>
+      <p class="wt-message wt-health" data-wt="health" role="status" hidden></p>
       <div class="wt-menu" data-wt="menu" hidden role="dialog" aria-label="Wallet connection">
         <div class="wt-menu-heading"><span class="wt-brand">Walleterm</span><span class="wt-network">Testnet</span></div>
         <p class="wt-caption">Active wallet</p><strong data-wt="wallet-name"></strong>
@@ -69,6 +85,7 @@ export class WalletermConnect {
         <div class="wt-menu-section"><div class="wt-list-heading"><span>Your wallets</span><button type="button" class="wt-text-button" data-wt="refresh">Refresh</button></div><div data-wt="wallets" class="wt-wallets"></div></div>
         <p class="wt-message" data-wt="menu-status" role="status"></p>
         <div class="wt-tunnel"><span>Connected tunnel</span><span data-wt="tunnel"></span></div>
+        <button type="button" class="wt-secondary" data-wt="reconnect" hidden>Reconnect</button>
         <button type="button" class="wt-disconnect" data-wt="disconnect">Disconnect</button>
       </div>
       <dialog class="wt-dialog" aria-labelledby="wt-title">
@@ -95,6 +112,10 @@ export class WalletermConnect {
     this.dialog = element.querySelector('dialog')!;
     this.trigger.onclick = () => (this.account ? this.toggleMenu() : this.open());
     this.$('close').onclick = () => this.close();
+    this.$('reconnect').onclick = () => {
+      this.hideMenu();
+      this.open();
+    };
     this.dialog.addEventListener('cancel', (event) => {
       event.preventDefault();
       this.close();
@@ -168,6 +189,45 @@ export class WalletermConnect {
       }
     };
     this.update();
+    this.healthTimer = setInterval(this.wake, 15000);
+    for (const event of ['online', 'pageshow', 'focus']) globalThis.addEventListener(event, this.wake);
+    document.addEventListener('visibilitychange', this.wake);
+  }
+  destroy() {
+    clearInterval(this.healthTimer);
+    for (const event of ['online', 'pageshow', 'focus']) globalThis.removeEventListener(event, this.wake);
+    document.removeEventListener('visibilitychange', this.wake);
+    document.removeEventListener('click', this.outside);
+    document.removeEventListener('keydown', this.keyboard);
+  }
+  setState(state: ConnectionState) {
+    if (this.state === state) return;
+    this.state = state;
+    this.update();
+    this.onStateChange?.(state);
+  }
+  async checkHealth() {
+    const client = this.client;
+    if (!client || !this.account || this.checking || this.working || this.refreshing || client.selecting)
+      return;
+    this.checking = true;
+    const generation = client.generation;
+    try {
+      const account = await client.getAddress();
+      if (client !== this.client || generation !== client.generation || this.working) return;
+      if (!account.address) throw Error('The wallet is unavailable.');
+      this.account = account;
+      this.setState('connected');
+    } catch (errorValue) {
+      if (client !== this.client || generation !== client.generation || this.working) return;
+      const error = requestError(errorValue);
+      if (error.status === 401) {
+        this.setState('expired');
+        this.sync();
+      } else this.setState('unreachable');
+    } finally {
+      this.checking = false;
+    }
   }
   message(text: string, menu = false) {
     this.$(menu ? 'menu-status' : 'status').textContent = text;
@@ -205,6 +265,7 @@ export class WalletermConnect {
       this.client = null;
       this.account = null;
       this.wallets = [];
+      this.setState('expired');
       this.hideMenu();
       this.update();
       this.onChange({ client: null, account: null });
@@ -220,9 +281,21 @@ export class WalletermConnect {
     };
     this.$('trigger-label').textContent = this.working
       ? labels[this.phase] || 'Connecting…'
-      : this.account
-        ? short(this.account.address!)
-        : 'Connect Walleterm';
+      : this.state === 'unreachable'
+        ? 'Reconnecting…'
+        : this.account
+          ? short(this.account.address!)
+          : 'Connect Walleterm';
+    const health = this.$('health');
+    health.hidden = !['unreachable', 'expired'].includes(this.state) && !this.notice;
+    health.textContent =
+      this.state === 'expired'
+        ? 'The session expired. Connect with the current tunnel code.'
+        : this.state === 'unreachable'
+          ? 'The tunnel is unavailable. Wake your Mac or use its new URL and code.'
+          : this.notice;
+    this.$('reconnect').hidden = this.state !== 'unreachable';
+    this.$('reconnect').disabled = this.working || this.busy;
     this.$('chevron').hidden = !this.account;
     this.trigger.disabled = this.working || (!this.account && this.busy);
     this.loading(this.trigger, this.working && !this.dialog.open && !!this.$('menu').hidden);
@@ -528,10 +601,20 @@ export class WalletermConnect {
       });
       signal.throwIfAborted();
       // A failed replacement leaves the current connection usable.
-      await this.client?.disconnect();
+      this.notice = '';
+      try {
+        await this.client?.disconnect();
+      } catch {
+        // The user explicitly replaces this connection. Automatic checks never discard credentials.
+        signal.throwIfAborted();
+        this.client?.forgetConnection();
+        this.notice =
+          'The previous tunnel did not confirm disconnection. Its session can remain active until expiry.';
+      }
       signal.throwIfAborted();
       this.client = next;
       this.account = account;
+      this.setState('connected');
       this.wallets = this.nextWallets || [];
       this.connection = null;
       this.close();
@@ -557,9 +640,16 @@ export class WalletermConnect {
     this.setWorking(true);
     this.message('Disconnecting this website.', true);
     try {
-      await this.client.disconnect();
+      this.notice = '';
+      try {
+        await this.client.disconnect();
+      } catch {
+        this.client.forgetConnection();
+        this.notice = 'Disconnected here. The tunnel did not confirm session revocation.';
+      }
       this.client = null;
       this.account = null;
+      this.setState('disconnected');
       this.wallets = [];
       this.hideMenu();
       this.onChange({ client: null, account: null });

@@ -57,6 +57,9 @@ export interface LaunchOptions extends SignalOptions {
   ready?: (origin: string, options: ReadyOptions) => Promise<void>;
   output?: Output;
   environment?: NodeJS.ProcessEnv;
+  probe?: typeof publicProbe;
+  healthIntervalMs?: number;
+  recoveryDelayMs?: number;
 }
 
 const tunnelPattern = /https:\/\/[a-z0-9-]+\.trycloudflare\.com\b/i;
@@ -74,6 +77,8 @@ export function waitForTunnel(child: TunnelChild, timeoutMs = 30000, signal?: Ab
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      child.stdout.off('data', onData);
+      child.stderr.off('data', onData);
       child.off('error', onError);
       child.off('exit', onExit);
       signal?.removeEventListener('abort', onAbort);
@@ -199,6 +204,9 @@ export async function launchService(
     output = process.stdout,
     signal,
     environment = process.env,
+    probe = publicProbe,
+    healthIntervalMs = 15000,
+    recoveryDelayMs = 2000,
   }: LaunchOptions,
 ) {
   const controller = new AbortController();
@@ -206,6 +214,9 @@ export async function launchService(
     demo: Service | undefined,
     temporary: string | undefined,
     stopping: Promise<number> | undefined;
+  let origin = '',
+    lost = false,
+    started = false;
   const { promise: done, resolve: complete } = Promise.withResolvers<number>();
   function stop(code: number): Promise<number> {
     if (stopping) return stopping;
@@ -265,62 +276,160 @@ export async function launchService(
     writeFileSync(configFile, '{}\n', { mode: 0o600 });
     const env: NodeJS.ProcessEnv = {};
     for (const key of ['PATH', 'HOME', 'TMPDIR', 'LANG']) if (environment[key]) env[key] = environment[key];
-    child = spawnTunnel(
-      'cloudflared',
-      [
-        'tunnel',
-        '--config',
-        configFile,
-        '--url',
-        `http://127.0.0.1:${config.port}`,
-        '--no-autoupdate',
-        '--protocol',
-        'http2',
-        '--metrics',
-        '127.0.0.1:0',
-        '--grace-period',
-        '1s',
-        '--management-diagnostics=false',
-      ],
-      { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] },
-    );
-    child.once('exit', () => {
-      if (!stopping) {
-        process.stderr.write('The public tunnel stopped. Run this command again to reconnect.\n');
-        void stop(1);
-      }
-    });
-    const origin = await waitForTunnel(child, 30000, controller.signal);
-    controller.signal.throwIfAborted();
-    demo.setPublicOrigin(origin);
-    await bounded(
-      ready(origin, { signal: controller.signal, service: demo.service }),
-      45000,
-      controller.signal,
-      'The public tunnel did not become ready. Check the Internet connection and try again.',
-    );
-    controller.signal.throwIfAborted();
-    output.write(`${config.label} is ready on Stellar testnet.\n`);
-    if (demo.pairing) {
-      const printPairing = async () => {
-        const pairing = demo?.pairing;
-        if (!pairing) return;
-        const qr = await QRCode.toString(JSON.stringify(pairing), { type: 'terminal', small: true });
-        if (!controller.signal.aborted)
-          output.write(
-            `\nTunnel URL: ${pairing.url}\nConnection code: ${pairing.code}\nScan this QR code with the website's Scan tunnel button, not the phone camera:\n${qrForTerminal(qr, output)}\nThis code expires at ${pairing.expires_at}. It works once.\n`,
-          );
-      };
-      await printPairing();
-      demo.onPairingChanged?.(() => printPairing().catch(() => stop(1)));
-    } else {
-      output.write(
-        `\nPublic URL: ${origin}\nScan this QR code with your phone camera to open the site:\n${qrForTerminal(await QRCode.toString(origin, { type: 'terminal', small: true }), output)}\n`,
+    const connectTunnel = async () => {
+      lost = false;
+      child = spawnTunnel(
+        'cloudflared',
+        [
+          'tunnel',
+          '--config',
+          configFile,
+          '--url',
+          `http://127.0.0.1:${config.port}`,
+          '--no-autoupdate',
+          '--protocol',
+          'http2',
+          '--metrics',
+          '127.0.0.1:0',
+          '--grace-period',
+          '1s',
+          '--management-diagnostics=false',
+        ],
+        { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] },
       );
-    }
+      child.once('exit', () => {
+        if (!stopping) {
+          lost = true;
+          if (!started) void stop(1);
+        }
+      });
+      child.once('error', () => {
+        lost = true;
+      });
+      origin = await waitForTunnel(child, 30000, controller.signal);
+      child.stdout.resume();
+      child.stderr.resume();
+      controller.signal.throwIfAborted();
+      demo!.setPublicOrigin(origin);
+      await bounded(
+        ready(origin, { signal: controller.signal, service: demo!.service }),
+        45000,
+        controller.signal,
+        'The public tunnel did not become ready. Check the Internet connection and try again.',
+      );
+      controller.signal.throwIfAborted();
+      if (lost) throw Error('The public tunnel stopped during startup.');
+    };
+    await connectTunnel();
+    const printConnection = async () => {
+      output.write(`${config.label} is ready on Stellar testnet.\n`);
+      if (demo!.pairing) {
+        const printPairing = async () => {
+          const pairing = demo?.pairing;
+          if (!pairing) return;
+          const qr = await QRCode.toString(JSON.stringify(pairing), { type: 'terminal', small: true });
+          if (!controller.signal.aborted)
+            output.write(
+              `\nTunnel URL: ${pairing.url}\nConnection code: ${pairing.code}\nScan this QR code with the website's Scan tunnel button, not the phone camera:\n${qrForTerminal(qr, output)}\nThis code expires at ${pairing.expires_at}. It works once.\n`,
+            );
+        };
+        await printPairing();
+        demo!.onPairingChanged?.(() => printPairing().catch(() => stop(1)));
+      } else {
+        output.write(
+          `\nPublic URL: ${origin}\nScan this QR code with your phone camera to open the site:\n${qrForTerminal(await QRCode.toString(origin, { type: 'terminal', small: true }), output)}\n`,
+        );
+      }
+    };
+    await printConnection();
     controller.signal.throwIfAborted();
     output.write('Press Ctrl+C to stop this service.\n');
-    return { origin, demo, child, stop, done };
+    started = true;
+    const monitor = async () => {
+      let failures = 0,
+        lastStatus = Date.now(),
+        paused = false,
+        needsConnection = false;
+      const connectionMessage = () =>
+        demo!.pairing
+          ? 'Use the new public URL. Reconnect the website with the current code.'
+          : 'Open the new public URL. Keep the previous page open if it has an unresolved transaction.';
+      const restarts: number[] = [];
+      const report = (message: string) => {
+        output.write(`[${new Date().toISOString()}] ${config.label}: ${message}\n`);
+        lastStatus = Date.now();
+      };
+      while (!controller.signal.aborted) {
+        await delay(healthIntervalMs, undefined, { signal: controller.signal });
+        try {
+          if (lost) throw Error('The tunnel process stopped.');
+          const result = await probe(origin, { signal: controller.signal });
+          if (result.status !== 200 || result.service !== demo!.service)
+            throw Error('The public service did not respond correctly.');
+          if (needsConnection) {
+            await printConnection();
+            report(connectionMessage());
+            needsConnection = false;
+          }
+          if (failures) report('The public connection recovered.');
+          failures = 0;
+          if (Date.now() - lastStatus >= 60000) report('The public connection is available.');
+          continue;
+        } catch {
+          controller.signal.throwIfAborted();
+          failures++;
+          if (failures === 1 || Date.now() - lastStatus >= 60000)
+            report('The public connection is unavailable. Checking again.');
+        }
+        // Let cloudflared recover transient network failures before replacing its process.
+        if (!lost && failures < 6) continue;
+        for (;;) {
+          controller.signal.throwIfAborted();
+          while (restarts.length && Date.now() - restarts[0] >= 600000) restarts.shift();
+          if (restarts.length >= 3) {
+            if (!paused)
+              report(
+                'Tunnel recovery is paused until the restart limit clears. The local service stays available.',
+              );
+            paused = true;
+            break;
+          }
+          paused = false;
+          restarts.push(Date.now());
+          report('Restarting the public tunnel. The public URL will change.');
+          await stopChild(child, 3000);
+          await delay(recoveryDelayMs * 2 ** (restarts.length - 1), undefined, { signal: controller.signal });
+          controller.signal.throwIfAborted();
+          try {
+            needsConnection = true;
+            await connectTunnel();
+            controller.signal.throwIfAborted();
+            await printConnection();
+            report(connectionMessage());
+            needsConnection = false;
+            failures = 0;
+            break;
+          } catch {
+            controller.signal.throwIfAborted();
+            report('The replacement tunnel did not become ready.');
+          }
+        }
+      }
+    };
+    void monitor().catch(() => {
+      if (!stopping) void stop(1);
+    });
+    return {
+      get origin() {
+        return origin;
+      },
+      demo,
+      get child() {
+        return child;
+      },
+      stop,
+      done,
+    };
   } catch (errorValue) {
     const error = requestError(errorValue);
     const result = await stop(error.code === 'service_stopped' ? 0 : 1);
