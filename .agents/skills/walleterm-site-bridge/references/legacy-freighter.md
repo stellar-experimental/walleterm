@@ -16,7 +16,7 @@ Run commands from this skill directory, or use its absolute path. Load `agent-br
 export AGENT_BROWSER_SESSION="$(agent-browser session id --scope worktree --prefix walleterm-site)"
 agent-browser open https://stellarterm.com/testnet
 agent-browser snapshot -i
-node scripts/legacy-freighter.mjs inject --public-key G... --origin https://stellarterm.com --legacy-flag | agent-browser eval --stdin
+bun scripts/legacy-freighter.ts inject --public-key G... --origin https://stellarterm.com --legacy-flag | agent-browser eval --stdin
 ```
 
 After injection, use a site route change to rerender a page that already displayed an absent-wallet state. A full reload clears the bridge. Log in through the site's wallet button. Read pending requests before touching Walleterm.
@@ -24,7 +24,7 @@ After injection, use a site route change to rerender a page that already display
 ```sh
 agent-browser eval 'window.__walletermBridge.pending()'
 agent-browser eval 'window.__walletermBridge.requests[0].transactionXdr' > request.json
-node -e 'const fs=require("node:fs");fs.writeFileSync("unsigned.xdr",JSON.parse(fs.readFileSync("request.json","utf8"))+"\n",{mode:0o600})'
+bun -e 'const fs=require("node:fs");fs.writeFileSync("unsigned.xdr",JSON.parse(fs.readFileSync("request.json","utf8"))+"\n",{mode:0o600})'
 stellar tx decode unsigned.xdr
 stellar tx hash --network-passphrase 'Test SDF Network ; September 2015' unsigned.xdr
 ```
@@ -46,7 +46,7 @@ python3 scripts/classic-attach.py \
   --network-passphrase 'Test SDF Network ; September 2015' \
   --expected-hash REVIEWED_HASH \
   --output signed.xdr
-node scripts/legacy-freighter.mjs reply \
+bun scripts/legacy-freighter.ts reply \
   --index 0 \
   --public-key SELECTED_G_ADDRESS \
   --unsigned-xdr unsigned.xdr \

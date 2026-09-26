@@ -1,15 +1,17 @@
 {
-  "name": "walleterm-test-fixtures",
+  "name": "walleterm",
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22"
+    "bun": ">=1.4.2"
   },
   "scripts": {
-    "test": "node --test bridge/*.test.mjs scripts/*.test.mjs tests/*.test.mjs && node tests/contracts.mjs && node tests/extended-contracts.mjs && node tests/cap85.mjs",
-    "test:live": "node tests/live.mjs",
-    "build:syntax": "node scripts/build-syntax.mjs",
-    "check:syntax": "node scripts/build-syntax.mjs --check"
+    "build": "bun scripts/build.ts && tsc -p tsconfig.sdk.json",
+    "typecheck": "tsc --noEmit",
+    "test": "bun run build && bun test && bun tests/contracts.ts && bun tests/extended-contracts.ts && bun tests/cap85.ts",
+    "test:live": "bun tests/live.ts",
+    "format": "prettier --write \"**/*.ts\" \".agents/**/*.ts\"",
+    "format:check": "prettier --check \"**/*.ts\" \".agents/**/*.ts\""
   },
   "dependencies": {
     "@stellar/stellar-sdk": "17.1.0",
@@ -17,8 +19,27 @@
     "qrcode": "1.5.4"
   },
   "devDependencies": {
+    "@types/bun": "1.4.2",
+    "@types/qrcode": "1.5.6",
+    "prettier": "3.9.9",
+    "typescript": "7.0.2",
     "@twinkleplop/bash": "0.1.5",
-    "@twinkleplop/json": "0.1.5",
-    "esbuild": "0.28.2"
+    "@twinkleplop/json": "0.1.5"
+  },
+  "packageManager": "bun@1.4.2",
+  "exports": {
+    ".": {
+      "types": "./dist/types/walleterm.d.ts",
+      "import": "./dist/sdk/walleterm.js"
+    },
+    "./connect": {
+      "types": "./dist/types/connect.d.ts",
+      "import": "./dist/sdk/connect.js"
+    },
+    "./scan": {
+      "types": "./dist/types/scan.d.ts",
+      "import": "./dist/sdk/scan.js"
+    },
+    "./connect.css": "./sdk/connect.css"
   }
 }

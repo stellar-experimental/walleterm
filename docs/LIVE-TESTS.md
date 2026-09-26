@@ -6,7 +6,7 @@ Run one live suite at a time.
 
 ## Prepare
 
-1. Run `make build` and `npm ci --ignore-scripts`.
+1. Run `make build` and `bun install --frozen-lockfile --ignore-scripts`.
 2. Create three Ed25519 SSH keys inside the 1Password desktop app.
 3. Enable only the intended test items in the 1Password SSH agent configuration.
 4. Use `walleterm list` to identify each key by its full G-address.
@@ -45,11 +45,11 @@ CAP-71 loads its artifacts from the local Cargo build directory.
 ## Run
 
 ```sh
-node tests/live.mjs classic
-node tests/live.mjs contracts
-node tests/live.mjs extended
-node tests/live.mjs cap71
-node tests/live.mjs cap85
+bun tests/live.ts classic
+bun tests/live.ts contracts
+bun tests/live.ts extended
+bun tests/live.ts cap71
+bun tests/live.ts cap85
 ```
 
 Run `contracts` before `extended` or `cap85`; they need its deployment checkpoint.
@@ -59,7 +59,7 @@ The core signs digests only. These runners construct, sign, submit, and check th
 ## Recover an interrupted run
 
 ```sh
-node tests/live.mjs reconcile
+bun tests/live.ts reconcile
 ```
 
 This command queries the saved transaction hash without submitting it again.

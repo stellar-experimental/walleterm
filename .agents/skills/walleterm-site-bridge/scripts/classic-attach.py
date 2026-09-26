@@ -12,13 +12,6 @@ from pathlib import Path
 
 HEX_32 = re.compile(r"[0-9a-f]{64}\Z")
 HEX_64 = re.compile(r"[0-9a-f]{128}\Z")
-# Python has no built-in Ed25519. Node.js is already required by this skill.
-VERIFY = (
-    "const c = require('node:crypto'); const [k, d, s] = process.argv.slice(1);"
-    "const key = c.createPublicKey({ key: { kty: 'OKP', crv: 'Ed25519',"
-    " x: Buffer.from(k, 'hex').toString('base64url') }, format: 'jwk' });"
-    "process.exit(c.verify(null, Buffer.from(d, 'hex'), key, Buffer.from(s, 'hex')) ? 0 : 1);"
-)
 
 
 def stellar(*arguments, input_text=None):
@@ -53,7 +46,8 @@ def digest(text, passphrase):
 
 
 def verify(public_key_hex, digest_hex, signature_hex):
-    result = subprocess.run(["node", "-e", VERIFY, public_key_hex, digest_hex, signature_hex],
+    result = subprocess.run(["bun", str(Path(__file__).with_name("verify-signature.ts")),
+                             public_key_hex, digest_hex, signature_hex],
                             capture_output=True, timeout=30, check=False)
     if result.returncode:
         raise ValueError("The signature does not verify for the expected key and hash.")

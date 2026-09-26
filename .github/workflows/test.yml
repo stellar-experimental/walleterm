@@ -1,0 +1,36 @@
+name: Test
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: '1.27.1'
+          cache: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: '1.4.2'
+      - name: Install offline test tools
+        run: |
+          rustup toolchain install 1.93.0 --profile minimal --target wasm32v1-none
+          case "$(uname -m)" in
+            arm64) target=aarch64; checksum=416483409db89d9bf58163023d2c9d67cda24a5645042a98c0b8c1378cfc659d ;;
+            x86_64) target=x86_64; checksum=9408343ed9cad961e529b3fdcd124ddc38fe1fa4766098e3c109d78e8d847305 ;;
+          esac
+          curl -fsSL "https://github.com/stellar/stellar-cli/releases/download/v28.0.0/stellar-cli-28.0.0-${target}-apple-darwin.tar.gz" -o "$RUNNER_TEMP/stellar.tar.gz"
+          echo "$checksum  $RUNNER_TEMP/stellar.tar.gz" | shasum -a 256 -c -
+          mkdir -p "$RUNNER_TEMP/stellar-bin"
+          tar -xzf "$RUNNER_TEMP/stellar.tar.gz" -C "$RUNNER_TEMP/stellar-bin"
+          echo "$RUNNER_TEMP/stellar-bin" >> "$GITHUB_PATH"
+      - name: Build the CAP-71 test fixtures
+        run: cargo +1.93.0 build --locked --manifest-path fixtures/cap71/Cargo.toml --workspace --release --target wasm32v1-none
+      - run: bun install --frozen-lockfile --ignore-scripts
+      - run: bun run format:check
+      - run: make test

@@ -7,7 +7,7 @@ The scroll region accepts keyboard focus and arrow keys.
 
 ## Implementation
 
-`demo/site/code-view.js` owns rendering. Both JSON views use `createCodeView`.
+`demo/site/code-view.ts` owns rendering. Both JSON views use `createCodeView`.
 The connection command receives Bash highlighting through a demo-only enhancement.
 The connection SDK has no new dependency.
 
@@ -32,20 +32,19 @@ These limits do not truncate the displayed, copied, or exported data.
 
 The build pins `@twinkleplop/json` and `@twinkleplop/bash` at `0.1.5`.
 Their core dependency is `@twinkleplop/core` at `0.2.2`.
-The build pins esbuild at `0.28.2`.
-The generated browser bundle contains 69,774 bytes before compression.
-The installer copies this bundle and its MIT license into each release.
+Bun builds `demo/site/syntax.ts` with the other browser entry points.
+The browser loads its generated module only when highlighting starts.
+The installer includes the generated modules and the MIT license.
 Production installation does not need the development dependencies.
 
 ```sh
-npm ci
-npm run build:syntax
-npm run check:syntax
-npm test
+bun install --frozen-lockfile --ignore-scripts
+bun run build
+bun run test
 ```
 
-The test suite verifies that the committed bundle matches the pinned dependencies and build source.
-Rebuild and commit the bundle when its dependencies or entry point change.
+Generated JavaScript stays under `dist/` and is not committed.
+Tests compare the built tokenizer with its typed source and check all imported browser modules.
 
 The implementation follows the official documentation, accessed on 2026-09-26:
 
@@ -58,7 +57,7 @@ The implementation follows the official documentation, accessed on 2026-09-26:
 ## Validation
 
 The checks ran in the separate `feat/demo-code-display` worktree.
-The full suite passed 193 Node tests and three contract self-tests.
+Before the TypeScript integration, the code-display suite passed 193 Node tests and three contract self-tests.
 The fresh worktree first required its CAP-71 WASM fixtures:
 
 ```sh

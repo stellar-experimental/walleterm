@@ -58,7 +58,7 @@ So "SDK 27 account" is not one behavior. Accounts that decode contexts break.
 Accounts that ignore contexts do not. X05 tests the context-reading fixture.
 X07 records the baseline simple account and the OpenZeppelin 0.7.x account.
 
-## Rows (`tests/cap85.mjs`)
+## Rows (`tests/cap85.ts`)
 
 | Row | Content |
 |-----|---------|
@@ -110,6 +110,6 @@ protocol 28, and stops at the first failed row.
 
 ```sh
 sh fixtures/cap85/build.sh      # both workspaces, tests, manifest
-node tests/cap85.mjs            # offline self-test, no agent, no network
-node --test tests/cap85.test.mjs # recovery and executable regression tests
+bun tests/cap85.ts              # offline self-test, no agent, no network
+bun test tests/cap85.test.ts    # recovery and executable regression tests
 ```

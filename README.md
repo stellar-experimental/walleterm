@@ -8,11 +8,11 @@ It verifies each signature before returning it. The Go binary has no third-party
 
 ## Install
 
-Install Go, Node.js 22 or later, npm, cloudflared, the 1Password desktop app, and the Stellar CLI first.
-Homebrew includes npm with Node.js. Enable the 1Password SSH agent in the desktop app.
+Install Go, Bun 1.4.2 or later, cloudflared, the 1Password desktop app, and the Stellar CLI first.
+Enable the 1Password SSH agent in the desktop app.
 
 ```sh
-brew install go node cloudflared
+brew install go oven-sh/bun/bun cloudflared
 make install
 make install-skill
 walleterm --help
@@ -24,7 +24,7 @@ Keep that directory on `PATH`, including in non-interactive agent shells.
 Both commands work from any directory. They do not require a shell alias.
 Run `make install` again after source changes to update the binary and bridge files together.
 The installer prepares all dependencies before it switches the command to a complete version.
-A failed build or npm install preserves the previous command. Existing processes keep their original files.
+A failed build or Bun install preserves the previous command. Existing processes keep their original files.
 Version directories stay under `~/.local/share/walleterm/releases` for running processes and rollback.
 Use `make build` for a build under this checkout's `bin/` directory.
 `make install-skill` links this checkout's signing and site bridge skills through `~/.agents/skills`.
@@ -86,7 +86,7 @@ Create a request in the demo.
 Review it in the demo and select Sign. Approve 1Password on the Mac if it asks.
 The demo submits the signed transaction to testnet.
 
-A website integrates through [the browser client](sdk/walleterm.js). The website approves its own requests, so use dedicated testnet keys.
+A website integrates through [the browser client](sdk/walleterm.ts). The website approves its own requests, so use dedicated testnet keys.
 The bridge supports testnet native payments, data entries, and sell offers.
 See [the bridge guide](docs/WEB-BRIDGE.md) for setup, recovery, and integration details.
 The [demo activity log](docs/DEMO-ACTIVITY.md) keeps browser history and supports JSON export.
@@ -108,20 +108,19 @@ Contract accounts require their exact authorization digest and signature structu
 ## Tests
 
 ```sh
-make test
-npm ci --ignore-scripts
+bun install --frozen-lockfile --ignore-scripts
 cargo build --locked --manifest-path fixtures/cap71/Cargo.toml --workspace --release --target wasm32v1-none
-npm test
+make test
 ```
 
 Tests run offline with mock keys after dependency installation and fixture compilation.
-The Node suite needs the CAP-71 Rust fixture build shown above.
+The Bun suite needs the CAP-71 Rust fixture build shown above.
 Install Rust and its `wasm32v1-none` target for that build.
-The tunnel, demo, and test tools use the Node dependencies. The installer copies only the runtime files.
+The tunnel, demo, and test tools use Bun. The installer includes production dependencies and browser assets.
 See [the live test guide](docs/LIVE-TESTS.md) for fixture builds and dedicated 1Password test keys.
 Live tests request signatures and create testnet transactions and contracts.
 An unknown submission blocks further signing and submission across process restarts.
-Run `node tests/live.mjs reconcile` to query the saved hash without submitting it again.
+Run `bun tests/live.ts reconcile` to query the saved hash without submitting it again.
 
 ## Verified coverage
 
@@ -134,3 +133,21 @@ See [the evidence index](evidence/README.md) for exact coverage and limits.
 Git includes source, lockfiles, pinned contract artifacts, and acceptance summaries.
 Local signer metadata, submission journals, raw evidence, and build caches stay ignored.
 Keep unresolved submission journals until their original transaction hashes are resolved.
+
+## TypeScript development
+
+Use Bun 1.4.2 or later. The Go binary keeps signing keys inside 1Password.
+
+```sh
+bun install --frozen-lockfile --ignore-scripts
+bun run typecheck
+make test
+```
+
+`bun run build` creates browser JavaScript and SDK declarations in `dist/`.
+TypeScript checks all source files, tests, and fixture tools in strict mode.
+The package exports the client, connection UI, scanner, and connection stylesheet.
+Browser integrations can copy `dist/` and `sdk/connect.css`, or import the package exports.
+The package remains private; this change does not publish a package.
+
+See [the Bun migration research](docs/BUN-MIGRATION.md) for tool choices and source references.

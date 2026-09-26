@@ -23,25 +23,25 @@ Run these commands from the repository root:
 ```sh
 cargo test --offline --locked --manifest-path fixtures/cap71/Cargo.toml --workspace
 cargo build --offline --locked --manifest-path fixtures/cap71/Cargo.toml --workspace --release --target wasm32v1-none
-node --test tests/cap71.test.mjs
+bun test tests/cap71.test.ts
 ```
 
 Rust tests exercise the local protocol-27 host with isolated mock keys.
 They verify native `C→G`, `C→C→G`, address substitution, and same-key `address_v2` rejection.
 They also check membership, thresholds, extra invalid signatures, ordering, expiry, and nonce reuse.
-Node tests verify SDK tree construction, signing records, error reasons, checkpoints, and mocked adapter execution.
+Bun tests verify SDK tree construction, signing records, error reasons, checkpoints, and mocked adapter execution.
 These tests do not prove protocol-28 testnet acceptance.
 
 ## Live runner
 
-`tests/cap71.mjs` exports `runCap71(ctx)`.
+`tests/cap71.ts` exports `runCap71(ctx)`.
 It uses the existing `sdk`, `rpc`, `keys`, `networkPassphrase`, `record`, `signDigest`, `sign`, `send`, and `assertClear` fields.
 Tests can override the checkpoint path with `ctx.cap71Checkpoint`.
 The normal checkpoint is `evidence/live/cap71-state.json`.
 Run this command after review and live authorization:
 
 ```sh
-node tests/live.mjs cap71
+bun tests/live.ts cap71
 ```
 
 | Row | Acceptance |

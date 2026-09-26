@@ -47,7 +47,7 @@ func runServiceCommand(command string, args []string, out io.Writer) int {
 		if command == "tunnel" {
 			vaultHelp = "Set OP_VAULT to a vault name or ID to filter website wallets. Filtering requires the 1Password CLI.\n"
 		}
-		return writeOutput(out, serviceUsage(command)+"\nRequires Node.js 22 or later and cloudflared. Shows public links and QR codes.\nThe signing bridge requires macOS and the 1Password SSH agent.\n"+vaultHelp+"Press Ctrl+C to stop this service.\n")
+		return writeOutput(out, serviceUsage(command)+"\nRequires Bun 1.4.2 or later and cloudflared. Shows public links and QR codes.\nThe signing bridge requires macOS and the 1Password SSH agent.\n"+vaultHelp+"Press Ctrl+C to stop this service.\n")
 	}
 	config, err := parseServiceOptions(command, args)
 	if err != nil {
@@ -56,16 +56,15 @@ func runServiceCommand(command string, args []string, out io.Writer) int {
 	if command == "tunnel" && runtime.GOOS != "darwin" {
 		return outputError(out, true, failure("unsupported_platform", "The signing bridge requires macOS."))
 	}
-	node, err := exec.LookPath("node")
+	bun, err := exec.LookPath("bun")
 	if err != nil {
-		return outputError(out, true, failure("start_failed", "Install Node.js 22 or later. On macOS, run: brew install node"))
+		return outputError(out, true, failure("start_failed", "Install Bun 1.4.2 or later. On macOS, run: brew install bun"))
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	version, versionErr := exec.CommandContext(ctx, node, "--version").Output()
-	major, parseErr := strconv.Atoi(strings.Split(strings.TrimPrefix(strings.TrimSpace(string(version)), "v"), ".")[0])
-	if versionErr != nil || parseErr != nil || major < 22 {
-		return outputError(out, true, failure("start_failed", "Install Node.js 22 or later."))
+	version, versionErr := exec.CommandContext(ctx, bun, "--version").Output()
+	if versionErr != nil || !supportedBunVersion(strings.TrimSpace(string(version))) {
+		return outputError(out, true, failure("start_failed", "Install Bun 1.4.2 or later."))
 	}
 	if _, err := exec.LookPath("cloudflared"); err != nil {
 		return outputError(out, true, failure("start_failed", "Install cloudflared. On macOS, run: brew install cloudflared"))
@@ -82,7 +81,7 @@ func runServiceCommand(command string, args []string, out io.Writer) int {
 	if command == "tunnel" {
 		directory = "bridge"
 	}
-	entry := filepath.Clean(filepath.Join(filepath.Dir(binary), "..", directory, "entry.mjs"))
+	entry := filepath.Clean(filepath.Join(filepath.Dir(binary), "..", directory, "entry.ts"))
 	if info, err := os.Stat(entry); err != nil || info.IsDir() {
 		return outputError(out, true, failure("start_failed", "The service files are missing. Run make install from the bridge checkout."))
 	}
@@ -97,8 +96,31 @@ func runServiceCommand(command string, args []string, out io.Writer) int {
 		}
 	}
 	environment = append(environment, "WALLETERM_BINARY="+binary)
-	if err := syscall.Exec(node, []string{node, entry, string(encoded)}, environment); err != nil {
+	if err := syscall.Exec(bun, []string{bun, entry, string(encoded)}, environment); err != nil {
 		return outputError(out, true, failure("start_failed", "The service could not start."))
 	}
 	return 0
+}
+
+// Compare only stable releases. The web runtime uses Bun 1.4.2 APIs.
+func supportedBunVersion(version string) bool {
+	parts := strings.Split(strings.TrimPrefix(version, "v"), ".")
+	if len(parts) != 3 {
+		return false
+	}
+	minimum := []int{1, 4, 2}
+	values := make([]int, 3)
+	for i, part := range parts {
+		n, err := strconv.Atoi(part)
+		if err != nil || n < 0 {
+			return false
+		}
+		values[i] = n
+	}
+	for i, value := range values {
+		if value != minimum[i] {
+			return value > minimum[i]
+		}
+	}
+	return true
 }
