@@ -5,12 +5,14 @@ The connection SDK remains separate from this log.
 
 ## Use
 
-- Expand an event to read its JSON.
+- Expand an event with data to read its JSON.
 - Search for an action, wallet address, transaction hash, or signature.
 - Filter events by type.
 - Copy JSON, hashes, signatures, or XDR from an expanded event.
 - Export JSON to keep all events, including events outside the current filter.
 - Select **Show more activity** to display older events.
+
+Events without data use plain rows. They have no expansion control or JSON details.
 
 The log stores events in IndexedDB for the current browser and website origin.
 Reloading the page or clearing a transaction keeps the activity history.
@@ -55,6 +57,13 @@ These Mobbin references informed the layout:
 - Expanded events stayed open when new activity arrived.
 - Layout checks covered 390-pixel and 1440-pixel viewports without horizontal page overflow.
 - The expanded activity section passed the WCAG 2 A/AA axe check with no violations or incomplete checks.
+
+The later plain-row checks covered empty objects, empty arrays, null, and empty strings.
+These events had no JSON details, buttons, or expansion indicators.
+Numeric zero, false, and populated JSON remained expandable.
+Hash JSON and Copy hash remained available.
+The 390-pixel and 1440-pixel layouts had no horizontal overflow.
+The refinement passed eight activity tests, the syntax check, and axe with no violations or incomplete checks.
 
 These checks requested no live signatures, account funding, or network submissions.
 Mock confirmation does not establish testnet acceptance.

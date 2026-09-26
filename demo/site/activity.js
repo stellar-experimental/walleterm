@@ -147,12 +147,14 @@ export function createActivityLog(element, { decodeSigned } = {}) {
   };
   const row = event => {
     if (rows.has(event.id)) return rows.get(event.id);
-    const node = document.createElement('details'); node.className = 'activity-event';
-    const summary = document.createElement('summary');
+    const expandable = event.data != null && (typeof event.data === 'object' ? Object.keys(event.data).length > 0 : event.data !== '');
+    const node = document.createElement(expandable ? 'details' : 'div'); node.className = 'activity-event';
+    const summary = document.createElement(expandable ? 'summary' : 'div'); summary.className = 'activity-summary';
     const kind = document.createElement('span'); kind.className = `activity-kind activity-kind-${event.category}`; kind.textContent = categories[event.category] || 'Event';
     const title = document.createElement('strong'); title.textContent = event.title;
     const time = document.createElement('time'); time.dateTime = event.time; time.textContent = new Date(event.time).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit' });
     summary.append(kind, title, time); node.append(summary);
+    if (!expandable) { rows.set(event.id, node); return node; }
     const detail = document.createElement('div'); detail.className = 'activity-detail';
     const actions = document.createElement('div'); actions.className = 'activity-copy';
     actions.append(button('Copy JSON', JSON.stringify(event, null, 2)));
