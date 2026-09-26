@@ -113,7 +113,7 @@ Run `node tests/live.mjs reconcile` to query the saved hash without submitting i
 The 2026-09-25 testnet run passed classic multisig, fee bumps, mixed G/C accounts, replay, and signer rotation.
 It also passed OpenZeppelin authorization, native CAP-71 delegation, and CAP-85 external executable tests.
 The earlier mobile web proof passed live signing on an iPhone and desktop Chrome.
-The current tunnel passed live 1Password signing on testnet from desktop Chromium. A phone run of the current tunnel remains untested.
+The current tunnel passed live 1Password signing on testnet from desktop Chromium and a real iPhone.
 See [the evidence index](evidence/README.md) for exact coverage and limits.
 
 Git includes source, lockfiles, pinned contract artifacts, and acceptance summaries.

@@ -34,3 +34,16 @@ test('Ctrl+C during a review stops the service and shows the signer', async () =
   assert.match(text, /"comment": "Testnet key"/); assert.match(text, /"fingerprint": "SHA256:mock"/);
   input.destroy(); output.destroy();
 });
+
+test('input typed before the prompt cannot answer it', async () => {
+  const input = new PassThrough(), output = new PassThrough(); input.isTTY = output.isTTY = true;
+  let text = '', sent = false;
+  input.write('\n'); input.write('sign 000000\n'); // Early input: an extra Enter and an old answer.
+  output.on('data', chunk => {
+    text += chunk;
+    const code = text.match(/Type sign ([a-f0-9]{6})/);
+    if (code && !sent) { sent = true; queueMicrotask(() => input.write(`sign ${code[1]}\n`)); }
+  });
+  assert.equal(await reviewInTerminal({ origin: 'https://site.example', details: { hash: 'mock' } }, { input, output, signal: AbortSignal.timeout(2000) }), true);
+  input.destroy(); output.destroy();
+});

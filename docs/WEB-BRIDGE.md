@@ -14,7 +14,8 @@ walleterm tunnel
 ```
 
 The terminal shows the public bridge URL, an eight-digit connection code, and a QR code.
-Keep this terminal visible. It reviews every signing request.
+Keep this terminal visible and at least 50 columns wide, so the QR code draws correctly. It reviews every signing request.
+Each review ignores anything typed before its prompt appears, such as an extra Enter.
 
 In a second terminal:
 

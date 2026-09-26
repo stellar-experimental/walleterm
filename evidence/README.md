@@ -27,7 +27,7 @@ The published Stellar Token Launchpad addresses redirected to a generic site.
 
 [The mobile web proof](mobile-poc/README.md) covers the earlier combined `web` command on an iPhone and desktop Chrome.
 [The tunnel record](tunnel-testnet-2026-09-25.json) covers live signing through `walleterm tunnel` and `walleterm demo` over public Quick Tunnels.
-It records a payment, a data note, an offer, two offer cancellations, a terminal denial, and one 1Password agent error.
+It records desktop and real iPhone runs: payments, data notes, offers, offer cancellations, terminal denials, and one 1Password agent error.
 
 ## Tracked summaries and local records
 
