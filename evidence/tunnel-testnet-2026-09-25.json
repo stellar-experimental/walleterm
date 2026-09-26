@@ -1,0 +1,109 @@
+{
+ "name": "walleterm tunnel live testnet acceptance",
+ "date": "2026-09-25 (America/New_York); ledger times are UTC",
+ "revision": "3bf7810",
+ "network": "Test SDF Network ; September 2015",
+ "tools": {
+  "node": "v24.13.0",
+  "cloudflared": "2026.9.1",
+  "@stellar/stellar-sdk": "17.1.0",
+  "browser": "agent-browser (desktop Chromium)"
+ },
+ "setup": "walleterm tunnel --port 8797 and walleterm demo --port 8798, each behind its own Cloudflare Quick Tunnel. The browser typed the tunnel URL and eight-digit code.",
+ "signer": {
+  "public_key": "GCECPDMQIBQCW3ZTQPRAN5UQXQZVZGI5OKYKRDGNZGW4HQYESDJ7SZBG",
+  "comment": "walleterm-live-1p-test"
+ },
+ "checks": {
+  "code_connection_over_public_tunnel": "passed",
+  "key_selection": "passed; the picker also listed an unrelated SSH key (see issue 1)",
+  "terminal_review_shows_key_comment_fingerprint_and_fields": "passed",
+  "typed_challenge_then_1password_signature": "passed",
+  "demo_verifies_signature_and_submits": "passed",
+  "multiple_offers_allowed": "passed; offer 826627 was created while offer 826443 was open",
+  "cancel_newest_offer_from_any_source": "passed; removed 826627, then the older 826443",
+  "terminal_denial": "passed; no signature, hash not on ledger",
+  "1password_agent_error": "observed; the first payment attempt failed with 'The agent returned a truncated frame' while 1Password was not ready. The bridge withheld the result and logged it. The demo showed failed. No signature reached the site."
+ },
+ "accepted": [
+  {
+   "action": "payment",
+   "hash": "95fb16fa33ddf84f5a08454a06660c17d8661632d7495a0dbe409b765d785569",
+   "ledger": 4871805,
+   "successful": true,
+   "fee_charged": "100",
+   "source_account_sequence": "6674100005109777",
+   "created_at": "2026-09-26T00:30:12Z"
+  },
+  {
+   "action": "data_note",
+   "hash": "820997296549b28d856924bd2c9fe6af123f1c8bdf92b423a361d757fedfd994",
+   "ledger": 4871812,
+   "successful": true,
+   "fee_charged": "100",
+   "source_account_sequence": "6674100005109778",
+   "created_at": "2026-09-26T00:30:47Z"
+  },
+  {
+   "action": "offer_create",
+   "hash": "8cf249d26fbcf473e915e7a7eeba50a5f81e26d5edeec8490b44327d5939c31c",
+   "ledger": 4871816,
+   "successful": true,
+   "fee_charged": "100",
+   "source_account_sequence": "6674100005109779",
+   "created_at": "2026-09-26T00:31:07Z"
+  },
+  {
+   "action": "cancel_newest_offer_826627",
+   "hash": "229fec34eb0041375ccfa63ec54e079cb72736eef0c2f89a1a725e8f0fa83040",
+   "ledger": 4871821,
+   "successful": true,
+   "fee_charged": "100",
+   "source_account_sequence": "6674100005109780",
+   "created_at": "2026-09-26T00:31:32Z"
+  },
+  {
+   "action": "cancel_older_offer_826443",
+   "hash": "02dc919782c2a34a2ac3f881f325be9aef513f6c23a788a1e8b02e99be5c480e",
+   "ledger": 4871825,
+   "successful": true,
+   "fee_charged": "100",
+   "source_account_sequence": "6674100005109781",
+   "created_at": "2026-09-26T00:31:52Z"
+  }
+ ],
+ "not_submitted": [
+  {
+   "action": "first_payment_1password_agent_error",
+   "hash": "b796368184c0ce16e479d0e92246033cbbb92a60e8a51577b2c56db2b4c50fd2",
+   "horizon_status": 404
+  },
+  {
+   "action": "terminal_denial",
+   "hash": "d19dc9f5328f354705033ded894f5e04ff198d95c04f660276ebbbcefa777c58",
+   "horizon_status": 404
+  }
+ ],
+ "final_account": {
+  "account": "GCECPDMQIBQCW3ZTQPRAN5UQXQZVZGI5OKYKRDGNZGW4HQYESDJ7SZBG",
+  "sequence": "6674100005109781",
+  "balances": [
+   {
+    "asset": "USDC",
+    "balance": "25.5415025"
+   },
+   {
+    "asset": "XLM",
+    "balance": "19970.9698200"
+   }
+  ],
+  "open_offers": 0,
+  "data_walleterm_demo": "Mjk5MjVhZmUtMmQ2OC00Yw=="
+ },
+ "not_tested": [
+  "QR camera scan on a phone",
+  "pagehide keepalive cancel on iPhone Safari",
+  "Friendbot funding of a new account",
+  "tunnel restart during an open request"
+ ]
+}

@@ -26,11 +26,12 @@ It records the live hash, ledger, final trustline, page refresh error, and unsig
 The published Stellar Token Launchpad addresses redirected to a generic site.
 
 [The mobile web proof](mobile-poc/README.md) covers the earlier combined `web` command on an iPhone and desktop Chrome.
-The current `walleterm tunnel` bridge passed offline tests and a mock-key browser run. Live signing through it remains untested.
+[The tunnel record](tunnel-testnet-2026-09-25.json) covers live signing through `walleterm tunnel` and `walleterm demo` over public Quick Tunnels.
+It records a payment, a data note, an offer, two offer cancellations, a terminal denial, and one 1Password agent error.
 
 ## Tracked summaries and local records
 
-Git includes this index, two acceptance summaries, two site records, and the mobile proof index and JSON summaries.
+Git includes this index, two acceptance summaries, three site records, and the mobile proof index and JSON summaries.
 These files contain public testnet addresses, transaction hashes, contract identifiers, and source hashes.
 They contain no signing keys or vault identifiers.
 

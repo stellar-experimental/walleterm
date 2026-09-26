@@ -34,6 +34,7 @@ coverage.out
 !/evidence/protocol-acceptance.json
 !/evidence/stellarterm-testnet-2026-09-25.json
 !/evidence/sdf-demo-bridge-2026-09-25.json
+!/evidence/tunnel-testnet-2026-09-25.json
 !/evidence/mobile-poc/
 /evidence/mobile-poc/*
 !/evidence/mobile-poc/README.md
