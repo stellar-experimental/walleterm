@@ -3,16 +3,50 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
-function element() { return { hidden: false, disabled: false, value: '', textContent: '', children: [],
+function element() { return { hidden: false, disabled: false, open: false, value: '', textContent: '', children: [],
+  addEventListener() {}, focus() {}, showModal() { this.open = true; }, close() { this.open = false; },
   append(...nodes) { this.children.push(...nodes); }, replaceChildren(...nodes) { this.children = nodes; }, add() {} }; }
 function contextFor(html, extras = {}) {
   const elements = new Map([...html.matchAll(/id="([^"]+)"/g)].map(m => [m[1], element()]));
   const context = vm.createContext({ document: { getElementById: id => elements.get(id), createElement: element }, URLSearchParams, AbortSignal, AbortController,
+    createActivityLog: () => ({ record() {}, transaction() {}, wrapFetch: fetcher => fetcher }),
+    WalletermConnect: class {
+      constructor(_element, { onChange }) { this.onChange = onChange; }
+      sync() {} setBusy() {}
+      async disconnect() { await this.client.disconnect(); this.onChange({ client: null, account: null }); }
+    },
     location: { hash: '' }, history: { replaceState() {} }, setInterval() {}, Option: class {},
     navigator: { locks: { request: async (_name, fn) => fn() } }, ...extras });
   return { context, elements, run: code => vm.runInContext(code, context) };
 }
 const ok = data => ({ ok: true, json: async () => data });
+test('wallet changes preserve the original transaction journal and signer', () => {
+  for (const state of ['signed', 'unknown', 'signing_unknown']) {
+    let stored;
+    const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+      StellarSdk: { Networks: { TESTNET: 'testnet' } },
+      localStorage: { getItem: () => null, setItem: (_key, value) => { stored = value; } },
+    });
+    f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
+    f.run(`pending={kind:'note', address:'GORIGINAL', hash:'original-hash', xdr:'original-xdr', signed_xdr:'original-signature', state:'${state}'}; save()`);
+    const before = stored;
+    f.run("connection.onChange({ client: {token:'same-session'}, account: {address:'GSECOND'} })");
+    assert.equal(stored, before); assert.equal(f.run('pending.address'), 'GORIGINAL');
+    assert.equal(f.run('pending.signed_xdr'), 'original-signature');
+    assert.equal(f.run('connectedTo(pending.address)'), false);
+  }
+});
+
+test('an unknown signing outcome remains distinct from a confirmed cancellation', async () => {
+  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    StellarSdk: { Networks: { TESTNET: 'testnet' } }, localStorage: { getItem: () => null, setItem() {} },
+  });
+  f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
+  for (const error of ["{requestState:'unknown'}", "{canceled:false}"]) {
+    await f.run(`pending={kind:'note', state:'waiting', address:'GORIGINAL', xdr:'original', hash:'hash'}; wallet={signTransaction: async () => {throw Object.assign(Error('Stopped'), ${error})}}; requestSignature().catch(() => {})`);
+    assert.equal(f.run('pending.state'), 'signing_unknown');
+  }
+});
 test('demo denial and expiry permit clearing; unknown submission remains protected after reload', async () => {
   const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8');
   const source = readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, '');
@@ -27,6 +61,9 @@ test('demo denial and expiry permit clearing; unknown submission remains protect
   assert.equal(f.elements.get('clear').hidden, true); assert.equal(f.elements.get('check').hidden, false);
   const restored = contextFor(html, { StellarSdk: {Networks:{TESTNET:'testnet'}}, WalletermClient: class {}, localStorage: { getItem: () => stored, setItem() {}, removeItem() {} } });
   restored.run(source); assert.equal(restored.run('pending.state'), 'unknown'); assert.equal(restored.elements.get('clear').hidden, true);
+  assert.equal(restored.elements.get('review').open, true);
+  const saved = stored; restored.elements.get('close-review').onclick();
+  assert.equal(stored, saved); assert.equal(restored.run('pending.state'), 'unknown');
 });
 
 test('a reload preserves an open signing request until the user clears it', async () => {
@@ -61,7 +98,7 @@ test('a damaged journal still permits disconnect without changing storage', asyn
   f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
   f.context.disconnectMock = async () => { disconnected = true; };
   f.run("wallet={token:'mock', disconnect:disconnectMock}; account={address:'GSOURCE'}; render()");
-  await f.elements.get('disconnect').onclick();
+  await f.run('connection.client = wallet; connection.disconnect()');
   assert.equal(disconnected, true);
   assert.equal(f.run('account'), null);
   assert.equal(stored, '{broken');
@@ -214,8 +251,16 @@ test('a built transaction waits for Sign before it is signed', async () => {
   });
   f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
   f.run("account={address:'GSOURCE'}; signs=0; wallet={token:'mock', signTransaction: async () => { signs++; return new Promise(() => {}); }}");
-  await f.run("build('note')");
+  await f.elements.get('note').onclick();
   f.run('render()');
+  assert.equal(f.elements.get('review').open, true);
+  const record = f.run('JSON.stringify(pending)');
+  f.elements.get('close-review').onclick();
+  assert.equal(f.elements.get('review').open, false);
+  assert.equal(f.run('JSON.stringify(pending)'), record);
+  assert.equal(f.elements.get('transaction-record').hidden, false);
+  f.elements.get('open-review').onclick();
+  assert.equal(f.elements.get('review').open, true);
   assert.equal(f.run('pending.state'), 'review'); assert.equal(f.run('signs'), 0);
   assert.equal(f.elements.get('sign').hidden, false); assert.equal(f.elements.get('sign').disabled, false); assert.equal(f.elements.get('clear').textContent, 'Discard');
   assert.match(f.elements.get('details').textContent, /"name": "walleterm-demo"/);
@@ -233,4 +278,25 @@ test('a saved review with invalid XDR blocks actions without breaking the page',
   f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
   assert.equal(f.run('journalBlocked'), true); assert.equal(f.run('busy'), false);
   assert.match(f.elements.get('status').textContent, /could not be read/);
+});
+
+test('the action modal opens before account lookup and keeps preparation errors visible', async () => {
+  let fail;
+  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    StellarSdk: {}, localStorage: { getItem: () => null },
+    fetch: () => new Promise((_resolve, reject) => { fail = reject; }),
+  });
+  f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
+  f.run("account={address:'GSOURCE'}; wallet={token:'mock'}");
+  const creating = f.elements.get('payment').onclick();
+  assert.equal(f.elements.get('review').open, true);
+  assert.equal(f.elements.get('review-title').textContent, 'Pay 0.01 test XLM');
+  assert.match(f.elements.get('review-status').textContent, /Preparing/);
+  assert.equal(f.elements.get('sign').hidden, true);
+  fail(Error('Horizon unavailable')); await creating;
+  assert.equal(f.elements.get('review').open, true);
+  assert.equal(f.elements.get('review-status').textContent, 'Horizon unavailable');
+  assert.equal(f.run('pending'), null);
+  assert.equal(f.elements.get('transaction-details').hidden, true);
+  assert.equal(f.elements.get('sign').hidden, true);
 });

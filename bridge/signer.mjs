@@ -3,7 +3,7 @@ import { StrKey } from '@stellar/stellar-sdk';
 import { stopChild } from './runtime.mjs';
 const MAX_BODY = 8192;
 function fail(status, message) { return Object.assign(Error(message), { status }); }
-function signerCommand(args, input, { signal, command = process.env.WALLETERM_BINARY || 'walleterm', spawnSigner = spawn, timeoutMs, maxOutput } = {}) {
+function signerCommand(args, input, { signal, command = process.env.WALLETERM_BINARY || 'walleterm', spawnSigner = spawn, timeoutMs, maxOutput, rawOutput = false } = {}) {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(fail(503, 'The signing service stopped.'));
     const child = spawnSigner(command, args, { stdio: ['pipe', 'pipe', 'pipe'] });
@@ -35,6 +35,7 @@ function signerCommand(args, input, { signal, command = process.env.WALLETERM_BI
     child.stdin.on('error', error => stop(error));
     child.once('close', code => {
       if (finished || stopping) return;
+      if (rawOutput) return code === 0 ? finish(null, output) : finish(fail(502, 'The 1Password CLI request failed.'));
       let result;
       try { result = JSON.parse(output); } catch { return finish(fail(502, 'The signer returned invalid JSON.')); }
       if (code !== 0 || result.ok !== true) return finish(fail(502, result?.error?.message || 'The 1Password request failed.'));
@@ -59,5 +60,38 @@ export async function availableSigners(options = {}) {
   const signers = result.signers.filter(item => item && StrKey.isValidEd25519PublicKey(item.public_key))
     .map(({ public_key, fingerprint, comment }) => ({ public_key, fingerprint, comment }));
   if (new Set(signers.map(item => item.public_key)).size !== signers.length) throw fail(502, 'The signer list contains duplicate keys.');
-  return signers;
+  const vault = options.vault ?? process.env.OP_VAULT;
+  if (vault === undefined || vault === '') return signers;
+  if (!vault.trim()) throw fail(502, 'Set OP_VAULT to a 1Password vault name or ID.');
+  const signal = AbortSignal.any([...(options.signal ? [options.signal] : []), AbortSignal.timeout(120000)]);
+  const read = args => (options.readVault || readVault)(args, { signal });
+  let items;
+  try { items = JSON.parse(await read(['item', 'list', '--vault', vault, '--categories', 'SSH Key', '--format', 'json'])); }
+  catch { throw fail(502, 'The selected 1Password vault is unavailable. Check OP_VAULT and the 1Password CLI.'); }
+  if (!Array.isArray(items) || items.length > 1024) throw fail(502, 'The selected vault returned an invalid key list.');
+  const allowed = new Set();
+  for (const item of items) {
+    // References use IDs, never item titles or agent comments.
+    if (!/^[a-z2-7]{26}$/.test(item?.id || '') || !/^[a-z2-7]{26}$/.test(item?.vault?.id || '') ||
+        item.category !== 'SSH_KEY' || !(item.vault.id === vault || item.vault.name?.toLowerCase() === vault.toLowerCase())) {
+      throw fail(502, 'The selected vault returned an invalid key item.');
+    }
+    let publicKey;
+    try { publicKey = await read(['read', '--no-newline', `op://${item.vault.id}/${item.id}/public key`]); }
+    catch { throw fail(502, 'A public key in the selected vault is unavailable.'); }
+    const [algorithm, encoded] = publicKey.trim().split(/\s+/);
+    if (algorithm !== 'ssh-ed25519') continue;
+    const blob = Buffer.from(encoded || '', 'base64');
+    if (blob.length !== 51 || blob.toString('base64') !== encoded || blob.readUInt32BE(0) !== 11 ||
+        blob.toString('ascii', 4, 15) !== 'ssh-ed25519' || blob.readUInt32BE(15) !== 32) {
+      throw fail(502, 'An Ed25519 public key in the selected vault is invalid.');
+    }
+    allowed.add(StrKey.encodeEd25519PublicKey(blob.subarray(19)));
+  }
+  return signers.filter(item => allowed.has(item.public_key));
+}
+
+function readVault(args, { signal }) {
+  // Reuse bounded output and shutdown escalation. Never return CLI diagnostics on failure.
+  return signerCommand(args, '', { command: 'op', signal, timeoutMs: 120000, maxOutput: 1024 * 1024, rawOutput: true });
 }

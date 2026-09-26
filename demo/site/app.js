@@ -1,12 +1,45 @@
-import { WalletermClient } from '/sdk/walleterm.js';
-import { scanConnection } from '/sdk/scan.js';
+import { WalletermConnect } from '/sdk/connect.js';
 const $ = id => document.getElementById(id);
 const { Account, Asset, Keypair, Networks, Operation, StrKey, TransactionBuilder, xdr } = globalThis.StellarSdk;
 const HORIZON = 'https://horizon-testnet.stellar.org';
 const ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
 const STORAGE = 'walleterm-demo-request-v1';
-let wallet, account, pending, busy = false, connecting = false, signingController, scanning, journalBlocked = false;
-function status(text) { $('status').textContent = text; }
+let wallet, account, pending, busy = false, signingController, journalBlocked = false, selectedAction;
+const connection = new WalletermConnect($('wallet-connection'), { onChange(value) {
+  wallet = value.client; account = value.account;
+  status(account ? 'Wallet connected. Choose a testnet action.' : 'The website is disconnected.');
+  render();
+} });
+function status(text) {
+  $('status').textContent = text;
+  if ($('review').open || busy) $('review-status').textContent = text;
+}
+const actionNames = { note: 'Write a note', payment: 'Pay 0.01 test XLM', offer: 'Offer 0.1 test XLM', cancel_offer: 'Cancel newest offer' };
+const stateNames = { review: 'Ready to sign', waiting: 'Waiting for a signature', signing_unknown: 'Signing result unknown', signed: 'Ready to submit',
+  submitting: 'Submitting to testnet', unknown: 'Submission result unknown', submitted: 'Transaction complete', canceled: 'Signing canceled',
+  denied: 'Signature declined', expired: 'Transaction expired', failed: 'Transaction failed' };
+function openReview() {
+  if (!$('review').open) $('review').showModal();
+}
+function closeReview() {
+  $('review').close();
+  (pending || busy && selectedAction ? $('open-review') : $('actions-title')).focus();
+}
+$('open-review').onclick = openReview;
+$('close-review').onclick = closeReview;
+$('review').addEventListener('cancel', event => { event.preventDefault(); closeReview(); });
+$('review').addEventListener('click', event => {
+  const rect = $('review').getBoundingClientRect();
+  if (event.target === $('review') && (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom)) closeReview();
+});
+$('review').addEventListener('keydown', event => {
+  if (event.key !== 'Tab') return;
+  const controls = [...$('review').querySelectorAll('button:not(:disabled), summary')].filter(node => node.getClientRects().length);
+  const first = controls[0], last = controls.at(-1);
+  if (event.shiftKey && document.activeElement === first || !event.shiftKey && document.activeElement === last) {
+    event.preventDefault(); (event.shiftKey ? last : first)?.focus();
+  }
+});
 async function horizon(path, options = {}) {
   const response = await fetch(`${HORIZON}${path}`, { ...options, signal: AbortSignal.timeout(15000) });
   const result = await response.json();
@@ -58,14 +91,25 @@ function describe(text) {
 }
 function connectedTo(address) { return !!wallet?.token && account?.address === address; }
 function render() {
-  $('actions').hidden = !account;
-  for (const name of ['note', 'payment', 'offer', 'cancel-offer']) $(name).disabled = busy || !!pending || journalBlocked;
-  $('account').hidden = !account; $('account').textContent = account ? `TESTNET\n${account.address}` : '';
-  $('disconnect').hidden = !wallet?.token;
-  $('connect-button').disabled = connecting || !!wallet?.token; $('scan').disabled = connecting || !!wallet?.token || !!scanning;
-  $('bridge').disabled = !!wallet?.token; $('code').disabled = !!wallet?.token;
-  $('review').hidden = !pending;
-  if (!pending) return;
+  connection.sync(); connection.setBusy(busy && !signingController);
+  $('connection-hint').hidden = !!account;
+  for (const name of ['note', 'payment', 'offer', 'cancel-offer']) $(name).disabled = !account || busy || !!pending || journalBlocked;
+  const title = actionNames[pending?.kind || selectedAction] || 'Your transaction';
+  const state = pending ? stateNames[pending.state] : busy ? 'Preparing transaction' : 'No transaction created';
+  $('review-title').textContent = title;
+  $('record-title').textContent = title; $('record-state').textContent = state;
+  $('transaction-record').hidden = !pending && !(busy && selectedAction);
+  $('review-note').textContent = busy ? 'This action continues if you close this window.' : pending ? 'Closing this window keeps the transaction.' : 'Close this window to choose another action.';
+  $('transaction-details').hidden = !pending;
+  $('review-summary').replaceChildren();
+  if (!pending) {
+    for (const name of ['sign', 'submit', 'check', 'cancel-request', 'clear']) $(name).hidden = true;
+    return;
+  }
+  for (const [label, value] of [['Status', state], ['Network', 'Stellar testnet'], ['Wallet', pending.address], ...(pending.recipient ? [['Recipient', pending.recipient]] : [])]) {
+    const term = document.createElement('dt'), detail = document.createElement('dd');
+    term.textContent = label; detail.textContent = value; $('review-summary').append(term, detail);
+  }
   $('details').textContent = JSON.stringify({ action: pending.kind, state: pending.state, signer: pending.address, recipient: pending.recipient, hash: pending.hash,
     ...(pending.state === 'review' ? { transaction: describe(pending.xdr) } : {}), result: pending.result }, null, 2);
   $('submit').hidden = pending.state !== 'signed'; $('submit').disabled = busy || journalBlocked;
@@ -76,7 +120,7 @@ function render() {
   $('clear').textContent = pending.state === 'review' ? 'Discard' : ['waiting', 'signing_unknown'].includes(pending.state) ? 'Clear stopped request' : 'Start another request';
 }
 async function action(fn) {
-  if (busy || journalBlocked) return; busy = true;
+  if (busy || journalBlocked || connection.working) return; busy = true;
   try {
     render();
     if (!navigator.locks?.request) throw Error('This browser cannot coordinate transaction tabs. Use a browser with Web Locks.');
@@ -93,53 +137,6 @@ async function action(fn) {
   } catch (error) { if (error.status === 401) account = null; status(error.message); }
   finally { busy = false; render(); }
 }
-function selectWallet(signers, { signal }) {
-  $('picker').hidden = false;
-  $('signers').replaceChildren(new Option('Choose a testnet wallet', ''));
-  for (const key of signers) $('signers').add(new Option(`${key.comment || '1Password key'} · ${key.public_key}`, key.public_key));
-  $('select-wallet').disabled = true;
-  status('Select a dedicated testnet wallet from 1Password.');
-  return new Promise((resolve, reject) => {
-    const finish = (error, value) => {
-      signal.removeEventListener('abort', canceled); $('picker').hidden = true;
-      $('select-wallet').onclick = null; $('cancel-picker').onclick = null;
-      error ? reject(error) : resolve(value);
-    };
-    const canceled = () => finish(signal.reason || Error('Wallet selection was canceled.'));
-    signal.addEventListener('abort', canceled, { once: true });
-    $('signers').onchange = () => { $('select-wallet').disabled = !$('signers').value; };
-    $('select-wallet').onclick = () => { if ($('signers').value) finish(null, $('signers').value); };
-    $('cancel-picker').onclick = () => finish(Error('Wallet selection was canceled. Use the next code in the tunnel terminal.'));
-    if (signal.aborted) canceled();
-  });
-}
-$('connect').onsubmit = event => { event.preventDefault(); if (connecting || wallet?.token) return;
-  scanning?.abort(); connecting = true; $('connect-button').disabled = true; $('scan').disabled = true;
-  (async () => {
-    wallet = new WalletermClient($('bridge').value.trim().replace(/\/$/, ''));
-    status('Connecting. Check your Mac if 1Password requires an unlock.');
-    account = await wallet.connect({ code: $('code').value.trim(), selectWallet });
-    $('code').value = ''; status('Connected. Choose an action below.'); render();
-  })().catch(error => { account = null; status(error.message); render(); }).finally(() => { connecting = false; render(); });
-};
-$('scan').onclick = async () => {
-  if (scanning || connecting) return;
-  scanning = new AbortController(); $('scanner').hidden = false; $('scan').disabled = true;
-  status('Allow camera access, then scan the tunnel QR code.');
-  try {
-    const connection = await scanConnection($('camera'), { signal: scanning.signal });
-    $('bridge').value = connection.url; $('code').value = connection.code;
-    status('The tunnel URL and code are ready. Select Connect wallet.');
-  } catch (error) { status(scanning.signal.aborted ? 'Scanning stopped. You can enter the URL and code.' : `${error.message} You can enter the URL and code.`); }
-  finally { scanning = null; $('scanner').hidden = true; $('scan').disabled = connecting; }
-};
-$('stop-scan').onclick = () => scanning?.abort();
-$('disconnect').onclick = async () => {
-  if (busy) return; busy = true; render();
-  try { await wallet.disconnect(); account = null; status('The website is disconnected.'); }
-  catch (error) { status(error.message); }
-  finally { busy = false; render(); }
-};
 async function build(kind) {
   if (!account || pending) return;
   const source = await sourceAccount();
@@ -178,22 +175,33 @@ $('sign').onclick = () => action(async () => {
   await requestSignature();
 });
 async function requestSignature() {
-  signingController = new AbortController();
+  const record = pending, client = wallet, controller = new AbortController();
+  signingController = controller; render();
   try {
-    const result = await wallet.signTransaction(pending.xdr, { signal: AbortSignal.any([signingController.signal, AbortSignal.timeout(300000)]) });
+    const result = await client.signTransaction(record.xdr, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(300000)]) });
+    if (pending !== record || signingController !== controller) throw Error('The transaction record changed during signing.');
     const signed = TransactionBuilder.fromXDR(result.signedTxXdr, Networks.TESTNET);
     const hash = Array.from(signed.hash(), b => b.toString(16).padStart(2, '0')).join('');
     if (hash !== pending.hash || signed.signatures.length !== 1 || !Keypair.fromPublicKey(pending.address).verify(signed.hash(), signed.signatures[0].signature.toBytes())) throw Error('The signed transaction failed verification.');
     pending.signed_xdr = result.signedTxXdr; pending.state = 'signed'; save(); status('Signature verified. Review the transaction, then submit it when ready.');
   } catch (error) {
-    pending.state = signingController.signal.aborted ? 'canceled' : ['denied', 'expired'].includes(error.requestState) ? error.requestState : 'failed'; save();
+    if (pending !== record || signingController !== controller) throw error;
+    pending.state = error.canceled === false || error.requestState === 'unknown' ? 'signing_unknown'
+      : controller.signal.aborted || error.canceled === true ? 'canceled'
+        : ['denied', 'expired'].includes(error.requestState) ? error.requestState : 'failed'; save();
     if (error.canceled === false) error.message += ' The bridge did not confirm the cancellation. Decline the 1Password prompt if it appears.';
     throw error;
   }
-  finally { signingController = null; }
+  finally { if (signingController === controller) signingController = null; }
 }
-for (const kind of ['note', 'payment', 'offer']) $(kind).onclick = () => action(() => build(kind));
-$('cancel-offer').onclick = () => action(() => build('cancel_offer'));
+function startAction(kind) {
+  if (!account || pending || busy || journalBlocked || connection.working) return;
+  selectedAction = kind; $('transaction-details').open = false;
+  openReview(); status('Preparing your transaction. Keep this window open to see its details.');
+  return action(() => build(kind));
+}
+for (const kind of ['note', 'payment', 'offer']) $(kind).onclick = () => startAction(kind);
+$('cancel-offer').onclick = () => startAction('cancel_offer');
 $('cancel-request').onclick = () => { signingController?.abort(Error('The signing request was canceled.')); };
 async function confirmed(result) {
   pending.result = { hash: result.hash, ledger: result.ledger, successful: result.successful };
@@ -240,9 +248,10 @@ $('check').onclick = () => action(async () => {
 });
 $('clear').onclick = () => action(async () => {
   if (!pending || ['submitting', 'unknown'].includes(pending.state) || ['waiting', 'signing_unknown'].includes(pending.state) && signingController) return;
-  pending = null; save();
+  pending = null; save(); selectedAction = null; closeReview();
 });
 try { pending = readJournal();
   if (['waiting', 'signing_unknown'].includes(pending?.state)) status('A signing request was open when the page closed. Decline the 1Password prompt if it appears, then clear this record.');
 } catch { journalBlocked = true; status('The local demo journal could not be read. Preserve it before continuing.'); }
 render();
+if (pending) { $('review-status').textContent = $('status').textContent; openReview(); }

@@ -43,7 +43,11 @@ func parseServiceOptions(command string, args []string) (serviceOptions, error) 
 
 func runServiceCommand(command string, args []string, out io.Writer) int {
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
-		return writeOutput(out, serviceUsage(command)+"\nRequires Node.js 22 or later and cloudflared. Shows public links and QR codes.\nThe signing bridge requires macOS and the 1Password SSH agent.\nPress Ctrl+C to stop this service.\n")
+		vaultHelp := ""
+		if command == "tunnel" {
+			vaultHelp = "Set OP_VAULT to a vault name or ID to filter website wallets. Filtering requires the 1Password CLI.\n"
+		}
+		return writeOutput(out, serviceUsage(command)+"\nRequires Node.js 22 or later and cloudflared. Shows public links and QR codes.\nThe signing bridge requires macOS and the 1Password SSH agent.\n"+vaultHelp+"Press Ctrl+C to stop this service.\n")
 	}
 	config, err := parseServiceOptions(command, args)
 	if err != nil {

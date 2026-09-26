@@ -1,1 +1,42 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Walleterm demo</title><link rel="stylesheet" href="/style.css"><script defer src="/stellar-sdk.js"></script><script defer type="module" src="/app.js"></script></head><body><main><header><p class="eyebrow">WALLETERM · INDEPENDENT TESTNET DEMO</p><h1>A website. Your wallet.</h1><p>This site builds testnet transactions. You approve each one here, then your Walleterm tunnel signs it with 1Password on your Mac.</p></header><p id="status" role="status">Start walleterm tunnel. Enter its URL and code, or scan its QR code below.</p><section><h2>Connect Walleterm</h2><form id="connect"><label>Public bridge URL<input id="bridge" type="url" placeholder="https://example.trycloudflare.com" required></label><label>Connection code<input id="code" type="text" inputmode="numeric" autocomplete="off" pattern="[0-9]{8}" maxlength="8" placeholder="12345678" required></label><button id="connect-button">Connect wallet</button><button id="scan" type="button" class="secondary">Scan tunnel</button><button id="disconnect" type="button" class="secondary" hidden>Disconnect</button></form><div id="scanner" hidden><video id="camera" autoplay muted playsinline></video><p>Point the camera at the QR code in your tunnel terminal.</p><button id="stop-scan" type="button" class="secondary">Stop scanning</button></div><div id="picker" hidden><label>1Password wallet<select id="signers"></select></label><button id="select-wallet" type="button" disabled>Use this wallet</button><button id="cancel-picker" type="button" class="secondary">Cancel</button></div><pre id="account" hidden></pre></section><section id="actions" hidden><h2>Try a testnet action</h2><p>The payment sends 0.01 test XLM to an existing testnet account selected automatically. Review the destination before signing.</p><div><button id="note">Write a note</button><button id="payment">Pay 0.01 test XLM</button><button id="offer">Offer 0.1 test XLM</button><button id="cancel-offer" class="secondary">Cancel newest offer</button></div><p>The offer sells 0.1 XLM for testnet USDC at 10 USDC per XLM. It needs a USDC trustline and can trade immediately. Cancel removes the newest open offer of this account, from any source. Use a dedicated testnet account.</p></section><section id="review" hidden><h2>Your transaction</h2><pre id="details"></pre><button id="sign" hidden>Sign</button><button id="submit" hidden>Submit to testnet</button><button id="check" class="secondary" hidden>Check original transaction</button><button id="cancel-request" class="secondary" hidden>Cancel signing request</button><button id="clear" class="secondary" hidden>Start another request</button></section><footer><p>This example uses <a href="/sdk/walleterm.js">the Walleterm browser client</a>. You approve each signature on this page. 1Password can also ask on your Mac. Keep your Mac available.</p></footer></main></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Walleterm demo</title>
+  <link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/sdk/connect.css">
+  <script defer src="/stellar-sdk.js"></script><script defer type="module" src="/app.js"></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-brand" href="/" aria-label="Walleterm demo home"><span class="demo-symbol" aria-hidden="true">↗</span><span>Walleterm <span class="demo-label">Demo</span></span></a>
+    <div id="wallet-connection"></div>
+  </header>
+  <main>
+    <div class="intro"><span class="network-label"><span aria-hidden="true"></span>Stellar testnet</span><h1>A small place<br>to try your wallet.</h1><p>Connect a wallet from your Mac. Build a test transaction, request a signature, and see the result.</p></div>
+    <section id="actions" class="workspace" aria-labelledby="actions-title">
+      <div class="workspace-heading"><div><h2 id="actions-title" tabindex="-1">Try a transaction</h2><p>Test funds. Real connection.</p></div><span class="demo-tag">Demo workspace</span></div>
+      <div id="transaction-record" class="transaction-record" hidden><div><strong id="record-title">Your transaction</strong><span id="record-state"></span></div><button id="open-review" type="button">View transaction</button></div>
+      <div id="connection-hint" class="connection-hint"><span class="hint-icon" aria-hidden="true">◇</span><p>Connect Walleterm in the header to get started.</p></div>
+      <div class="action-grid">
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">≡</span><h3>Leave a note</h3><p>Write a short data entry to your testnet account.</p><button id="note">Write a note</button></article>
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">↗</span><h3>Send a little XLM</h3><p>Send 0.01 test XLM to an account chosen by the demo.</p><button id="payment">Pay 0.01 test XLM</button></article>
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">⇄</span><h3>Place an offer</h3><p>Sell 0.1 test XLM at 10 USDC per XLM. Requires a testnet USDC trustline.</p><button id="offer">Offer 0.1 test XLM</button></article>
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">×</span><h3>Cancel an offer</h3><p>Remove this account’s newest open offer, including offers created elsewhere.</p><button id="cancel-offer">Cancel newest offer</button></article>
+      </div>
+      <p class="workspace-note">Use a dedicated testnet account. An offer can trade immediately. The demo funds new accounts through Friendbot.</p>
+    </section>
+    <p id="status" role="status"></p>
+    <dialog id="review" class="review" aria-labelledby="review-title" aria-describedby="review-context">
+      <div class="review-heading"><div><span class="demo-tag">Demo transaction</span><h2 id="review-title">Your transaction</h2></div><button id="close-review" type="button" class="review-close" aria-label="Close transaction details" autofocus>×</button></div>
+      <div class="review-body">
+        <p id="review-context">This preview belongs to the demo website.</p>
+        <p id="review-status" class="review-status" role="status"></p>
+        <dl id="review-summary" class="review-summary"></dl>
+        <details id="transaction-details"><summary>Transaction details</summary><pre id="details"></pre></details>
+      </div>
+      <div class="review-footer"><p id="review-note">Closing this window keeps the transaction.</p><div class="review-buttons"><button id="sign" hidden>Sign</button><button id="submit" hidden>Submit to testnet</button><button id="check" class="secondary" hidden>Check original transaction</button><button id="cancel-request" class="secondary" hidden>Cancel signing request</button><button id="clear" class="secondary" hidden>Start another request</button></div></div>
+    </dialog>
+    <footer class="site-footer"><div><strong>The demo builds. Walleterm connects.</strong><p>The header manages your wallet connection. This workspace builds and submits testnet transactions.</p></div><a href="/sdk/connect.js">View connection SDK</a></footer>
+  </main>
+</body>
+</html>

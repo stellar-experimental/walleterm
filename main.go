@@ -77,6 +77,8 @@ Finish sign input with EOF.
 
 Use 1Password desktop to create, manage, and approve signers.
 Tunnel starts the testnet signing bridge. It prints a connection code and QR code for websites.
+OP_VAULT limits website wallets to a 1Password vault name or ID. Filtering requires the 1Password CLI.
+OP_VAULT does not filter the local list or sign commands.
 A connected website approves its own requests. 1Password can still ask for approval on the Mac.
 Demo starts an independent example website with its own temporary public URL and QR code.
 The agent signs the 32 digest bytes. It cannot inspect the network, amount, destination, or contract policy.

@@ -43,7 +43,7 @@ export function createBridge({ port = 8787, publicOrigin, listSigners = availabl
   let pairExpires, pairTimer, pairCode = newCode(), attempts = 0, lockedUntil = 0, closing = false, closePromise;
   let pairingChanged = () => {}, queue = Promise.resolve();
   const reviews = new Map();
-  // Concurrent website calls share one `walleterm list` process.
+  // Concurrent website calls share one agent and vault lookup.
   let listing;
   function keys() {
     listing ??= listSigners({ signal: controller.signal }).finally(() => { listing = undefined; });
@@ -78,7 +78,7 @@ export function createBridge({ port = 8787, publicOrigin, listSigners = availabl
     for (const r of records.values()) if (r.state === 'pending' && now() >= r.expires) { r.state = 'expired'; logResult(r); reviews.get(r.record_id)?.abort(); }
     // Memory keeps live sessions and records that are active or belong to them.
     const live = new Set();
-    for (const [key, s] of sessions) { if (s.revoked || now() >= s.expires) sessions.delete(key); else live.add(s.id); }
+    for (const [key, s] of sessions) { if (s.revoked || now() >= s.expires) { revoke(s); sessions.delete(key); } else live.add(s.id); }
     for (const [id, r] of records) if (!active(r) && !live.has(r.session_id)) records.delete(id);
   }
   function revoke(s) {
@@ -96,16 +96,16 @@ export function createBridge({ port = 8787, publicOrigin, listSigners = availabl
         if (r.state === 'pending') { r.state = 'expired'; logResult(r); }
         return;
       }
-      const signal = AbortSignal.any([controller.signal, canceled.signal, AbortSignal.timeout(Math.max(1, r.expires - now()))]);
+      const signal = AbortSignal.any([controller.signal, canceled.signal, AbortSignal.timeout(Math.max(1, Math.min(r.expires, s.expires) - now()))]);
       try {
-        const approved = await review({ origin: r.origin, signer: { ...s.key }, details: structuredClone(r.details) }, { signal });
+        const approved = await review({ origin: r.origin, signer: { ...r.signer }, details: structuredClone(r.details) }, { signal });
         if (signal.aborted || r.state !== 'pending' || s.revoked || now() >= s.expires || now() >= r.expires) return;
         if (!approved) { r.state = 'denied'; logResult(r); return; }
         inspectTransaction(r.input, r.public_key, now());
         r.state = 'approved'; logResult(r);
         const keys = await listSigners({ signal });
         if (signal.aborted || r.state !== 'approved' || s.revoked || now() >= s.expires || now() >= r.expires) throw Error('The signing approval expired or was canceled.');
-        if (!keys.some(k => k.public_key === r.public_key)) throw Error('The selected key is no longer available.');
+        if ((s.allowed && !s.allowed.has(r.public_key)) || !keys.some(k => k.public_key === r.public_key)) throw Error('The selected key is no longer available.');
         r.state = 'signing'; logResult(r);
         const signature = await sign(r.public_key, r.details.hash, { signal });
         if (r.state !== 'signing') log(`1Password returned a signature after cancellation. Withheld ${r.details.hash}.\n`);
@@ -142,49 +142,75 @@ export function createBridge({ port = 8787, publicOrigin, listSigners = availabl
         const data = await body(req);
         if (now() < lockedUntil) throw fail(429, 'Too many incorrect codes. Wait one minute, then use the new code in the tunnel terminal.');
         if (now() >= pairExpires) { rotateCode(); throw fail(403, 'The connection code expired. Use the new code in the tunnel terminal.'); }
-        if (Object.keys(data).length !== 1 || !equal(data.code, pairCode)) {
+        if (Object.keys(data).some(k => !['code', 'wallet_scope'].includes(k)) || data.wallet_scope !== undefined && !['selected', 'available'].includes(data.wallet_scope)) throw fail(400, 'The connection fields are invalid.');
+        if (!equal(data.code, pairCode)) {
           // Five failures replace the code and pause connection for one minute.
           if (++attempts >= 5) { lockedUntil = now() + 60000; rotateCode(); }
           throw fail(403, 'The connection code is incorrect.');
         }
         if (sessions.size >= 64) throw fail(429, 'The connection limit was reached. Disconnect a website or restart the tunnel.');
-        const s = { id: randomUUID(), token: token(), origin: siteOrigin, public_key: null, expires: now() + 300000, revoked: false, canceled: new Set() };
+        const s = { id: randomUUID(), token: token(), origin: siteOrigin, public_key: null, wallet_scope: data.wallet_scope ?? 'selected', selection_revision: 0, allowed: null, expires: now() + 300000, revoked: false, canceled: new Set() };
         sessions.set(s.token, s); rotateCode();
-        return sendJson(res, 201, { token: s.token, connection_id: s.id, expires_at: iso(s.expires) });
+        return sendJson(res, 201, { token: s.token, connection_id: s.id, expires_at: iso(s.expires), wallet_scope: s.wallet_scope, selection_revision: s.selection_revision });
       }
       const s = website(req);
       if (route === '/v1/signers' && req.method === 'GET') {
         const signers = await keys(); website(req);
-        return sendJson(res, 200, { signers });
+        if (s.wallet_scope === 'available' && !s.allowed) s.offered = { id: token(), keys: new Set(signers.map(k => k.public_key)) };
+        return sendJson(res, 200, { signers: s.allowed ? signers.filter(k => s.allowed.has(k.public_key)) : signers,
+          ...(!s.allowed && s.offered ? { grant_id: s.offered.id } : {}) });
       }
       if (route === '/v1/select' && req.method === 'POST') {
         const data = await body(req);
-        if (s.public_key) throw fail(409, 'This connection already has a wallet. Disconnect to select another wallet.');
-        const signers = await keys(); website(req);
-        if (s.public_key) throw fail(409, 'This connection already has a wallet.');
-        const key = Object.keys(data).length === 1 && signers.find(k => k.public_key === data.public_key);
-        if (!key) throw fail(400, 'Select an available 1Password key.');
-        s.public_key = key.public_key; s.key = { public_key: key.public_key, comment: key.comment, fingerprint: key.fingerprint }; s.expires = now() + 3600000;
-        return sendJson(res, 200, { public_key: s.public_key, network_passphrase: Networks.TESTNET });
+        const scoped = s.wallet_scope === 'available';
+        const validRevision = () => {
+          if (scoped && (!Number.isSafeInteger(data.expected_revision) || data.expected_revision !== s.selection_revision)) throw fail(409, 'The wallet selection changed. Refresh the active wallet.');
+          if (!scoped && s.public_key) throw fail(409, 'This connection already has a wallet. Disconnect to select another wallet.');
+        };
+        if (Object.keys(data).some(k => !['public_key', ...(scoped ? ['expected_revision', ...(!s.allowed ? ['grant_id'] : [])] : [])].includes(k))) throw fail(400, 'The selection fields are invalid.');
+        website(req); validRevision();
+        const offered = s.offered;
+        if (scoped && !s.allowed && (!offered || !equal(data.grant_id, offered.id))) throw fail(409, 'Refresh the wallet list before selecting a wallet.');
+        const signers = await keys(); website(req); validRevision();
+        if (scoped && !s.allowed && s.offered !== offered) throw fail(409, 'The wallet list changed. Review it again.');
+        const key = signers.find(k => k.public_key === data.public_key && (!scoped || (s.allowed || offered.keys).has(k.public_key)));
+        if (!key) throw fail(400, 'Select an available key from this connection.');
+        if (s.public_key !== key.public_key) {
+          // Cancel and replace the selection together. No await can admit an old request between them.
+          for (const r of records.values()) if (r.session_id === s.id && (active(r) || r.state === 'signed')) {
+            r.state = ['signing', 'signed'].includes(r.state) ? 'unknown' : 'denied';
+            r.message = r.delivered ? 'The bridge sent the signature before the wallet changed.' : 'The active wallet changed.';
+            delete r.signed_xdr; logResult(r); reviews.get(r.record_id)?.abort();
+          }
+          if (!s.public_key) {
+            s.allowed = scoped ? new Set(signers.filter(k => offered.keys.has(k.public_key)).map(k => k.public_key)) : null;
+            delete s.offered;
+            s.expires = now() + 3600000;
+          }
+          s.public_key = key.public_key; s.key = { public_key: key.public_key, comment: key.comment, fingerprint: key.fingerprint };
+          s.selection_revision++;
+        }
+        return sendJson(res, 200, { public_key: s.public_key, network_passphrase: Networks.TESTNET, selection_revision: s.selection_revision, expires_at: iso(s.expires) });
       }
-      if (route === '/v1/account' && req.method === 'GET') return sendJson(res, 200, { connection_id: s.id, public_key: s.public_key, network_passphrase: Networks.TESTNET, expires_at: iso(s.expires) });
+      if (route === '/v1/account' && req.method === 'GET') return sendJson(res, 200, { connection_id: s.id, public_key: s.public_key, network_passphrase: Networks.TESTNET, expires_at: iso(s.expires), wallet_scope: s.wallet_scope, selection_revision: s.selection_revision });
       if (route === '/v1/disconnect' && req.method === 'POST') { await body(req); revoke(s); return sendJson(res, 200, { disconnected: true }); }
       if (route === '/v1/requests' && req.method === 'POST') {
         if (!s.public_key) throw fail(409, 'Select a wallet first.');
         const input = await body(req);
         website(req);
-        if (typeof input.id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(input.id || '') || Object.keys(input).some(k => !['id', 'transaction_xdr', 'network_passphrase', 'public_key'].includes(k))) throw fail(400, 'The signing request fields are invalid.');
+        if (typeof input.id !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(input.id || '') || Object.keys(input).some(k => !['id', 'transaction_xdr', 'network_passphrase', 'public_key', ...(s.wallet_scope === 'available' ? ['selection_revision'] : [])].includes(k))) throw fail(400, 'The signing request fields are invalid.');
+        if (s.wallet_scope === 'available' && (!Number.isSafeInteger(input.selection_revision) || input.selection_revision !== s.selection_revision)) throw fail(409, 'The wallet selection changed. Build a new signing request.');
         const key = `${s.id}:${input.id}`, prior = records.get(key);
         if (s.canceled.has(input.id)) throw fail(409, 'The website canceled this request before it arrived.');
         if (prior) {
-          if (['transaction_xdr', 'network_passphrase', 'public_key'].some(k => prior.input[k] !== input[k])) throw fail(409, 'This request ID already identifies a different transaction.');
+          if (['transaction_xdr', 'network_passphrase', 'public_key', 'selection_revision'].some(k => prior.input[k] !== input[k])) throw fail(409, 'This request ID already identifies a different transaction.');
           return sendJson(res, 200, summary(prior));
         }
         const all = [...records.values()];
         if (all.filter(r => r.session_id === s.id).length >= 1000) throw fail(429, 'This connection reached its request limit. Disconnect and connect again.');
         if (all.filter(r => active(r)).length >= 32) throw fail(429, 'The signing request limit was reached.');
         const checked = inspectTransaction(input, s.public_key, now());
-        const record = { record_id: randomUUID(), session_id: s.id, origin: s.origin, id: input.id, public_key: s.public_key,
+        const record = { record_id: randomUUID(), session_id: s.id, origin: s.origin, id: input.id, public_key: s.public_key, signer: { ...s.key },
           input, details: checked.details, expires: checked.expires, state: 'pending' };
         logResult(record); records.set(key, record); scheduleReview(record, s);
         return sendJson(res, 201, summary(record));

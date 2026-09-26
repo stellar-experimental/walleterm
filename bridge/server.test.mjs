@@ -1,4 +1,5 @@
 import { test } from 'node:test';
+import { request as httpRequest } from 'node:http';
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Account, Asset, Keypair, Memo, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
@@ -102,7 +103,7 @@ test('two origins have separate authority; only the review hook decides a reques
   assert.deepEqual(f.logs, [`Signed ${approved.data.hash} (account ${publicKey}, sequence 11) for ${a.site}.\n`]);
 });
 
-test('wallet discovery requires a session and wallet selection cannot change', async t => {
+test('wallet discovery requires a session and legacy wallet selection cannot change', async t => {
   const f = await fixture(t);
   assert.equal((await f.request('/v1/signers')).status, 401);
   const { data } = await f.request('/v1/connect', { code: f.bridge.pairing.code }); const a = { token: data.token };
@@ -113,6 +114,219 @@ test('wallet discovery requires a session and wallet selection cannot change', a
   assert.equal((await f.request('/v1/select', { public_key: other.publicKey() }, a)).status, 409);
   await f.request('/v1/disconnect', {}, a);
   assert.equal((await f.request('/v1/signers', undefined, a)).status, 401);
+});
+
+const both = [{ public_key: publicKey, comment: 'First' }, { public_key: other.publicKey(), comment: 'Second' }];
+async function scoped(f, site) {
+  const { data } = await f.request('/v1/connect', { code: f.bridge.pairing.code, wallet_scope: 'available' }, { site });
+  const session = { token: data.token, site };
+  const listing = await f.request('/v1/signers', undefined, session);
+  assert.equal((await f.request('/v1/select', { public_key: publicKey, expected_revision: 0, grant_id: listing.data.grant_id }, session)).status, 200);
+  return session;
+}
+const select = (f, s, address, revision) => f.request('/v1/select', { public_key: address, expected_revision: revision }, s);
+
+test('scoped wallets pin the displayed list and never renew the connection deadline', async t => {
+  let keys = [both[0]], clock = Date.now();
+  const f = await fixture(t, { listSigners: async () => keys, now: () => clock });
+  const { data } = await f.request('/v1/connect', { code: f.bridge.pairing.code, wallet_scope: 'available' });
+  const a = { token: data.token }, offered = (await f.request('/v1/signers', undefined, a)).data;
+  keys = both;
+  assert.equal((await f.request('/v1/select', { public_key: other.publicKey(), expected_revision: 0, grant_id: offered.grant_id }, a)).status, 400);
+  assert.equal((await f.request('/v1/select', { public_key: publicKey, expected_revision: 0, grant_id: offered.grant_id }, a)).status, 200);
+  const before = (await f.request('/v1/account', undefined, a)).data;
+  assert.deepEqual((await f.request('/v1/signers', undefined, a)).data.signers, [both[0]]);
+  assert.equal((await select(f, a, other.publicKey(), 1)).status, 400);
+  clock += 5000;
+  assert.equal((await select(f, a, publicKey, 1)).data.selection_revision, 1);
+  assert.equal((await f.request('/v1/account', undefined, a)).data.expires_at, before.expires_at);
+  keys = [];
+  assert.equal((await select(f, a, publicKey, 1)).status, 400);
+  assert.deepEqual((await f.request('/v1/signers', undefined, a)).data.signers, []);
+});
+
+test('first selection rejects a replaced discovery grant and an unknown scope', async t => {
+  const f = await fixture(t, { listSigners: async () => both });
+  assert.equal((await f.request('/v1/connect', { code: f.bridge.pairing.code, wallet_scope: 'all' })).status, 400);
+  const { data } = await f.request('/v1/connect', { code: f.bridge.pairing.code, wallet_scope: 'available' });
+  const a = { token: data.token }, old = (await f.request('/v1/signers', undefined, a)).data.grant_id;
+  await f.request('/v1/signers', undefined, a);
+  assert.equal((await f.request('/v1/select', { public_key: publicKey, expected_revision: 0, grant_id: old }, a)).status, 409);
+});
+
+test('switches cancel queued reviews, preserve other sessions, and reject A-B-A delayed requests', async t => {
+  const f = await fixture(t, { listSigners: async () => both }), a = await scoped(f), b = await scoped(f, 'https://second.example');
+  const old = { ...input(), selection_revision: 1 };
+  await f.request('/v1/requests', old, a);
+  await f.request('/v1/requests', { ...input('queued'), selection_revision: 1 }, a);
+  await f.request('/v1/requests', { ...input('separate'), selection_revision: 1 }, b);
+  assert.equal((await select(f, a, other.publicKey(), 1)).data.selection_revision, 2);
+  assert.equal((await f.result(a)).data.state, 'denied');
+  assert.equal((await f.result(a, 'queued')).data.state, 'denied');
+  assert.equal((await select(f, a, publicKey, 2)).data.selection_revision, 3);
+  assert.equal((await f.request('/v1/requests', old, a)).status, 409);
+  assert.equal((await f.request('/v1/requests', { ...input('delayed'), selection_revision: 1 }, a)).status, 409);
+  assert.equal((await f.request('/v1/requests', input('missing-revision'), a)).status, 409);
+  assert.equal((await select(f, a, other.publicKey(), 1)).status, 409);
+  const first = await f.decide(); assert.equal(first.signer.public_key, publicKey);
+  await f.decide(); assert.equal((await f.result(b, 'separate')).data.state, 'signed');
+  assert.equal(f.calls(), 1);
+});
+
+test('simultaneous switches use compare-and-set after delayed discovery', async t => {
+  let gate, entered = 0;
+  const f = await fixture(t, { listSigners: async () => { entered++; if (gate) await gate; return both; } }), a = await scoped(f);
+  let release; gate = new Promise(resolve => { release = resolve; });
+  const before = entered;
+  const changes = [select(f, a, other.publicKey(), 1), select(f, a, other.publicKey(), 1)];
+  await until(() => entered > before); await delay(10); release();
+  assert.deepEqual((await Promise.all(changes)).map(r => r.status).sort(), [200, 409]);
+  assert.equal((await f.request('/v1/account', undefined, a)).data.selection_revision, 2);
+});
+
+for (const phase of ['approved', 'signing', 'signed']) test(`a switch during ${phase} withholds the old result`, async t => {
+  let release, entered;
+  const waiting = new Promise(resolve => { entered = resolve; });
+  let hold = false;
+  const f = await fixture(t, { listSigners: async () => { if (hold) { hold = false; entered(); await new Promise(resolve => { release = resolve; }); } return both; },
+    sign: async (_key, hash) => { if (phase === 'signing') { entered(); await new Promise(resolve => { release = resolve; }); } return Buffer.from(key.sign(Buffer.from(hash, 'hex'))).toString('hex'); } });
+  const a = await scoped(f);
+  if (phase === 'approved') hold = true;
+  await f.request('/v1/requests', { ...input(), selection_revision: 1 }, a);
+  const decision = await until(() => f.decisions.shift());
+  assert.equal(decision.request.signer.public_key, publicKey); decision.decide(true);
+  if (phase === 'signed') await f.result(a); else await waiting;
+  assert.equal((await select(f, a, other.publicKey(), 1)).status, 200);
+  release?.();
+  const result = await f.result(a);
+  assert.equal(result.data.state, phase === 'approved' ? 'denied' : 'unknown');
+  assert.equal(result.data.signed_xdr, undefined);
+});
+
+test('SDK switches in one session and recovers a lost selection response', async t => {
+  const f = await fixture(t, { listSigners: async () => both }); let lose = false, pairings = 0;
+  const client = f.client('https://adapter.example', { fetch: async (url, options) => {
+    if (url.endsWith('/v1/connect')) pairings++;
+    const response = await fetch(url, { ...options, headers: { ...options.headers, Origin: 'https://adapter.example' } });
+    if (lose && url.endsWith('/v1/select')) { lose = false; throw TypeError('Lost selection response'); }
+    return response;
+  } });
+  await client.connect({ code: f.bridge.pairing.code, walletScope: 'available', selectWallet: async keys => keys[0].public_key });
+  const token = client.token;
+  lose = true; await assert.rejects(client.selectWallet(other.publicKey()), /Lost selection response/);
+  assert.equal(client.account.address, other.publicKey()); assert.equal(client.revision, 2);
+  await client.selectWallet(publicKey); assert.equal(client.token, token); assert.equal(pairings, 1);
+});
+
+test('a delayed account response cannot overwrite a newer SDK wallet', async t => {
+  const f = await fixture(t, { listSigners: async () => both }); let hold = false, release;
+  const client = f.client('https://adapter.example', { fetch: async (url, options) => {
+    const response = await fetch(url, { ...options, headers: { ...options.headers, Origin: 'https://adapter.example' } });
+    if (hold && url.endsWith('/v1/account')) { hold = false; await new Promise(resolve => { release = resolve; }); }
+    return response;
+  } });
+  await client.connect({ code: f.bridge.pairing.code, walletScope: 'available', selectWallet: async keys => keys[0].public_key });
+  hold = true; const old = client.getAddress(); const rejected = assert.rejects(old, /connection changed/);
+  await until(() => release); await client.selectWallet(other.publicKey()); release(); await rejected;
+  assert.equal(client.account.address, other.publicKey());
+});
+
+test('a delayed request body fails after switching away and back', async t => {
+  const f = await fixture(t, { listSigners: async () => both }), a = await scoped(f);
+  const data = JSON.stringify({ ...input('late-body'), selection_revision: 1 });
+  let finish;
+  const reply = new Promise((resolve, reject) => {
+    const req = httpRequest(f.origin + '/v1/requests', { method: 'POST', headers: {
+      Origin: 'https://site-one.example', Authorization: `Bearer ${a.token}`, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data),
+    } }, res => { res.resume(); res.on('end', () => resolve(res.statusCode)); });
+    req.on('error', reject); req.write(data.slice(0, -1)); finish = () => req.end(data.slice(-1));
+  });
+  await select(f, a, other.publicKey(), 1); await select(f, a, publicKey, 2);
+  finish(); assert.equal(await reply, 409); assert.equal(f.reviews(), 0);
+});
+
+test('expiry aborts active signing and switching never extends the deadline', async t => {
+  let clock = Date.now(), entered, aborted = false;
+  const waiting = new Promise(resolve => { entered = resolve; });
+  const f = await fixture(t, { now: () => clock, listSigners: async () => both,
+    sign: (_key, _hash, { signal }) => { entered(); return new Promise((_resolve, reject) => signal.addEventListener('abort', () => { aborted = true; reject(signal.reason); }, { once: true })); } });
+  const a = await scoped(f), initial = (await f.request('/v1/account', undefined, a)).data;
+  await select(f, a, other.publicKey(), 1); await select(f, a, publicKey, 2);
+  assert.equal((await f.request('/v1/account', undefined, a)).data.expires_at, initial.expires_at);
+  await f.request('/v1/requests', { ...input(), selection_revision: 3 }, a); await f.decide(); await waiting;
+  clock = Date.parse(initial.expires_at);
+  assert.equal((await f.request('/v1/account', undefined, a)).status, 401);
+  assert.equal(aborted, true); assert.match(f.logs.at(-1), /Signature withheld or stopped/);
+});
+
+test('SDK withholds a delayed successful signature after a same-session wallet change', async t => {
+  const f = await fixture(t, { listSigners: async () => both, review: undefined }); let release;
+  const client = f.client('https://adapter.example', { fetch: async (url, options) => {
+    const response = await fetch(url, { ...options, headers: { ...options.headers, Origin: 'https://adapter.example' } });
+    // Deliberately ignore abort after the server completed this response.
+    if (url.endsWith('/v1/requests')) await new Promise(resolve => { release = resolve; });
+    return response;
+  } });
+  await client.connect({ code: f.bridge.pairing.code, walletScope: 'available', selectWallet: async keys => keys[0].public_key });
+  const signing = client.signTransaction(input().transaction_xdr).catch(error => error);
+  await until(() => release); await client.selectWallet(other.publicKey()); release();
+  const error = await signing; assert.ok(error instanceof Error); assert.equal(error.canceled, true);
+  assert.equal(client.account.address, other.publicKey()); assert.equal(f.calls(), 1);
+});
+
+test('scoped signing fails closed after a key is removed or discovery fails', async t => {
+  let keys = both, broken = false;
+  const f = await fixture(t, { listSigners: async () => { if (broken) throw Error('Discovery failed'); return keys; } });
+  const a = await scoped(f);
+  for (const [id, fail] of [['removed', false], ['lookup-failed', true]]) {
+    keys = both; broken = false;
+    await f.request('/v1/requests', { ...input(id), selection_revision: 1 }, a);
+    keys = [both[1]]; broken = fail; await f.decide();
+    assert.equal((await f.result(a, id)).data.state, 'denied');
+  }
+  assert.equal(f.calls(), 0);
+});
+
+test('SDK keeps signing blocked when an aborted selection still awaits discovery', async t => {
+  let hold = false, release, entered;
+  const waiting = new Promise(resolve => { entered = resolve; });
+  const f = await fixture(t, { listSigners: async () => { if (hold) { entered(); await new Promise(resolve => { release = resolve; }); } return both; } });
+  const client = f.client('https://adapter.example');
+  await client.connect({ code: f.bridge.pairing.code, walletScope: 'available', selectWallet: async keys => keys[0].public_key });
+  hold = true; const controller = new AbortController();
+  const changing = client.selectWallet(other.publicKey(), { signal: controller.signal });
+  const failed = assert.rejects(changing); await waiting; controller.abort(Error('Selection canceled')); await failed;
+  assert.equal(client.account, null);
+  await assert.rejects(client.signTransaction(input().transaction_xdr), /select a wallet first/);
+  await assert.rejects(client.selectWallet(publicKey), /Recover the account/);
+  await assert.rejects(client.getAddress(), /not confirmed/);
+  hold = false; release();
+  await until(async () => (await f.request('/v1/account', undefined, { token: client.token, site: 'https://adapter.example' })).data.selection_revision === 2);
+  assert.equal((await client.getAddress()).address, other.publicKey()); assert.equal(f.calls(), 0);
+});
+
+test('SDK rejects account reads started during a wallet selection', async t => {
+  let hold = false, release, entered;
+  const waiting = new Promise(resolve => { entered = resolve; });
+  const f = await fixture(t, { listSigners: async () => { if (hold) { entered(); await new Promise(resolve => { release = resolve; }); } return both; } });
+  const client = f.client('https://adapter.example');
+  await client.connect({ code: f.bridge.pairing.code, walletScope: 'available', selectWallet: async keys => keys[0].public_key });
+  hold = true; const changing = client.selectWallet(other.publicKey()); await waiting;
+  await assert.rejects(client.getAddress(), /selection to finish/);
+  hold = false; release(); await changing; assert.equal(client.account.address, other.publicKey());
+});
+
+test('SDK preserves signing uncertainty when session expiry prevents cancellation', async t => {
+  let clock = Date.now(), entered, release;
+  const waiting = new Promise(resolve => { entered = resolve; });
+  const f = await fixture(t, { now: () => clock, review: undefined,
+    sign: async (_key, hash) => { entered(); await new Promise(resolve => { release = resolve; }); return Buffer.from(key.sign(Buffer.from(hash, 'hex'))).toString('hex'); } });
+  const client = f.client('https://adapter.example');
+  await client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
+  const signing = client.signTransaction(input().transaction_xdr).catch(error => error);
+  await waiting; clock += 3600001;
+  const error = await signing; release();
+  assert.equal(error.canceled, true); assert.equal(error.requestState, 'unknown'); assert.equal(client.token, null);
 });
 
 test('invalid or excessive transactions never invoke review or signing', async t => {

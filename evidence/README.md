@@ -31,6 +31,9 @@ It records desktop and real iPhone runs: payments, data notes, offers, offer can
 A later desktop run covers website approval: the page review, Sign, and Discard, with no tunnel terminal input.
 [The browser QA report](browser-qa-2026-09-25/report.md) covers the public demo in a browser, with recovery, denial, and cancellation checks.
 
+[Vault filter validation](../docs/VAULT-FILTER-VALIDATION.md) records the 2026-09-26 review, local tests, and installed browser checks.
+Its final live vault recheck passed after user approval, including vault name, ID, HTTP selection, and browser filtering.
+
 ## Tracked summaries and local records
 
 Git includes this index, two acceptance summaries, three site records, the browser QA report, and the mobile proof index and JSON summaries.
@@ -47,3 +50,5 @@ An `observed` event records an outcome without an acceptance assertion.
 
 Preserve unresolved submission journals and checkpoints. Ignored files are not disposable while a transaction outcome remains unknown.
 See [live test setup](../docs/LIVE-TESTS.md) before starting a new run.
+
+See [wallet switching validation](../docs/WALLET-SWITCH-VALIDATION.md) for review and release checks.

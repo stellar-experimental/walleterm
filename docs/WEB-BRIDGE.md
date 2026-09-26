@@ -10,12 +10,33 @@ In one terminal:
 
 ```sh
 make install
+export OP_VAULT=Private
 walleterm tunnel
 ```
 
 The terminal shows the public bridge URL and an eight-digit connection code.
 It shows a QR code when the terminal is wide enough. Otherwise, use the URL and code.
 The terminal needs no input. It prints one line for each produced or withheld signature.
+
+`OP_VAULT` accepts a vault name or ID and limits website wallets to that vault.
+Set it in the shell that starts the tunnel. Existing tunnels keep their startup environment.
+Restart the tunnel after changing the setting. Reconnect the website with the new tunnel URL and code.
+Install the 1Password CLI with `brew install 1password-cli` for vault filtering.
+Enable 1Password CLI integration in the desktop app, or sign in before starting the tunnel.
+The bridge reads only item metadata and public keys. Lookup failures stop wallet discovery.
+An unset or empty `OP_VAULT` lists all available Ed25519 agent keys.
+The bridge permits 120 seconds for vault lookup, after the agent list completes.
+The SDK permits 135 seconds for wallet discovery and selection. Caller cancellation still stops the request.
+Stopping the bridge terminates its CLI child, with forced termination if needed.
+SDK cancellation stops the website request. A shared bridge lookup can continue until completion or shutdown.
+
+Vault discovery passed a live check with 1Password CLI 2.39.0 on 2026-09-26.
+The check returned four available Ed25519 keys from the selected vault.
+It requested no signatures and read no private key fields.
+The first live recheck stopped at a 1Password CLI authorization timeout. The retry passed after user approval.
+The installed browser picker showed the same four live keys and excluded one agent key.
+See [vault filter validation](VAULT-FILTER-VALIDATION.md) for the review and test coverage.
+See the official [item commands](https://www.1password.dev/cli/reference/management-commands/item) and [SSH key guide](https://www.1password.dev/cli/ssh-keys).
 
 In a second terminal:
 
@@ -25,9 +46,9 @@ walleterm demo
 
 Open the public demo URL or scan its QR code on your phone.
 
-1. In the demo, click Scan tunnel and scan the tunnel QR code. You can also type the URL and code.
-   Scan the demo QR code with your phone camera. Scan the tunnel QR code only with Scan tunnel.
-2. Click Connect wallet. The demo lists your 1Password Ed25519 keys.
+1. Select Connect Walleterm in the demo header. Scan the tunnel QR code or enter its URL and code.
+   Scan the demo QR code with your phone camera. Use Scan tunnel QR code inside the connection dialog.
+2. Select Continue. The connection dialog lists your 1Password Ed25519 keys.
 3. Select a dedicated testnet wallet.
 4. Create a transaction in the demo. The demo selects an existing testnet payment recipient automatically.
    It funds a new testnet account with Friendbot. The offer action needs a testnet USDC trustline.
@@ -48,6 +69,7 @@ Compare it with the website you opened. Do not type codes into websites you do n
 | `walleterm tunnel` | Supervised tunnel, connection codes, transaction limits, verified signatures |
 | `walleterm demo` | Static demo website, browser transaction construction, browser submission and recovery |
 | `sdk/walleterm.js` | Website connection, wallet selection, signing request and result polling, cancellation, disconnection |
+| `sdk/connect.js` and `sdk/connect.css` | Header button, connection dialog, wallet list, active wallet changes, disconnection |
 | `sdk/scan.js` | Optional camera scan of the tunnel QR code |
 | `walleterm sign` | Existing local 1Password signing interface; unchanged |
 
@@ -55,6 +77,14 @@ The bridge makes no Stellar RPC or Horizon call. It does not construct or submit
 The demo serves the pinned Stellar SDK 17.1.0 browser bundle from its installed dependencies.
 
 ## Website adapter
+
+For the ready-made header component, see [the connection UI](CONNECTION-UI.md).
+The component keeps connection controls separate from website transactions.
+The component explains a grant for the displayed wallets before the first selection.
+Wallet changes use the same session and need no new scan or code.
+The first selection fixes the grant. Later keys require a new connection.
+The standalone client defaults to one wallet. Use `walletScope: 'available'` for explicit wallet switching.
+
 
 Copy or bundle [sdk/walleterm.js](../sdk/walleterm.js) with your website:
 
@@ -74,11 +104,14 @@ const { signedTxXdr } = await wallet.signTransaction(unsignedXdr);
 await wallet.disconnect();
 ```
 
-The adapter exposes `connect`, `getAddress`, `signTransaction`, and `disconnect`.
+The adapter exposes `connect`, `listWallets`, `selectWallet`, `getAddress`, `signTransaction`, and `disconnect`.
 It keeps the website capability in memory. Reloading the website requires a new connection code.
 The SDK retries network errors and 5xx responses on the same connection. An abort, a rejection, or leaving the page cancels the bridge request.
 After a failure, build a new transaction. SDK errors include `requestState` when the bridge reports one.
-`error.canceled` is false when the bridge did not confirm the cancellation. Then decline the 1Password prompt if it appears.
+`error.canceled` reports cancellation or lost session access. It does not prove that signing stopped.
+A cancellation 401 sets `canceled: true` and `requestState: 'unknown'` because the session cannot deliver its result.
+If cancellation fails without confirming lost session access, `error.canceled` is false.
+Preserve an unknown signing outcome. Decline the 1Password prompt if it appears.
 The adapter is local source code. It is not a published package or a registered Stellar Wallets Kit module.
 
 ## Supported transactions

@@ -18,7 +18,11 @@ walleterm --version
 It needs no recipient, demo, website build, or network connection to Stellar.
 It accepts supported unsigned testnet XDR through the [bridge protocol](../bridge/PROTOCOL.md).
 It returns signed XDR to the requesting website. It never builds or submits transactions.
-A website connects with a single-use eight-digit code and selects one 1Password key.
+A website connects with a single-use eight-digit code and selects a 1Password key.
+The default connection stays fixed to that key.
+An explicit `wallet_scope: "available"` grant permits changes among the initially displayed eligible wallets.
+The first selection pins that list. Later keys require a new connection.
+Scoped requests carry a selection revision. Wallet changes cancel unfinished requests and withhold old bridge results.
 The website approves each request by sending it. The tunnel terminal needs no input.
 
 `demo` starts an independent website and its own public Quick Tunnel for phone testing.
@@ -45,9 +49,18 @@ The bridge prints its URL, connection code, and a QR code with both. The demo pr
 These interactive commands have no `--human` or `--public` flag.
 
 The public URL and connection code can go to a website. The connected website can then request signatures.
-A connected website can list all 1Password Ed25519 public keys, with their comments and fingerprints.
+A connected website can list available 1Password Ed25519 public keys, with their comments and fingerprints.
+Set `OP_VAULT` to a vault name or ID to limit website wallets to that vault.
+Vault filtering requires the 1Password CLI. The bridge reads only item metadata and public key fields.
+It matches full public keys against the agent list. Comments never establish vault membership.
+Lookup failures stop discovery. An empty vault returns no wallets.
+The bridge checks vault membership again before signing. An unset or empty `OP_VAULT` lists all Ed25519 agent keys.
+`OP_VAULT` does not change the local `list` or `sign` commands.
+Agent discovery permits ten seconds. Vault lookup then permits 120 seconds, including public key reads.
+The SDK permits 135 seconds for discovery and selection. Caller cancellation still applies.
+CLI child cleanup escalates from SIGTERM to SIGKILL after 1.5 seconds when needed.
 Each code works once and expires after five minutes. Five incorrect codes replace the code and pause connection for one minute.
-A website session lasts one hour after key selection. Restart the tunnel to revoke all sessions.
+A website session lasts one hour after the first key selection. Wallet changes do not renew it. Restart the tunnel to revoke all sessions.
 Website sessions and SDK credentials remain in memory. A website reload requires a new code.
 The bridge signs each valid request without a terminal step. Ctrl+C stops the tunnel.
 A 1Password prompt can still require the Mac. Cached 1Password approval can suppress a fresh desktop prompt.

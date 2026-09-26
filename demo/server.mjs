@@ -10,6 +10,8 @@ export function createDemoSite({ port = 8788 } = {}) {
     '/app.js': [join(here, 'site/app.js'), 'text/javascript'],
     '/style.css': [join(here, 'site/style.css'), 'text/css'],
     '/sdk/walleterm.js': [join(here, '../sdk/walleterm.js'), 'text/javascript'],
+    '/sdk/connect.js': [join(here, '../sdk/connect.js'), 'text/javascript'],
+    '/sdk/connect.css': [join(here, '../sdk/connect.css'), 'text/css'],
     '/sdk/scan.js': [join(here, '../sdk/scan.js'), 'text/javascript'],
     '/sdk/jsqr.js': [join(here, '../node_modules/jsqr/dist/jsQR.js'), 'text/javascript'],
     '/stellar-sdk.js': [join(here, '../node_modules/@stellar/stellar-sdk/dist/stellar-sdk.min.js'), 'text/javascript'],

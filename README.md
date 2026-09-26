@@ -61,14 +61,28 @@ The [site bridge skill](.agents/skills/walleterm-site-bridge/SKILL.md) lets an a
 Run the bridge in one terminal and the example website in another:
 
 ```sh
+export OP_VAULT=Private
 walleterm tunnel
 walleterm demo
 ```
 
+`OP_VAULT` limits the website wallet list to SSH keys in that 1Password vault.
+Set it in the shell that starts `walleterm tunnel`. A setting used only by a test does not configure another tunnel.
+Restart the tunnel after changing the setting. Reconnect the website with the new tunnel URL and code.
+Use a vault name or ID. Vault filtering requires the 1Password CLI (`brew install 1password-cli`).
+Enable 1Password CLI integration in the desktop app, or sign in before starting the tunnel.
+The bridge reads only item metadata and public keys. It matches the full public key against the SSH agent.
+A vault lookup failure stops wallet discovery. An empty vault returns an empty list.
+An unset or empty `OP_VAULT` lists all available Ed25519 agent keys.
+The bridge checks vault membership again before signing. `walleterm list` still lists all available Ed25519 agent keys.
+
 The tunnel shows a public URL and an eight-digit connection code. It shows a QR code when the terminal is wide enough.
 Open the demo with your phone camera, or on your desktop. In the demo, click Scan tunnel for the tunnel QR code.
 You can also type the tunnel URL and code.
-Select a dedicated testnet wallet. Create a request in the demo.
+Review the permission for the displayed wallets, then select a dedicated testnet wallet.
+The demo changes wallets within that connection. It needs no new scan or code.
+New wallets require a new connection. Wallet changes preserve transaction records and the session expiry.
+Create a request in the demo.
 Review it in the demo and select Sign. Approve 1Password on the Mac if it asks.
 The demo submits the signed transaction to testnet.
 
