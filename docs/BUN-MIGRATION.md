@@ -45,7 +45,7 @@ The manifest generators and embedded signature verifier also use TypeScript.
 
 Browser checks used isolated mock keys and mocked network responses.
 Camera capture, live 1Password signing, and testnet acceptance were not run.
-The existing Rust contracts were not changed or rebuilt for this migration.
+Local checks used existing compiled Rust fixtures. The migration does not change the Rust contract sources.
 
 Independent review checked production signing, vault filtering, cancellation, installation, and submission recovery.
 It found three issues: restored activity metadata, signer pipe settings, and concurrent installer builds.
