@@ -1,14 +1,19 @@
 ---
 name: walleterm
-description: Sign Stellar envelope or Soroban authorization digests with a selected 1Password Ed25519 key. Use with Stellar CLI for classic transactions, fee bumps, native G-account auth, pinned OpenZeppelin accounts, or CAP-71 delegated signers.
+description: Sign a reviewed Stellar transaction or Soroban authorization digest through the local 1Password Ed25519 agent. Use for direct signing with Stellar CLI or SDK. For website connections through walleterm tunnel, use walleterm-site-bridge.
 ---
 
 # Walleterm signing
 
-`walleterm` lists public keys and signs one supplied 32-byte digest. It does not build XDR or submit transactions.
-Use [the site bridge skill](../walleterm-site-bridge/SKILL.md) for browser wallet login and website XDR requests.
+`walleterm list` lists public keys. `walleterm sign` signs one supplied 32-byte digest.
+Neither command builds XDR or submits transactions.
+Use `walleterm-site-bridge` for `walleterm tunnel`, `walleterm demo`, website integration, or wallet request interception.
 Use `walleterm --help` for the installed command contract. Use `stellar --version` before following a pinned reference.
 Use Stellar CLI to build, inspect, simulate, encode, and submit. Use Stellar Raven for protocol questions and contract discovery.
+Signing needs macOS, the installed Walleterm binary, and the enabled 1Password desktop SSH agent.
+If the execution environment lacks that socket, use a local Mac agent for signing.
+Exchange only public artifacts and signatures. Do not copy a private key into a cloud execution environment.
+The references describe pinned protocol examples. They do not limit the installed CLI to their recorded version.
 
 ## Select a reference
 
@@ -36,8 +41,12 @@ These files stay beside this skill after installation. Resolve links from this `
 8. Submit only the authorized final artifact. Check its transaction hash, ledger result, and resulting state.
 
 One invocation returns one signature. Do not retry an uncertain signing request automatically.
+Use a request file when practical: `walleterm sign < request.json > signature.json`.
+Check the exit status before reading the result. Failure returns `ok: false` with an error code.
+`--human` changes formatting for `list` and `sign` only. Agents should use the default JSON output.
 Ask for a new decision only when the action exceeds the grant's network, signer, amount, fee, contract trust, or time window.
 After a submission timeout, query the original transaction hash before any new submission.
+Use dedicated testnet keys in this project. This skill does not grant signing or submission authority.
 
 ## Boundary
 

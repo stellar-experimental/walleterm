@@ -23,7 +23,7 @@ Check current CLI output and network protocol before adapting the examples.
 10. Collect all signatures over the same transaction body. Check each source account's weights and thresholds.
 11. Submit with `stellar tx send`. Fetch the result and state before claiming success.
 
-The installed CLI cannot inject an external signature through `stellar tx sign`.
+CLI 27.1.0 cannot inject an external signature through `stellar tx sign`. Check the current command before adapting this procedure.
 Use decoded envelope JSON and re-encode it. The XDR envelope permits at most 20 signatures.
 The envelope digest authorizes transaction and operation sources. It does not replace Soroban auth-entry signatures.
 Without time bounds, an envelope can stay valid until its sequence is consumed.

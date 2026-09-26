@@ -32,6 +32,21 @@ Claude Code and Codex use links from their own skill directories to that shared 
 OpenCode and Grok discover the shared path directly.
 Edit `.agents/skills/` in this checkout. New sessions read those edits without another copy or install.
 Keep this checkout at its current path. The installer preserves conflicting destinations and reports them.
+These local source links have no remote update record in `npx skills`.
+The CLI can install global copies from this checkout with the following command:
+
+```sh
+npx skills add /absolute/path/to/walleterm-v2/.agents/skills -g \
+  -s walleterm -s walleterm-site-bridge \
+  -a claude-code -a codex -a opencode -a grok -y
+```
+
+Run that command from a scratch directory. It replaces the shared source links with copies.
+Use `make install-skill` for source-linked development. Back up existing copies before restoring those links.
+Check Codex's own skill directory after an `npx skills` install. Its runtime still needs the mirror here.
+Claude Desktop Chat and Cowork use separate uploaded skill archives.
+Upload a new archive after source edits. Local CLI links do not update those copies.
+See [the skill audit](docs/SKILLS-AUDIT.md) for installation checks and coverage.
 
 Generate an Ed25519 SSH key inside the 1Password desktop app.
 Enable that item in the 1Password SSH agent configuration.
@@ -54,7 +69,7 @@ Use the CLI or official SDK to calculate digests and insert returned signatures.
 Use Stellar Raven MCP for Stellar questions and contract discovery.
 See [Stellar CLI integration](docs/STELLAR-CLI.md) and [OpenZeppelin formats](docs/OPENZEPPELIN.md).
 The [companion skill](.agents/skills/walleterm/SKILL.md) gives agents the signing workflow.
-The [site bridge skill](.agents/skills/walleterm-site-bridge/SKILL.md) lets an agent intercept an unchanged testnet website.
+The [site bridge skill](.agents/skills/walleterm-site-bridge/SKILL.md) covers tunnel setup, website integration, and compatible website interception.
 
 ## Connect a website
 

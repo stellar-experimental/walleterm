@@ -1,6 +1,10 @@
 # Legacy Freighter message transport
 
-Use this reference only after you confirm the site's loaded code uses these exact messages. [StellarTerm testnet build 2409](https://stellarterm.com/testnet) used them on 2026-09-25. The five accepted transactions and limits are in [the test record](../../../../evidence/stellarterm-testnet-2026-09-25.json). The test used Stellar CLI 27.1.0 and Stellar SDK 17.1.0.
+Use this reference only after you confirm the site's loaded code uses these exact messages.
+[StellarTerm testnet build 2409](https://stellarterm.com/testnet) used them on 2026-09-25.
+The source project recorded five accepted transactions in `evidence/stellarterm-testnet-2026-09-25.json`.
+That historical record is not bundled with this skill. The test used Stellar CLI 27.1.0 and Stellar SDK 17.1.0.
+This transport does not use `walleterm tunnel` or its transaction limits.
 
 The tested client sent `window.postMessage` requests with `source: "FREIGHTER_EXTERNAL_MSG_REQUEST"`. It used `REQUEST_CONNECTION_STATUS`, `REQUEST_ACCESS`, and `SUBMIT_TRANSACTION`. It accepted responses with `source: "FREIGHTER_EXTERNAL_MSG_RESPONSE"` and the field `messagedId`. Keep that spelling. The request contained `transactionXdr`, `network`, `networkPassphrase`, and `accountToSign`. Some fields were empty, so the site banner and endpoint supplied independent network evidence.
 
