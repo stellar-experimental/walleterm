@@ -61,6 +61,10 @@ function contextFor(html: string, extras: Record<string, unknown> = {}) {
     URLSearchParams,
     AbortSignal,
     AbortController,
+    createCodeView: (node: MockElement) => (text: string) => {
+      node.textContent = text;
+    },
+    highlightConnectionCommand() {},
     createActivityLog: () => ({ record() {}, transaction() {}, wrapFetch: (fetcher: unknown) => fetcher }),
     WalletermConnect: class {
       onChange: (value: ConnectionChange) => void;
@@ -138,7 +142,7 @@ test('an unknown signing outcome remains distinct from a confirmed cancellation'
     assert.equal(f.run('pending.state'), 'signing_unknown');
   }
 });
-test('demo denial and expiry permit clearing; unknown submission remains protected after reload', async () => {
+test('demo denial and expiry finish the request; unknown submission remains protected after reload', async () => {
   const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8');
   const source = app();
   let stored: string | null | undefined;
@@ -162,7 +166,7 @@ test('demo denial and expiry permit clearing; unknown submission remains protect
     );
     f.run('render()');
     assert.equal(f.run('pending.state'), state);
-    assert.equal(f.el('clear').hidden, false);
+    assert.equal(f.el('clear').hidden, true);
   }
   f.run(
     "pending={kind:'note', address:'GSOURCE', xdr:'mock', state:'unknown', hash:'original'}; save(); render();",
@@ -732,4 +736,132 @@ test('only an active request shows progress; stopped signing cannot be canceled 
   assert.match(f.el('review-progress').textContent, /Canceling/);
   f.run("busy=false; pending.state='signing_unknown'; signingController=null; render()");
   assert.equal(f.el('review-progress').hidden, true);
+});
+
+async function completedFixture(state = 'submitted') {
+  const sdk = await import('@stellar/stellar-sdk');
+  const original = sdk.Keypair.random().publicKey(),
+    next = sdk.Keypair.random().publicKey();
+  const tx = new sdk.TransactionBuilder(new sdk.Account(original, '1'), {
+    fee: '100',
+    networkPassphrase: sdk.Networks.TESTNET,
+  })
+    .addOperation(sdk.Operation.manageData({ name: 'previous', value: 'done' }))
+    .setTimeout(180)
+    .build();
+  const previous = {
+    kind: 'note',
+    state,
+    address: original,
+    hash: Buffer.from(tx.hash()).toString('hex'),
+    xdr: tx.toXDR(),
+    result: { successful: true },
+  };
+  const store = {
+    value: JSON.stringify(previous) as string | null,
+    getItem() {
+      return this.value;
+    },
+    setItem(_key: string, value: string) {
+      this.value = value;
+    },
+    removeItem() {
+      this.value = null;
+    },
+  };
+  const events: { hash: string; state: string }[] = [];
+  let reads = 0,
+    signs = 0;
+  const client = {
+    token: 'mock-session',
+    signTransaction() {
+      signs++;
+    },
+  };
+  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    StellarSdk: sdk,
+    crypto: globalThis.crypto,
+    localStorage: store,
+    client,
+    next,
+    fetch: async () => {
+      reads++;
+      return ok({ sequence: '10' });
+    },
+    createActivityLog: () => ({
+      record() {},
+      transaction(value: { hash: string; state: string } | null) {
+        if (value) events.push(JSON.parse(JSON.stringify(value)));
+      },
+      wrapFetch: (fetcher: unknown) => fetcher,
+    }),
+  });
+  f.run(app());
+  f.run('connection.onChange({client, account:{address:next}})');
+  return { ...f, store, events, previous, next, reads: () => reads, signs: () => signs };
+}
+
+test('completed transactions permit another action after wallet switching without a separate clear step', async () => {
+  for (const state of ['submitted', 'canceled', 'denied', 'expired', 'failed']) {
+    const f = await completedFixture(state);
+    for (const name of ['note', 'payment', 'offer', 'cancel-offer'])
+      assert.equal(f.el(name).disabled, false, state);
+    assert.equal(f.el('clear').hidden, true);
+    assert.equal(f.el('review').open, false);
+    assert.equal(f.el('transaction-record').hidden, false);
+    f.click('open-review');
+    assert.equal(f.el('review').open, true);
+    f.click('close-review');
+    await f.click('note');
+    assert.equal(f.run('pending.state'), 'review');
+    assert.equal(f.run('pending.address'), f.next);
+    assert.notEqual(f.run('pending.hash'), f.previous.hash);
+    assert.equal(JSON.parse(f.store.value ?? 'null').address, f.next);
+    assert.ok(f.events.some((event) => event.hash === f.previous.hash && event.state === state));
+    assert.equal(f.signs(), 0);
+    assert.equal(f.reads(), 1);
+  }
+});
+
+test('unfinished transactions still prevent replacement after wallet switching', async () => {
+  for (const state of ['review', 'signed', 'waiting', 'signing_unknown', 'submitting', 'unknown']) {
+    const f = await completedFixture(state),
+      before = f.store.value;
+    for (const name of ['note', 'payment', 'offer', 'cancel-offer'])
+      assert.equal(f.el(name).disabled, true, state);
+    await f.click('note');
+    assert.equal(f.store.value, before);
+    assert.equal(f.run('pending.hash'), f.previous.hash);
+    assert.equal(f.reads(), 0);
+    assert.equal(f.signs(), 0);
+  }
+});
+
+test('another tab changing a completed record prevents its automatic replacement', async () => {
+  const f = await completedFixture();
+  const changed = JSON.stringify({ ...f.previous, state: 'unknown' });
+  f.context.navigator.locks.request = async (_name: string, fn: () => unknown) => {
+    f.store.value = changed;
+    return fn();
+  };
+  await f.click('note');
+  assert.equal(f.store.value, changed);
+  assert.equal(f.run('pending.state'), 'unknown');
+  assert.equal(f.reads(), 0);
+  assert.equal(f.signs(), 0);
+  assert.match(f.el('status').textContent, /Another tab changed/);
+});
+
+test('a storage failure preserves the completed record and prevents a new build', async () => {
+  const f = await completedFixture(),
+    before = f.store.value;
+  f.store.removeItem = () => {
+    throw Error('Storage unavailable');
+  };
+  await f.click('note');
+  assert.equal(f.store.value, before);
+  assert.equal(f.run('pending.hash'), f.previous.hash);
+  assert.equal(f.reads(), 0);
+  assert.equal(f.signs(), 0);
+  assert.match(f.el('status').textContent, /Storage unavailable/);
 });

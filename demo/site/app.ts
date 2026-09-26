@@ -1,4 +1,5 @@
 import { requestError } from '../../sdk/errors.ts';
+import { createCodeView, highlightConnectionCommand } from './code-view.js';
 import { WalletermConnect } from '../../sdk/connect.ts';
 import { createActivityLog } from './activity.ts';
 import type { Horizon, Transaction } from '@stellar/stellar-sdk';
@@ -72,6 +73,7 @@ function $<K extends string>(id: K): K extends keyof Elements ? Elements[K] : HT
   if (!element) throw Error(`Missing demo element: ${id}`);
   return element as K extends keyof Elements ? Elements[K] : HTMLElement;
 }
+const updateDetails = createCodeView($('details'), { label: 'JSON', disclosure: $('transaction-details') });
 const { Account, Asset, Keypair, Networks, Operation, StrKey, TransactionBuilder, xdr } =
   globalThis.StellarSdk;
 const HORIZON = 'https://horizon-testnet.stellar.org';
@@ -118,6 +120,7 @@ const connection = new WalletermConnect($('wallet-connection'), {
     render();
   },
 });
+highlightConnectionCommand($('wallet-connection'));
 function progressLabel(text: string) {
   actionProgress = text;
   render();
@@ -172,9 +175,9 @@ $('review').addEventListener('click', (event) => {
 });
 $('review').addEventListener('keydown', (event) => {
   if (event.key !== 'Tab') return;
-  const controls = [...$('review').querySelectorAll<HTMLElement>('button:not(:disabled), summary')].filter(
-    (node) => node.getClientRects().length,
-  );
+  const controls = [
+    ...$('review').querySelectorAll<HTMLElement>('button:not(:disabled), summary, [tabindex="0"]'),
+  ].filter((node) => node.getClientRects().length);
   const first = controls[0],
     last = controls.at(-1);
   if (
@@ -302,6 +305,9 @@ function describe(text: string) {
     operation: Object.fromEntries(Object.entries(op).map(([key, value]) => [key, show(value)])),
   };
 }
+function hasFinishedTransaction() {
+  return !!pending && ['submitted', 'canceled', 'denied', 'expired', 'failed'].includes(pending.state);
+}
 function connectedTo(address: string) {
   return !!wallet?.token && account?.address === address;
 }
@@ -311,7 +317,12 @@ function render() {
   $('connection-hint').hidden = !!account;
   for (const name of ['note', 'payment', 'offer', 'cancel-offer'] as const)
     $(name).disabled =
-      !account || !wallet?.token || busy || connection.working || !!pending || journalBlocked;
+      !account ||
+      !wallet?.token ||
+      busy ||
+      connection.working ||
+      (!!pending && !hasFinishedTransaction()) ||
+      journalBlocked;
   const kind = pending?.kind || selectedAction;
   const title = kind ? actionNames[kind] : 'Your transaction';
   const state = pending
@@ -344,9 +355,11 @@ function render() {
   $('transaction-record').hidden = !pending && !(busy && selectedAction);
   $('review-note').textContent = busy
     ? 'This action continues if you close this window.'
-    : pending
-      ? 'Closing this window keeps the transaction.'
-      : 'Close this window to choose another action.';
+    : hasFinishedTransaction()
+      ? 'This result is in Activity. Close this window to choose another action.'
+      : pending
+        ? 'Closing this window keeps the transaction.'
+        : 'Close this window to choose another action.';
   $('transaction-details').hidden = !pending;
   $('review-summary').replaceChildren();
   if (!pending) {
@@ -365,18 +378,20 @@ function render() {
     detail.textContent = value;
     $('review-summary').append(term, detail);
   }
-  $('details').textContent = JSON.stringify(
-    {
-      action: pending.kind,
-      state: pending.state,
-      signer: pending.address,
-      recipient: pending.recipient,
-      hash: pending.hash,
-      ...(pending.state === 'review' ? { transaction: describe(pending.xdr) } : {}),
-      result: pending.result,
-    },
-    null,
-    2,
+  updateDetails(
+    JSON.stringify(
+      {
+        action: pending.kind,
+        state: pending.state,
+        signer: pending.address,
+        recipient: pending.recipient,
+        hash: pending.hash,
+        ...(pending.state === 'review' ? { transaction: describe(pending.xdr) } : {}),
+        result: pending.result,
+      },
+      null,
+      2,
+    ),
   );
   $('submit').hidden = pending.state !== 'signed' && !(busy && actionPhase === 'submitting');
   $('submit').disabled = busy || connection.working || journalBlocked || !pending.signed_xdr;
@@ -399,7 +414,7 @@ function render() {
     busy ||
     !(
       (['waiting', 'signing_unknown'].includes(pending.state) && !signingController) ||
-      ['review', 'signed', 'canceled', 'denied', 'expired', 'failed', 'submitted'].includes(pending.state)
+      ['review', 'signed'].includes(pending.state)
     );
   $('clear').textContent =
     pending.state === 'review'
@@ -580,12 +595,27 @@ async function requestSignature() {
   }
 }
 function startAction(kind: Action) {
-  if (!account || pending || busy || journalBlocked || connection.working) return;
+  if (!account || (pending && !hasFinishedTransaction()) || busy || journalBlocked || connection.working)
+    return;
   selectedAction = kind;
   $('transaction-details').open = false;
   openReview();
   status('Preparing your transaction. Keep this window open to see its details.');
-  return action(() => build(kind));
+  return action(async () => {
+    // Replace only a finished record, after the shared journal lock and stale-record check.
+    if (hasFinishedTransaction()) {
+      const previous = pending;
+      pending = null;
+      try {
+        save();
+      } catch (error) {
+        pending = previous;
+        throw error;
+      }
+      render();
+    }
+    await build(kind);
+  });
 }
 for (const kind of ['note', 'payment', 'offer'] as const) $(kind).onclick = () => startAction(kind);
 $('cancel-offer').onclick = () => startAction('cancel_offer');
@@ -709,7 +739,7 @@ try {
   status('The local demo journal could not be read. Preserve it before continuing.');
 }
 render();
-if (pending) {
+if (pending && !hasFinishedTransaction()) {
   $('review-status').textContent = $('status').textContent;
   openReview();
 }

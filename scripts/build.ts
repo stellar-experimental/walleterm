@@ -12,6 +12,8 @@ const result = await Bun.build({
     'sdk/scan.ts',
     'demo/site/app.ts',
     'demo/site/activity.ts',
+    'demo/site/code-view.ts',
+    'demo/site/syntax.ts',
   ].map((path) => root + path),
   root,
   outdir,

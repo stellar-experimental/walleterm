@@ -155,7 +155,6 @@ export class WalletermConnect {
     this.$('copy').onclick = async () => {
       if (!this.account || this.copying) return;
       this.copying = true;
-      this.update();
       try {
         await navigator.clipboard.writeText(this.account.address!);
         this.message('Address copied.', true);
@@ -163,7 +162,6 @@ export class WalletermConnect {
         this.message('Copy the address from the button text.', true);
       } finally {
         this.copying = false;
-        this.update();
       }
     };
     this.update();
@@ -243,8 +241,7 @@ export class WalletermConnect {
     this.$('retry-wallets').textContent =
       this.phase === 'loading-wallets' ? 'Finding wallets…' : 'Refresh wallets';
     this.loading(this.$('retry-wallets'), this.phase === 'loading-wallets');
-    this.$('copy').disabled = !this.account || this.copying;
-    this.loading(this.$('copy'), this.copying);
+    this.$('copy').disabled = !this.account;
     for (const [selector, picker] of [
       ['.wt-menu .wt-wallet-row', false],
       ['.wt-dialog .wt-wallet-row', true],

@@ -1,3 +1,4 @@
+import { createCodeView } from './code-view.js';
 import { requestError } from '../../sdk/errors.ts';
 // Demo-only activity history. Never inspect private keys or persist connection credentials.
 const secretField =
@@ -339,22 +340,19 @@ export function createActivityLog(
   const $ = <K extends string>(name: K) =>
     element.querySelector(`[data-log="${name}"]`)! as K extends keyof Elements ? Elements[K] : HTMLElement;
   const rows = new Map<string, HTMLElement>();
+  const copying = new WeakSet<HTMLButtonElement>();
   let limit = 40;
   const copy = async (value: string, button: HTMLButtonElement) => {
-    if (button.disabled) return;
+    if (copying.has(button)) return;
     const title = button.textContent;
-    button.disabled = true;
-    button.textContent = 'Copying…';
-    button.classList.add('activity-loading');
+    copying.add(button);
     try {
       await navigator.clipboard.writeText(value);
       $('notice').textContent = `Copied ${(title || '').replace(/^Copy /, '')}.`;
     } catch {
       $('notice').textContent = 'Copy failed. Expand the JSON to select and copy the value.';
     } finally {
-      button.disabled = false;
-      button.textContent = title;
-      button.classList.remove('activity-loading');
+      copying.delete(button);
     }
   };
   const button = (title: string, value: string) => {
@@ -369,7 +367,8 @@ export function createActivityLog(
     const expandable =
       event.data != null &&
       (typeof event.data === 'object' ? Object.keys(event.data).length > 0 : event.data !== '');
-    const node = document.createElement(expandable ? 'details' : 'div');
+    const disclosure = expandable ? document.createElement('details') : undefined;
+    const node = disclosure ?? document.createElement('div');
     node.className = 'activity-event';
     const summary = document.createElement(expandable ? 'summary' : 'div');
     summary.className = 'activity-summary';
@@ -409,12 +408,10 @@ export function createActivityLog(
       values(event.data, 'xdr')[0] ||
       values(event.data, 'transaction_xdr')[0];
     if (xdr) actions.append(button('Copy XDR', xdr));
-    const pre = document.createElement('pre');
-    pre.tabIndex = 0;
-    pre.setAttribute('role', 'region');
-    pre.setAttribute('aria-label', 'Event JSON');
-    pre.textContent = JSON.stringify(event.data, null, 2);
-    detail.append(actions, pre);
+    const code = document.createElement('div');
+    const updateCode = createCodeView(code, { label: 'JSON', disclosure });
+    updateCode(JSON.stringify(event.data, null, 2));
+    detail.append(actions, code);
     node.append(detail);
     rows.set(event.id, node);
     return node;
@@ -436,7 +433,6 @@ export function createActivityLog(
     nodes.forEach((node, index) => {
       if (list.children[index] !== node) list.insertBefore(node, list.children[index] || null);
     });
-    $('count').classList.toggle('activity-loading', history.loading);
     $('count').textContent = history.loading
       ? 'Loading saved activity…'
       : `${matching.length} ${matching.length === 1 ? 'event' : 'events'}${term || category ? ` of ${history.events.length}` : ''}`;

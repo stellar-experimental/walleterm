@@ -1,6 +1,6 @@
 # Bun and TypeScript migration
 
-Research date: 2026-09-26. Baseline: loading PR #3, commit `3842d33242fad07a12d570288451cbbd8a5c2376`.
+Research date: 2026-09-26. Base: PR #5, commit `ab467edd34a35636689691c951560f655bc33b17`, including loading PR #3.
 Research used `parallel-cli` and primary documentation. The implementation uses Bun 1.4.2 and TypeScript 7.0.2.
 
 ## Tool choices
@@ -13,6 +13,7 @@ Research used `parallel-cli` and primary documentation. The implementation uses 
 - Bun runs the offline test suite. Node compatibility requires direct tests of timers and child cleanup. [Bun compatibility](https://bun.com/docs/runtime/nodejs-compat)
 
 The existing Stellar SDK, QR encoder, and QR decoder remain the only runtime dependencies.
+The code-display integration adds two pinned tokenizer build dependencies. Bun replaces its separate esbuild step.
 This migration adds no web framework, build plugin, server framework, or schema library.
 The Go signer keeps its existing JSON protocol, socket checks, and independent signature verification.
 The TypeScript bridge keeps the existing HTTP implementation and child process supervision.
@@ -32,13 +33,13 @@ The service commands require Bun 1.4.2 or later.
 ## Verification
 
 The original Node baseline passed 186 tests and three offline contract self-tests.
-All 44 tracked JavaScript files now have TypeScript replacements.
+All maintained JavaScript sources now use TypeScript, including the code-display additions from PR #5.
 The manifest generators and embedded signature verifier also use TypeScript.
 
-- `make test`: strict checking, Go tests, `go vet`, 187 Bun tests, and three contract self-tests passed.
+- `make test`: strict checking, Go tests, `go vet`, 198 Bun tests, and three contract self-tests passed.
 - `bun run format:check` and `actionlint`: passed.
 - A separate SDK consumer passed NodeNext checking with browser types and no Bun globals.
-- A fresh installation passed under a temporary path with spaces. All 14 browser assets loaded.
+- A fresh installation passed under a temporary path with spaces. The browser module graph and lazy syntax module loaded.
 - Both manifest generators matched the original metadata and hashes, except their build timestamps.
 - Browser checks passed pairing, wallet selection, switching, signing, mocked submission, journal restoration, and disconnection.
 - Escape handling and the 390-pixel mobile layout passed. Camera denial returned to manual entry.

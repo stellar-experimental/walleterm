@@ -10,6 +10,8 @@
         "qrcode": "1.5.4",
       },
       "devDependencies": {
+        "@twinkleplop/bash": "0.1.5",
+        "@twinkleplop/json": "0.1.5",
         "@types/bun": "1.4.2",
         "@types/qrcode": "1.5.6",
         "prettier": "3.9.9",
@@ -27,6 +29,12 @@
     "@stellar/js-xdr": ["@stellar/js-xdr@5.0.0", "", {}, "sha512-HBDNKnxr+ecdaEmbZ0mcKkirOF8tXXEbWSw34P3wT40Tn3g+u+cCH17xAWZymzscq8cojHB8340pR8QNVaD32w=="],
 
     "@stellar/stellar-sdk": ["@stellar/stellar-sdk@17.1.0", "", { "dependencies": { "@exodus/bytes": "^1.15.1", "@noble/ed25519": "^3.1.0", "@noble/hashes": "^2.2.0", "@stellar/js-xdr": "^5.0.0", "@types/json-schema": "^7.0.15", "axios": "1.20.0", "bignumber.js": "^11.1.4", "commander": "^14.0.3", "eventsource": "^4.1.0", "feaxios": "^0.0.23", "smol-toml": "^1.6.1", "uint8array-extras": "^1.5.0" }, "bin": { "stellar-js": "bin/stellar-js" } }, "sha512-vf/d9KR2B7MkrJBKW+cN8GPgBbiLFrRfr2pkR41VmqI6is6EfYvzhyGztbuJ3XPmcotkCRCveweAAzw2cjDn1w=="],
+
+    "@twinkleplop/bash": ["@twinkleplop/bash@0.1.5", "", { "dependencies": { "@twinkleplop/core": "0.2.2" } }, "sha512-LAfsYYtjI3N38BMBcfg7ZT2Nxeql2zyezfG+aYtptgNt6D0dmKkysDYGbnGJY2885Woz1i1k9iif4/R6D3bizA=="],
+
+    "@twinkleplop/core": ["@twinkleplop/core@0.2.2", "", {}, "sha512-xJpsL0QdgZ0gKDkTW+S1FAzVzyTns+jKPXER52vc/69qCe6gXCpsoclhTjERnFUbkZgTBEA/iVJxaufhY8Oqrw=="],
+
+    "@twinkleplop/json": ["@twinkleplop/json@0.1.5", "", { "dependencies": { "@twinkleplop/core": "0.2.2" } }, "sha512-qXB8HgDThT8dYHT/4+S/EcQK4R8qbi6Ezb/h5bZEUK2yh0G3170W9QXF8iDp1JChQ9upyn8BivIAwQZGgcx28g=="],
 
     "@types/bun": ["@types/bun@1.4.2", "", { "dependencies": { "bun-types": "1.4.2" } }, "sha512-GimotNn7+ZV0uVArItBbriZsR1oNf0+WTzPkdcFrzShI7k2norL0uzEaJT8T33dWr7O/c9ZDuAFQrctKCi72oQ=="],
 

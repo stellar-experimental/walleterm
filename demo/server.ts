@@ -11,6 +11,12 @@ export function createDemoSite({ port = 8788 } = {}) {
   const files: Record<string, [string, string]> = {
     '/': [join(here, 'site/index.html'), 'text/html'],
     '/activity.js': [join(assets, 'demo/site/activity.js'), 'text/javascript'],
+    '/code-view.js': [join(assets, 'demo/site/code-view.js'), 'text/javascript'],
+    '/code-view.css': [join(here, 'site/code-view.css'), 'text/css'],
+    '/syntax.js': [join(assets, 'demo/site/syntax.js'), 'text/javascript'],
+    '/demo/site/syntax.js': [join(assets, 'demo/site/syntax.js'), 'text/javascript'],
+    '/vendor/syntax.js': [join(assets, 'demo/site/syntax.js'), 'text/javascript'],
+    '/vendor/syntax.LICENSE': [join(here, 'site/vendor/syntax.LICENSE'), 'text/plain'],
     '/activity.css': [join(here, 'site/activity.css'), 'text/css'],
     '/app.js': [join(assets, 'demo/site/app.js'), 'text/javascript'],
     '/style.css': [join(here, 'site/style.css'), 'text/css'],

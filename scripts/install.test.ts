@@ -62,8 +62,10 @@ for (const fail of [true, false])
         assert.equal(existsSync(join(release, 'bridge', 'entry.ts')), true);
         assert.equal(existsSync(join(release, 'demo', 'entry.ts')), true);
         assert.equal(existsSync(join(release, 'demo', 'site', 'activity.css')), true);
-        for (const asset of ['app.js', 'activity.js'])
+        for (const asset of ['app.js', 'activity.js', 'code-view.js', 'syntax.js'])
           assert.equal(existsSync(join(release, 'dist', 'demo', 'site', asset)), true);
+        for (const asset of ['code-view.css', 'vendor/syntax.LICENSE'])
+          assert.equal(existsSync(join(release, 'demo', 'site', asset)), true);
         assert.equal(existsSync(join(release, 'sdk', 'connect.css')), true);
         for (const asset of ['walleterm.js', 'connect.js', 'scan.js'])
           assert.equal(existsSync(join(release, 'dist', 'sdk', asset)), true);
