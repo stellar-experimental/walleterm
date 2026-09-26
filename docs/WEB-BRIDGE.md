@@ -13,8 +13,9 @@ make install
 walleterm tunnel
 ```
 
-The terminal shows the public bridge URL, an eight-digit connection code, and a QR code.
-Keep this terminal visible and at least 50 columns wide, so the QR code draws correctly. It reviews every signing request.
+The terminal shows the public bridge URL and an eight-digit connection code.
+It shows a QR code when the terminal is wide enough. Otherwise, use the URL and code.
+Keep this terminal visible. It reviews every signing request.
 Each review ignores anything typed before its prompt appears, such as an extra Enter.
 
 In a second terminal:
@@ -107,6 +108,8 @@ A website might already have received a completed signature before disconnection
 The demo stores signed XDR and the original submitted hash in browser local storage.
 Denial, expiry, cancellation, and signing failures allow a new request.
 Leaving the page stops an open signing request and sends a cancel. If the terminal still shows it, deny it there.
+The demo keeps an unfinished signing record after a reload. Deny any request still shown in the terminal before clearing the record.
+The demo uses Web Locks to protect its transaction record across tabs. A browser without Web Locks cannot start a demo transaction.
 A submission timeout remains unknown. The demo queries the original hash and never automatically resubmits.
 A missing transaction proves failure only after a ledger closes past its time bound and the account sequence stays below its sequence. Preserve browser storage until the original outcome is known.
 A new public demo hostname has different browser storage. Keep the original tab and its transaction hash during recovery.

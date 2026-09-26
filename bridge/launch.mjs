@@ -97,6 +97,10 @@ function startTunnel(_command, args, options) {
   return spawn(process.execPath, [fileURLToPath(new URL('./tunnel-child.mjs', import.meta.url)), ...args],
     { ...options, stdio: ['pipe', 'pipe', 'pipe'] });
 }
+function qrForTerminal(qr, output) {
+  const width = Math.max(...qr.split('\n').map(line => line.replace(/\x1b\[[0-9;]*m/g, '').length));
+  return output.columns && output.columns < width ? `This QR code needs ${width} terminal columns. Widen this terminal or use the printed URL and code.\n` : qr;
+}
 
 export async function launchService(config, { spawnTunnel = startTunnel, create, ready = publicReady, output = process.stdout,
   signal, environment = process.env } = {}) {
@@ -166,12 +170,12 @@ export async function launchService(config, { spawnTunnel = startTunnel, create,
       const printPairing = async () => {
         const pairing = demo.pairing;
         const qr = await QRCode.toString(JSON.stringify(pairing), { type: 'terminal', small: true });
-        if (!controller.signal.aborted) output.write(`\nTunnel URL: ${pairing.url}\nConnection code: ${pairing.code}\nScan this QR code with the website's Scan tunnel button, not the phone camera:\n${qr}\nThis code expires at ${pairing.expires_at}. It works once.\nReview signing requests in this terminal.\n`);
+        if (!controller.signal.aborted) output.write(`\nTunnel URL: ${pairing.url}\nConnection code: ${pairing.code}\nScan this QR code with the website's Scan tunnel button, not the phone camera:\n${qrForTerminal(qr, output)}\nThis code expires at ${pairing.expires_at}. It works once.\nReview signing requests in this terminal.\n`);
       };
       await printPairing();
       demo.onPairingChanged(() => printPairing().catch(() => stop(1)));
     } else {
-      output.write(`\nPublic URL: ${origin}\nScan this QR code with your phone camera to open the site:\n${await QRCode.toString(origin, { type: 'terminal', small: true })}\n`);
+      output.write(`\nPublic URL: ${origin}\nScan this QR code with your phone camera to open the site:\n${qrForTerminal(await QRCode.toString(origin, { type: 'terminal', small: true }), output)}\n`);
     }
     controller.signal.throwIfAborted();
     output.write('Press Ctrl+C to stop this service.\n');

@@ -39,7 +39,8 @@ The bridge keeps sessions and requests in memory. A restart ends them and never 
 The tunnel terminal prints one line for each produced or withheld signature.
 Earlier versions kept records in `~/Library/Application Support/walleterm/bridge`. The bridge no longer reads that directory.
 
-`tunnel` and `demo` always print readable public links and QR codes.
+`tunnel` and `demo` always print readable public links. They print QR codes when the terminal is wide enough.
+In a narrow terminal, they show the required width and keep the URL and connection code available for manual entry.
 The bridge prints its URL, connection code, and a QR code with both. The demo prints a QR code for its public website.
 These interactive commands have no `--human` or `--public` flag.
 

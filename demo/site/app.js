@@ -5,7 +5,7 @@ const { Account, Asset, Keypair, Networks, Operation, StrKey, TransactionBuilder
 const HORIZON = 'https://horizon-testnet.stellar.org';
 const ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
 const STORAGE = 'walleterm-demo-request-v1';
-let wallet, account, pending, busy = false, connecting = false, signingController, scanning;
+let wallet, account, pending, busy = false, connecting = false, signingController, scanning, journalBlocked = false;
 function status(text) { $('status').textContent = text; }
 async function horizon(path, options = {}) {
   const response = await fetch(`${HORIZON}${path}`, { ...options, signal: AbortSignal.timeout(15000) });
@@ -38,9 +38,18 @@ async function sourceAccount() {
   }
 }
 function save() { if (pending) localStorage.setItem(STORAGE, JSON.stringify(pending)); else localStorage.removeItem(STORAGE); }
+function readJournal() {
+  const raw = localStorage.getItem(STORAGE);
+  if (raw === null) return null;
+  const value = JSON.parse(raw);
+  if (!value || Array.isArray(value) || !['waiting', 'signing_unknown', 'signed', 'submitting', 'unknown', 'submitted', 'canceled', 'denied', 'expired', 'failed'].includes(value.state)
+    || !['note', 'payment', 'offer', 'cancel_offer'].includes(value.kind) || typeof value.address !== 'string' || !value.address
+    || typeof value.hash !== 'string' || !value.hash || typeof value.xdr !== 'string' || !value.xdr) throw Error('The local demo journal is invalid.');
+  return value;
+}
 function render() {
   $('actions').hidden = !account;
-  for (const name of ['note', 'payment', 'offer', 'cancel-offer']) $(name).disabled = busy || !!pending;
+  for (const name of ['note', 'payment', 'offer', 'cancel-offer']) $(name).disabled = busy || !!pending || journalBlocked;
   $('account').hidden = !account; $('account').textContent = account ? `TESTNET\n${account.address}` : '';
   $('disconnect').hidden = !wallet?.token;
   $('connect-button').disabled = connecting || !!wallet?.token; $('scan').disabled = connecting || !!wallet?.token || !!scanning;
@@ -48,14 +57,27 @@ function render() {
   $('review').hidden = !pending;
   if (!pending) return;
   $('details').textContent = JSON.stringify({ action: pending.kind, state: pending.state, signer: pending.address, recipient: pending.recipient, hash: pending.hash, result: pending.result }, null, 2);
-  $('submit').hidden = pending.state !== 'signed'; $('submit').disabled = busy;
-  $('check').hidden = !['submitting', 'unknown', 'submitted'].includes(pending.state); $('check').disabled = busy;
+  $('submit').hidden = pending.state !== 'signed'; $('submit').disabled = busy || journalBlocked;
+  $('check').hidden = !['submitting', 'unknown', 'submitted'].includes(pending.state); $('check').disabled = busy || journalBlocked;
   $('cancel-request').hidden = pending.state !== 'waiting';
-  $('clear').hidden = busy || !['signed', 'canceled', 'denied', 'expired', 'failed', 'submitted'].includes(pending.state);
+  $('clear').hidden = journalBlocked || busy || !(['waiting', 'signing_unknown'].includes(pending.state) && !signingController || ['signed', 'canceled', 'denied', 'expired', 'failed', 'submitted'].includes(pending.state));
+  $('clear').textContent = ['waiting', 'signing_unknown'].includes(pending.state) ? 'Clear stopped request' : 'Start another request';
 }
 async function action(fn) {
-  if (busy) return; busy = true; render();
-  try { await fn(); } catch (error) { if (error.status === 401) account = null; status(error.message); }
+  if (busy || journalBlocked) return; busy = true; render();
+  try {
+    if (!navigator.locks?.request) throw Error('This browser cannot coordinate transaction tabs. Use a browser with Web Locks.');
+    await navigator.locks.request(STORAGE, async () => {
+      let latest;
+      try { latest = readJournal(); }
+      catch { journalBlocked = true; throw Error('The local demo journal could not be read. Preserve it before continuing.'); }
+      if (JSON.stringify(latest) !== JSON.stringify(pending)) {
+        pending = latest;
+        throw Error('Another tab changed the transaction. Review its latest record before continuing.');
+      }
+      await fn();
+    });
+  } catch (error) { if (error.status === 401) account = null; status(error.message); }
   finally { busy = false; render(); }
 }
 function selectWallet(signers, { signal }) {
@@ -99,7 +121,12 @@ $('scan').onclick = async () => {
   finally { scanning = null; $('scanner').hidden = true; $('scan').disabled = connecting; }
 };
 $('stop-scan').onclick = () => scanning?.abort();
-$('disconnect').onclick = () => action(async () => { await wallet.disconnect(); account = null; status('The website is disconnected.'); });
+$('disconnect').onclick = async () => {
+  if (busy) return; busy = true; render();
+  try { await wallet.disconnect(); account = null; status('The website is disconnected.'); }
+  catch (error) { status(error.message); }
+  finally { busy = false; render(); }
+};
 async function build(kind) {
   if (!account || pending) return;
   const source = await sourceAccount();
@@ -193,10 +220,10 @@ $('check').onclick = () => action(async () => {
   }
 });
 $('clear').onclick = () => action(async () => {
-  if (!pending || ['submitting', 'unknown', 'waiting'].includes(pending.state)) return;
+  if (!pending || ['submitting', 'unknown'].includes(pending.state) || ['waiting', 'signing_unknown'].includes(pending.state) && signingController) return;
   pending = null; save();
 });
-try { pending = JSON.parse(localStorage.getItem(STORAGE)); if (pending?.state === 'submitting') { pending.state = 'unknown'; save(); }
-  // Leaving the page cancels an open signing request through the SDK.
-  if (['waiting', 'signing_unknown'].includes(pending?.state)) { pending = null; save(); status('The previous signing request stopped when the page closed. If the tunnel terminal still shows it, deny it there.'); } } catch { status('The local demo journal could not be read. Preserve it before continuing.'); }
+try { pending = readJournal();
+  if (['waiting', 'signing_unknown'].includes(pending?.state)) status('A signing request is in the journal. If the tunnel terminal shows it, deny it there before clearing this record.');
+} catch { journalBlocked = true; status('The local demo journal could not be read. Preserve it before continuing.'); }
 render();

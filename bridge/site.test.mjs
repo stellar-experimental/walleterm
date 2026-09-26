@@ -8,7 +8,8 @@ function element() { return { hidden: false, disabled: false, value: '', textCon
 function contextFor(html, extras = {}) {
   const elements = new Map([...html.matchAll(/id="([^"]+)"/g)].map(m => [m[1], element()]));
   const context = vm.createContext({ document: { getElementById: id => elements.get(id), createElement: element }, URLSearchParams, AbortSignal, AbortController,
-    location: { hash: '' }, history: { replaceState() {} }, setInterval() {}, Option: class {}, ...extras });
+    location: { hash: '' }, history: { replaceState() {} }, setInterval() {}, Option: class {},
+    navigator: { locks: { request: async (_name, fn) => fn() } }, ...extras });
   return { context, elements, run: code => vm.runInContext(code, context) };
 }
 const ok = data => ({ ok: true, json: async () => data });
@@ -22,20 +23,64 @@ test('demo denial and expiry permit clearing; unknown submission remains protect
     await f.run(`pending = {xdr:'mock', state:'waiting'}; wallet = {token:'mock', signTransaction: async () => {throw Object.assign(Error('${state}'), {requestState:'${state}'})}}; requestSignature().catch(() => {});`);
     f.run('render()'); assert.equal(f.run('pending.state'), state); assert.equal(f.elements.get('clear').hidden, false);
   }
-  f.run("pending={state:'unknown', hash:'original'}; save(); render();");
+  f.run("pending={kind:'note', address:'GSOURCE', xdr:'mock', state:'unknown', hash:'original'}; save(); render();");
   assert.equal(f.elements.get('clear').hidden, true); assert.equal(f.elements.get('check').hidden, false);
   const restored = contextFor(html, { StellarSdk: {Networks:{TESTNET:'testnet'}}, WalletermClient: class {}, localStorage: { getItem: () => stored, setItem() {}, removeItem() {} } });
   restored.run(source); assert.equal(restored.run('pending.state'), 'unknown'); assert.equal(restored.elements.get('clear').hidden, true);
 });
 
-test('a reload ends an open signing request', () => {
-  const stored = JSON.stringify({ state: 'waiting', xdr: 'mock' }); let removed = false;
+test('a reload preserves an open signing request until the user clears it', async () => {
+  let stored = JSON.stringify({ kind: 'note', address: 'GSOURCE', hash: 'original', state: 'waiting', xdr: 'mock' });
   const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
-    StellarSdk: {Networks:{TESTNET:'testnet'}}, WalletermClient: class {}, localStorage: { getItem: () => stored, setItem() {}, removeItem: () => { removed = true; } },
+    StellarSdk: {Networks:{TESTNET:'testnet'}}, WalletermClient: class {}, localStorage: { getItem: () => stored, setItem() {}, removeItem: () => { stored = null; } },
   });
   f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
-  assert.equal(f.run('pending'), null); assert.equal(removed, true);
-  assert.match(f.elements.get('status').textContent, /stopped when the page closed/);
+  assert.equal(f.run('pending.state'), 'waiting'); assert.ok(stored);
+  assert.match(f.elements.get('status').textContent, /deny it there before clearing/);
+  await f.elements.get('clear').onclick();
+  assert.equal(f.run('pending'), null); assert.equal(stored, null);
+});
+test('an unreadable journal blocks new transaction actions', async () => {
+  for (const stored of ['{broken', JSON.stringify({ state: 'unknown', kind: 'note' })]) {
+    const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+      StellarSdk: {}, WalletermClient: class {}, localStorage: { getItem: () => stored, setItem: () => { throw Error('must not write'); }, removeItem: () => { throw Error('must not remove'); } },
+    });
+    f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
+    f.run("account={address:'GSOURCE'}; render()");
+    assert.equal(f.elements.get('payment').disabled, true);
+    assert.match(f.elements.get('status').textContent, /Preserve it before continuing/);
+    await f.elements.get('payment').onclick();
+    assert.equal(f.run('pending') == null, true);
+  }
+});
+test('a damaged journal still permits disconnect without changing storage', async () => {
+  const stored = '{broken'; let disconnected = false;
+  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    StellarSdk: {}, WalletermClient: class {}, localStorage: { getItem: () => stored, setItem: () => { throw Error('must not write'); }, removeItem: () => { throw Error('must not remove'); } },
+  });
+  f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
+  f.context.disconnectMock = async () => { disconnected = true; };
+  f.run("wallet={token:'mock', disconnect:disconnectMock}; account={address:'GSOURCE'}; render()");
+  await f.elements.get('disconnect').onclick();
+  assert.equal(disconnected, true);
+  assert.equal(f.run('account'), null);
+  assert.equal(stored, '{broken');
+});
+test('another tab cannot overwrite an unknown submission', async () => {
+  let stored = null;
+  const localStorage = { getItem: () => stored, setItem: (_key, value) => { stored = value; }, removeItem: () => { stored = null; } };
+  const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8');
+  const source = readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, '');
+  const first = contextFor(html, { StellarSdk: {}, WalletermClient: class {}, localStorage });
+  const second = contextFor(html, { StellarSdk: {}, WalletermClient: class {}, localStorage });
+  first.run(source); second.run(source);
+  first.run("pending={kind:'note', address:'GSOURCE', xdr:'mock', state:'unknown', hash:'original'}; save()");
+  second.run("account={address:'GSOURCE'}; render()");
+  await second.elements.get('note').onclick();
+  assert.equal(JSON.parse(stored).hash, 'original');
+  assert.equal(second.run('pending.hash'), 'original');
+  assert.equal(second.elements.get('note').disabled, true);
+  assert.match(second.elements.get('status').textContent, /Another tab changed/);
 });
 
 test('demo selects an existing recent testnet account without recipient input', async () => {
@@ -99,21 +144,24 @@ test('demo reports a Friendbot failure and does not hide Horizon errors', async 
 test('an unknown submission expires only after a ledger closes past its time bound', async () => {
   const maxTime = 1_800_000_000;
   const order = [];
-  const make = closed => contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const make = closed => {
+    let stored = null;
+    return contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: { Networks: { TESTNET: 'testnet' }, TransactionBuilder: { fromXDR: () => ({ sequence: '11', timeBounds: { maxTime: String(maxTime) } }) } },
-    WalletermClient: class {}, localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
+    WalletermClient: class {}, localStorage: { getItem: () => stored, setItem: (_key, value) => { stored = value; }, removeItem: () => { stored = null; } },
     fetch: async url => {
       order.push(url.includes('/ledgers?') ? 'ledger' : url.includes('/accounts/') ? 'account' : 'hash');
       if (url.includes('/ledgers?')) return ok({ _embedded: { records: [{ closed_at: new Date(closed * 1000).toISOString() }] } });
       if (url.includes('/accounts/')) return ok({ sequence: accountSequence });
       return { ok: false, status: 404, json: async () => ({ detail: 'Not found' }) };
     },
-  });
+    });
+  };
   let accountSequence;
   for (const [closed, sequence, state] of [[maxTime + 5, '10', 'expired'], [maxTime - 5, '10', 'unknown'], [maxTime + 5, '11', 'unknown']]) {
     accountSequence = sequence; const f = make(closed);
     f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
-    f.run("pending={state:'unknown', hash:'original', xdr:'mock', address:'GSOURCE'}");
+    f.run("pending={kind:'note', state:'unknown', hash:'original', xdr:'mock', address:'GSOURCE'}; save()");
     await f.elements.get('check').onclick(); await new Promise(resolve => setTimeout(resolve, 0));
     assert.equal(f.run('pending.state'), state);
   }

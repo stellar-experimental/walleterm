@@ -65,7 +65,7 @@ walleterm tunnel
 walleterm demo
 ```
 
-The tunnel shows a public URL, an eight-digit connection code, and a QR code.
+The tunnel shows a public URL and an eight-digit connection code. It shows a QR code when the terminal is wide enough.
 Open the demo with your phone camera, or on your desktop. In the demo, click Scan tunnel for the tunnel QR code.
 You can also type the tunnel URL and code.
 Select a dedicated testnet wallet. Create a request in the demo.

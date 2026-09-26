@@ -13,18 +13,26 @@ export async function scanConnection(video, { signal } = {}) {
   signal = AbortSignal.any([lifetime.signal, AbortSignal.timeout(120000), ...(signal ? [signal] : [])]);
   if (!globalThis.isSecureContext || !navigator.mediaDevices?.getUserMedia) throw Error('Camera access requires HTTPS. Enter the tunnel URL and code instead.');
   signal?.throwIfAborted();
-  if (!globalThis.jsQR) await import('./jsqr.js');
-  signal?.throwIfAborted();
+  const abortable = promise => new Promise((resolve, reject) => {
+    const aborted = () => { signal.removeEventListener('abort', aborted); reject(signal.reason || Error('Scanning stopped.')); };
+    if (signal.aborted) return aborted();
+    signal.addEventListener('abort', aborted, { once: true });
+    Promise.resolve(promise).then(value => { signal.removeEventListener('abort', aborted); resolve(value); }, error => { signal.removeEventListener('abort', aborted); reject(error); });
+  });
   let stream, frame;
   const stop = () => { if (frame) cancelAnimationFrame(frame); stream?.getTracks().forEach(track => track.stop()); video.srcObject = null; };
   const pageGone = () => lifetime.abort(Error('The page closed.'));
   globalThis.addEventListener('pagehide', pageGone, { once: true });
   signal?.addEventListener('abort', stop, { once: true });
   try {
-    // A late camera permission response must also stop its tracks after cancellation.
-    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    if (!globalThis.jsQR) await abortable(import('./jsqr.js'));
     signal?.throwIfAborted();
-    video.srcObject = stream; video.muted = true; video.playsInline = true; await video.play();
+    // A late camera permission response must also stop its tracks after cancellation.
+    const acquiring = navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    acquiring.then(late => { if (signal.aborted) late.getTracks().forEach(track => track.stop()); }, () => {});
+    stream = await abortable(acquiring);
+    signal?.throwIfAborted();
+    video.srcObject = stream; video.muted = true; video.playsInline = true; await abortable(video.play());
     signal?.throwIfAborted();
     const canvas = document.createElement('canvas'), context = canvas.getContext('2d', { willReadFrequently: true });
     return await new Promise((resolve, reject) => {

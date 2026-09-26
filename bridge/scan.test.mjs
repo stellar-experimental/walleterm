@@ -45,6 +45,28 @@ test('canceling before camera permission resolves stops the late stream', async 
   const scanning = scanConnection(f.video, { signal: controller.signal }); controller.abort(Error('Canceled')); grant(f.stream);
   await assert.rejects(scanning, /Canceled/); assert.ok(f.stopped()); assert.equal(f.video.srcObject, null);
 });
+test('canceling an unanswered camera request settles before permission responds', async t => {
+  let grant; const f = browser(t, () => new Promise(resolve => { grant = resolve; })), controller = new AbortController();
+  const scanning = scanConnection(f.video, { signal: controller.signal }); controller.abort(Error('Canceled'));
+  await assert.rejects(Promise.race([scanning, new Promise((_, reject) => setTimeout(() => reject(Error('Scan stayed open')), 100))]), /Canceled/);
+  grant(f.stream); await new Promise(resolve => setTimeout(resolve, 0));
+  assert.ok(f.stopped());
+});
+test('canceling an unanswered video start stops the camera', async t => {
+  const f = browser(t), controller = new AbortController();
+  f.video.play = () => new Promise(() => {});
+  const scanning = scanConnection(f.video, { signal: controller.signal });
+  await new Promise(resolve => setTimeout(resolve, 0)); controller.abort(Error('Canceled'));
+  await assert.rejects(Promise.race([scanning, new Promise((_, reject) => setTimeout(() => reject(Error('Scan stayed open')), 100))]), /Canceled/);
+  assert.ok(f.stopped());
+});
+test('canceling during decoder loading ends the scan before camera access', async t => {
+  let requested = false; const f = browser(t, async () => { requested = true; return f.stream; }), controller = new AbortController();
+  delete globalThis.jsQR;
+  const scanning = scanConnection(f.video, { signal: controller.signal }); controller.abort(Error('Canceled'));
+  await assert.rejects(scanning, /Canceled/);
+  assert.equal(requested, false);
+});
 test('leaving the page before camera permission resolves stops the late stream', async t => {
   let grant; const f = browser(t, () => new Promise(resolve => { grant = resolve; }));
   const scanning = scanConnection(f.video); f.events.dispatchEvent(new Event('pagehide')); grant(f.stream);

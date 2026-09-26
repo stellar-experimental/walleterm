@@ -47,3 +47,16 @@ test('input typed before the prompt cannot answer it', async () => {
   assert.equal(await reviewInTerminal({ origin: 'https://site.example', details: { hash: 'mock' } }, { input, output, signal: AbortSignal.timeout(2000) }), true);
   input.destroy(); output.destroy();
 });
+test('unfinished terminal input is drained before the review prompt', async () => {
+  const input = new PassThrough(), output = new PassThrough(); input.isTTY = output.isTTY = true;
+  let stale = 'stale', text = '', sent = false;
+  input.setRawMode = raw => { input.isRaw = raw; if (raw && stale) { input.write(stale); stale = ''; } };
+  output.on('data', chunk => {
+    text += chunk;
+    const code = text.match(/Type sign ([a-f0-9]{6})/);
+    if (code && !sent) { sent = true; queueMicrotask(() => input.write(`sign ${code[1]}\n`)); }
+  });
+  assert.equal(await reviewInTerminal({ origin: 'https://site.example', details: { hash: 'mock' } }, { input, output, signal: AbortSignal.timeout(2000) }), true);
+  assert.equal(input.isRaw, false);
+  input.destroy(); output.destroy();
+});

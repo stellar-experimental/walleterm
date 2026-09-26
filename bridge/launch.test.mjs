@@ -58,6 +58,16 @@ test('the service owns its listener and an isolated tunnel, and prints the pairi
   assert.equal(f.service.closed, true);
   assert.equal(existsSync(options.cwd), false);
 });
+test('a narrow terminal prints the connection fields without a broken QR code', async () => {
+  const f = lifecycle(); f.options.output.columns = 19;
+  const result = await launchService(config, f.options);
+  const text = f.output.join('');
+  assert.match(text, /Tunnel URL: https:\/\/bridge-name.trycloudflare.com/);
+  assert.match(text, /Connection code: 01234567/);
+  assert.match(text, /QR code needs \d+ terminal columns/);
+  assert.doesNotMatch(text, /\x1b\[47m/);
+  await result.stop(0);
+});
 
 test('a public readiness failure closes the listener and tunnel', async () => {
   const f = lifecycle();
