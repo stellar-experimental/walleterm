@@ -55,7 +55,7 @@ One Ed25519 owner. `__check_auth` verifies a 64-byte signature over the raw
 ```sh
 sh fixtures/build.sh                       # rebuilds all six wasm files and the manifest
 (cd fixtures/contracts && cargo test)      # 8 unit tests, no network
-node tests/contracts.mjs                   # offline self-test of the runner, no agent, no network
+bun tests/contracts.ts                     # offline self-test of the runner, no agent, no network
 ```
 
 Toolchain used: `stellar 27.1.0`, `rustc 1.93.0`, target `wasm32v1-none`,
@@ -63,13 +63,13 @@ Toolchain used: `stellar 27.1.0`, `rustc 1.93.0`, target `wasm32v1-none`,
 
 ## Runner
 
-`tests/contracts.mjs` exports `runContracts(ctx)` for `tests/live.mjs`.
+`tests/contracts.ts` exports `runContracts(ctx)` for `tests/live.ts`.
 It uses `ctx.sdk`, `ctx.rpc`, `ctx.networkPassphrase`, `ctx.keys.a/b/c`,
 `ctx.signDigest`, `ctx.sign`, `ctx.send`, `ctx.record`, and `ctx.fund`.
 Key A pays for every transaction. Keys B and C, and the deployed C-accounts,
 sign the auth entries.
 
-- Row selection: `WALLETERM_ROWS=C01,C04 node tests/live.mjs contracts`
+- Row selection: `WALLETERM_ROWS=C01,C04 bun tests/live.ts contracts`
   or `ctx.rows`. Default is all rows C01 to C13.
 - Deployed ids and finished rows persist in `evidence/live/contracts-state.json`.
   A rerun reuses verified deployments and executes each selected baseline row again.
@@ -87,7 +87,7 @@ sign the auth entries.
   timeout) records the row as `blocked` with the transaction hash and stops
   the run. Query that hash before any new submission.
   `pending-submission.json` blocks signing, funding, and submission across process restarts.
-  Run `node tests/live.mjs reconcile` to query the original hash without resubmitting.
+  Run `bun tests/live.ts reconcile` to query the original hash without resubmitting.
   Reconciliation clears the block only after `SUCCESS` or `FAILED`.
   Each submission attempt has a separate `submission-UUID.jsonl` archive.
 
@@ -101,7 +101,8 @@ expect `Error(Auth, InvalidAction)`.
 
 ## Extended coverage
 
-`node tests/live.mjs extended` passed E01-E03 on testnet.
+`node tests/live.mjs extended` passed E01-E03 on testnet before the Bun migration.
+The same runner is now `bun tests/live.ts extended`.
 These rows cover native G multisig, OpenZeppelin delegated G signers, and contract-specific rules.
 They also cover threshold updates, rule removal, and nested delegated calls.
 The extended runner keeps a separate checkpoint and labels reused evidence `passed_previous_run`.

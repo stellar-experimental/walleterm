@@ -68,9 +68,9 @@ Compare it with the website you opened. Do not type codes into websites you do n
 | --- | --- |
 | `walleterm tunnel` | Supervised tunnel, connection codes, transaction limits, verified signatures |
 | `walleterm demo` | Static demo website, browser transaction construction, browser submission and recovery |
-| `sdk/walleterm.js` | Website connection, wallet selection, signing request and result polling, cancellation, disconnection |
-| `sdk/connect.js` and `sdk/connect.css` | Header button, connection dialog, wallet list, active wallet changes, disconnection |
-| `sdk/scan.js` | Optional camera scan of the tunnel QR code |
+| `sdk/walleterm.ts` | Website connection, wallet selection, signing request and result polling, cancellation, disconnection |
+| `sdk/connect.ts` and `sdk/connect.css` | Header button, connection dialog, wallet list, active wallet changes, disconnection |
+| `sdk/scan.ts` | Optional camera scan of the tunnel QR code |
 | `walleterm sign` | Existing local 1Password signing interface; unchanged |
 
 The bridge makes no Stellar RPC or Horizon call. It does not construct or submit a transaction.
@@ -86,7 +86,10 @@ The first selection fixes the grant. Later keys require a new connection.
 The standalone client defaults to one wallet. Use `walletScope: 'available'` for explicit wallet switching.
 
 
-Copy or bundle [sdk/walleterm.js](../sdk/walleterm.js) with your website:
+Build the [TypeScript client](../sdk/walleterm.ts) with `bun run build`.
+Copy the full `dist/` directory with your website, or use the package exports.
+Keep the generated shared chunks beside their entry directories.
+The demo serves the client at `/sdk/walleterm.js`:
 
 ```js
 import { WalletermClient } from './walleterm.js';

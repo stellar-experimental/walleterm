@@ -11,7 +11,7 @@ build:
 	ln -sf walleterm bin/stellar-walleterm
 
 install:
-	node scripts/install.mjs "$(PREFIX)"
+	bun scripts/install.ts "$(PREFIX)"
 
 install-skill:
 	@set -eu; \
@@ -48,3 +48,5 @@ install-skill:
 test:
 	go test ./...
 	go vet ./...
+	bun run typecheck
+	bun run test

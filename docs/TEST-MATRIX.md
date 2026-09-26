@@ -95,7 +95,7 @@ Passkeys remain outside these Ed25519 acceptance claims.
 ## Protocol compatibility extension
 
 See `PROTOCOL-UPDATES.md` for native CAP-71 and CAP-85 acceptance requirements and final evidence.
-Run the separate suites with `node tests/live.mjs cap71` and `node tests/live.mjs cap85`.
+Run the separate suites with `bun tests/live.ts cap71` and `bun tests/live.ts cap85`.
 These commands use the same dedicated keys and persistent submission guard.
 CAP71-01 through CAP71-12 passed on 2026-09-25. X01-X06 passed; X07 records observations.
 The extension submitted 38 successful testnet transactions, including setup and positive controls.

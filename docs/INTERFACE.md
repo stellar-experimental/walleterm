@@ -28,11 +28,12 @@ The website approves each request by sending it. The tunnel terminal needs no in
 `demo` starts an independent website and its own public Quick Tunnel for phone testing.
 Its local listener binds `127.0.0.1` on port 8788 by default.
 Stopping the demo does not stop the bridge. Stopping the bridge does not stop the demo.
-The demo uses the same [browser client](../sdk/walleterm.js) that another integrated website can use.
+The demo uses the same [browser client](../sdk/walleterm.ts) that another integrated website can use.
 The demo pays the source account of a recent testnet operation. It checks that this account exists.
 The review shows the selected payment recipient. Neither command accepts `--recipient`.
 
-Both commands need Node.js 22 or later and the installed assets.
+Both commands need Bun 1.4.2 or later and the installed assets.
+`make install` builds the browser JavaScript and installs the TypeScript service files.
 Public mode needs cloudflared. The signing bridge also needs macOS and the 1Password SSH agent.
 Each public service owns a private temporary Cloudflare configuration and a supervised child process.
 Only PATH, HOME, TMPDIR, and LANG enter the tunnel environment. Existing Cloudflare configuration remains unchanged.
