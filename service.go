@@ -45,7 +45,7 @@ func runServiceCommand(command string, args []string, out io.Writer) int {
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
 		vaultHelp := ""
 		if command == "tunnel" {
-			vaultHelp = "Set OP_VAULT to a vault name or ID to filter website wallets. Filtering requires the 1Password CLI.\n"
+			vaultHelp = "Set OP_VAULT in the shell or working directory's .env to filter website wallets by vault name or ID.\nShell values override .env. Filtering requires the 1Password CLI.\n"
 		}
 		return writeOutput(out, serviceUsage(command)+"\nRequires Bun 1.4.2 or later and cloudflared. Shows public links and QR codes.\nThe signing bridge requires macOS and the 1Password SSH agent.\n"+vaultHelp+"Press Ctrl+C to stop this service.\n")
 	}

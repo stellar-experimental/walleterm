@@ -67,7 +67,9 @@ walleterm demo
 ```
 
 `OP_VAULT` limits the website wallet list to SSH keys in that 1Password vault.
-Set it in the shell that starts `walleterm tunnel`. A setting used only by a test does not configure another tunnel.
+Save `OP_VAULT=Private` in `.env` in the directory where you run `walleterm tunnel`.
+Bun loads this file automatically. An exported shell variable overrides the file.
+Keep `.env` local. Git ignores it, and the installer does not copy it.
 Restart the tunnel after changing the setting. Reconnect the website with the new tunnel URL and code.
 Use a vault name or ID. Vault filtering requires the 1Password CLI (`brew install 1password-cli`).
 Enable 1Password CLI integration in the desktop app, or sign in before starting the tunnel.

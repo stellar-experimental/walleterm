@@ -52,6 +52,8 @@ These interactive commands have no `--human` or `--public` flag.
 The public URL and connection code can go to a website. The connected website can then request signatures.
 A connected website can list available 1Password Ed25519 public keys, with their comments and fingerprints.
 Set `OP_VAULT` to a vault name or ID to limit website wallets to that vault.
+Bun loads `.env` from the command's working directory. An exported shell variable overrides the file.
+Restart the tunnel after changing this setting. The installer does not copy `.env`.
 Vault filtering requires the 1Password CLI. The bridge reads only item metadata and public key fields.
 It matches full public keys against the agent list. Comments never establish vault membership.
 Lookup failures stop discovery. An empty vault returns no wallets.
