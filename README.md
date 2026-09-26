@@ -4,7 +4,7 @@ A small macOS signing companion for agents using Stellar and 1Password.
 
 `walleterm` lists public Ed25519 keys and signs 32-byte digests through the 1Password desktop SSH agent.
 It verifies each signature before returning it. The Go binary has no third-party dependencies.
-`walleterm tunnel` also lets a testnet website request signatures that you approve in your terminal.
+`walleterm tunnel` also lets a connected testnet website request signatures.
 
 ## Install
 
@@ -69,10 +69,10 @@ The tunnel shows a public URL and an eight-digit connection code. It shows a QR 
 Open the demo with your phone camera, or on your desktop. In the demo, click Scan tunnel for the tunnel QR code.
 You can also type the tunnel URL and code.
 Select a dedicated testnet wallet. Create a request in the demo.
-Approve it in the tunnel terminal by typing the displayed `sign` challenge, then in 1Password.
+Review it in the demo and select Sign. Approve 1Password on the Mac if it asks.
 The demo submits the signed transaction to testnet.
 
-A website integrates through [the browser client](sdk/walleterm.js). The code cannot approve a signature.
+A website integrates through [the browser client](sdk/walleterm.js). The website approves its own requests, so use dedicated testnet keys.
 The bridge supports testnet native payments, data entries, and sell offers.
 See [the bridge guide](docs/WEB-BRIDGE.md) for setup, recovery, and integration details.
 

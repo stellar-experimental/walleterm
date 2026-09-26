@@ -36,7 +36,7 @@ test('a reload preserves an open signing request until the user clears it', asyn
   });
   f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
   assert.equal(f.run('pending.state'), 'waiting'); assert.ok(stored);
-  assert.match(f.elements.get('status').textContent, /deny it there before clearing/);
+  assert.match(f.elements.get('status').textContent, /Decline the 1Password prompt if it appears, then clear this record/);
   await f.elements.get('clear').onclick();
   assert.equal(f.run('pending'), null); assert.equal(stored, null);
 });
@@ -171,7 +171,8 @@ test('an unknown submission expires only after a ledger closes past its time bou
 test('a storage failure before signing leaves the demo usable', async () => {
   const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: { Networks: { TESTNET: 'testnet' }, Account: class {}, Operation: { manageData: () => ({}) },
-      TransactionBuilder: class { addOperation() { return this; } setTimeout() { return this; } build() { return { toXDR: () => 'mock', hash: () => [1] }; } } },
+      TransactionBuilder: class { addOperation() { return this; } setTimeout() { return this; } build() { return { toXDR: () => 'mock', hash: () => [1] }; }
+      static fromXDR() { return { source: 'GSOURCE', fee: '100', sequence: '2', memo: { value: null }, timeBounds: { minTime: '0', maxTime: '1' }, operations: [{ type: 'manageData', name: 'walleterm-demo' }] }; } } },
     WalletermClient: class {}, crypto: { randomUUID: () => 'id-0000000000000000' },
     localStorage: { getItem: () => null, setItem() { throw Error('Quota'); }, removeItem() {} },
     fetch: async () => ok({ account_id: 'GSOURCE', sequence: '1' }),
@@ -187,7 +188,8 @@ test('cancel removes the newest open offer from Horizon', async () => {
   const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: { Networks: { TESTNET: 'testnet' }, Account: class {}, Asset: class { constructor(code, issuer) { this.code = code; this.issuer = issuer; } static native() { return 'XLM'; } },
       Operation: { manageSellOffer: options => { built = options; return {}; } },
-      TransactionBuilder: class { addOperation() { return this; } setTimeout() { return this; } build() { return { toXDR: () => 'mock', hash: () => [1] }; } } },
+      TransactionBuilder: class { addOperation() { return this; } setTimeout() { return this; } build() { return { toXDR: () => 'mock', hash: () => [1] }; }
+      static fromXDR() { return { source: 'GSOURCE', fee: '100', sequence: '2', memo: { value: null }, timeBounds: { minTime: '0', maxTime: '1' }, operations: [{ type: 'manageData', name: 'walleterm-demo' }] }; } } },
     WalletermClient: class {}, crypto: { randomUUID: () => 'id-0000000000000000' },
     localStorage: { getItem: () => null, setItem() {}, removeItem() {} },
     fetch: async url => url.includes('/offers?') ? ok({ _embedded: { records: [{ id: '77', selling: { asset_type: 'native' },
@@ -198,4 +200,37 @@ test('cancel removes the newest open offer from Horizon', async () => {
   f.run("build('cancel_offer')");
   await new Promise(resolve => setTimeout(resolve, 10));
   assert.equal(built.offerId, '77'); assert.equal(built.amount, '0'); assert.equal(built.buying.code, 'USDC'); assert.equal(built.selling, 'XLM');
+});
+
+test('a built transaction waits for Sign before it is signed', async () => {
+  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    StellarSdk: { Networks: { TESTNET: 'testnet' }, Account: class {}, Operation: { manageData: () => ({}) },
+      TransactionBuilder: class { addOperation() { return this; } setTimeout() { return this; } build() { return { toXDR: () => 'mock', hash: () => [1] }; }
+      static fromXDR() { return { source: 'GSOURCE', fee: '100', sequence: '2', memo: { value: null }, timeBounds: { minTime: '0', maxTime: '1' }, operations: [{ type: 'manageData', name: 'walleterm-demo' }] }; } } },
+    WalletermClient: class {}, crypto: { randomUUID: () => 'id-0000000000000000' },
+    navigator: { locks: { request: async (_name, fn) => fn() } },
+    localStorage: { value: null, getItem() { return this.value; }, setItem(_key, value) { this.value = value; }, removeItem() { this.value = null; } },
+    fetch: async () => ok({ account_id: 'GSOURCE', sequence: '1' }),
+  });
+  f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
+  f.run("account={address:'GSOURCE'}; signs=0; wallet={token:'mock', signTransaction: async () => { signs++; return new Promise(() => {}); }}");
+  await f.run("build('note')");
+  f.run('render()');
+  assert.equal(f.run('pending.state'), 'review'); assert.equal(f.run('signs'), 0);
+  assert.equal(f.elements.get('sign').hidden, false); assert.equal(f.elements.get('sign').disabled, false); assert.equal(f.elements.get('clear').textContent, 'Discard');
+  assert.match(f.elements.get('details').textContent, /"name": "walleterm-demo"/);
+  f.run("wallet.token=null; render()"); assert.equal(f.elements.get('sign').disabled, true); f.run("wallet.token='mock'; render()");
+  f.elements.get('sign').onclick(); await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(f.run('signs'), 1); assert.equal(f.run('pending.state'), 'waiting');
+});
+
+test('a saved review with invalid XDR blocks actions without breaking the page', () => {
+  const stored = JSON.stringify({ state: 'review', kind: 'note', address: 'GSOURCE', hash: 'h', xdr: 'broken' });
+  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    StellarSdk: { Networks: { TESTNET: 'testnet' }, TransactionBuilder: { fromXDR: () => { throw Error('bad XDR'); } } },
+    WalletermClient: class {}, localStorage: { getItem: () => stored, setItem() {}, removeItem() {} },
+  });
+  f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
+  assert.equal(f.run('journalBlocked'), true); assert.equal(f.run('busy'), false);
+  assert.match(f.elements.get('status').textContent, /could not be read/);
 });

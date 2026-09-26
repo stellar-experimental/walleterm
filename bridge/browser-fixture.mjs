@@ -1,5 +1,4 @@
 // Local browser test only. This mock key never enters 1Password or a live network.
-// Run it in a terminal. It uses the real terminal review.
 import { Keypair } from '@stellar/stellar-sdk';
 import { createBridge } from './server.mjs';
 import { createDemoSite } from '../demo/server.mjs';

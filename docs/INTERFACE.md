@@ -19,7 +19,7 @@ It needs no recipient, demo, website build, or network connection to Stellar.
 It accepts supported unsigned testnet XDR through the [bridge protocol](../bridge/PROTOCOL.md).
 It returns signed XDR to the requesting website. It never builds or submits transactions.
 A website connects with a single-use eight-digit code and selects one 1Password key.
-The tunnel terminal reviews each transaction. No HTTP route can approve a signature.
+The website approves each request by sending it. The tunnel terminal needs no input.
 
 `demo` starts an independent website and its own public Quick Tunnel for phone testing.
 Its local listener binds `127.0.0.1` on port 8788 by default.
@@ -44,15 +44,14 @@ In a narrow terminal, they show the required width and keep the URL and connecti
 The bridge prints its URL, connection code, and a QR code with both. The demo prints a QR code for its public website.
 These interactive commands have no `--human` or `--public` flag.
 
-The public URL and connection code can go to a website. The code cannot approve a signature.
+The public URL and connection code can go to a website. The connected website can then request signatures.
 A connected website can list all 1Password Ed25519 public keys, with their comments and fingerprints.
 Each code works once and expires after five minutes. Five incorrect codes replace the code and pause connection for one minute.
 A website session lasts one hour after key selection. Restart the tunnel to revoke all sessions.
 Website sessions and SDK credentials remain in memory. A website reload requires a new code.
-Each immutable transaction needs a typed `sign` challenge in the tunnel terminal.
-The review shows the signing key's comment and fingerprint. Ctrl+C stops the tunnel, including during a review.
+The bridge signs each valid request without a terminal step. Ctrl+C stops the tunnel.
 A 1Password prompt can still require the Mac. Cached 1Password approval can suppress a fresh desktop prompt.
-The terminal review always remains required.
+Use only dedicated testnet keys. Any website that holds a valid session can request signatures.
 
 The bridge supports one classic testnet operation per transaction. See [the protocol](../bridge/PROTOCOL.md) for limits.
 An integration adapter is required. An unchanged website does not automatically discover Walleterm.

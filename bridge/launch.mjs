@@ -170,7 +170,7 @@ export async function launchService(config, { spawnTunnel = startTunnel, create,
       const printPairing = async () => {
         const pairing = demo.pairing;
         const qr = await QRCode.toString(JSON.stringify(pairing), { type: 'terminal', small: true });
-        if (!controller.signal.aborted) output.write(`\nTunnel URL: ${pairing.url}\nConnection code: ${pairing.code}\nScan this QR code with the website's Scan tunnel button, not the phone camera:\n${qrForTerminal(qr, output)}\nThis code expires at ${pairing.expires_at}. It works once.\nReview signing requests in this terminal.\n`);
+        if (!controller.signal.aborted) output.write(`\nTunnel URL: ${pairing.url}\nConnection code: ${pairing.code}\nScan this QR code with the website's Scan tunnel button, not the phone camera:\n${qrForTerminal(qr, output)}\nThis code expires at ${pairing.expires_at}. It works once.\n`);
       };
       await printPairing();
       demo.onPairingChanged(() => printPairing().catch(() => stop(1)));

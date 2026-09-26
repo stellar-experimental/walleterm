@@ -10,7 +10,6 @@ A connected website can list the public keys, comments, and fingerprints of all 
 `walleterm tunnel` prints the public URL, an eight-digit connection code, and a QR code.
 The QR code contains `{"walleterm":2,"url":"...","code":"...","expires_at":"..."}`.
 A code works once and expires after five minutes. The bridge prints a new code after each use or expiry.
-During an open review, the bridge prints the new code after the review ends.
 Five incorrect codes replace the code and pause connection for one minute.
 
 ## Website routes
@@ -39,12 +38,11 @@ The browser SDK keeps credentials in memory. A reload requires a new connection 
 
 ## Approval
 
-No HTTP route can approve a signature. The tunnel terminal reviews one request at a time.
-It shows the claimed website Origin, the signing key's comment and fingerprint, and every transaction field.
-The Origin is not independently verified.
-Ctrl+C stops the bridge, including during a review.
-The operator types `sign` and a random challenge to approve. Any other answer denies the request.
-After terminal approval, 1Password can still require its own approval on the Mac.
+A connected website approves a request by sending it. The bridge asks for no approval in its terminal.
+The bridge signs every request that passes the transaction limits below, one at a time.
+1Password can still require its own approval on the Mac. Cached 1Password approval can skip that prompt.
+The connection code is the only gate. A website with a valid session can request any supported signature.
+This fits testnet use only. An automated policy review can later use the bridge's `review` hook.
 The selected key must still exist before signing. The bridge independently verifies every returned signature.
 
 ## Transaction limits
@@ -52,15 +50,14 @@ The selected key must still exist before signing. The bridge independently verif
 The bridge accepts TESTNET, unsigned v1 transaction envelopes, and one operation per transaction.
 The transaction source and optional operation source must match the selected account.
 Supported operations are native payment, manageData, and manageSellOffer with explicit assets.
-The bridge shows all operation fields, exact rational offer price, memo, fee, sequence, hash, and time bounds.
 The maximum fee is 100000 stroops. Time bounds are required and end within five minutes.
-Fee bumps, additional preconditions, Soroban, additional signatures, and other operations fail before approval.
+Fee bumps, additional preconditions, Soroban, additional signatures, and other operations fail before signing.
 These limits describe the first adapter. They do not claim support for every Stellar application.
 
 ## State and cancellation
 
 The bridge keeps sessions and requests in memory. A restart ends all of them.
-The bridge never retries a signing request. The terminal prints each produced or withheld signature.
+The bridge never retries a signing request. The terminal prints a line for each produced or withheld signature.
 A signed transaction applies at most once, because its sequence number and five-minute expiry limit it.
 Cancellation or revocation during signing can suppress delivery but cannot undo a signature already produced.
 Each bridge process permits one active signing operation.

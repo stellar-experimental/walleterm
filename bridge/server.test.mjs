@@ -76,14 +76,6 @@ test('an unused code rotates at expiry', t => {
   t.mock.timers.tick(1); assert.notEqual(bridge.pairing.code, original); assert.equal(printed, 1);
 });
 
-test('a new code prints only after the open review ends', async t => {
-  const f = await fixture(t), a = await f.connect(); let printed = 0;
-  f.bridge.onPairingChanged(() => printed++);
-  await f.request('/v1/requests', input(), a); await until(() => f.reviews() === 1);
-  await f.connect('https://site-two.example'); assert.equal(printed, 0);
-  await f.decide(false); await f.result(a); assert.equal(printed, 1);
-});
-
 test('ended sessions release their connection slots', async t => {
   const f = await fixture(t);
   for (let i = 0; i < 65; i++) {
@@ -92,7 +84,7 @@ test('ended sessions release their connection slots', async t => {
   }
 });
 
-test('two origins have separate authority; no HTTP request approves a signature', async t => {
+test('two origins have separate authority; only the review hook decides a request', async t => {
   const f = await fixture(t), a = await f.connect(), b = await f.connect('https://site-two.example');
   const initial = input(); assert.equal((await f.request('/v1/requests', initial, a)).status, 201);
   assert.equal((await f.request('/v1/requests/request-1', undefined, b)).status, 404);
@@ -325,4 +317,11 @@ test('a slow disconnect does not clear a newer connection', async t => {
   client.token = null; await client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
   const current = client.token; release(); await leaving;
   assert.equal(client.token, current); assert.ok(current);
+});
+
+test('without a review hook, the bridge signs a valid request with no terminal step', async t => {
+  const f = await fixture(t, { review: undefined }), a = await f.connect();
+  await f.request('/v1/requests', input(), a);
+  const signed = await f.result(a); assert.equal(signed.data.state, 'signed'); assert.equal(f.reviews(), 0); assert.equal(f.calls(), 1);
+  assert.equal((await f.request('/v1/requests', input('bad-fee', { fee: '100001' }), a)).status, 400); assert.equal(f.calls(), 1);
 });

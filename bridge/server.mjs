@@ -3,7 +3,6 @@ import { randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto
 import { Networks } from '@stellar/stellar-sdk';
 import { availableSigners, signDigest } from './signer.mjs';
 import { attachSignature, inspectTransaction } from './transaction.mjs';
-import { reviewInTerminal } from './terminal.mjs';
 
 const token = () => randomBytes(32).toString('base64url');
 const fail = (status, message) => Object.assign(Error(message), { status });
@@ -32,15 +31,17 @@ async function body(req) {
   try { const data = JSON.parse(Buffer.concat(chunks)); if (!data || Array.isArray(data) || typeof data !== 'object') throw Error(); return data; }
   catch { throw fail(400, 'Send one JSON object.'); }
 }
+// The website approves a request by sending it. `review` is the hook for a later automated policy check.
+const approveAll = async () => true;
 // State stays in memory. A restart ends all sessions and requests.
 // Stellar sequence numbers and the five-minute expiry keep a signature from applying twice.
-export function createBridge({ port = 8787, publicOrigin, listSigners = availableSigners, sign = signDigest, review = reviewInTerminal,
+export function createBridge({ port = 8787, publicOrigin, listSigners = availableSigners, sign = signDigest, review = approveAll,
   log = line => process.stdout.write(line), now = Date.now } = {}) {
   const records = new Map(), sessions = new Map();
   const controller = new AbortController(), jobs = new Set();
   let origin = publicOrigin || `http://127.0.0.1:${port}`;
   let pairExpires, pairTimer, pairCode = newCode(), attempts = 0, lockedUntil = 0, closing = false, closePromise;
-  let pairingChanged = () => {}, queue = Promise.resolve(), reviewing = false, pairingDeferred = false;
+  let pairingChanged = () => {}, queue = Promise.resolve();
   const reviews = new Map();
   // Concurrent website calls share one `walleterm list` process.
   let listing;
@@ -53,11 +54,9 @@ export function createBridge({ port = 8787, publicOrigin, listSigners = availabl
     pairExpires = now() + 300000; clearTimeout(pairTimer);
     pairTimer = setTimeout(rotateCode, 300000); pairTimer.unref();
   }
-  // Keep an open terminal review readable. Print a new code after the review ends.
-  function announcePairing() { if (reviewing) pairingDeferred = true; else pairingChanged(); }
-  function rotateCode() { pairCode = newCode(); attempts = 0; restartCodeTimer(); announcePairing(); }
+  function rotateCode() { pairCode = newCode(); attempts = 0; restartCodeTimer(); pairingChanged(); }
   restartCodeTimer();
-  // The terminal records each produced or withheld signature. Denial output comes from the review.
+  // The terminal records each produced or withheld signature.
   function logResult(r) {
     if (r.logged === r.state) return;
     r.logged = r.state;
@@ -99,10 +98,7 @@ export function createBridge({ port = 8787, publicOrigin, listSigners = availabl
       }
       const signal = AbortSignal.any([controller.signal, canceled.signal, AbortSignal.timeout(Math.max(1, r.expires - now()))]);
       try {
-        let approved;
-        reviewing = true;
-        try { approved = await review({ origin: r.origin, signer: { ...s.key }, details: structuredClone(r.details) }, { signal }); }
-        finally { reviewing = false; if (pairingDeferred) { pairingDeferred = false; await pairingChanged(); } }
+        const approved = await review({ origin: r.origin, signer: { ...s.key }, details: structuredClone(r.details) }, { signal });
         if (signal.aborted || r.state !== 'pending' || s.revoked || now() >= s.expires || now() >= r.expires) return;
         if (!approved) { r.state = 'denied'; logResult(r); return; }
         inspectTransaction(r.input, r.public_key, now());
@@ -145,7 +141,7 @@ export function createBridge({ port = 8787, publicOrigin, listSigners = availabl
       if (route === '/v1/connect' && req.method === 'POST') {
         const data = await body(req);
         if (now() < lockedUntil) throw fail(429, 'Too many incorrect codes. Wait one minute, then use the new code in the tunnel terminal.');
-        if (now() >= pairExpires) { rotateCode(); throw fail(403, 'The connection code expired. The tunnel terminal shows a new code after any open review.'); }
+        if (now() >= pairExpires) { rotateCode(); throw fail(403, 'The connection code expired. Use the new code in the tunnel terminal.'); }
         if (Object.keys(data).length !== 1 || !equal(data.code, pairCode)) {
           // Five failures replace the code and pause connection for one minute.
           if (++attempts >= 5) { lockedUntil = now() + 60000; rotateCode(); }
@@ -218,7 +214,6 @@ export function createBridge({ port = 8787, publicOrigin, listSigners = availabl
       throw fail(404, 'The route does not exist.');
     }
     if (route === '/api/session' && req.method === 'GET') return sendJson(res, 200, { service: 'walleterm', protocol: 2 }); // Startup readiness probe.
-    // No HTTP route can approve a signature. Only the local review callback can approve it.
     throw fail(404, 'Use this tunnel URL in a Walleterm-compatible website.');
   }
 

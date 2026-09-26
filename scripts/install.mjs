@@ -19,7 +19,6 @@ try {
   }
   const files = ['package.json', 'package-lock.json',
     'bridge/entry.mjs', 'bridge/launch.mjs', 'bridge/runtime.mjs', 'bridge/tunnel-child.mjs', 'bridge/server.mjs', 'bridge/signer.mjs', 'bridge/transaction.mjs',
-    'bridge/terminal.mjs',
     'demo/entry.mjs', 'demo/server.mjs', 'demo/site/app.js', 'demo/site/index.html', 'demo/site/style.css', 'sdk/walleterm.js', 'sdk/scan.js'];
   const versions = join(prefix, 'share', 'walleterm', 'releases');
   mkdirSync(versions, { recursive: true });

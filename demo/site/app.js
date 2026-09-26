@@ -42,11 +42,21 @@ function readJournal() {
   const raw = localStorage.getItem(STORAGE);
   if (raw === null) return null;
   const value = JSON.parse(raw);
-  if (!value || Array.isArray(value) || !['waiting', 'signing_unknown', 'signed', 'submitting', 'unknown', 'submitted', 'canceled', 'denied', 'expired', 'failed'].includes(value.state)
+  if (!value || Array.isArray(value) || !['review', 'waiting', 'signing_unknown', 'signed', 'submitting', 'unknown', 'submitted', 'canceled', 'denied', 'expired', 'failed'].includes(value.state)
     || !['note', 'payment', 'offer', 'cancel_offer'].includes(value.kind) || typeof value.address !== 'string' || !value.address
     || typeof value.hash !== 'string' || !value.hash || typeof value.xdr !== 'string' || !value.xdr) throw Error('The local demo journal is invalid.');
+  if (value.state === 'review') describe(value.xdr); // A review must decode before the page shows it.
   return value;
 }
+// Show every field that Sign approves.
+function describe(text) {
+  const tx = TransactionBuilder.fromXDR(text, Networks.TESTNET), [op] = tx.operations;
+  const show = value => value?.getCode ? (value.isNative() ? 'XLM' : `${value.getCode()}:${value.getIssuer()}`)
+    : value instanceof Uint8Array ? Array.from(value, b => b.toString(16).padStart(2, '0')).join('') : value;
+  return { source: tx.source, fee_stroops: tx.fee, sequence: tx.sequence, memo: tx.memo.value == null ? null : String(tx.memo.value),
+    time_bounds: tx.timeBounds, operation: Object.fromEntries(Object.entries(op).map(([key, value]) => [key, show(value)])) };
+}
+function connectedTo(address) { return !!wallet?.token && account?.address === address; }
 function render() {
   $('actions').hidden = !account;
   for (const name of ['note', 'payment', 'offer', 'cancel-offer']) $(name).disabled = busy || !!pending || journalBlocked;
@@ -56,16 +66,19 @@ function render() {
   $('bridge').disabled = !!wallet?.token; $('code').disabled = !!wallet?.token;
   $('review').hidden = !pending;
   if (!pending) return;
-  $('details').textContent = JSON.stringify({ action: pending.kind, state: pending.state, signer: pending.address, recipient: pending.recipient, hash: pending.hash, result: pending.result }, null, 2);
+  $('details').textContent = JSON.stringify({ action: pending.kind, state: pending.state, signer: pending.address, recipient: pending.recipient, hash: pending.hash,
+    ...(pending.state === 'review' ? { transaction: describe(pending.xdr) } : {}), result: pending.result }, null, 2);
   $('submit').hidden = pending.state !== 'signed'; $('submit').disabled = busy || journalBlocked;
   $('check').hidden = !['submitting', 'unknown', 'submitted'].includes(pending.state); $('check').disabled = busy || journalBlocked;
+  $('sign').hidden = pending.state !== 'review'; $('sign').disabled = busy || journalBlocked || !connectedTo(pending.address);
   $('cancel-request').hidden = pending.state !== 'waiting';
-  $('clear').hidden = journalBlocked || busy || !(['waiting', 'signing_unknown'].includes(pending.state) && !signingController || ['signed', 'canceled', 'denied', 'expired', 'failed', 'submitted'].includes(pending.state));
-  $('clear').textContent = ['waiting', 'signing_unknown'].includes(pending.state) ? 'Clear stopped request' : 'Start another request';
+  $('clear').hidden = journalBlocked || busy || !(['waiting', 'signing_unknown'].includes(pending.state) && !signingController || ['review', 'signed', 'canceled', 'denied', 'expired', 'failed', 'submitted'].includes(pending.state));
+  $('clear').textContent = pending.state === 'review' ? 'Discard' : ['waiting', 'signing_unknown'].includes(pending.state) ? 'Clear stopped request' : 'Start another request';
 }
 async function action(fn) {
-  if (busy || journalBlocked) return; busy = true; render();
+  if (busy || journalBlocked) return; busy = true;
   try {
+    render();
     if (!navigator.locks?.request) throw Error('This browser cannot coordinate transaction tabs. Use a browser with Web Locks.');
     await navigator.locks.request(STORAGE, async () => {
       let latest;
@@ -153,11 +166,17 @@ async function build(kind) {
   const tx = new TransactionBuilder(new Account(account.address, source.sequence), { fee: '100', networkPassphrase: Networks.TESTNET }).addOperation(operation).setTimeout(180).build();
   // The browser build can return Uint8Array rather than Buffer.
   const hash = Array.from(tx.hash(), b => b.toString(16).padStart(2, '0')).join('');
-  pending = { kind, address: account.address, recipient: kind === 'payment' ? recipient : undefined, xdr: tx.toXDR(), hash, state: 'waiting' };
+  pending = { kind, address: account.address, recipient: kind === 'payment' ? recipient : undefined, xdr: tx.toXDR(), hash, state: 'review' };
   try { save(); } catch { pending = null; throw Error('The browser could not store this request. Enable site storage, then try again.'); }
-  render(); status('Review this transaction in your tunnel terminal. Approve it there, then respond to 1Password if it asks.');
-  await requestSignature();
+  render(); status('Review this transaction. Select Sign to approve it, or Discard.');
 }
+// Selecting Sign is the approval. The bridge signs every valid request from this connection.
+$('sign').onclick = () => action(async () => {
+  if (pending?.state !== 'review') return;
+  if (!connectedTo(pending.address)) throw Error('Connect the wallet that built this transaction, then select Sign.');
+  pending.state = 'waiting'; save(); render(); status('Signing. Respond to 1Password on your Mac if it asks.');
+  await requestSignature();
+});
 async function requestSignature() {
   signingController = new AbortController();
   try {
@@ -168,7 +187,7 @@ async function requestSignature() {
     pending.signed_xdr = result.signedTxXdr; pending.state = 'signed'; save(); status('Signature verified. Review the transaction, then submit it when ready.');
   } catch (error) {
     pending.state = signingController.signal.aborted ? 'canceled' : ['denied', 'expired'].includes(error.requestState) ? error.requestState : 'failed'; save();
-    if (error.canceled === false) error.message += ' The bridge did not confirm the cancellation. If the tunnel terminal shows this request, deny it there.';
+    if (error.canceled === false) error.message += ' The bridge did not confirm the cancellation. Decline the 1Password prompt if it appears.';
     throw error;
   }
   finally { signingController = null; }
@@ -224,6 +243,6 @@ $('clear').onclick = () => action(async () => {
   pending = null; save();
 });
 try { pending = readJournal();
-  if (['waiting', 'signing_unknown'].includes(pending?.state)) status('A signing request is in the journal. If the tunnel terminal shows it, deny it there before clearing this record.');
+  if (['waiting', 'signing_unknown'].includes(pending?.state)) status('A signing request was open when the page closed. Decline the 1Password prompt if it appears, then clear this record.');
 } catch { journalBlocked = true; status('The local demo journal could not be read. Preserve it before continuing.'); }
 render();
