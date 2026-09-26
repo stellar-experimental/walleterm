@@ -29,7 +29,7 @@ The terminal denied a note without producing a signature.
 The browser canceled another pending note, and the terminal ended its review without signing.
 The current build passed 56 bridge tests and `go test ./...`.
 
-![The canceled browser request](screenshots/current-canceled.png)
+Local screenshot: `screenshots/current-canceled.png` (The canceled browser request).
 
 ## Recovery test
 
@@ -43,8 +43,8 @@ A later ledger closed at `2026-09-26T00:33:37Z`.
 The account sequence stayed at `20897180558557282`, below the transaction sequence `20897180558557283`.
 The next hash check marked the transaction `expired` and allowed a new request.
 
-![The current mobile recovery state](screenshots/current-mobile-unknown.png)
-![The reconciled expired transaction](screenshots/current-expired-reconciled.png)
+Local screenshot: `screenshots/current-mobile-unknown.png` (The current mobile recovery state).
+Local screenshot: `screenshots/current-expired-reconciled.png` (The reconciled expired transaction).
 
 ## Setup and earlier build
 
@@ -70,3 +70,5 @@ The test did not create a new 1Password key or exercise Friendbot funding.
 The test did not observe a new 1Password desktop prompt.
 Cached 1Password approval can explain that result.
 The shell had no `HERDR_ENV=1` context, so the requested Herdr Astra review remains pending.
+
+The screenshots stay local and ignored under `evidence/browser-qa-2026-09-25/screenshots/`. A fresh clone does not contain them.
