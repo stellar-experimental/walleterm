@@ -193,5 +193,35 @@
    ],
    "open_offers": 0
   }
+ },
+ "website_approval_run": {
+  "revision": "a9b2982",
+  "device": "desktop Chromium (agent-browser), public Quick Tunnels on ports 8797 and 8798",
+  "flow": "connect with URL and code, select key, build payment, review in page, select Sign, 1Password signs, demo verifies, submit",
+  "tunnel_terminal_input": "none",
+  "checks": {
+   "in_page_review_shows_decoded_fields": "passed; source, fee, sequence, memo, time bounds, destination, asset, amount",
+   "sign_is_the_approval": "passed",
+   "discard_sends_nothing_to_the_tunnel": "passed; the tunnel log did not change",
+   "1password_agent_error": "observed on the first attempt (hash 5a9eb554\u2026950e, not on the ledger) while the 1Password prompt was on another desktop. The owner assigned 1Password to all desktops, and the retry signed."
+  },
+  "accepted": [
+   {
+    "action": "payment",
+    "hash": "8182572753357d1a8b1d5ea0567bcb58f77327222477b4a37892e78ceb2ddab3",
+    "ledger": 4873219,
+    "successful": true,
+    "fee_charged": "100",
+    "source_account_sequence": "6674100005109786",
+    "created_at": "2026-09-26T02:28:02Z"
+   }
+  ],
+  "not_submitted": [
+   {
+    "action": "payment_1password_agent_error",
+    "hash": "5a9eb5548cd3657cc2d314742ecbeb3fd97385d0dc584581a482c082b1c9950e",
+    "horizon_status": 404
+   }
+  ]
  }
 }
