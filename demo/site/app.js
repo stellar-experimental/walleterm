@@ -11,14 +11,15 @@ const activity = createActivityLog($('activity'), { decodeSigned(signedXdr) {
   return { hash: hex(transaction.hash()), signatures: transaction.signatures.map(signature => hex(signature.signature.toBytes())) };
 } });
 if (globalThis.fetch) globalThis.fetch = activity.wrapFetch(globalThis.fetch.bind(globalThis));
-let wallet, account, pending, busy = false, signingController, journalBlocked = false, selectedAction;
-const connection = new WalletermConnect($('wallet-connection'), { onChange(value) {
+let wallet, account, pending, busy = false, signingController, journalBlocked = false, selectedAction, actionPhase = '', actionProgress = '';
+const connection = new WalletermConnect($('wallet-connection'), { onBusyChange: () => render(), onChange(value) {
   const previousAddress = account?.address;
   wallet = value.client; account = value.account;
   activity.record('walleterm', account ? previousAddress && previousAddress !== account.address ? 'Active wallet changed' : 'Wallet connected' : 'Wallet disconnected', { previous_address: previousAddress, account });
   status(account ? 'Wallet connected. Choose a testnet action.' : 'The website is disconnected.');
   render();
 } });
+function progressLabel(text) { actionProgress = text; render(); }
 function status(text) {
   activity.record('status', text);
   $('status').textContent = text;
@@ -57,6 +58,7 @@ async function horizon(path, options = {}) {
   return result;
 }
 async function paymentRecipient() {
+  progressLabel('Finding a testnet recipient…');
   const page = await horizon('/operations?order=desc&limit=5&include_failed=false');
   const addresses = new Set(page._embedded.records.map(operation => operation.source_account));
   for (const address of addresses) {
@@ -70,11 +72,14 @@ async function paymentRecipient() {
 }
 // A new 1Password key has no testnet account. Friendbot creates and funds it.
 async function sourceAccount() {
+  progressLabel('Loading the testnet account…');
   try { return await horizon(`/accounts/${account.address}`); }
   catch (error) {
     if (error.status !== 404) throw error;
+    progressLabel('Funding the testnet account…');
     status('This testnet account does not exist yet. Funding it with Friendbot.');
     const response = await fetch(`https://friendbot.stellar.org/?addr=${encodeURIComponent(account.address)}`, { signal: AbortSignal.timeout(30000) });
+    progressLabel('Checking the funded account…');
     // A funded account can still be missing from Horizon for a moment. Check it before failing.
     try { return await horizon(`/accounts/${account.address}`); }
     catch { throw Error(response.ok ? 'The funded account is not visible yet. Try again.' : 'Friendbot could not fund this testnet account. Try again later.'); }
@@ -106,11 +111,18 @@ function connectedTo(address) { return !!wallet?.token && account?.address === a
 function render() {
   connection.sync(); connection.setBusy(busy && !signingController);
   $('connection-hint').hidden = !!account;
-  for (const name of ['note', 'payment', 'offer', 'cancel-offer']) $(name).disabled = !account || busy || !!pending || journalBlocked;
+  for (const name of ['note', 'payment', 'offer', 'cancel-offer']) $(name).disabled = !account || !wallet?.token || busy || connection.working || !!pending || journalBlocked;
   const title = actionNames[pending?.kind || selectedAction] || 'Your transaction';
   const state = pending ? stateNames[pending.state] : busy ? 'Preparing transaction' : 'No transaction created';
+  const progress = busy ? actionProgress || {
+    preparing: 'Preparing the transaction…', signing: signingController?.signal.aborted ? 'Canceling the signing request…' : 'Waiting for a signature…',
+    submitting: 'Submitting the transaction…', checking: 'Checking the original transaction…', clearing: '',
+  }[actionPhase] || '' : '';
+  for (const [name, phase] of [['sign', 'signing'], ['submit', 'submitting'], ['check', 'checking']]) $(name).setAttribute('aria-busy', String(busy && actionPhase === phase));
+  $('review-progress').textContent = progress; $('review-progress').hidden = !progress;
+  $('record-state').classList.toggle('demo-loading', !!progress);
   $('review-title').textContent = title;
-  $('record-title').textContent = title; $('record-state').textContent = state;
+  $('record-title').textContent = title; $('record-state').textContent = progress || state;
   $('transaction-record').hidden = !pending && !(busy && selectedAction);
   $('review-note').textContent = busy ? 'This action continues if you close this window.' : pending ? 'Closing this window keeps the transaction.' : 'Close this window to choose another action.';
   $('transaction-details').hidden = !pending;
@@ -125,15 +137,21 @@ function render() {
   }
   $('details').textContent = JSON.stringify({ action: pending.kind, state: pending.state, signer: pending.address, recipient: pending.recipient, hash: pending.hash,
     ...(pending.state === 'review' ? { transaction: describe(pending.xdr) } : {}), result: pending.result }, null, 2);
-  $('submit').hidden = pending.state !== 'signed'; $('submit').disabled = busy || journalBlocked;
-  $('check').hidden = !['submitting', 'unknown', 'submitted'].includes(pending.state); $('check').disabled = busy || journalBlocked;
-  $('sign').hidden = pending.state !== 'review'; $('sign').disabled = busy || journalBlocked || !connectedTo(pending.address);
-  $('cancel-request').hidden = pending.state !== 'waiting';
+  $('submit').hidden = pending.state !== 'signed' && !(busy && actionPhase === 'submitting'); $('submit').disabled = busy || connection.working || journalBlocked || !pending.signed_xdr;
+  $('submit').textContent = busy && actionPhase === 'submitting' ? 'Submitting…' : 'Submit to testnet';
+  $('check').hidden = !['submitting', 'unknown', 'submitted'].includes(pending.state); $('check').disabled = busy || connection.working || journalBlocked;
+  $('check').textContent = busy && actionPhase === 'checking' ? 'Checking…' : 'Check original transaction';
+  $('sign').hidden = pending.state !== 'review' && !(busy && actionPhase === 'signing'); $('sign').disabled = busy || connection.working || journalBlocked || !pending.xdr || !connectedTo(pending.address);
+  $('sign').textContent = busy && actionPhase === 'signing' ? 'Signing…' : 'Sign';
+  $('cancel-request').hidden = pending.state !== 'waiting' || !signingController;
+  $('cancel-request').disabled = !signingController || signingController.signal.aborted;
+  $('cancel-request').textContent = signingController?.signal.aborted ? 'Canceling…' : 'Cancel signing request';
+  $('clear').disabled = busy || connection.working || journalBlocked;
   $('clear').hidden = journalBlocked || busy || !(['waiting', 'signing_unknown'].includes(pending.state) && !signingController || ['review', 'signed', 'canceled', 'denied', 'expired', 'failed', 'submitted'].includes(pending.state));
   $('clear').textContent = pending.state === 'review' ? 'Discard' : ['waiting', 'signing_unknown'].includes(pending.state) ? 'Clear stopped request' : 'Start another request';
 }
-async function action(fn) {
-  if (busy || journalBlocked || connection.working) return; busy = true;
+async function action(fn, phase = 'preparing') {
+  if (busy || journalBlocked || connection.working) return; busy = true; actionPhase = phase; actionProgress = '';
   try {
     render();
     if (!navigator.locks?.request) throw Error('This browser cannot coordinate transaction tabs. Use a browser with Web Locks.');
@@ -151,7 +169,7 @@ async function action(fn) {
     activity.record('error', 'Action failed', { action: pending?.kind || selectedAction, message: error.message });
     if (error.status === 401) account = null; status(error.message);
   }
-  finally { busy = false; render(); }
+  finally { busy = false; actionPhase = ''; actionProgress = ''; render(); }
 }
 async function build(kind) {
   if (!account || pending) return;
@@ -171,6 +189,7 @@ async function build(kind) {
   }
   // Cancel the newest open offer of this account, whatever created it.
   if (kind === 'cancel_offer') {
+    progressLabel('Loading open offers…');
     const offer = (await horizon(`/accounts/${account.address}/offers?order=desc&limit=1`))._embedded.records[0];
     if (!offer) throw Error('This account has no open offer.');
     const asset = value => value.asset_type === 'native' ? Asset.native() : new Asset(value.asset_code, value.asset_issuer);
@@ -189,7 +208,7 @@ $('sign').onclick = () => action(async () => {
   if (!connectedTo(pending.address)) throw Error('Connect the wallet that built this transaction, then select Sign.');
   pending.state = 'waiting'; save(); render(); status('Signing. Respond to 1Password on your Mac if it asks.');
   await requestSignature();
-});
+}, 'signing');
 async function requestSignature() {
   const record = pending, client = wallet, controller = new AbortController();
   signingController = controller; render();
@@ -218,7 +237,7 @@ function startAction(kind) {
 }
 for (const kind of ['note', 'payment', 'offer']) $(kind).onclick = () => startAction(kind);
 $('cancel-offer').onclick = () => startAction('cancel_offer');
-$('cancel-request').onclick = () => { signingController?.abort(Error('The signing request was canceled.')); };
+$('cancel-request').onclick = () => { signingController?.abort(Error('The signing request was canceled.')); render(); };
 async function confirmed(result) {
   pending.result = { hash: result.hash, ledger: result.ledger, successful: result.successful };
   pending.state = result.successful ? 'submitted' : 'failed'; save();
@@ -235,7 +254,7 @@ $('submit').onclick = () => action(async () => {
   if (Number(tx.timeBounds.maxTime) * 1000 <= Date.now()) {
     pending.state = 'expired'; save(); status('The signed transaction expired before submission. Create a new request.'); return;
   }
-  pending.state = 'submitting'; save(); render();
+  pending.state = 'submitting'; save(); render(); status('Waiting for the testnet submission result.');
   try {
     const result = await horizon('/transactions', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ tx: pending.signed_xdr }) });
     await confirmed(result);
@@ -245,8 +264,10 @@ $('submit').onclick = () => action(async () => {
       pending.state = 'failed'; pending.result = { rejected: true, code }; save(); status(`Testnet rejected the transaction: ${code}.`);
     } else { pending.state = 'unknown'; save(); status(`Submission is uncertain. Check the original hash. ${error.message}`); }
   }
-});
+}, 'submitting');
 $('check').onclick = () => action(async () => {
+  if (!pending || !['submitting', 'unknown', 'submitted'].includes(pending.state)) return;
+  status('Reading the ledger and checking the original transaction hash.');
   // Read the latest ledger first. Horizon ingests ledgers in order, so a later 404 covers that ledger.
   const latest = (await horizon('/ledgers?order=desc&limit=1'))._embedded.records[0];
   try { await confirmed(await horizon(`/transactions/${pending.hash}`)); }
@@ -261,11 +282,11 @@ $('check').onclick = () => action(async () => {
     }
     else status('The original hash is not found yet. This does not prove failure. Do not submit a replacement.');
   }
-});
+}, 'checking');
 $('clear').onclick = () => action(async () => {
   if (!pending || ['submitting', 'unknown'].includes(pending.state) || ['waiting', 'signing_unknown'].includes(pending.state) && signingController) return;
   pending = null; save(); selectedAction = null; closeReview();
-});
+}, 'clearing');
 try { pending = readJournal();
   activity.transaction(pending);
   if (['waiting', 'signing_unknown'].includes(pending?.state)) status('A signing request was open when the page closed. Decline the 1Password prompt if it appears, then clear this record.');

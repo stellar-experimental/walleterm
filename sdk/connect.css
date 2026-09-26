@@ -4,3 +4,9 @@
 @media(max-width:540px){.wt-connect .wt-trigger{font-size:12px;padding:8px 10px;gap:7px}.wt-connect .wt-menu{position:fixed;top:78px;right:12px;width:calc(100vw - 24px);max-height:calc(100dvh - 94px);overflow:auto}.wt-connect .wt-dialog{border-radius:16px}.wt-connect .wt-dialog-top{padding:18px 20px 0}.wt-connect .wt-dialog-body{padding:20px}.wt-connect .wt-command{padding:10px}}
 
 .wt-connect .wt-copy-label{display:block;color:var(--wt-blue);font-size:11px;margin-top:4px}
+
+/* Compact arc indicators, inspired by loading.dev. Keep text visible during work. */
+.wt-connect .wt-loading::before{content:'';display:inline-block;width:14px;height:14px;flex:0 0 14px;margin-right:8px;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;vertical-align:-2px;animation:wt-spin .8s linear infinite}
+.wt-connect .wt-loading{white-space:normal}.wt-connect button.wt-loading:disabled,.wt-connect .wt-wallet-row[aria-busy=true]:disabled{opacity:1;cursor:wait}.wt-connect .wt-wallet-row[aria-current]:disabled{opacity:1;cursor:default}.wt-connect .wt-wallet-state.wt-loading{display:flex;align-items:center;white-space:nowrap}.wt-connect .wt-wallet-state.wt-loading::before{width:12px;height:12px;flex-basis:12px;margin-right:5px}.wt-connect input:disabled{background:#f5f6fa;color:var(--wt-muted)}
+@keyframes wt-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.wt-connect .wt-loading::before{animation:none}}

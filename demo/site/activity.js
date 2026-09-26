@@ -42,12 +42,12 @@ function browserStore() {
 export class ActivityHistory {
   constructor({ store = browserStore(), decodeSigned = () => ({}), changed = () => {} } = {}) {
     this.store = store; this.decodeSigned = decodeSigned; this.changed = changed;
-    this.events = []; this.unsaved = false; this.polls = new Map(); this.transactionState = null;
+    this.events = []; this.loading = true; this.unsaved = false; this.polls = new Map(); this.transactionState = null;
     this.ready = Promise.resolve().then(() => store.load()).then(saved => {
       const existing = new Set(this.events.map(event => event.id));
       this.events.push(...saved.filter(event => event && typeof event.id === 'string' && !existing.has(event.id)).map(event => safeData(event)));
-      this.events.sort((a, b) => (b.order ?? Date.parse(b.time)) - (a.order ?? Date.parse(a.time)));  this.changed();
-    }).catch(() => { this.unsaved = true; this.changed(); });
+      this.events.sort((a, b) => (b.order ?? Date.parse(b.time)) - (a.order ?? Date.parse(a.time)));
+    }).catch(() => { this.unsaved = true; }).finally(() => { this.loading = false; this.changed(); });
   }
   record(category, title, data = {}) {
     // Activity failures must never change a wallet request or transaction outcome.
@@ -138,8 +138,11 @@ export function createActivityLog(element, { decodeSigned } = {}) {
     <div class="activity-events" data-log="events"></div><button type="button" class="activity-more" data-log="more" hidden>Show more activity</button><p class="activity-notice" data-log="notice" role="status"></p>`;
   const $ = name => element.querySelector(`[data-log="${name}"]`), rows = new Map(); let limit = 40;
   const copy = async (value, button) => {
-    try { await navigator.clipboard.writeText(value); $('notice').textContent = `Copied ${button.textContent.replace(/^Copy /, '')}.`; }
+    if (button.disabled) return;
+    const title = button.textContent; button.disabled = true; button.textContent = 'Copying…'; button.classList.add('activity-loading');
+    try { await navigator.clipboard.writeText(value); $('notice').textContent = `Copied ${title.replace(/^Copy /, '')}.`; }
     catch { $('notice').textContent = 'Copy failed. Expand the JSON to select and copy the value.'; }
+    finally { button.disabled = false; button.textContent = title; button.classList.remove('activity-loading'); }
   };
   const button = (title, value) => {
     const node = document.createElement('button'); node.type = 'button'; node.textContent = title;
@@ -174,13 +177,15 @@ export function createActivityLog(element, { decodeSigned } = {}) {
     const visible = matching.slice(0, limit), nodes = visible.map(row), keep = new Set(nodes), list = $('events');
     for (const child of [...list.children]) if (!keep.has(child)) child.remove();
     nodes.forEach((node, index) => { if (list.children[index] !== node) list.insertBefore(node, list.children[index] || null); });
-    $('count').textContent = `${matching.length} ${matching.length === 1 ? 'event' : 'events'}${term || category ? ` of ${history.events.length}` : ''}`;
+    $('count').classList.toggle('activity-loading', history.loading);
+    $('count').textContent = history.loading ? 'Loading saved activity…' : `${matching.length} ${matching.length === 1 ? 'event' : 'events'}${term || category ? ` of ${history.events.length}` : ''}`;
     $('empty').hidden = !!matching.length; $('empty').textContent = history.events.length ? 'No activity matches this search.' : 'Your activity will appear here. Connect a wallet or try a testnet action.';
-    $('storage').hidden = !history.unsaved; $('more').hidden = matching.length <= limit; $('export').disabled = !history.events.length;
+    $('storage').hidden = !history.unsaved; $('more').hidden = matching.length <= limit; $('export').disabled = history.loading || !history.events.length;
   }
   $('search').oninput = $('filter').onchange = () => { limit = 40; render(); };
   $('more').onclick = () => { limit += 40; render(); };
   $('export').onclick = () => {
+    if (history.loading || !history.events.length) return;
     const blob = new Blob([JSON.stringify({ exported_at: new Date().toISOString(), events: history.events }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob), link = document.createElement('a');
     link.href = url; link.download = `walleterm-activity-${new Date().toISOString().slice(0, 10)}.json`; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);

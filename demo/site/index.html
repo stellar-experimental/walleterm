@@ -9,7 +9,7 @@
 <body>
   <header class="site-header">
     <a class="site-brand" href="/" aria-label="Walleterm demo home"><span class="demo-symbol" aria-hidden="true">↗</span><span>Walleterm <span class="demo-label">Demo</span></span></a>
-    <div id="wallet-connection"></div>
+    <div id="wallet-connection"><span class="demo-loading" role="status">Loading connection…</span></div>
   </header>
   <main>
     <div class="intro"><span class="network-label"><span aria-hidden="true"></span>Stellar testnet</span><h1>A small place<br>to try your wallet.</h1><p>Connect a wallet from your Mac. Build a test transaction, request a signature, and see the result.</p></div>
@@ -18,10 +18,10 @@
       <div id="transaction-record" class="transaction-record" hidden><div><strong id="record-title">Your transaction</strong><span id="record-state"></span></div><button id="open-review" type="button">View transaction</button></div>
       <div id="connection-hint" class="connection-hint"><span class="hint-icon" aria-hidden="true">◇</span><p>Connect Walleterm in the header to get started.</p></div>
       <div class="action-grid">
-        <article class="action-card"><span class="action-symbol" aria-hidden="true">≡</span><h3>Leave a note</h3><p>Write a short data entry to your testnet account.</p><button id="note">Write a note</button></article>
-        <article class="action-card"><span class="action-symbol" aria-hidden="true">↗</span><h3>Send a little XLM</h3><p>Send 0.01 test XLM to an account chosen by the demo.</p><button id="payment">Pay 0.01 test XLM</button></article>
-        <article class="action-card"><span class="action-symbol" aria-hidden="true">⇄</span><h3>Place an offer</h3><p>Sell 0.1 test XLM at 10 USDC per XLM. Requires a testnet USDC trustline.</p><button id="offer">Offer 0.1 test XLM</button></article>
-        <article class="action-card"><span class="action-symbol" aria-hidden="true">×</span><h3>Cancel an offer</h3><p>Remove this account’s newest open offer, including offers created elsewhere.</p><button id="cancel-offer">Cancel newest offer</button></article>
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">≡</span><h3>Leave a note</h3><p>Write a short data entry to your testnet account.</p><button id="note" disabled>Write a note</button></article>
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">↗</span><h3>Send a little XLM</h3><p>Send 0.01 test XLM to an account chosen by the demo.</p><button id="payment" disabled>Pay 0.01 test XLM</button></article>
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">⇄</span><h3>Place an offer</h3><p>Sell 0.1 test XLM at 10 USDC per XLM. Requires a testnet USDC trustline.</p><button id="offer" disabled>Offer 0.1 test XLM</button></article>
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">×</span><h3>Cancel an offer</h3><p>Remove this account’s newest open offer, including offers created elsewhere.</p><button id="cancel-offer" disabled>Cancel newest offer</button></article>
       </div>
       <p class="workspace-note">Use a dedicated testnet account. An offer can trade immediately. The demo funds new accounts through Friendbot.</p>
     </section>
@@ -30,6 +30,7 @@
       <div class="review-heading"><div><span class="demo-tag">Demo transaction</span><h2 id="review-title">Your transaction</h2></div><button id="close-review" type="button" class="review-close" aria-label="Close transaction details" autofocus>×</button></div>
       <div class="review-body">
         <p id="review-context">This preview belongs to the demo website.</p>
+        <p id="review-progress" class="review-progress demo-loading" role="status" hidden></p>
         <p id="review-status" class="review-status" role="status"></p>
         <dl id="review-summary" class="review-summary"></dl>
         <details id="transaction-details"><summary>Transaction details</summary><pre id="details"></pre></details>
