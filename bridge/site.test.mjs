@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 
 function element() { return { hidden: false, disabled: false, open: false, value: '', textContent: '', children: [],
-  addEventListener() {}, focus() {}, showModal() { this.open = true; }, close() { this.open = false; },
+  classList: { toggle() {} }, setAttribute() {}, addEventListener() {}, focus() {}, showModal() { this.open = true; }, close() { this.open = false; },
   append(...nodes) { this.children.push(...nodes); }, replaceChildren(...nodes) { this.children = nodes; }, add() {} }; }
 function contextFor(html, extras = {}) {
   const elements = new Map([...html.matchAll(/id="([^"]+)"/g)].map(m => [m[1], element()]));
@@ -299,4 +299,30 @@ test('the action modal opens before account lookup and keeps preparation errors 
   assert.equal(f.run('pending'), null);
   assert.equal(f.elements.get('transaction-details').hidden, true);
   assert.equal(f.elements.get('sign').hidden, true);
+});
+
+test('connection work disables demo actions and signing without changing the journal', () => {
+  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    StellarSdk: {}, localStorage: { getItem: () => null },
+  });
+  f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
+  f.run("wallet={token:'mock'}; account={address:'GTEST'}; connection.working=true; render()");
+  for (const name of ['note', 'payment', 'offer', 'cancel-offer']) assert.equal(f.elements.get(name).disabled, true);
+  f.run("pending={state:'signed',kind:'note',address:'GTEST',xdr:'unsigned',signed_xdr:'signed'}; render()");
+  assert.equal(f.elements.get('submit').disabled, true); assert.equal(f.elements.get('clear').disabled, true);
+  f.run('connection.working=false; render()');
+  assert.equal(f.elements.get('submit').disabled, false); assert.equal(f.run('pending.state'), 'signed');
+});
+
+test('only an active request shows progress; stopped signing cannot be canceled again', () => {
+  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), { StellarSdk: {}, localStorage: { getItem: () => null } });
+  f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
+  f.run("pending={kind:'note',state:'waiting',address:'GTEST'}; render()");
+  assert.equal(f.elements.get('cancel-request').hidden, true); assert.equal(f.elements.get('review-progress').hidden, true);
+  f.run("busy=true; actionPhase='signing'; signingController=new AbortController(); render()");
+  assert.equal(f.elements.get('cancel-request').disabled, false); assert.equal(f.elements.get('review-progress').hidden, false);
+  f.elements.get('cancel-request').onclick();
+  assert.equal(f.elements.get('cancel-request').disabled, true); assert.match(f.elements.get('review-progress').textContent, /Canceling/);
+  f.run("busy=false; pending.state='signing_unknown'; signingController=null; render()");
+  assert.equal(f.elements.get('review-progress').hidden, true);
 });

@@ -61,9 +61,10 @@ test('transaction history survives clearing and preserves earlier state snapshot
 test('history loading merges with new activity instead of overwriting it', async () => {
   let resolve;
   const history = new ActivityHistory({ store: { load: () => new Promise(done => { resolve = done; }), async put() {} } });
-  await tick(); history.record('action', 'New action');
+  await tick(); assert.equal(history.loading, true); history.record('action', 'New action');
   resolve([{ id: 'older', time: '2020-01-01T00:00:00.000Z', category: 'walleterm', title: 'Older event', data: { token: 'old-secret' } }]);
   await history.ready;
+  assert.equal(history.loading, false);
   assert.equal(history.events.length, 2); assert.equal(history.events[0].title, 'New action');
   assert.equal(history.events[1].data.token, '[redacted]');
 });

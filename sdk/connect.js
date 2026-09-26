@@ -6,9 +6,9 @@ const short = address => `${address.slice(0, 7)}…${address.slice(-6)}`;
 // Optional connection UI. Transaction construction, review, and submission belong to the host site.
 // Load connect.css with this module. All credentials stay in the client instance, in memory.
 export class WalletermConnect {
-  constructor(element, { onChange = () => {} } = {}) {
-    this.element = element; this.onChange = onChange; this.client = null; this.account = null;
-    this.wallets = []; this.busy = false; this.working = false;
+  constructor(element, { onChange = () => {}, onBusyChange = () => {} } = {}) {
+    this.element = element; this.onChange = onChange; this.onBusyChange = onBusyChange; this.client = null; this.account = null;
+    this.wallets = []; this.busy = false; this.working = false; this.phase = ''; this.refreshing = false; this.copying = false;
     element.classList.add('wt-connect');
     element.innerHTML = `
       <button type="button" class="wt-trigger" aria-haspopup="dialog" aria-expanded="false"><span class="wt-mark" aria-hidden="true">w</span><span data-wt="trigger-label">Connect Walleterm</span><span data-wt="chevron" hidden aria-hidden="true">⌄</span></button>
@@ -32,8 +32,8 @@ export class WalletermConnect {
             <div class="wt-divider">or enter the connection details</div>
             <label class="wt-label">Tunnel URL<input data-wt="url" type="url" placeholder="https://example.trycloudflare.com" autocomplete="off" spellcheck="false" required></label>
             <label class="wt-label">Connection code<input data-wt="code" class="wt-code" type="text" inputmode="numeric" autocomplete="off" pattern="[0-9]{8}" maxlength="8" placeholder="12345678" required></label>
-            <p class="wt-help">Use the current eight-digit code from your tunnel terminal.</p>
-            <button type="submit" class="wt-primary" data-wt="continue">Continue</button>
+            <p class="wt-help" data-wt="details-help">Enter the tunnel URL and eight-digit code, or scan the QR code.</p>
+            <button type="submit" class="wt-primary" data-wt="continue" disabled>Continue</button>
           </form>
           <div data-wt="scanner" hidden><video data-wt="camera" autoplay muted playsinline></video><p class="wt-help">Point the camera at the QR code in your tunnel terminal.</p><button type="button" class="wt-secondary" data-wt="stop-scan">Enter details instead</button></div>
           <div data-wt="picker" hidden><div class="wt-wallets" data-wt="choices"></div><button type="button" class="wt-secondary" data-wt="retry-wallets" hidden>Refresh wallets</button></div>
@@ -62,21 +62,41 @@ export class WalletermConnect {
     this.keyboard = event => {
       if (event.key === 'Escape' && !this.$('menu').hidden) { this.hideMenu(); this.trigger.focus(); }
     };
-    document.addEventListener('click', this.outside); element.addEventListener('keydown', this.keyboard);
+    document.addEventListener('click', this.outside); document.addEventListener('keydown', this.keyboard);
     element.addEventListener('focusout', event => {
       if (event.relatedTarget && !element.contains(event.relatedTarget)) this.hideMenu();
     });
+    this.$('url').oninput = this.$('code').oninput = () => this.update();
     this.$('form').onsubmit = event => { event.preventDefault(); this.connect(); };
     this.$('scan').onclick = () => this.scan(); this.$('stop-scan').onclick = () => this.scanning?.abort();
     this.$('refresh').onclick = () => this.refresh();
     this.$('disconnect').onclick = () => this.disconnect();
     this.$('copy').onclick = async () => {
+      if (!this.account || this.copying) return;
+      this.copying = true; this.update();
       try { await navigator.clipboard.writeText(this.account.address); this.message('Address copied.', true); }
       catch { this.message('Copy the address from the button text.', true); }
+      finally { this.copying = false; this.update(); }
     };
     this.update();
   }
   message(text, menu = false) { this.$(menu ? 'menu-status' : 'status').textContent = text; }
+  loading(node, active) {
+    node.classList.toggle('wt-loading', !!active);
+    node.setAttribute('aria-busy', String(!!active));
+  }
+  setWorking(working) {
+    const changed = this.working !== working;
+    this.working = working; this.update();
+    if (changed) this.onBusyChange?.(working);
+  }
+  validDetails() {
+    try {
+      const raw = this.$('url').value.trim().replace(/\/$/, ''), url = new URL(raw);
+      return url.origin === raw && (url.protocol === 'https:' || url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))
+        && /^\d{8}$/.test(this.$('code').value);
+    } catch { return false; }
+  }
   setBusy(busy) { this.busy = busy; this.update(); }
   sync() {
     if (this.client && !this.client.token) {
@@ -85,19 +105,47 @@ export class WalletermConnect {
     }
   }
   update() {
-    this.$('trigger-label').textContent = this.account ? short(this.account.address) : 'Connect Walleterm';
+    const labels = { connecting: 'Connecting…', selecting: 'Selecting wallet…', switching: 'Changing wallet…', disconnecting: 'Disconnecting…', canceling: 'Canceling…' };
+    this.$('trigger-label').textContent = this.working ? labels[this.phase] || 'Connecting…' : this.account ? short(this.account.address) : 'Connect Walleterm';
     this.$('chevron').hidden = !this.account;
-    this.trigger.disabled = this.working;
+    this.trigger.disabled = this.working || (!this.account && this.busy);
+    this.loading(this.trigger, this.working && !this.dialog.open && this.$('menu').hidden);
+    this.$('details-help').textContent = this.validDetails() ? 'Connection details are ready. Select Continue.' : 'Enter the tunnel origin without a path and the eight-digit code, or scan the QR code.';
+    this.$('continue').disabled = this.busy || this.working || !!this.scanning || !this.validDetails();
+    this.$('continue').textContent = this.phase === 'connecting' ? 'Connecting…' : 'Continue';
+    this.loading(this.$('continue'), this.phase === 'connecting');
+    for (const name of ['url', 'code']) this.$(name).disabled = this.working || !!this.scanning;
+    this.$('scan').disabled = this.busy || this.working || !!this.scanning;
     this.$('disconnect').disabled = this.busy || this.working;
-    this.$('refresh').disabled = this.working;
-    this.element.querySelectorAll('.wt-menu .wt-wallet-row').forEach(row => { row.disabled = this.busy || this.working; });
+    this.$('disconnect').textContent = this.phase === 'disconnecting' ? 'Disconnecting…' : 'Disconnect';
+    this.loading(this.$('disconnect'), this.phase === 'disconnecting');
+    this.$('refresh').disabled = this.busy || this.working || this.refreshing;
+    this.$('refresh').textContent = this.refreshing ? 'Refreshing…' : 'Refresh';
+    this.loading(this.$('refresh'), this.refreshing);
+    this.$('retry-wallets').disabled = this.phase !== 'choosing';
+    this.$('retry-wallets').textContent = this.phase === 'loading-wallets' ? 'Finding wallets…' : 'Refresh wallets';
+    this.loading(this.$('retry-wallets'), this.phase === 'loading-wallets');
+    this.$('copy').disabled = !this.account || this.copying;
+    this.loading(this.$('copy'), this.copying);
+    for (const [selector, picker] of [['.wt-menu .wt-wallet-row', false], ['.wt-dialog .wt-wallet-row', true]]) {
+      this.element.querySelectorAll(selector).forEach(row => {
+        const active = !picker && row.title === this.account?.address;
+        const selecting = ['selecting', 'switching'].includes(this.phase) && row.title === this.selectingKey;
+        row.disabled = picker ? this.phase !== 'choosing' : this.busy || this.working || this.refreshing || active;
+        row.setAttribute('aria-busy', String(selecting));
+        if (active) row.setAttribute('aria-current', 'true'); else row.removeAttribute('aria-current');
+        const state = row.querySelector('.wt-wallet-state');
+        state.textContent = selecting ? 'Selecting…' : active ? 'Active' : 'Select';
+        this.loading(state, selecting);
+      });
+    }
     if (this.account) {
       this.$('wallet-name').textContent = this.wallets.find(key => key.public_key === this.account.address)?.comment || '1Password wallet';
       this.$('address').textContent = this.account.address;
       this.$('tunnel').textContent = new URL(this.client.url).host;
     }
   }
-  hideMenu() { this.$('menu').hidden = true; this.trigger.setAttribute('aria-expanded', 'false'); }
+  hideMenu() { this.$('menu').hidden = true; this.trigger.setAttribute('aria-expanded', 'false'); this.loading(this.trigger, this.working && !this.dialog.open); }
   toggleMenu() {
     if (!this.$('menu').hidden) return this.hideMenu();
     this.$('menu').hidden = false; this.trigger.setAttribute('aria-expanded', 'true');
@@ -120,9 +168,10 @@ export class WalletermConnect {
       row.onclick = () => choose(key); target.append(row);
     }
   }
-  async refresh() {
-    if (!this.client || this.working) return;
-    const client = this.client; this.$('refresh').disabled = true;
+  async refresh({ quiet = false } = {}) {
+    if (!this.client || this.busy || this.working || this.refreshing) return;
+    const client = this.client; this.refreshing = true; this.update();
+    if (!quiet) this.message('Refreshing wallets. Unlock 1Password if it asks.', true);
     try {
       const keys = await client.listWallets();
       if (client !== this.client) return;
@@ -131,14 +180,14 @@ export class WalletermConnect {
         if (this.busy || this.working || key.public_key === this.account?.address) return;
         this.changeWallet(key);
       }, this.account.address);
-      if (!keys.length) this.message('No wallets are available. Check the 1Password SSH agent, then refresh.', true);
-    } catch (error) { this.message(error.message, true); this.sync(); }
-    finally { this.update(); }
+      if (!quiet || !keys.length) this.message(keys.length ? 'Wallets are up to date.' : 'No wallets are available. Check the 1Password SSH agent, then refresh.', true);
+    } catch (error) { if (client === this.client) { if (!quiet) this.message(error.message, true); this.sync(); } }
+    finally { this.refreshing = false; this.update(); }
   }
   async changeWallet(key) {
-    if (!this.client || this.busy || this.working || key.public_key === this.account?.address) return;
+    if (!this.client || this.busy || this.working || this.refreshing || key.public_key === this.account?.address) return;
     const client = this.client;
-    this.working = true; this.update(); this.message('Changing the active wallet.', true);
+    this.phase = 'switching'; this.selectingKey = key.public_key; this.setWorking(true); this.message('Changing the active wallet. Unlock 1Password if it asks.', true);
     try {
       const account = await client.selectWallet(key.public_key);
       if (client !== this.client) return;
@@ -153,8 +202,8 @@ export class WalletermConnect {
         if (!this.account) this.hideMenu();
       }
     } finally {
-      this.working = false; this.update();
-      if (this.account) await this.refresh();
+      this.phase = ''; this.selectingKey = null; this.setWorking(false);
+      if (this.account) await this.refresh({ quiet: true });
     }
   }
   open() {
@@ -165,18 +214,23 @@ export class WalletermConnect {
     this.element.querySelector('#wt-title').textContent = 'Connect Walleterm';
     this.$('description').textContent = 'Connect your Mac. This website can switch between the wallets you approve in the next step.';
     this.$('step-connect').setAttribute('aria-current', 'step'); this.$('step-wallet').removeAttribute('aria-current');
-    this.message(''); this.dialog.showModal(); this.trigger.setAttribute('aria-expanded', 'true');
+    this.message(''); this.update(); this.dialog.showModal(); this.trigger.setAttribute('aria-expanded', 'true');
     this.$('scan').focus({ preventScroll: true });
   }
   close() {
+    if (this.connection) this.phase = 'canceling';
     this.connection?.abort(Error('Connection canceled. Use the current code from your tunnel terminal.'));
-    this.scanning?.abort(); this.scanning = null; this.dialog.close(); this.trigger.setAttribute('aria-expanded', 'false'); this.trigger.focus();
+    this.scanning?.abort(); this.scanning = null; this.$('status').classList.remove('wt-loading'); this.dialog.close(); this.trigger.setAttribute('aria-expanded', 'false'); this.update(); this.trigger.focus();
   }
   async scan() {
-    if (this.scanning || this.working) return;
+    if (this.scanning || this.working || this.busy) return;
     const controller = new AbortController(); this.scanning = controller;
     this.$('form').hidden = true; this.$('scanner').hidden = false;
     this.$('stop-scan').focus({ preventScroll: true });
+    this.update();
+    this.$('status').classList.add('wt-loading');
+    const ready = () => { if (this.scanning === controller) this.message('Camera is ready. Point it at the tunnel QR code.'); };
+    this.$('camera').addEventListener('playing', ready);
     let scanned = false;
     this.message('Allow camera access to scan the tunnel QR code.');
     try {
@@ -187,8 +241,10 @@ export class WalletermConnect {
     } catch (error) {
       if (this.scanning === controller) this.message(controller.signal.aborted ? '' : `${error.message} Enter the connection details instead.`);
     } finally {
+      this.$('camera').removeEventListener('playing', ready);
       if (this.scanning === controller) {
         this.scanning = null; this.$('scanner').hidden = true; this.$('form').hidden = false;
+        this.$('status').classList.remove('wt-loading'); this.update();
         if (this.dialog.open) this.$(scanned ? 'continue' : 'scan').focus({ preventScroll: true });
       }
     }
@@ -202,28 +258,34 @@ export class WalletermConnect {
       const stop = () => { this.$('retry-wallets').onclick = null; reject(signal.reason); };
       signal.addEventListener('abort', stop, { once: true });
       const draw = values => {
+        this.phase = 'choosing';
         this.nextWallets = values;
         this.rows(this.$('choices'), values, key => {
+          if (signal.aborted || this.phase !== 'choosing') return;
+          this.phase = 'selecting'; this.selectingKey = key.public_key; this.update();
+          this.message('Confirming your wallet selection. Unlock 1Password if it asks.');
           signal.removeEventListener('abort', stop); this.$('retry-wallets').onclick = null; resolve(key.public_key);
         });
         this.message(values.length ? 'This connection lets the website switch between these wallets and request signatures. New wallets need a new connection.' : 'No wallets are available. Check the 1Password SSH agent on your Mac.');
-        this.$('retry-wallets').hidden = !!values.length;
+        this.$('retry-wallets').hidden = !!values.length; this.update();
         this.$('choices').querySelector('button')?.focus();
       };
       this.$('retry-wallets').onclick = async () => {
+        if (signal.aborted || this.phase !== 'choosing') return;
+        this.phase = 'loading-wallets'; this.update(); this.message('Finding wallets. Unlock 1Password if it asks.');
         try { const values = await client.listWallets({ signal }); if (!signal.aborted) draw(values); }
-        catch (error) { if (!signal.aborted) this.message(error.message); }
+        catch (error) { if (!signal.aborted) { this.phase = 'choosing'; this.update(); this.message(error.message); } }
       };
       draw(keys); if (signal.aborted) stop();
     });
   }
   async connect() {
-    if (this.working || this.busy) return;
-    this.working = true; this.update(); this.$('continue').disabled = true; this.$('continue').textContent = 'Connecting…'; this.$('scan').disabled = true;
+    if (this.working || this.busy || this.scanning || !this.validDetails()) return;
+    this.phase = 'connecting'; this.setWorking(true);
     const controller = new AbortController(); this.connection = controller;
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(300000)]);
     let next;
-    this.message('Connecting to your Mac. Unlock 1Password if it asks.');
+    this.message('Connecting and finding wallets. Unlock 1Password if it asks.');
     try {
       next = new WalletermClient(this.$('url').value.trim().replace(/\/$/, ''));
       const account = await next.connect({ code: this.$('code').value.trim(), walletScope: 'available', signal,
@@ -243,17 +305,17 @@ export class WalletermConnect {
       this.$('form').hidden = false; this.$('picker').hidden = true;
       this.message(error.message); this.sync();
     } finally {
-      this.connection = null; this.working = false; this.$('continue').disabled = false; this.$('continue').textContent = 'Continue'; this.$('scan').disabled = false; this.update();
+      this.connection = null; this.phase = ''; this.selectingKey = null; this.setWorking(false);
       if (!this.dialog.open) this.trigger.focus();
     }
   }
   async disconnect() {
     if (this.busy || this.working || !this.client) return;
-    this.working = true; this.update();
+    this.phase = 'disconnecting'; this.setWorking(true); this.message('Disconnecting this website.', true);
     try {
       await this.client.disconnect(); this.client = null; this.account = null; this.wallets = [];
       this.hideMenu(); this.onChange({ client: null, account: null }); this.trigger.focus();
     } catch (error) { this.message(`Could not disconnect. ${error.message} Try again.`, true); }
-    finally { this.working = false; this.update(); this.trigger.focus(); }
+    finally { this.phase = ''; this.setWorking(false); this.trigger.focus(); }
   }
 }
