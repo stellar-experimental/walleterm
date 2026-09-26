@@ -1,6 +1,6 @@
 import { requestError } from '../sdk/errors.ts';
 import { spawn } from 'node:child_process';
-import { resolve4 } from 'node:dns/promises';
+import { Resolver } from 'node:dns/promises';
 import { get } from 'node:https';
 import { fileURLToPath } from 'node:url';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
@@ -104,7 +104,12 @@ export function waitForTunnel(child: TunnelChild, timeoutMs = 30000, signal?: Ab
 
 export async function publicProbe(
   origin: string,
-  { resolveHost = resolve4, requestGet = get, signal }: ProbeOptions = {},
+  {
+    // A shared resolver can retain NXDOMAIN while a new tunnel's DNS record propagates.
+    resolveHost = (host) => new Resolver().resolve4(host),
+    requestGet = get,
+    signal,
+  }: ProbeOptions = {},
 ): Promise<ProbeResult> {
   const host = new URL(origin).hostname;
   const [address] = await bounded(resolveHost(host), 2500, signal, 'The tunnel DNS lookup timed out.');

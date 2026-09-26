@@ -56,6 +56,14 @@ The final contract-helper review found no remaining issues.
 CI installs pinned Bun, Go, Rust, and Stellar CLI versions before running the same offline checks.
 It verifies the Stellar CLI archive hash and builds the CAP-71 fixtures before testing.
 
+## Public startup check
+
+The installed Bun 1.4.2 runtime retained an early `ENOTFOUND` response during new tunnel startup.
+Repeated checks failed for 45 seconds, although a separate process resolved the same hostname and received HTTP 200.
+Each readiness attempt now creates a fresh resolver. The same live startup check then passed.
+Bun uses c-ares for `node:dns.resolve*()`. [Bun DNS](https://bun.com/docs/runtime/networking/dns)
+The offline suite checks readiness errors and cleanup. The DNS propagation check used a real Cloudflare Quick Tunnel.
+
 ## Sources
 
 - [Bun TypeScript configuration](https://bun.com/docs/typescript)

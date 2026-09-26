@@ -170,7 +170,7 @@ test('demo serves the exact bundled assets under the existing strict CSP', async
     }
     for (const path of ['/app.js', '/activity.js', '/code-view.js', '/sdk/connect.js'])
       await checkModule(path);
-    for (const path of ['code-view.js', 'code-view.css', 'vendor/syntax.js', 'vendor/syntax.LICENSE']) {
+    for (const path of ['code-view.js', 'code-view.css', 'syntax.js', 'vendor/syntax.LICENSE']) {
       const response = await fetch(`http://127.0.0.1:${listeningPort(app.server)}/${path}`);
       assert.equal(response.status, 200);
       assert.equal(
@@ -179,7 +179,7 @@ test('demo serves the exact bundled assets under the existing strict CSP', async
           new URL(
             path === 'code-view.js'
               ? '../dist/demo/site/code-view.js'
-              : path === 'vendor/syntax.js'
+              : path === 'syntax.js'
                 ? '../dist/demo/site/syntax.js'
                 : `../demo/site/${path}`,
             import.meta.url,

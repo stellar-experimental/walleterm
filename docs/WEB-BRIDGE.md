@@ -19,7 +19,9 @@ It shows a QR code when the terminal is wide enough. Otherwise, use the URL and 
 The terminal needs no input. It prints one line for each produced or withheld signature.
 
 `OP_VAULT` accepts a vault name or ID and limits website wallets to that vault.
-Set it in the shell that starts the tunnel. Existing tunnels keep their startup environment.
+Save `OP_VAULT=Private` in `.env` in the directory where you start the tunnel.
+Bun loads this file automatically. An exported shell variable overrides it.
+Git ignores `.env`, and the installer does not copy it. Existing tunnels keep their startup environment.
 Restart the tunnel after changing the setting. Reconnect the website with the new tunnel URL and code.
 Install the 1Password CLI with `brew install 1password-cli` for vault filtering.
 Enable 1Password CLI integration in the desktop app, or sign in before starting the tunnel.
