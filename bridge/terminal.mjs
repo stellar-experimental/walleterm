@@ -14,7 +14,8 @@ export async function reviewInTerminal(request, { signal, input = process.stdin,
   input.on('data', discard); input.resume();
   await new Promise(resolve => setTimeout(resolve, 50));
   input.off('data', discard);
-  signal?.throwIfAborted();
+  // A partial line without Enter can remain. It makes the answer wrong, so the review is denied, never approved.
+  if (signal?.aborted) { input.pause(); signal.throwIfAborted(); }
   const prompt = createInterface({ input, output });
   // Raw mode turns Ctrl+C into a readline event. Forward it so Ctrl+C still stops the service.
   prompt.on('SIGINT', interrupt);
