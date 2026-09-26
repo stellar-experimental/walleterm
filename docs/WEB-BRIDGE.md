@@ -26,6 +26,9 @@ Restart the tunnel after changing the setting. Reconnect the website with the ne
 Install the 1Password CLI with `brew install 1password-cli` for vault filtering.
 Enable 1Password CLI integration in the desktop app, or sign in before starting the tunnel.
 The bridge reads only item metadata and public keys. Lookup failures stop wallet discovery.
+Public key reads run in batches of four. A failed read cancels the batch and waits for cleanup.
+Opening the wallet menu shows the existing list. Use Refresh to request an updated list.
+Selection and signing still check current vault membership. Switching wallets does not trigger a second refresh.
 An unset or empty `OP_VAULT` lists all available Ed25519 agent keys.
 The bridge permits 120 seconds for vault lookup, after the agent list completes.
 The SDK permits 135 seconds for wallet discovery and selection. Caller cancellation still stops the request.
