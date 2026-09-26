@@ -89,6 +89,7 @@ The demo submits the signed transaction to testnet.
 A website integrates through [the browser client](sdk/walleterm.js). The website approves its own requests, so use dedicated testnet keys.
 The bridge supports testnet native payments, data entries, and sell offers.
 See [the bridge guide](docs/WEB-BRIDGE.md) for setup, recovery, and integration details.
+The [demo activity log](docs/DEMO-ACTIVITY.md) keeps browser history and supports JSON export.
 
 ## Boundaries
 
