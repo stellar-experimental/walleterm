@@ -167,6 +167,7 @@ test('demo denial and expiry finish the request; unknown submission remains prot
     f.run('render()');
     assert.equal(f.run('pending.state'), state);
     assert.equal(f.el('clear').hidden, true);
+    assert.equal(f.el('check').hidden, true);
   }
   f.run(
     "pending={kind:'note', address:'GSOURCE', xdr:'mock', state:'unknown', hash:'original'}; save(); render();",
@@ -736,6 +737,12 @@ test('only an active request shows progress; stopped signing cannot be canceled 
   assert.match(f.el('review-progress').textContent, /Canceling/);
   f.run("busy=false; pending.state='signing_unknown'; signingController=null; render()");
   assert.equal(f.el('review-progress').hidden, true);
+  f.run("busy=true; pending.state='submitting'; actionPhase='submitting'; render()");
+  assert.equal(f.el('check').hidden, true);
+  f.run("pending.state='unknown'; actionPhase='checking'; render()");
+  assert.equal(f.el('check').hidden, false);
+  assert.equal(f.el('check').disabled, true);
+  assert.equal(f.el('check').textContent, 'Checking…');
 });
 
 async function completedFixture(state = 'submitted') {
@@ -807,6 +814,7 @@ test('completed transactions permit another action after wallet switching withou
     for (const name of ['note', 'payment', 'offer', 'cancel-offer'])
       assert.equal(f.el(name).disabled, false, state);
     assert.equal(f.el('clear').hidden, true);
+    assert.equal(f.el('check').hidden, true, state);
     assert.equal(f.el('review').open, false);
     assert.equal(f.el('transaction-record').hidden, false);
     f.click('open-review');
@@ -827,6 +835,15 @@ test('unfinished transactions still prevent replacement after wallet switching',
   for (const state of ['review', 'signed', 'waiting', 'signing_unknown', 'submitting', 'unknown']) {
     const f = await completedFixture(state),
       before = f.store.value;
+    const needsStatusCheck = ['submitting', 'unknown'].includes(state);
+    assert.equal(f.el('check').hidden, !needsStatusCheck, state);
+    if (needsStatusCheck) {
+      assert.equal(f.el('check').textContent, 'Check transaction status');
+      assert.equal(
+        f.el('review-note').textContent,
+        'We could not confirm the result. Check before trying another transaction.',
+      );
+    }
     for (const name of ['note', 'payment', 'offer', 'cancel-offer'])
       assert.equal(f.el(name).disabled, true, state);
     await f.click('note');
