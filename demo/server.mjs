@@ -7,6 +7,8 @@ export function createDemoSite({ port = 8788 } = {}) {
   let origin = `http://127.0.0.1:${port}`, closing = false;
   const files = {
     '/': [join(here, 'site/index.html'), 'text/html'],
+    '/activity.js': [join(here, 'site/activity.js'), 'text/javascript'],
+    '/activity.css': [join(here, 'site/activity.css'), 'text/css'],
     '/app.js': [join(here, 'site/app.js'), 'text/javascript'],
     '/style.css': [join(here, 'site/style.css'), 'text/css'],
     '/sdk/walleterm.js': [join(here, '../sdk/walleterm.js'), 'text/javascript'],

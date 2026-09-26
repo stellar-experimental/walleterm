@@ -1,16 +1,26 @@
 import { WalletermConnect } from '/sdk/connect.js';
+import { createActivityLog } from '/activity.js';
 const $ = id => document.getElementById(id);
 const { Account, Asset, Keypair, Networks, Operation, StrKey, TransactionBuilder, xdr } = globalThis.StellarSdk;
 const HORIZON = 'https://horizon-testnet.stellar.org';
 const ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
 const STORAGE = 'walleterm-demo-request-v1';
+const activity = createActivityLog($('activity'), { decodeSigned(signedXdr) {
+  const transaction = TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET);
+  const hex = bytes => Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('');
+  return { hash: hex(transaction.hash()), signatures: transaction.signatures.map(signature => hex(signature.signature.toBytes())) };
+} });
+if (globalThis.fetch) globalThis.fetch = activity.wrapFetch(globalThis.fetch.bind(globalThis));
 let wallet, account, pending, busy = false, signingController, journalBlocked = false, selectedAction;
 const connection = new WalletermConnect($('wallet-connection'), { onChange(value) {
+  const previousAddress = account?.address;
   wallet = value.client; account = value.account;
+  activity.record('walleterm', account ? previousAddress && previousAddress !== account.address ? 'Active wallet changed' : 'Wallet connected' : 'Wallet disconnected', { previous_address: previousAddress, account });
   status(account ? 'Wallet connected. Choose a testnet action.' : 'The website is disconnected.');
   render();
 } });
 function status(text) {
+  activity.record('status', text);
   $('status').textContent = text;
   if ($('review').open || busy) $('review-status').textContent = text;
 }
@@ -70,7 +80,10 @@ async function sourceAccount() {
     catch { throw Error(response.ok ? 'The funded account is not visible yet. Try again.' : 'Friendbot could not fund this testnet account. Try again later.'); }
   }
 }
-function save() { if (pending) localStorage.setItem(STORAGE, JSON.stringify(pending)); else localStorage.removeItem(STORAGE); }
+function save() {
+  if (pending) localStorage.setItem(STORAGE, JSON.stringify(pending)); else localStorage.removeItem(STORAGE);
+  activity.transaction(pending);
+}
 function readJournal() {
   const raw = localStorage.getItem(STORAGE);
   if (raw === null) return null;
@@ -134,7 +147,10 @@ async function action(fn) {
       }
       await fn();
     });
-  } catch (error) { if (error.status === 401) account = null; status(error.message); }
+  } catch (error) {
+    activity.record('error', 'Action failed', { action: pending?.kind || selectedAction, message: error.message });
+    if (error.status === 401) account = null; status(error.message);
+  }
   finally { busy = false; render(); }
 }
 async function build(kind) {
@@ -251,6 +267,7 @@ $('clear').onclick = () => action(async () => {
   pending = null; save(); selectedAction = null; closeReview();
 });
 try { pending = readJournal();
+  activity.transaction(pending);
   if (['waiting', 'signing_unknown'].includes(pending?.state)) status('A signing request was open when the page closed. Decline the 1Password prompt if it appears, then clear this record.');
 } catch { journalBlocked = true; status('The local demo journal could not be read. Preserve it before continuing.'); }
 render();
