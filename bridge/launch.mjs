@@ -113,7 +113,7 @@ export async function launchService(config, { spawnTunnel = startTunnel, create,
       try {
         await Promise.all([
           stopChild(child, 3000),
-          bounded(demo?.close(), 3500, undefined, 'The server is stopping. Its journal remains locked until exit.'),
+          bounded(demo?.close(), 3500, undefined, 'The server did not stop within 3.5 seconds. The process exits now.'),
         ]);
       } catch { result = 1; }
       finally {
@@ -150,7 +150,6 @@ export async function launchService(config, { spawnTunnel = startTunnel, create,
     child = spawnTunnel('cloudflared', ['tunnel', '--config', configFile, '--url', `http://127.0.0.1:${config.port}`,
       '--no-autoupdate', '--protocol', 'http2', '--metrics', '127.0.0.1:0', '--grace-period', '1s', '--management-diagnostics=false'],
       { cwd: temporary, env, stdio: ['ignore', 'pipe', 'pipe'] });
-    demo.setTunnelProcess?.({ supervisor_pid: child.pid, directory: temporary, port: config.port });
     child.once('exit', () => {
       if (!stopping) {
         process.stderr.write('The public tunnel stopped. Run this command again to reconnect.\n');

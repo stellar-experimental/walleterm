@@ -8,11 +8,11 @@ import (
 
 func TestServiceOptions(t *testing.T) {
 	tunnel, err := parseServiceOptions("tunnel", nil)
-	if err != nil || tunnel.Port != 8787 || !strings.HasSuffix(tunnel.StateDir, "/walleterm/bridge") {
+	if err != nil || tunnel.Port != 8787 {
 		t.Fatalf("bad tunnel options: %+v %v", tunnel, err)
 	}
 	demo, err := parseServiceOptions("demo", nil)
-	if err != nil || demo.Port != 8788 || demo.StateDir != "" {
+	if err != nil || demo.Port != 8788 {
 		t.Fatalf("bad demo options: %+v %v", demo, err)
 	}
 	for _, command := range []string{"tunnel", "demo"} {
@@ -22,8 +22,8 @@ func TestServiceOptions(t *testing.T) {
 			}
 		}
 	}
-	if _, err := parseServiceOptions("demo", []string{"--state-dir", "/tmp/state"}); err == nil {
-		t.Fatal("demo accepted bridge configuration")
+	if _, err := parseServiceOptions("tunnel", []string{"--state-dir", "/tmp/state"}); err == nil {
+		t.Fatal("tunnel accepted a state directory")
 	}
 }
 

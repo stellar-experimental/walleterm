@@ -6,7 +6,6 @@ const HORIZON = 'https://horizon-testnet.stellar.org';
 const ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
 const STORAGE = 'walleterm-demo-request-v1';
 let wallet, account, pending, busy = false, connecting = false, signingController, scanning;
-function sameConnection() { return !!wallet?.token && pending?.connection_id === wallet.connectionId && pending?.bridge_url === wallet.url; }
 function status(text) { $('status').textContent = text; }
 async function horizon(path, options = {}) {
   const response = await fetch(`${HORIZON}${path}`, { ...options, signal: AbortSignal.timeout(15000) });
@@ -48,14 +47,11 @@ function render() {
   $('bridge').disabled = !!wallet?.token; $('code').disabled = !!wallet?.token;
   $('review').hidden = !pending;
   if (!pending) return;
-  $('details').textContent = JSON.stringify({ action: pending.kind, state: pending.state, signer: pending.address, recipient: pending.recipient, hash: pending.hash, request_id: pending.id, result: pending.result }, null, 2);
+  $('details').textContent = JSON.stringify({ action: pending.kind, state: pending.state, signer: pending.address, recipient: pending.recipient, hash: pending.hash, result: pending.result }, null, 2);
   $('submit').hidden = pending.state !== 'signed'; $('submit').disabled = busy;
   $('check').hidden = !['submitting', 'unknown', 'submitted'].includes(pending.state); $('check').disabled = busy;
-  $('cancel-request').hidden = pending.state !== 'waiting' || !sameConnection();
-  $('retry-signing').hidden = pending.state !== 'signing_unknown' || !sameConnection();
-  $('retry-signing').disabled = busy;
-  $('clear').hidden = busy || !['signed', 'canceled', 'denied', 'expired', 'failed', 'submitted', 'signing_unknown'].includes(pending.state);
-  $('clear').textContent = pending.state === 'signing_unknown' ? 'Discard this signing request' : 'Start another request';
+  $('cancel-request').hidden = pending.state !== 'waiting';
+  $('clear').hidden = busy || !['signed', 'canceled', 'denied', 'expired', 'failed', 'submitted'].includes(pending.state);
 }
 async function action(fn) {
   if (busy) return; busy = true; render();
@@ -115,45 +111,44 @@ async function build(kind) {
     recipient = await paymentRecipient();
     operation = Operation.payment({ destination: recipient, amount: '0.0100000', asset: Asset.native() });
   }
-  if (kind === 'offer' || kind === 'cancel_offer') {
-    const savedOffer = localStorage.getItem(`walleterm-demo-offer:${account.address}`);
-    if (kind === 'cancel_offer' && !savedOffer) throw Error('This browser has no recorded demo offer for this account.');
-    if (kind === 'offer') {
-      const trustline = source.balances.find(b => b.asset_code === 'USDC' && b.asset_issuer === ISSUER);
-      if (!trustline || trustline.is_authorized === false || Number(trustline.limit) - Number(trustline.balance) - Number(trustline.buying_liabilities) < 1) throw Error('This account needs an authorized testnet USDC trustline with free capacity.');
-      const offers = await horizon(`/accounts/${account.address}/offers?limit=200`);
-      if (offers._embedded.records.length) throw Error('This account already has an offer. Use a dedicated testnet account.');
-    }
-    operation = Operation.manageSellOffer({ selling: Asset.native(), buying: new Asset('USDC', ISSUER), amount: kind === 'offer' ? '0.1000000' : '0', price: '10', offerId: kind === 'offer' ? '0' : savedOffer });
+  if (kind === 'offer') {
+    const trustline = source.balances.find(b => b.asset_code === 'USDC' && b.asset_issuer === ISSUER);
+    if (!trustline || trustline.is_authorized === false || Number(trustline.limit) - Number(trustline.balance) - Number(trustline.buying_liabilities) < 1) throw Error('This account needs an authorized testnet USDC trustline with free capacity.');
+    operation = Operation.manageSellOffer({ selling: Asset.native(), buying: new Asset('USDC', ISSUER), amount: '0.1000000', price: '10', offerId: '0' });
+  }
+  // Cancel the newest open offer of this account, whatever created it.
+  if (kind === 'cancel_offer') {
+    const offer = (await horizon(`/accounts/${account.address}/offers?order=desc&limit=1`))._embedded.records[0];
+    if (!offer) throw Error('This account has no open offer.');
+    const asset = value => value.asset_type === 'native' ? Asset.native() : new Asset(value.asset_code, value.asset_issuer);
+    operation = Operation.manageSellOffer({ selling: asset(offer.selling), buying: asset(offer.buying), amount: '0', price: { n: offer.price_r.n, d: offer.price_r.d }, offerId: String(offer.id) });
   }
   const tx = new TransactionBuilder(new Account(account.address, source.sequence), { fee: '100', networkPassphrase: Networks.TESTNET }).addOperation(operation).setTimeout(180).build();
-  pending = { id, kind, connection_id: wallet.connectionId, bridge_url: wallet.url, address: account.address, recipient: kind === 'payment' ? recipient : undefined, xdr: tx.toXDR(), hash: '', state: 'waiting' };
   // The browser build can return Uint8Array rather than Buffer.
-  pending.hash = Array.from(tx.hash(), b => b.toString(16).padStart(2, '0')).join('');
-  save(); render(); status('Review this transaction in your tunnel terminal. Approve it there, then respond to 1Password if it asks.');
+  const hash = Array.from(tx.hash(), b => b.toString(16).padStart(2, '0')).join('');
+  pending = { kind, address: account.address, recipient: kind === 'payment' ? recipient : undefined, xdr: tx.toXDR(), hash, state: 'waiting' };
+  try { save(); } catch { pending = null; throw Error('The browser could not store this request. Enable site storage, then try again.'); }
+  render(); status('Review this transaction in your tunnel terminal. Approve it there, then respond to 1Password if it asks.');
   await requestSignature();
 }
 async function requestSignature() {
-  if (!sameConnection()) throw Error('This request belongs to a previous connection. Discard this request. Stop the old tunnel to revoke its connections.');
-  const id = pending.id;
   signingController = new AbortController();
   try {
-    const result = await wallet.signTransaction(pending.xdr, { address: pending.address, networkPassphrase: Networks.TESTNET, requestId: id, signal: AbortSignal.any([signingController.signal, AbortSignal.timeout(300000)]) });
+    const result = await wallet.signTransaction(pending.xdr, { signal: AbortSignal.any([signingController.signal, AbortSignal.timeout(300000)]) });
     const signed = TransactionBuilder.fromXDR(result.signedTxXdr, Networks.TESTNET);
     const hash = Array.from(signed.hash(), b => b.toString(16).padStart(2, '0')).join('');
     if (hash !== pending.hash || signed.signatures.length !== 1 || !Keypair.fromPublicKey(pending.address).verify(signed.hash(), signed.signatures[0].signature.toBytes())) throw Error('The signed transaction failed verification.');
     pending.signed_xdr = result.signedTxXdr; pending.state = 'signed'; save(); status('Signature verified. Review the transaction, then submit it when ready.');
-  } catch (error) { pending.state = signingController.signal.aborted ? 'canceled' : ['denied', 'expired'].includes(error.requestState) ? error.requestState : error.status === 400 ? 'failed' : 'signing_unknown'; save(); throw error; }
+  } catch (error) {
+    pending.state = signingController.signal.aborted ? 'canceled' : ['denied', 'expired'].includes(error.requestState) ? error.requestState : 'failed'; save();
+    if (error.canceled === false) error.message += ' The bridge did not confirm the cancellation. If the tunnel terminal shows this request, deny it there.';
+    throw error;
+  }
   finally { signingController = null; }
 }
 for (const kind of ['note', 'payment', 'offer']) $(kind).onclick = () => action(() => build(kind));
-$('retry-signing').onclick = () => action(requestSignature);
 $('cancel-offer').onclick = () => action(() => build('cancel_offer'));
-$('cancel-request').onclick = async () => {
-  if (!pending || !wallet) return;
-  try { await wallet.cancel(pending.id); signingController?.abort(Error('The signing request was canceled.')); status('The signing request was canceled.'); }
-  catch (error) { status(error.message); }
-};
+$('cancel-request').onclick = () => { signingController?.abort(Error('The signing request was canceled.')); };
 async function confirmed(result) {
   pending.result = { hash: result.hash, ledger: result.ledger, successful: result.successful };
   pending.state = result.successful ? 'submitted' : 'failed'; save();
@@ -161,11 +156,8 @@ async function confirmed(result) {
   if (result.successful && pending.kind === 'offer') {
     const decoded = xdr.TransactionResult.fromXDR(result.result_xdr, 'base64');
     const offer = decoded.result.results?.[0]?.tr?.manageSellOfferResult?.success?.offer;
-    if (offer?.type === 'manageOfferCreated' || offer?.type === 'manageOfferUpdated') {
-      localStorage.setItem(`walleterm-demo-offer:${pending.address}`, String(offer.offer.offerId));
-    } else status('The offer transaction succeeded without a resting offer. It can have traded immediately.');
+    if (offer?.type !== 'manageOfferCreated') status('The offer transaction succeeded without a resting offer. It can have traded immediately.');
   }
-  if (result.successful && pending.kind === 'cancel_offer') localStorage.removeItem(`walleterm-demo-offer:${pending.address}`);
 }
 $('submit').onclick = () => action(async () => {
   if (pending?.state !== 'signed') return;
@@ -185,17 +177,26 @@ $('submit').onclick = () => action(async () => {
   }
 });
 $('check').onclick = () => action(async () => {
+  // Read the latest ledger first. Horizon ingests ledgers in order, so a later 404 covers that ledger.
+  const latest = (await horizon('/ledgers?order=desc&limit=1'))._embedded.records[0];
   try { await confirmed(await horizon(`/transactions/${pending.hash}`)); }
-  catch (error) { if (error.status === 404) status('The original hash is not found yet. This does not prove failure. Do not submit a replacement.'); else throw error; }
+  catch (error) {
+    if (error.status !== 404) throw error;
+    // The transaction can never apply when a ledger closed after its time bound, the hash is absent,
+    // and the account sequence has not reached the transaction sequence.
+    const tx = TransactionBuilder.fromXDR(pending.xdr, Networks.TESTNET);
+    const source = await horizon(`/accounts/${pending.address}`);
+    if (Date.parse(latest.closed_at) / 1000 > Number(tx.timeBounds.maxTime) && BigInt(source.sequence) < BigInt(tx.sequence)) {
+      pending.state = 'expired'; save(); status('The transaction expired without reaching the ledger. It can never apply.');
+    }
+    else status('The original hash is not found yet. This does not prove failure. Do not submit a replacement.');
+  }
 });
 $('clear').onclick = () => action(async () => {
   if (!pending || ['submitting', 'unknown', 'waiting'].includes(pending.state)) return;
-  if (pending.state === 'signing_unknown') {
-    if (sameConnection()) await wallet.cancel(pending.id);
-    status('The local signing request was discarded. Stop the old tunnel to revoke any previous connection.');
-  }
   pending = null; save();
 });
 try { pending = JSON.parse(localStorage.getItem(STORAGE)); if (pending?.state === 'submitting') { pending.state = 'unknown'; save(); }
-  if (pending?.state === 'waiting') { pending.state = 'signing_unknown'; save(); } } catch { status('The local demo journal could not be read. Preserve it before continuing.'); }
+  // Leaving the page cancels an open signing request through the SDK.
+  if (['waiting', 'signing_unknown'].includes(pending?.state)) { pending = null; save(); status('The previous signing request stopped when the page closed. If the tunnel terminal still shows it, deny it there.'); } } catch { status('The local demo journal could not be read. Preserve it before continuing.'); }
 render();

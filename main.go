@@ -63,7 +63,7 @@ func run(args []string, in io.Reader, out, diagnostic io.Writer, socketPath stri
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
 		return writeOutput(out, `walleterm list [--human]
 walleterm sign [--human] < request.json
-walleterm tunnel [--port 8787] [--state-dir PATH]
+walleterm tunnel [--port 8787]
 walleterm demo [--port 8788]
 walleterm --help
 walleterm --version

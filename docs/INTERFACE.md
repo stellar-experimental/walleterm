@@ -8,7 +8,7 @@ The binary name is `walleterm`. A `stellar-walleterm` alias enables Stellar CLI 
 ```text
 walleterm list [--human]
 walleterm sign [--human] < request.json
-walleterm tunnel [--port 8787] [--state-dir PATH]
+walleterm tunnel [--port 8787]
 walleterm demo [--port 8788]
 walleterm --help
 walleterm --version
@@ -35,10 +35,9 @@ Only PATH, HOME, TMPDIR, and LANG enter the tunnel environment. Existing Cloudfl
 Listeners and tunnel metrics bind loopback. Ctrl+C stops only that command's server and tunnel.
 A parent pipe stops the tunnel after a parent crash. Shutdown uses bounded termination and cleanup.
 
-The bridge journal defaults to `~/Library/Application Support/walleterm/bridge`.
-It must be private, owned by the current user, and have permissions `0700`.
-An exclusive `.web-lock` records process ownership. After a crash, verify recorded processes stopped before removing only that lock.
-Never delete request records to bypass recovery. Restart marks interrupted signing unknown and never retries it.
+The bridge keeps sessions and requests in memory. A restart ends them and never retries a request.
+The tunnel terminal prints one line for each produced or withheld signature.
+Earlier versions kept records in `~/Library/Application Support/walleterm/bridge`. The bridge no longer reads that directory.
 
 `tunnel` and `demo` always print readable public links and QR codes.
 The bridge prints its URL, connection code, and a QR code with both. The demo prints a QR code for its public website.

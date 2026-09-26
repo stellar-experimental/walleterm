@@ -24,14 +24,15 @@ The Origin must differ from the bridge origin. These routes use narrow CORS and 
 - `GET /v1/account`: returns `connection_id`, `public_key`, `network_passphrase`, `expires_at`.
 - `POST /v1/requests`: accepts `id`, `transaction_xdr`, `network_passphrase`, `public_key`.
 - `GET /v1/requests/:id`: returns `id`, `state`, `hash`, `expires_at`, and `signed_xdr` only when signed.
-- `POST /v1/requests/:id/cancel`: cancels a pending request or suppresses an in-progress result.
+- `POST /v1/requests/:id/cancel`: cancels a pending request, or withholds an in-progress or signed result.
+  A cancel for an ID that has not arrived blocks that ID for the session.
 - `POST /v1/disconnect`: revokes the website session and suppresses its outstanding results.
 
 All routes except `/v1/connect` require `Authorization: Bearer TOKEN` and the connected Origin.
 A connection without a selected key lasts five minutes. Key selection extends it to one hour.
 A connection cannot change its key. Disconnect and connect again to use another key.
 The request ID is client-generated, with 1–64 letters, digits, underscores, or hyphens.
-An identical retry returns the same record. A changed payload with the same ID fails.
+An identical retry returns the same request. A changed payload with the same ID fails.
 A signing request lasts at most five minutes. The bridge scopes request IDs to a website session.
 A connection permits 1000 requests. The bridge permits 32 active requests and 64 live connections.
 The browser SDK keeps credentials in memory. A reload requires a new connection code.
@@ -56,12 +57,10 @@ The maximum fee is 100000 stroops. Time bounds are required and end within five 
 Fee bumps, additional preconditions, Soroban, additional signatures, and other operations fail before approval.
 These limits describe the first adapter. They do not claim support for every Stellar application.
 
-## Durability and cancellation
+## State and cancellation
 
-The bridge writes each request before returning it and before invoking the signer.
-It flushes the file, atomically replaces it, and flushes the directory.
-It persists the signature before reporting success. It never retries an uncertain signing request.
-Restart invalidates website sessions. Interrupted signing becomes unknown; pending requests expire.
-Old signed records remain private on disk. A new session cannot claim them automatically.
+The bridge keeps sessions and requests in memory. A restart ends all of them.
+The bridge never retries a signing request. The terminal prints each produced or withheld signature.
+A signed transaction applies at most once, because its sequence number and five-minute expiry limit it.
 Cancellation or revocation during signing can suppress delivery but cannot undo a signature already produced.
-The bridge permits one active signing operation. The journal permits one bridge process.
+Each bridge process permits one active signing operation.

@@ -16,13 +16,12 @@ import (
 )
 
 type serviceOptions struct {
-	Port     int    `json:"port"`
-	StateDir string `json:"stateDir,omitempty"`
+	Port int `json:"port"`
 }
 
 func serviceUsage(command string) string {
 	if command == "tunnel" {
-		return "walleterm tunnel [--port 8787] [--state-dir PATH]"
+		return "walleterm tunnel [--port 8787]"
 	}
 	return "walleterm demo [--port 8788]"
 }
@@ -34,25 +33,10 @@ func parseServiceOptions(command string, args []string) (serviceOptions, error) 
 	port := 8788
 	if command == "tunnel" {
 		port = 8787
-		flags.StringVar(&config.StateDir, "state-dir", "", "private bridge journal")
 	}
 	flags.IntVar(&config.Port, "port", port, "loopback server port")
 	if err := flags.Parse(args); err != nil || flags.NArg() != 0 || config.Port < 1 || config.Port > 65535 {
 		return config, failure("invalid_input", "Use "+serviceUsage(command)+".")
-	}
-	if command == "tunnel" {
-		if config.StateDir == "" {
-			home, err := os.UserHomeDir()
-			if err != nil {
-				return config, failure("start_failed", "The home directory is unavailable.")
-			}
-			config.StateDir = filepath.Join(home, "Library", "Application Support", "walleterm", "bridge")
-		}
-		absolute, err := filepath.Abs(config.StateDir)
-		if err != nil {
-			return config, failure("invalid_input", "The state directory is invalid.")
-		}
-		config.StateDir = absolute
 	}
 	return config, nil
 }

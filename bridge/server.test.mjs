@@ -1,8 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Account, Asset, Keypair, Memo, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
 import { createBridge } from './server.mjs';
@@ -22,14 +19,14 @@ async function until(fn) {
   throw Error('The test timed out.');
 }
 async function fixture(t, options = {}) {
-  const directory = mkdtempSync(join(tmpdir(), 'walleterm-bridge-test-')), decisions = [];
+  const decisions = [], logs = [];
   let calls = 0, reviews = 0;
-  const bridge = createBridge({ port: 0, stateDir: directory, listSigners: async () => [{ public_key: publicKey, comment: 'Mock key' }],
+  const bridge = createBridge({ port: 0, log: line => logs.push(line), listSigners: async () => [{ public_key: publicKey, comment: 'Mock key' }],
     review: (request, { signal }) => new Promise((resolve, reject) => {
       reviews++;
       const aborted = () => reject(signal.reason);
       signal.addEventListener('abort', aborted, { once: true });
-      decisions.push({ request, decide(value) { signal.removeEventListener('abort', aborted); resolve(value); } });
+      decisions.push({ request, signal, decide(value) { signal.removeEventListener('abort', aborted); resolve(value); } });
     }),
     sign: async (_key, hash) => { calls++; return Buffer.from(key.sign(Buffer.from(hash, 'hex'))).toString('hex'); }, ...options });
   await bridge.listen(); const origin = `http://127.0.0.1:${bridge.server.address().port}`; bridge.setPublicOrigin(origin);
@@ -39,7 +36,7 @@ async function fixture(t, options = {}) {
     }, ...(data === undefined ? {} : { body: JSON.stringify(data) }) });
     return { status: response.status, headers: response.headers, data: await response.json() };
   }
-  t.after(async () => { await bridge.close(); rmSync(directory, { recursive: true, force: true }); });
+  t.after(() => bridge.close());
   async function connect(site = 'https://site-one.example') {
     const r = await request('/v1/connect', { code: bridge.pairing.code }, { site }); assert.equal(r.status, 201);
     const s = { site, token: r.data.token };
@@ -50,8 +47,8 @@ async function fixture(t, options = {}) {
   async function result(s, id = 'request-1') {
     return until(async () => { const r = await request(`/v1/requests/${id}`, undefined, s); return !['pending', 'approved', 'signing'].includes(r.data.state) && r; });
   }
-  const client = site => new WalletermClient(origin, { pollInterval: 1, fetch: (url, options) => fetch(url, { ...options, headers: { ...options.headers, Origin: site } }) });
-  return { bridge, directory, origin, request, connect, decide, result, client, calls: () => calls, reviews: () => reviews };
+  const client = (site, options = {}) => new WalletermClient(origin, { pollInterval: 1, fetch: (url, options) => fetch(url, { ...options, headers: { ...options.headers, Origin: site } }), ...options });
+  return { bridge, origin, request, connect, decide, result, client, decisions, logs, calls: () => calls, reviews: () => reviews };
 }
 
 test('short codes expire, rotate once, and pause for one minute after five incorrect attempts', async t => {
@@ -70,10 +67,9 @@ test('short codes expire, rotate once, and pause for one minute after five incor
 });
 
 test('an unused code rotates at expiry', t => {
-  const directory = mkdtempSync(join(tmpdir(), 'walleterm-bridge-test-'));
   t.mock.timers.enable({ apis: ['setTimeout'] });
-  const bridge = createBridge({ port: 0, stateDir: directory }); let printed = 0;
-  t.after(async () => { t.mock.timers.reset(); await bridge.close(); rmSync(directory, { recursive: true, force: true }); });
+  const bridge = createBridge({ port: 0 }); let printed = 0;
+  t.after(async () => { t.mock.timers.reset(); await bridge.close(); });
   bridge.onPairingChanged(() => printed++);
   const original = bridge.pairing.code;
   t.mock.timers.tick(299999); assert.equal(bridge.pairing.code, original);
@@ -111,8 +107,7 @@ test('two origins have separate authority; no HTTP request approves a signature'
   assert.ok(key.verify(tx.hash(), tx.signatures[0].signature.toBytes()));
   assert.equal((await f.request('/v1/requests', initial, a)).data.state, 'signed'); assert.equal(f.calls(), 1);
   assert.equal((await f.request('/v1/requests', input('request-1', { memo: Memo.text('changed') }), a)).status, 409);
-  const persisted = JSON.parse(readFileSync(join(f.directory, readdirSync(f.directory).find(x => x.startsWith('request-')))));
-  assert.equal(persisted.state, 'signed'); assert.equal(persisted.signed_xdr, approved.data.signed_xdr);
+  assert.deepEqual(f.logs, [`Signed ${approved.data.hash} (account ${publicKey}, sequence 11) for ${a.site}.\n`]);
 });
 
 test('wallet discovery requires a session and wallet selection cannot change', async t => {
@@ -171,11 +166,12 @@ for (const revoke of [false, true]) test(`${revoke ? 'revocation' : 'cancellatio
   let release, entered; const waiting = new Promise(resolve => { entered = resolve; });
   const f = await fixture(t, { sign: async (_key, hash) => { entered(); await new Promise(resolve => { release = resolve; }); return Buffer.from(key.sign(Buffer.from(hash, 'hex'))).toString('hex'); } });
   const a = await f.connect(); await f.request('/v1/requests', input(), a); await f.decide(); await waiting;
-  const filename = join(f.directory, readdirSync(f.directory).find(x => x.startsWith('request-')));
-  assert.equal(JSON.parse(readFileSync(filename)).state, 'signing');
+  assert.equal((await f.request('/v1/requests/request-1', undefined, a)).data.state, 'signing');
   await f.request(revoke ? '/v1/disconnect' : '/v1/requests/request-1/cancel', {}, a); release(); await delay(10);
-  const r = JSON.parse(readFileSync(filename)); assert.equal(r.state, 'unknown'); assert.equal(r.signed_xdr, undefined);
-  assert.equal((await f.request('/v1/requests/request-1', undefined, a)).status, revoke ? 401 : 200);
+  const r = await f.request('/v1/requests/request-1', undefined, a);
+  if (revoke) assert.equal(r.status, 401); else { assert.equal(r.data.state, 'unknown'); assert.equal(r.data.signed_xdr, undefined); }
+  assert.equal(f.logs.length, 2); assert.match(f.logs[0], /^Signature withheld or stopped for [0-9a-f]{64} \(account G/);
+  assert.match(f.logs[1], /^1Password returned a signature after cancellation/);
 });
 
 test('invalid signatures are never delivered', async t => {
@@ -184,11 +180,10 @@ test('invalid signatures are never delivered', async t => {
   assert.equal(result.data.state, 'unknown'); assert.equal(result.data.signed_xdr, undefined);
 });
 
-test('restart preserves records and invalidates old credentials', async t => {
+test('restart invalidates old credentials and requests', async t => {
   const f = await fixture(t), a = await f.connect(); await f.request('/v1/requests', input(), a); await f.bridge.close();
-  const restarted = createBridge({ stateDir: f.directory, port: 0 }); t.after(() => restarted.close()); await restarted.listen();
-  const record = JSON.parse(readFileSync(join(f.directory, readdirSync(f.directory).find(x => x.startsWith('request-')))));
-  assert.ok(['denied', 'expired'].includes(record.state));
+  assert.equal(f.calls(), 0);
+  const restarted = createBridge({ port: 0 }); t.after(() => restarted.close()); await restarted.listen();
   const origin = `http://127.0.0.1:${restarted.server.address().port}`; restarted.setPublicOrigin(origin);
   const response = await fetch(origin + '/v1/account', { headers: { Origin: a.site, Authorization: `Bearer ${a.token}` } }); assert.equal(response.status, 401);
 });
@@ -196,13 +191,12 @@ test('restart preserves records and invalidates old credentials', async t => {
 test('SDK uses the code and wallet picker, signs, and reconnects after revocation', async t => {
   const f = await fixture(t), site = 'https://adapter.example', client = f.client(site);
   const connect = () => client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
-  assert.equal((await connect()).address, publicKey); const old = client.connectionId;
+  assert.equal((await connect()).address, publicKey); const old = client.token;
   // The address and network default to the connected account.
-  const request = input('sdk'); const result = await client.signTransaction(request.transaction_xdr, {
-    requestId: request.id, onRequest: () => f.decide(),
-  }); assert.ok(result.signedTxXdr); assert.equal(result.signerAddress, publicKey);
+  const signing = client.signTransaction(input('sdk').transaction_xdr); await f.decide();
+  const result = await signing; assert.ok(result.signedTxXdr); assert.equal(result.signerAddress, publicKey);
   await f.request('/v1/disconnect', {}, { site, token: client.token });
-  await connect(); assert.notEqual(client.connectionId, old);
+  await connect(); assert.notEqual(client.token, old);
   await client.disconnect(); assert.equal(client.token, null); assert.equal(client.account, null);
 });
 
@@ -211,10 +205,17 @@ test('SDK preserves denied state and clears a canceled wallet selection', async 
   await assert.rejects(client.connect({ code: f.bridge.pairing.code, selectWallet: async () => { throw Error('Canceled'); } }), /Canceled/);
   assert.equal(client.token, null);
   await client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
-  const r = input('denied-sdk');
-  await assert.rejects(client.signTransaction(r.transaction_xdr, { address: publicKey, networkPassphrase: Networks.TESTNET, requestId: r.id,
-    onRequest: () => f.decide(false),
-  }), error => error.requestState === 'denied');
+  const denied = client.signTransaction(input('denied-sdk').transaction_xdr); await f.decide(false);
+  await assert.rejects(denied, error => error.requestState === 'denied');
+});
+
+test('aborting an SDK request cancels its review and never signs', async t => {
+  const f = await fixture(t), client = f.client('https://adapter.example'), controller = new AbortController();
+  await client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
+  const signing = client.signTransaction(input('aborted').transaction_xdr, { signal: controller.signal });
+  await until(() => f.reviews() === 1); controller.abort();
+  await assert.rejects(signing); await until(() => f.decisions[0]?.signal.aborted);
+  assert.equal(f.calls(), 0);
 });
 
 test('invalid UTF-8 data names fail before review', () => {
@@ -223,10 +224,105 @@ test('invalid UTF-8 data names fail before review', () => {
   r.transaction_xdr = envelope.toXDR('base64'); assert.throws(() => inspectTransaction(r, publicKey), /UTF-8/);
 });
 
-test('closing the bridge aborts signing and preserves unknown state', async t => {
+test('closing the bridge aborts signing and reports it', async t => {
   let entered; const waiting = new Promise(resolve => { entered = resolve; });
   const f = await fixture(t, { sign: (_key, _hash, { signal }) => { entered(); return new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(Error('Aborted')), { once: true })); } });
   const a = await f.connect(); await f.request('/v1/requests', input(), a); await f.decide(); await waiting; await f.bridge.close();
-  const saved = JSON.parse(readFileSync(join(f.directory, readdirSync(f.directory).find(x => x.startsWith('request-')))));
-  assert.equal(saved.state, 'unknown'); assert.equal(saved.signed_xdr, undefined); assert.ok(!readdirSync(f.directory).includes('.web-lock'));
+  assert.equal(f.logs.length, 1); assert.match(f.logs[0], /^Signature withheld or stopped for /);
+});
+
+test('canceling a signed request withholds its result', async t => {
+  const f = await fixture(t), a = await f.connect();
+  await f.request('/v1/requests', input(), a); await f.decide(); assert.equal((await f.result(a)).data.state, 'signed');
+  const canceled = await f.request('/v1/requests/request-1/cancel', {}, a);
+  assert.equal(canceled.data.state, 'unknown'); assert.equal(canceled.data.signed_xdr, undefined);
+  assert.match(f.logs.at(-1), /^Signature withheld or stopped/);
+});
+
+test('SDK retries a failed poll and a lost first response', async t => {
+  const f = await fixture(t); let failures = 2;
+  const flaky = async (url, options) => {
+    const response = await fetch(url, { ...options, headers: { ...options.headers, Origin: 'https://adapter.example' } });
+    if (failures && url.includes('/v1/requests')) { failures--; return { ok: false, status: 502, json: async () => { throw SyntaxError('HTML'); } }; }
+    return response;
+  };
+  const client = f.client('https://adapter.example', { fetch: flaky });
+  await client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
+  const signing = client.signTransaction(input('flaky').transaction_xdr); await f.decide();
+  assert.ok((await signing).signedTxXdr); assert.equal(f.calls(), 1); assert.equal(f.reviews(), 1);
+});
+
+test('leaving the page cancels an open SDK request', async t => {
+  const f = await fixture(t), page = new EventTarget(), sent = [];
+  const client = f.client('https://adapter.example', { page, fetch: (url, options) => { sent.push({ url, options }); return fetch(url, { ...options, headers: { ...options.headers, Origin: 'https://adapter.example' } }); } });
+  await client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
+  const signing = client.signTransaction(input('leave').transaction_xdr).catch(error => error);
+  await until(() => f.reviews() === 1); page.dispatchEvent(new Event('pagehide'));
+  await until(() => f.decisions[0]?.signal.aborted);
+  const error = await signing; assert.match(error.message, /page closed/); assert.equal(error.canceled, true); assert.equal(f.calls(), 0);
+  const leaving = sent.find(item => item.url.endsWith('/cancel') && item.options.keepalive);
+  assert.ok(leaving); assert.equal(leaving.options.headers.Authorization, `Bearer ${client.token}`);
+});
+
+test('a cancel that arrives before its create blocks that request ID', async t => {
+  const f = await fixture(t), a = await f.connect();
+  const early = await f.request('/v1/requests/late/cancel', {}, a); assert.equal(early.status, 200);
+  assert.equal((await f.request('/v1/requests', input('late'), a)).status, 409); assert.equal(f.reviews(), 0);
+});
+
+test('concurrent key listings share one signer process', async t => {
+  let listings = 0, release; const gate = new Promise(resolve => { release = resolve; });
+  const f = await fixture(t, { listSigners: async () => { listings++; await gate; return [{ public_key: publicKey }]; } });
+  const { data } = await f.request('/v1/connect', { code: f.bridge.pairing.code }); const a = { token: data.token };
+  const calls = Array.from({ length: 20 }, () => f.request('/v1/signers', undefined, a));
+  await delay(20); release(); await Promise.all(calls); assert.equal(listings, 1);
+});
+
+test('SDK retries stop when the connection changes', async t => {
+  const f = await fixture(t); let fail = true, client;
+  const flaky = async (url, options) => {
+    if (fail && url.endsWith('/v1/requests')) { fail = false; client.token = 'replaced'; return { ok: false, status: 502, json: async () => ({}) }; }
+    return fetch(url, { ...options, headers: { ...options.headers, Origin: 'https://adapter.example' } });
+  };
+  client = f.client('https://adapter.example', { fetch: flaky });
+  await client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
+  await assert.rejects(client.signTransaction(input('changed').transaction_xdr), /connection changed/);
+  assert.equal(f.reviews(), 0);
+});
+
+test('SDK reports an unconfirmed cancel and accepts a primitive abort reason', async t => {
+  const f = await fixture(t); let down = false;
+  const client = f.client('https://adapter.example', { fetch: async (url, options) => {
+    if (down) throw TypeError('offline');
+    return fetch(url, { ...options, headers: { ...options.headers, Origin: 'https://adapter.example' } });
+  } });
+  await client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
+  const controller = new AbortController();
+  const signing = client.signTransaction(input('offline').transaction_xdr, { signal: controller.signal }).catch(error => error);
+  await until(() => f.reviews() === 1); down = true; controller.abort('stop');
+  const error = await signing; assert.ok(error instanceof Error); assert.equal(error.canceled, false);
+});
+
+test('SDK does not retry a non-JSON 4xx response', async t => {
+  const f = await fixture(t); let posts = 0;
+  const client = f.client('https://adapter.example', { fetch: async (url, options) => {
+    if (url.endsWith('/v1/requests')) { posts++; return { ok: false, status: 413, json: async () => { throw SyntaxError('HTML'); } }; }
+    return fetch(url, { ...options, headers: { ...options.headers, Origin: 'https://adapter.example' } });
+  } });
+  await client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
+  await assert.rejects(client.signTransaction(input('big').transaction_xdr), /unreadable response \(413\)/); assert.equal(posts, 1);
+});
+
+test('a slow disconnect does not clear a newer connection', async t => {
+  const f = await fixture(t); let hold, release;
+  const client = f.client('https://adapter.example', { fetch: async (url, options) => {
+    const response = fetch(url, { ...options, headers: { ...options.headers, Origin: 'https://adapter.example' } });
+    if (hold && url.endsWith('/v1/disconnect')) { await new Promise(resolve => { release = resolve; }); }
+    return response;
+  } });
+  await client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
+  hold = true; const leaving = client.disconnect(); await until(() => release); hold = false;
+  client.token = null; await client.connect({ code: f.bridge.pairing.code, selectWallet: async keys => keys[0].public_key });
+  const current = client.token; release(); await leaving;
+  assert.equal(client.token, current); assert.ok(current);
 });
