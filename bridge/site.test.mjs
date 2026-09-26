@@ -9,6 +9,7 @@ function element() { return { hidden: false, disabled: false, open: false, value
 function contextFor(html, extras = {}) {
   const elements = new Map([...html.matchAll(/id="([^"]+)"/g)].map(m => [m[1], element()]));
   const context = vm.createContext({ document: { getElementById: id => elements.get(id), createElement: element }, URLSearchParams, AbortSignal, AbortController,
+    createCodeView: node => text => { node.textContent = text; }, highlightConnectionCommand() {},
     createActivityLog: () => ({ record() {}, transaction() {}, wrapFetch: fetcher => fetcher }),
     WalletermConnect: class {
       constructor(_element, { onChange }) { this.onChange = onChange; }
@@ -47,7 +48,7 @@ test('an unknown signing outcome remains distinct from a confirmed cancellation'
     assert.equal(f.run('pending.state'), 'signing_unknown');
   }
 });
-test('demo denial and expiry permit clearing; unknown submission remains protected after reload', async () => {
+test('demo denial and expiry finish the request; unknown submission remains protected after reload', async () => {
   const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8');
   const source = readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, '');
   let stored;
@@ -55,7 +56,7 @@ test('demo denial and expiry permit clearing; unknown submission remains protect
   f.run(source);
   for (const state of ['denied', 'expired']) {
     await f.run(`pending = {xdr:'mock', state:'waiting'}; wallet = {token:'mock', signTransaction: async () => {throw Object.assign(Error('${state}'), {requestState:'${state}'})}}; requestSignature().catch(() => {});`);
-    f.run('render()'); assert.equal(f.run('pending.state'), state); assert.equal(f.elements.get('clear').hidden, false);
+    f.run('render()'); assert.equal(f.run('pending.state'), state); assert.equal(f.elements.get('clear').hidden, true);
   }
   f.run("pending={kind:'note', address:'GSOURCE', xdr:'mock', state:'unknown', hash:'original'}; save(); render();");
   assert.equal(f.elements.get('clear').hidden, true); assert.equal(f.elements.get('check').hidden, false);
@@ -325,4 +326,70 @@ test('only an active request shows progress; stopped signing cannot be canceled 
   assert.equal(f.elements.get('cancel-request').disabled, true); assert.match(f.elements.get('review-progress').textContent, /Canceling/);
   f.run("busy=false; pending.state='signing_unknown'; signingController=null; render()");
   assert.equal(f.elements.get('review-progress').hidden, true);
+});
+
+async function completedFixture(state = 'submitted') {
+  const sdk = await import('@stellar/stellar-sdk');
+  const original = sdk.Keypair.random().publicKey(), next = sdk.Keypair.random().publicKey();
+  const tx = new sdk.TransactionBuilder(new sdk.Account(original, '1'), { fee: '100', networkPassphrase: sdk.Networks.TESTNET })
+    .addOperation(sdk.Operation.manageData({ name: 'previous', value: 'done' })).setTimeout(180).build();
+  const previous = { kind: 'note', state, address: original, hash: Buffer.from(tx.hash()).toString('hex'), xdr: tx.toXDR(), result: { successful: true } };
+  const store = { value: JSON.stringify(previous), getItem() { return this.value; }, setItem(_key, value) { this.value = value; }, removeItem() { this.value = null; } };
+  const events = []; let reads = 0, signs = 0;
+  const client = { token: 'mock-session', signTransaction() { signs++; } };
+  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    StellarSdk: sdk, crypto: globalThis.crypto, localStorage: store, client, next,
+    fetch: async () => { reads++; return ok({ sequence: '10' }); },
+    createActivityLog: () => ({ record() {}, transaction(value) { if (value) events.push(JSON.parse(JSON.stringify(value))); }, wrapFetch: fetcher => fetcher }),
+  });
+  f.run(readFileSync(new URL('../demo/site/app.js', import.meta.url), 'utf8').replace(/^import .*\n/gm, ''));
+  f.run('connection.onChange({client, account:{address:next}})');
+  return { ...f, store, events, previous, next, reads: () => reads, signs: () => signs };
+}
+
+test('completed transactions permit another action after wallet switching without a separate clear step', async () => {
+  for (const state of ['submitted', 'canceled', 'denied', 'expired', 'failed']) {
+    const f = await completedFixture(state);
+    for (const name of ['note', 'payment', 'offer', 'cancel-offer']) assert.equal(f.elements.get(name).disabled, false, state);
+    assert.equal(f.elements.get('clear').hidden, true);
+    assert.equal(f.elements.get('review').open, false);
+    assert.equal(f.elements.get('transaction-record').hidden, false);
+    f.elements.get('open-review').onclick(); assert.equal(f.elements.get('review').open, true);
+    f.elements.get('close-review').onclick();
+    await f.elements.get('note').onclick();
+    assert.equal(f.run('pending.state'), 'review'); assert.equal(f.run('pending.address'), f.next);
+    assert.notEqual(f.run('pending.hash'), f.previous.hash);
+    assert.equal(JSON.parse(f.store.value).address, f.next);
+    assert.ok(f.events.some(event => event.hash === f.previous.hash && event.state === state));
+    assert.equal(f.signs(), 0); assert.equal(f.reads(), 1);
+  }
+});
+
+test('unfinished transactions still prevent replacement after wallet switching', async () => {
+  for (const state of ['review', 'signed', 'waiting', 'signing_unknown', 'submitting', 'unknown']) {
+    const f = await completedFixture(state), before = f.store.value;
+    for (const name of ['note', 'payment', 'offer', 'cancel-offer']) assert.equal(f.elements.get(name).disabled, true, state);
+    await f.elements.get('note').onclick();
+    assert.equal(f.store.value, before); assert.equal(f.run('pending.hash'), f.previous.hash);
+    assert.equal(f.reads(), 0); assert.equal(f.signs(), 0);
+  }
+});
+
+test('another tab changing a completed record prevents its automatic replacement', async () => {
+  const f = await completedFixture();
+  const changed = JSON.stringify({ ...f.previous, state: 'unknown' });
+  f.context.navigator.locks.request = async (_name, fn) => { f.store.value = changed; return fn(); };
+  await f.elements.get('note').onclick();
+  assert.equal(f.store.value, changed); assert.equal(f.run('pending.state'), 'unknown');
+  assert.equal(f.reads(), 0); assert.equal(f.signs(), 0);
+  assert.match(f.elements.get('status').textContent, /Another tab changed/);
+});
+
+test('a storage failure preserves the completed record and prevents a new build', async () => {
+  const f = await completedFixture(), before = f.store.value;
+  f.store.removeItem = () => { throw Error('Storage unavailable'); };
+  await f.elements.get('note').onclick();
+  assert.equal(f.store.value, before); assert.equal(f.run('pending.hash'), f.previous.hash);
+  assert.equal(f.reads(), 0); assert.equal(f.signs(), 0);
+  assert.match(f.elements.get('status').textContent, /Storage unavailable/);
 });

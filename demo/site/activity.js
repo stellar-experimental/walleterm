@@ -1,3 +1,4 @@
+import { createCodeView } from './code-view.js';
 // Demo-only activity history. Never inspect private keys or persist connection credentials.
 const secretField = /^(token|accesstoken|refreshtoken|sessiontoken|capability|apikey|clientsecret|authorization|cookie|setcookie|password|code|connectioncode|grantid|privatekey|secretkey|seed)$/i;
 export function safeData(value, depth = 0) {
@@ -136,13 +137,13 @@ export function createActivityLog(element, { decodeSigned } = {}) {
     <p class="activity-storage" data-log="storage" hidden>New activity is available in this tab but cannot be saved. Export JSON to keep it.</p>
     <p class="activity-empty" data-log="empty">Your activity will appear here. Connect a wallet or try a testnet action.</p>
     <div class="activity-events" data-log="events"></div><button type="button" class="activity-more" data-log="more" hidden>Show more activity</button><p class="activity-notice" data-log="notice" role="status"></p>`;
-  const $ = name => element.querySelector(`[data-log="${name}"]`), rows = new Map(); let limit = 40;
+  const $ = name => element.querySelector(`[data-log="${name}"]`), rows = new Map(), copying = new WeakSet(); let limit = 40;
   const copy = async (value, button) => {
-    if (button.disabled) return;
-    const title = button.textContent; button.disabled = true; button.textContent = 'Copying…'; button.classList.add('activity-loading');
+    if (copying.has(button)) return;
+    const title = button.textContent; copying.add(button);
     try { await navigator.clipboard.writeText(value); $('notice').textContent = `Copied ${title.replace(/^Copy /, '')}.`; }
     catch { $('notice').textContent = 'Copy failed. Expand the JSON to select and copy the value.'; }
-    finally { button.disabled = false; button.textContent = title; button.classList.remove('activity-loading'); }
+    finally { copying.delete(button); }
   };
   const button = (title, value) => {
     const node = document.createElement('button'); node.type = 'button'; node.textContent = title;
@@ -165,10 +166,10 @@ export function createActivityLog(element, { decodeSigned } = {}) {
     values(event.data, 'signatures').forEach((signature, index) => actions.append(button(index ? `Copy signature ${index + 1}` : 'Copy signature', signature)));
     const xdr = values(event.data, 'signed_xdr')[0] || values(event.data, 'xdr')[0] || values(event.data, 'transaction_xdr')[0];
     if (xdr) actions.append(button('Copy XDR', xdr));
-    const pre = document.createElement('pre'); pre.tabIndex = 0;
-    pre.setAttribute('role', 'region'); pre.setAttribute('aria-label', 'Event JSON');
-    pre.textContent = JSON.stringify(event.data, null, 2);
-    detail.append(actions, pre); node.append(detail); rows.set(event.id, node); return node;
+    const code = document.createElement('div');
+    const updateCode = createCodeView(code, { label: 'JSON', disclosure: node });
+    updateCode(JSON.stringify(event.data, null, 2));
+    detail.append(actions, code); node.append(detail); rows.set(event.id, node); return node;
   };
   const history = new ActivityHistory({ decodeSigned, changed: () => render() });
   function render() {
@@ -177,7 +178,6 @@ export function createActivityLog(element, { decodeSigned } = {}) {
     const visible = matching.slice(0, limit), nodes = visible.map(row), keep = new Set(nodes), list = $('events');
     for (const child of [...list.children]) if (!keep.has(child)) child.remove();
     nodes.forEach((node, index) => { if (list.children[index] !== node) list.insertBefore(node, list.children[index] || null); });
-    $('count').classList.toggle('activity-loading', history.loading);
     $('count').textContent = history.loading ? 'Loading saved activity…' : `${matching.length} ${matching.length === 1 ? 'event' : 'events'}${term || category ? ` of ${history.events.length}` : ''}`;
     $('empty').hidden = !!matching.length; $('empty').textContent = history.events.length ? 'No activity matches this search.' : 'Your activity will appear here. Connect a wallet or try a testnet action.';
     $('storage').hidden = !history.unsaved; $('more').hidden = matching.length <= limit; $('export').disabled = history.loading || !history.events.length;

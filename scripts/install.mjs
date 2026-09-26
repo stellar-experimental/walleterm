@@ -19,7 +19,7 @@ try {
   }
   const files = ['package.json', 'package-lock.json',
     'bridge/entry.mjs', 'bridge/launch.mjs', 'bridge/runtime.mjs', 'bridge/tunnel-child.mjs', 'bridge/server.mjs', 'bridge/signer.mjs', 'bridge/transaction.mjs',
-    'demo/entry.mjs', 'demo/server.mjs', 'demo/site/app.js', 'demo/site/activity.js', 'demo/site/activity.css', 'demo/site/index.html', 'demo/site/style.css', 'sdk/walleterm.js', 'sdk/connect.js', 'sdk/connect.css', 'sdk/scan.js'];
+    'demo/entry.mjs', 'demo/server.mjs', 'demo/site/code-view.js', 'demo/site/code-view.css', 'demo/site/vendor/syntax.js', 'demo/site/vendor/syntax.LICENSE', 'demo/site/app.js', 'demo/site/activity.js', 'demo/site/activity.css', 'demo/site/index.html', 'demo/site/style.css', 'sdk/walleterm.js', 'sdk/connect.js', 'sdk/connect.css', 'sdk/scan.js'];
   const versions = join(prefix, 'share', 'walleterm', 'releases');
   mkdirSync(versions, { recursive: true });
   stage = mkdtempSync(join(versions, '.install-'));

@@ -7,11 +7,18 @@
   },
   "scripts": {
     "test": "node --test bridge/*.test.mjs scripts/*.test.mjs tests/*.test.mjs && node tests/contracts.mjs && node tests/extended-contracts.mjs && node tests/cap85.mjs",
-    "test:live": "node tests/live.mjs"
+    "test:live": "node tests/live.mjs",
+    "build:syntax": "node scripts/build-syntax.mjs",
+    "check:syntax": "node scripts/build-syntax.mjs --check"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "17.1.0",
     "jsqr": "1.4.0",
     "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "@twinkleplop/bash": "0.1.5",
+    "@twinkleplop/json": "0.1.5",
+    "esbuild": "0.28.2"
   }
 }

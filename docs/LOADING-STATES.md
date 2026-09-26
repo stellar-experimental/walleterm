@@ -28,7 +28,7 @@ The implementation uses local CSS. It does not add React or a package dependency
 | Refreshing connected wallets | Refresh indicator | Duplicate refresh and wallet selection stay disabled. |
 | Changing the active wallet | Indicator on the selected row | Transaction actions stay disabled until the accepted account is published. |
 | Disconnecting | Disconnect indicator | Connection changes and transaction actions stay disabled until completion. |
-| Copying the address | Address button indicator | The address button stays disabled until the clipboard request finishes. |
+| Copying the address | Confirmation after completion | The button keeps its label, size, and appearance. An internal guard prevents duplicate copies. |
 
 The UI blocks duplicate requests in both the controls and their handlers.
 It updates form readiness after typing, scanning, opening, and request completion.
@@ -53,8 +53,8 @@ The existing wallet-switch cancellation behavior during signing remains unchange
 | Submitting | Submission progress and disabled Submit button | Check and Clear remain unavailable during submission. |
 | Checking the original result | Check progress and disabled Check button | Duplicate checks stay disabled. |
 | Stopped or unknown result | Existing result and recovery instructions | No spinner suggests an active request. Existing recovery restrictions remain. |
-| Loading saved activity | Activity loading indicator | Export stays disabled until saved history arrives. |
-| Copying event data | Copy button indicator | The selected Copy button stays disabled until completion. |
+| Loading saved activity | Status text without a spinner | Export stays disabled until saved history arrives. |
+| Copying event data | Confirmation after completion | The button keeps its label, size, and appearance. An internal guard prevents duplicate copies. |
 
 Closing transaction details remains available during a request.
 The compact transaction record shows progress when the modal is closed.
@@ -70,7 +70,7 @@ Search, filtering, and export use local data and do not show artificial waiting 
 - Activity tests also verify that the history-loading state ends after restoration.
 - Browser checks used isolated mock keys and mocked Horizon and Friendbot responses.
 - Delayed responses covered discovery, wallet acceptance, switching, funding, signing, submission, checks, and disconnect.
-- Browser checks covered invalid connection codes, camera denial, manual fallback, signing cancellation, and clipboard loading.
+- Browser checks covered invalid connection codes, camera denial, manual fallback, signing cancellation, and clipboard completion feedback.
 - Desktop and mobile checks covered 1440px and 390px viewports.
 - Reduced-motion checks confirmed that the active wallet indicator stops rotating.
 - The activity accessibility check reported zero violations and zero incomplete checks.
@@ -120,3 +120,13 @@ The public page reported no browser errors.
 - `bridge/site.test.mjs`
 - `bridge/activity.test.mjs`
 - `docs/LOADING-STATES.md`
+
+## Instant action feedback
+
+Copy actions use internal duplicate-request guards without changing button appearance.
+They show a status message after success or failure.
+Saved activity restoration uses status text without a spinner.
+
+The follow-up checks passed 38 connection, activity, and demo tests.
+Browser checks held clipboard promises open and confirmed stable labels, widths, and enabled appearance.
+Repeated clicks made one clipboard request. Success and failure messages remained available.
