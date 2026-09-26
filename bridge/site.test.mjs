@@ -9,6 +9,7 @@ function element() { return { hidden: false, disabled: false, open: false, value
 function contextFor(html, extras = {}) {
   const elements = new Map([...html.matchAll(/id="([^"]+)"/g)].map(m => [m[1], element()]));
   const context = vm.createContext({ document: { getElementById: id => elements.get(id), createElement: element }, URLSearchParams, AbortSignal, AbortController,
+    createCodeView: node => text => { node.textContent = text; }, highlightConnectionCommand() {},
     createActivityLog: () => ({ record() {}, transaction() {}, wrapFetch: fetcher => fetcher }),
     WalletermConnect: class {
       constructor(_element, { onChange }) { this.onChange = onChange; }

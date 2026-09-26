@@ -1,3 +1,4 @@
+import { createCodeView } from './code-view.js';
 // Demo-only activity history. Never inspect private keys or persist connection credentials.
 const secretField = /^(token|accesstoken|refreshtoken|sessiontoken|capability|apikey|clientsecret|authorization|cookie|setcookie|password|code|connectioncode|grantid|privatekey|secretkey|seed)$/i;
 export function safeData(value, depth = 0) {
@@ -165,10 +166,10 @@ export function createActivityLog(element, { decodeSigned } = {}) {
     values(event.data, 'signatures').forEach((signature, index) => actions.append(button(index ? `Copy signature ${index + 1}` : 'Copy signature', signature)));
     const xdr = values(event.data, 'signed_xdr')[0] || values(event.data, 'xdr')[0] || values(event.data, 'transaction_xdr')[0];
     if (xdr) actions.append(button('Copy XDR', xdr));
-    const pre = document.createElement('pre'); pre.tabIndex = 0;
-    pre.setAttribute('role', 'region'); pre.setAttribute('aria-label', 'Event JSON');
-    pre.textContent = JSON.stringify(event.data, null, 2);
-    detail.append(actions, pre); node.append(detail); rows.set(event.id, node); return node;
+    const code = document.createElement('div');
+    const updateCode = createCodeView(code, { label: 'JSON', disclosure: node });
+    updateCode(JSON.stringify(event.data, null, 2));
+    detail.append(actions, code); node.append(detail); rows.set(event.id, node); return node;
   };
   const history = new ActivityHistory({ decodeSigned, changed: () => render() });
   function render() {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Walleterm demo</title>
-  <link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/activity.css"><link rel="stylesheet" href="/sdk/connect.css">
+  <link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/activity.css"><link rel="stylesheet" href="/sdk/connect.css"><link rel="stylesheet" href="/code-view.css">
   <script defer src="/stellar-sdk.js"></script><script defer type="module" src="/app.js"></script>
 </head>
 <body>
@@ -33,7 +33,7 @@
         <p id="review-progress" class="review-progress demo-loading" role="status" hidden></p>
         <p id="review-status" class="review-status" role="status"></p>
         <dl id="review-summary" class="review-summary"></dl>
-        <details id="transaction-details"><summary>Transaction details</summary><pre id="details"></pre></details>
+        <details id="transaction-details"><summary>Transaction details</summary><div id="details"></div></details>
       </div>
       <div class="review-footer"><p id="review-note">Closing this window keeps the transaction.</p><div class="review-buttons"><button id="sign" hidden>Sign</button><button id="submit" hidden>Submit to testnet</button><button id="check" class="secondary" hidden>Check original transaction</button><button id="cancel-request" class="secondary" hidden>Cancel signing request</button><button id="clear" class="secondary" hidden>Start another request</button></div></div>
     </dialog>

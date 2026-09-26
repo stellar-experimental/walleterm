@@ -25,7 +25,7 @@ for (const fail of [true, false]) test(`installation ${fail ? 'failure preserves
       const release = join(binary, '..', '..');
       assert.equal(existsSync(join(release, 'bridge', 'entry.mjs')), true);
       assert.equal(existsSync(join(release, 'demo', 'entry.mjs')), true);
-      for (const asset of ['activity.js', 'activity.css']) assert.equal(existsSync(join(release, 'demo', 'site', asset)), true);
+      for (const asset of ['activity.js', 'activity.css', 'code-view.js', 'code-view.css', 'vendor/syntax.js', 'vendor/syntax.LICENSE']) assert.equal(existsSync(join(release, 'demo', 'site', asset)), true);
       for (const asset of ['walleterm.js', 'connect.js', 'connect.css', 'scan.js']) assert.equal(existsSync(join(release, 'sdk', asset)), true);
       assert.equal(existsSync(join(release, 'bridge', 'tunnel-child.mjs')), true);
       assert.equal(realpathSync(join(prefix, 'bin', 'stellar-walleterm')), binary);

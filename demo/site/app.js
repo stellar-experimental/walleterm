@@ -1,6 +1,8 @@
+import { createCodeView, highlightConnectionCommand } from '/code-view.js';
 import { WalletermConnect } from '/sdk/connect.js';
 import { createActivityLog } from '/activity.js';
 const $ = id => document.getElementById(id);
+const updateDetails = createCodeView($('details'), { label: 'JSON', disclosure: $('transaction-details') });
 const { Account, Asset, Keypair, Networks, Operation, StrKey, TransactionBuilder, xdr } = globalThis.StellarSdk;
 const HORIZON = 'https://horizon-testnet.stellar.org';
 const ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
@@ -19,6 +21,7 @@ const connection = new WalletermConnect($('wallet-connection'), { onBusyChange: 
   status(account ? 'Wallet connected. Choose a testnet action.' : 'The website is disconnected.');
   render();
 } });
+highlightConnectionCommand($('wallet-connection'));
 function progressLabel(text) { actionProgress = text; render(); }
 function status(text) {
   activity.record('status', text);
@@ -45,7 +48,7 @@ $('review').addEventListener('click', event => {
 });
 $('review').addEventListener('keydown', event => {
   if (event.key !== 'Tab') return;
-  const controls = [...$('review').querySelectorAll('button:not(:disabled), summary')].filter(node => node.getClientRects().length);
+  const controls = [...$('review').querySelectorAll('button:not(:disabled), summary, [tabindex="0"]')].filter(node => node.getClientRects().length);
   const first = controls[0], last = controls.at(-1);
   if (event.shiftKey && document.activeElement === first || !event.shiftKey && document.activeElement === last) {
     event.preventDefault(); (event.shiftKey ? last : first)?.focus();
@@ -135,8 +138,8 @@ function render() {
     const term = document.createElement('dt'), detail = document.createElement('dd');
     term.textContent = label; detail.textContent = value; $('review-summary').append(term, detail);
   }
-  $('details').textContent = JSON.stringify({ action: pending.kind, state: pending.state, signer: pending.address, recipient: pending.recipient, hash: pending.hash,
-    ...(pending.state === 'review' ? { transaction: describe(pending.xdr) } : {}), result: pending.result }, null, 2);
+  updateDetails(JSON.stringify({ action: pending.kind, state: pending.state, signer: pending.address, recipient: pending.recipient, hash: pending.hash,
+    ...(pending.state === 'review' ? { transaction: describe(pending.xdr) } : {}), result: pending.result }, null, 2));
   $('submit').hidden = pending.state !== 'signed' && !(busy && actionPhase === 'submitting'); $('submit').disabled = busy || connection.working || journalBlocked || !pending.signed_xdr;
   $('submit').textContent = busy && actionPhase === 'submitting' ? 'Submitting…' : 'Submit to testnet';
   $('check').hidden = !['submitting', 'unknown', 'submitted'].includes(pending.state); $('check').disabled = busy || connection.working || journalBlocked;
