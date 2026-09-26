@@ -349,9 +349,12 @@ export function createActivityLog(
     try {
       await navigator.clipboard.writeText(value);
       $('notice').textContent = `Copied ${(title || '').replace(/^Copy /, '')}.`;
+      button.textContent = 'Copied ✓';
+      await new Promise((resolve) => setTimeout(resolve, 1500));
     } catch {
       $('notice').textContent = 'Copy failed. Expand the JSON to select and copy the value.';
     } finally {
+      button.textContent = title;
       copying.delete(button);
     }
   };

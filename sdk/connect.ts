@@ -65,7 +65,7 @@ export class WalletermConnect {
       <div class="wt-menu" data-wt="menu" hidden role="dialog" aria-label="Wallet connection">
         <div class="wt-menu-heading"><span class="wt-brand">Walleterm</span><span class="wt-network">Testnet</span></div>
         <p class="wt-caption">Active wallet</p><strong data-wt="wallet-name"></strong>
-        <button type="button" class="wt-address" data-wt="copy" aria-label="Copy wallet address"><span data-wt="address"></span><span class="wt-copy-label">Copy address</span></button>
+        <button type="button" class="wt-address" data-wt="copy" aria-label="Copy wallet address"><span data-wt="address"></span><span class="wt-copy-label" data-wt="copy-label">Copy address</span></button>
         <div class="wt-menu-section"><div class="wt-list-heading"><span>Your wallets</span><button type="button" class="wt-text-button" data-wt="refresh">Refresh</button></div><div data-wt="wallets" class="wt-wallets"></div></div>
         <p class="wt-message" data-wt="menu-status" role="status"></p>
         <div class="wt-tunnel"><span>Connected tunnel</span><span data-wt="tunnel"></span></div>
@@ -158,9 +158,12 @@ export class WalletermConnect {
       try {
         await navigator.clipboard.writeText(this.account.address!);
         this.message('Address copied.', true);
+        this.$('copy-label').textContent = 'Copied ✓';
+        await new Promise((resolve) => setTimeout(resolve, 1500));
       } catch {
         this.message('Copy the address from the button text.', true);
       } finally {
+        this.$('copy-label').textContent = 'Copy address';
         this.copying = false;
       }
     };
