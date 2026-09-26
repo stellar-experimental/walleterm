@@ -353,13 +353,16 @@ function render() {
   $('record-title').textContent = title;
   $('record-state').textContent = progress || state;
   $('transaction-record').hidden = !pending && !(busy && selectedAction);
+  const needsStatusCheck = pending && ['submitting', 'unknown'].includes(pending.state);
   $('review-note').textContent = busy
     ? 'This action continues if you close this window.'
-    : hasFinishedTransaction()
-      ? 'This result is in Activity. Close this window to choose another action.'
-      : pending
-        ? 'Closing this window keeps the transaction.'
-        : 'Close this window to choose another action.';
+    : needsStatusCheck
+      ? 'We could not confirm the result. Check before trying another transaction.'
+      : hasFinishedTransaction()
+        ? 'This result is in Activity. Close this window to choose another action.'
+        : pending
+          ? 'Closing this window keeps the transaction.'
+          : 'Close this window to choose another action.';
   $('transaction-details').hidden = !pending;
   $('review-summary').replaceChildren();
   if (!pending) {
@@ -396,9 +399,9 @@ function render() {
   $('submit').hidden = pending.state !== 'signed' && !(busy && actionPhase === 'submitting');
   $('submit').disabled = busy || connection.working || journalBlocked || !pending.signed_xdr;
   $('submit').textContent = busy && actionPhase === 'submitting' ? 'Submitting…' : 'Submit to testnet';
-  $('check').hidden = !['submitting', 'unknown', 'submitted'].includes(pending.state);
+  $('check').hidden = !needsStatusCheck || (busy && actionPhase !== 'checking');
   $('check').disabled = busy || connection.working || journalBlocked;
-  $('check').textContent = busy && actionPhase === 'checking' ? 'Checking…' : 'Check original transaction';
+  $('check').textContent = busy && actionPhase === 'checking' ? 'Checking…' : 'Check transaction status';
   $('sign').hidden = pending.state !== 'review' && !(busy && actionPhase === 'signing');
   $('sign').disabled =
     busy || connection.working || journalBlocked || !pending.xdr || !connectedTo(pending.address);
@@ -687,7 +690,7 @@ $('submit').onclick = () =>
   }, 'submitting');
 $('check').onclick = () =>
   action(async () => {
-    if (!pending || !['submitting', 'unknown', 'submitted'].includes(pending.state)) return;
+    if (!pending || !['submitting', 'unknown'].includes(pending.state)) return;
     status('Reading the ledger and checking the original transaction hash.');
     // Read the latest ledger first. Horizon ingests ledgers in order, so a later 404 covers that ledger.
     const latest = (await horizon<Page<{ closed_at: string }>>('/ledgers?order=desc&limit=1'))._embedded
