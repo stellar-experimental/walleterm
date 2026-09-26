@@ -5,7 +5,7 @@ import { scanConnection } from './scan.js';
 const short = (address: string) => `${address.slice(0, 7)}…${address.slice(-6)}`;
 
 // Optional connection UI. Transaction construction, review, and submission belong to the host site.
-// Load connect.css with this module. All credentials stay in the client instance, in memory.
+// Load connect.css with this module. Session storage is opt-in for reload recovery.
 import type { Account, Signer } from './types.js';
 
 interface ConnectElements {
@@ -25,6 +25,7 @@ export interface ConnectionChange {
   account: Account | null;
 }
 export interface ConnectUIOptions {
+  sessionStorageKey?: string;
   onChange?: (value: ConnectionChange) => void;
   onBusyChange?: (busy: boolean) => void;
   onStateChange?: (state: ConnectionState) => void;
@@ -32,6 +33,8 @@ export interface ConnectUIOptions {
 export type ConnectionState = 'disconnected' | 'connected' | 'unreachable' | 'expired';
 
 export class WalletermConnect {
+  sessionStorageKey?: string;
+  destroyed = false;
   element: HTMLElement;
   onChange: (value: ConnectionChange) => void;
   onBusyChange: (busy: boolean) => void;
@@ -68,9 +71,15 @@ export class WalletermConnect {
   }
   constructor(
     element: HTMLElement,
-    { onChange = () => {}, onBusyChange = () => {}, onStateChange = () => {} }: ConnectUIOptions = {},
+    {
+      sessionStorageKey,
+      onChange = () => {},
+      onBusyChange = () => {},
+      onStateChange = () => {},
+    }: ConnectUIOptions = {},
   ) {
     this.element = element;
+    this.sessionStorageKey = sessionStorageKey;
     this.onChange = onChange;
     this.onBusyChange = onBusyChange;
     this.onStateChange = onStateChange;
@@ -110,7 +119,7 @@ export class WalletermConnect {
       </dialog>`;
     this.trigger = element.querySelector<HTMLButtonElement>('.wt-trigger')!;
     this.dialog = element.querySelector('dialog')!;
-    this.trigger.onclick = () => (this.account ? this.toggleMenu() : this.open());
+    this.trigger.onclick = () => (this.client ? this.toggleMenu() : this.open());
     this.$('close').onclick = () => this.close();
     this.$('reconnect').onclick = () => {
       this.hideMenu();
@@ -192,8 +201,11 @@ export class WalletermConnect {
     this.healthTimer = setInterval(this.wake, 15000);
     for (const event of ['online', 'pageshow', 'focus']) globalThis.addEventListener(event, this.wake);
     document.addEventListener('visibilitychange', this.wake);
+    // Defer callbacks until the host has assigned its connection component.
+    if (sessionStorageKey) queueMicrotask(() => void this.restoreSession());
   }
   destroy() {
+    this.destroyed = true;
     clearInterval(this.healthTimer);
     for (const event of ['online', 'pageshow', 'focus']) globalThis.removeEventListener(event, this.wake);
     document.removeEventListener('visibilitychange', this.wake);
@@ -206,20 +218,90 @@ export class WalletermConnect {
     this.update();
     this.onStateChange?.(state);
   }
-  async checkHealth() {
+  saveSession() {
+    if (!this.sessionStorageKey) return;
+    try {
+      if (this.client?.token)
+        globalThis.sessionStorage.setItem(
+          this.sessionStorageKey,
+          JSON.stringify({ version: 1, url: this.client.url, token: this.client.token }),
+        );
+      else globalThis.sessionStorage.removeItem(this.sessionStorageKey);
+    } catch {
+      // Storage can be disabled. The current connection still works in memory.
+    }
+  }
+  async restoreSession() {
+    if (!this.sessionStorageKey || this.client || this.working || this.destroyed) return;
+    try {
+      const saved = globalThis.sessionStorage.getItem(this.sessionStorageKey);
+      if (!saved) return;
+      const value = JSON.parse(saved);
+      if (
+        value?.version !== 1 ||
+        typeof value.url !== 'string' ||
+        typeof value.token !== 'string' ||
+        !/^[A-Za-z0-9_-]{43}$/.test(value.token)
+      )
+        throw Error('The saved connection is invalid.');
+      const client = new WalletermClient(value.url);
+      client.token = value.token;
+      // Recover the scope and revision from the bridge, never from browser storage.
+      client.walletScope = 'available';
+      client.revision = null;
+      this.client = client;
+      this.$('url').value = client.url;
+    } catch {
+      this.saveSession();
+      return;
+    }
+    this.phase = 'restoring';
+    this.setWorking(true);
+    try {
+      await this.checkHealth(true);
+    } finally {
+      this.phase = '';
+      this.setWorking(false);
+    }
+  }
+  async checkHealth(restoring = false) {
     const client = this.client;
-    if (!client || !this.account || this.checking || this.working || this.refreshing || client.selecting)
+    if (
+      !client ||
+      this.destroyed ||
+      this.checking ||
+      (this.working && !restoring) ||
+      this.refreshing ||
+      client.selecting
+    )
       return;
     this.checking = true;
     const generation = client.generation;
     try {
       const account = await client.getAddress();
-      if (client !== this.client || generation !== client.generation || this.working) return;
+      if (
+        this.destroyed ||
+        client !== this.client ||
+        generation !== client.generation ||
+        (this.working && !restoring)
+      )
+        return;
       if (!account.address) throw Error('The wallet is unavailable.');
+      const changed =
+        this.account?.address !== account.address ||
+        this.account?.networkPassphrase !== account.networkPassphrase;
       this.account = account;
+      this.saveSession();
       this.setState('connected');
+      if (changed) this.onChange({ client, account: { ...account } });
     } catch (errorValue) {
-      if (client !== this.client || generation !== client.generation || this.working) return;
+      if (
+        this.destroyed ||
+        client !== this.client ||
+        generation !== client.generation ||
+        (this.working && !restoring)
+      )
+        return;
       const error = requestError(errorValue);
       if (error.status === 401) {
         this.setState('expired');
@@ -263,6 +345,7 @@ export class WalletermConnect {
   sync() {
     if (this.client && !this.client.token) {
       this.client = null;
+      this.saveSession();
       this.account = null;
       this.wallets = [];
       this.setState('expired');
@@ -274,6 +357,7 @@ export class WalletermConnect {
   update() {
     const labels: Record<string, string> = {
       connecting: 'Connecting…',
+      restoring: 'Reconnecting…',
       selecting: 'Selecting wallet…',
       switching: 'Changing wallet…',
       disconnecting: 'Disconnecting…',
@@ -292,12 +376,12 @@ export class WalletermConnect {
       this.state === 'expired'
         ? 'The session expired. Connect with the current tunnel code.'
         : this.state === 'unreachable'
-          ? 'The tunnel is unavailable. Wake your Mac or use its new URL and code.'
+          ? 'The tunnel is unavailable. We will retry. Wake your Mac, or reconnect if its URL changed.'
           : this.notice;
     this.$('reconnect').hidden = this.state !== 'unreachable';
     this.$('reconnect').disabled = this.working || this.busy;
-    this.$('chevron').hidden = !this.account;
-    this.trigger.disabled = this.working || (!this.account && this.busy);
+    this.$('chevron').hidden = !this.client;
+    this.trigger.disabled = this.working || (!this.client && this.busy);
     this.loading(this.trigger, this.working && !this.dialog.open && !!this.$('menu').hidden);
     this.$('details-help').textContent = this.validDetails()
       ? 'Connection details are ready. Select Continue.'
@@ -340,8 +424,8 @@ export class WalletermConnect {
       this.$('wallet-name').textContent =
         this.wallets.find((key) => key.public_key === this.account?.address)?.comment || '1Password wallet';
       this.$('address').textContent = this.account.address!;
-      this.$('tunnel').textContent = new URL(this.client!.url).host;
     }
+    if (this.client) this.$('tunnel').textContent = new URL(this.client.url).host;
   }
   hideMenu() {
     this.$('menu').hidden = true;
@@ -613,6 +697,7 @@ export class WalletermConnect {
       }
       signal.throwIfAborted();
       this.client = next;
+      this.saveSession();
       this.account = account;
       this.setState('connected');
       this.wallets = this.nextWallets || [];
@@ -648,6 +733,7 @@ export class WalletermConnect {
         this.notice = 'Disconnected here. The tunnel did not confirm session revocation.';
       }
       this.client = null;
+      this.saveSession();
       this.account = null;
       this.setState('disconnected');
       this.wallets = [];

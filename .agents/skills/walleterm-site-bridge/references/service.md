@@ -104,7 +104,11 @@ Use the SDK instead of duplicating its session, revision, request-ID, and cancel
 
 ## Preserve unknown results
 
-Bridge sessions and SDK credentials remain in memory. Reloading the page needs a new connection code.
+The standalone SDK keeps credentials in memory.
+The connection component can enable reload recovery with a website-specific `sessionStorageKey`.
+The demo saves its bridge URL and session token in `sessionStorage` and checks `/v1/account` after reload.
+Recovery never repeats signing or submission. Disconnect and 401 responses clear the saved session.
+Network failures retain the saved session. Expired sessions require a new connection code.
 Restarting the bridge ends sessions and requests. It never retries signing.
 The SDK retries transport errors with the same request ID while that session remains valid.
 `error.requestState === 'unknown'` does not prove that no signature exists.

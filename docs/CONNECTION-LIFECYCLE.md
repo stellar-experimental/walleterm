@@ -41,6 +41,14 @@ Keep an existing page open when it contains an unresolved transaction. Preserve 
 
 ## Browser sessions and sleep
 
+The demo saves the bridge URL and session token in `sessionStorage` for the current tab.
+Reload checks `/v1/account` before it publishes the wallet or enables transaction actions.
+The bridge supplies the current wallet scope and selection revision.
+Recovery never reuses a connection code or repeats signing or submission.
+Disconnect and 401 responses remove the saved session.
+Browser storage failures leave the connection in memory.
+Other websites can enable this behavior with the connection component's `sessionStorageKey` option.
+
 The connection UI checks `/v1/account` every 15 seconds while the page is visible.
 Focus, network recovery, and restored pages also trigger a check. Checks never overlap.
 A failed network check shows an unavailable connection and retains its credentials.

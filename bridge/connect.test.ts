@@ -16,6 +16,7 @@ interface MockNode {
   setAttribute(): void;
   removeAttribute(): void;
   querySelector(): void;
+  replaceChildren(): void;
   focus(): void;
 }
 interface MockSigner {
@@ -31,6 +32,9 @@ interface Change {
 type ScanMock = (video: unknown, options: { signal: AbortSignal }) => unknown;
 // The members of the VM WalletermConnect instance that these tests drive.
 interface ConnectUI {
+  sessionStorageKey?: string;
+  restoreSession(): Promise<void>;
+  saveSession(): void;
   checkHealth(): Promise<void>;
   state: string;
   onStateChange: (state: string) => void;
@@ -70,6 +74,7 @@ function fixture(scanConnection: ScanMock, WalletermClient?: unknown) {
         setAttribute() {},
         removeAttribute() {},
         querySelector() {},
+        replaceChildren() {},
         focus() {
           focused = name;
         },
@@ -81,9 +86,16 @@ function fixture(scanConnection: ScanMock, WalletermClient?: unknown) {
   const context = vm.createContext({ scanConnection, WalletermClient, AbortController, AbortSignal, URL });
   // Errors must come from the page realm, as in the browser.
   vm.runInContext(browserScript(new URL('../sdk/errors.ts', import.meta.url)), context);
+  if (!WalletermClient)
+    vm.runInContext(browserScript(new URL('../sdk/walleterm.ts', import.meta.url)), context);
   vm.runInContext(browserScript(new URL('../sdk/connect.ts', import.meta.url)), context);
   const ui: ConnectUI = vm.runInContext('Object.create(WalletermConnect.prototype)', context);
   Object.assign(ui, {
+    client: null,
+    account: null,
+    wallets: [],
+    onChange() {},
+    onBusyChange() {},
     $: node,
     element: { querySelector: node, querySelectorAll: () => [] },
     trigger: node('trigger'),
@@ -106,6 +118,156 @@ function fixture(scanConnection: ScanMock, WalletermClient?: unknown) {
   return { ui, node, click, context, focused: () => focused };
 }
 const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+function savedConnection() {
+  const f = fixture(() => {});
+  const storage = new Map<string, string>();
+  const key = 'test-connection';
+  const token = 's'.repeat(43);
+  storage.set(key, JSON.stringify({ version: 1, url: 'https://bridge.example', token }));
+  Object.assign(f.context, {
+    sessionStorage: {
+      getItem: (name: string) => storage.get(name) ?? null,
+      setItem: (name: string, value: string) => storage.set(name, value),
+      removeItem: (name: string) => storage.delete(name),
+    },
+  });
+  f.ui.sessionStorageKey = key;
+  return { ...f, storage, key, token };
+}
+const recoveredAccount = {
+  public_key: 'GRECOVERED',
+  network_passphrase: 'testnet',
+  selection_revision: 7,
+  wallet_scope: 'available',
+};
+
+test('reload checks the saved session before publishing the wallet and uses the live selection revision', async () => {
+  const f = savedConnection();
+  const response = Promise.withResolvers<Response>();
+  const requests: string[] = [];
+  const changes: Change[] = [];
+  Object.assign(f.context, {
+    fetch: (url: string, options: RequestInit) => {
+      requests.push(url);
+      assert.equal(options.method, 'GET');
+      assert.equal(new Headers(options.headers).get('Authorization'), `Bearer ${f.token}`);
+      return response.promise;
+    },
+  });
+  Object.assign(f.ui, { onChange: (value: Change) => changes.push(value) });
+  const restoring = f.ui.restoreSession();
+  assert.equal(f.ui.working, true);
+  assert.equal(f.ui.account ?? null, null);
+  assert.equal(changes.length, 0);
+  response.resolve(Response.json(recoveredAccount));
+  await restoring;
+  assert.equal(f.ui.state, 'connected');
+  assert.equal(f.ui.account?.address, 'GRECOVERED');
+  assert.equal(f.ui.working, false);
+  assert.equal(Reflect.get(f.ui.client as object, 'revision'), 7);
+  assert.equal(Reflect.get(f.ui.client as object, 'walletScope'), 'available');
+  assert.equal(changes.length, 1);
+  assert.deepEqual(requests, ['https://bridge.example/v1/account']);
+  assert.equal(f.node('url').value, 'https://bridge.example');
+  assert.equal(f.node('code').value, '');
+  assert.deepEqual(Object.keys(JSON.parse(f.storage.get(f.key)!)).sort(), ['token', 'url', 'version']);
+});
+
+test('reload keeps an offline session and recovers it on the next health check without replaying requests', async () => {
+  const f = savedConnection();
+  let online = false;
+  const requests: string[] = [];
+  Object.assign(f.context, {
+    fetch: async (url: string) => {
+      requests.push(url);
+      if (!online) throw Error('Offline');
+      return Response.json(recoveredAccount);
+    },
+  });
+  await f.ui.restoreSession();
+  assert.equal(f.ui.state, 'unreachable');
+  assert.equal(f.ui.account ?? null, null);
+  assert.ok(f.storage.has(f.key));
+  assert.equal(f.ui.working, false);
+  f.node('menu').hidden = true;
+  f.ui.toggleMenu();
+  assert.equal(f.node('reconnect').hidden, false);
+  assert.equal(f.node('disconnect').disabled, false);
+  online = true;
+  await f.ui.checkHealth();
+  assert.equal(f.ui.state, 'connected');
+  assert.equal(f.ui.account?.address, 'GRECOVERED');
+  assert.deepEqual(requests, Array(2).fill('https://bridge.example/v1/account'));
+});
+
+test('reload removes a revoked or expired session and does not exchange the old connection code', async () => {
+  const f = savedConnection();
+  const requests: string[] = [];
+  Object.assign(f.context, {
+    fetch: async (url: string) => {
+      requests.push(url);
+      return Response.json({ error: { message: 'Expired' } }, { status: 401 });
+    },
+  });
+  await f.ui.restoreSession();
+  assert.equal(f.ui.state, 'expired');
+  assert.equal(f.ui.client, null);
+  assert.equal(f.ui.account, null);
+  assert.equal(f.storage.has(f.key), false);
+  assert.deepEqual(requests, ['https://bridge.example/v1/account']);
+});
+
+test('invalid saved details never send credentials, and unavailable storage does not break the UI', async () => {
+  const f = savedConnection();
+  let calls = 0;
+  Object.assign(f.context, { fetch: () => calls++ });
+  for (const saved of [
+    '{',
+    'null',
+    JSON.stringify({ version: 2, url: 'https://bridge.example', token: f.token }),
+    JSON.stringify({ version: 1, url: 'https://bridge.example', token: 'invalid' }),
+    JSON.stringify({ version: 1, url: 'https://bridge.example/path', token: f.token }),
+    JSON.stringify({ version: 1, url: 'http://bridge.example', token: f.token }),
+  ]) {
+    f.storage.set(f.key, saved);
+    await f.ui.restoreSession();
+    assert.equal(f.storage.has(f.key), false);
+    assert.equal(f.ui.client ?? null, null);
+  }
+  Object.assign(f.context, {
+    sessionStorage: {
+      getItem() {
+        throw Error('Storage disabled');
+      },
+      removeItem() {
+        throw Error('Storage disabled');
+      },
+      setItem() {
+        throw Error('Storage disabled');
+      },
+    },
+  });
+  await f.ui.restoreSession();
+  f.ui.saveSession();
+  assert.equal(calls, 0);
+  assert.equal(f.ui.working ?? false, false);
+});
+
+test('explicit disconnect clears saved credentials even when remote revocation fails', async () => {
+  const f = savedConnection();
+  Object.assign(f.context, {
+    fetch: async () => {
+      throw Error('Offline');
+    },
+  });
+  await f.ui.restoreSession();
+  await f.ui.disconnect();
+  assert.equal(f.storage.has(f.key), false);
+  assert.equal(f.ui.client, null);
+  assert.equal(f.ui.account, null);
+  assert.match(f.node('health').textContent ?? '', /did not confirm session revocation/);
+});
 
 test('health checks retain credentials through a network failure and recover the connection', async () => {
   const f = fixture(() => {});

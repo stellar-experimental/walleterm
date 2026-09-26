@@ -113,7 +113,10 @@ await wallet.disconnect();
 ```
 
 The adapter exposes `connect`, `listWallets`, `selectWallet`, `getAddress`, `signTransaction`, and `disconnect`.
-It keeps the website capability in memory. Reloading the website requires a new connection code.
+The standalone client keeps the website capability in memory.
+The connection component can save it in `sessionStorage` through the `sessionStorageKey` option.
+The demo enables this option and checks the session after reload before it enables transaction actions.
+An expired session requires a new code. Recovery never repeats signing or submission.
 The SDK retries network errors and 5xx responses on the same connection. An abort, a rejection, or leaving the page cancels the bridge request.
 After a failure, build a new transaction. SDK errors include `requestState` when the bridge reports one.
 `error.canceled` reports cancellation or lost session access. It does not prove that signing stopped.

@@ -47,8 +47,20 @@ try {
 }
 ```
 
-The component keeps connection credentials in memory. Reloading requires a new code.
-The demo stores only its existing transaction recovery record.
+The component keeps connection credentials in memory by default.
+Set `sessionStorageKey` to a website-specific name to enable reload recovery.
+The demo uses `sessionStorageKey: 'walleterm-demo-connection-v1'`.
+It saves the bridge URL and session token in `sessionStorage` for the current tab.
+It never saves the one-use connection code or a private key.
+The website's scripts can read this token. Use this option only on a trusted website.
+Reload checks `/v1/account` before publishing the wallet or enabling transaction actions.
+The bridge supplies the current account, wallet scope, and selection revision.
+Recovery does not request wallet discovery, sign a transaction, or submit a transaction.
+Use Refresh in the wallet menu to load the wallet list after recovery.
+A network failure retains the saved session and permits later health checks.
+A 401 response or Disconnect removes the saved session.
+Unavailable browser storage leaves the connection in memory.
+The demo keeps its transaction recovery record separately in `localStorage`.
 
 The connection health message uses normal document flow.
 Let the host container grow when a message appears.

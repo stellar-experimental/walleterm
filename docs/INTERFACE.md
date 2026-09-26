@@ -70,7 +70,10 @@ The SDK permits 135 seconds for discovery and selection. Caller cancellation sti
 CLI child cleanup escalates from SIGTERM to SIGKILL after 1.5 seconds when needed.
 Each code works once and expires after five minutes. Five incorrect codes replace the code and pause connection for one minute.
 A website session lasts one hour after the first key selection. Wallet changes do not renew it. Restart the tunnel to revoke all sessions.
-Website sessions and SDK credentials remain in memory. A website reload requires a new code.
+Bridge sessions remain in memory. The standalone SDK keeps credentials in memory by default.
+The demo saves its bridge URL and session token in `sessionStorage` for reload recovery.
+Reload checks the session before enabling transaction actions. Expired sessions require a new code.
+Disconnect clears the saved session. Recovery never repeats signing or submission.
 The bridge signs each valid request without a terminal step. Ctrl+C stops the tunnel.
 A 1Password prompt can still require the Mac. Cached 1Password approval can suppress a fresh desktop prompt.
 Use only dedicated testnet keys. Any website that holds a valid session can request signatures.

@@ -67,7 +67,10 @@ The request ID is client-generated, with 1–64 letters, digits, underscores, or
 An identical retry returns the same request. A changed payload with the same ID fails.
 A signing request lasts at most five minutes. The bridge scopes request IDs to a website session.
 A connection permits 1000 requests. The bridge permits 32 active requests and 64 live connections.
-The browser SDK keeps credentials in memory. A reload requires a new connection code.
+The standalone browser SDK keeps credentials in memory.
+The connection component can save the bridge URL and session token through its `sessionStorageKey` option.
+The demo enables this option. Reload checks `/v1/account` before it publishes the connected wallet.
+Disconnect and 401 responses clear the saved session. Recovery never repeats signing or submission.
 The connection UI checks the account every 15 seconds while the page is visible.
 Focus, restored pages, and network recovery also trigger a check.
 Network failures preserve credentials. A 401 response clears the session and requires a new code.

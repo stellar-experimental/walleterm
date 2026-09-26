@@ -103,6 +103,7 @@ let busy = false,
   actionPhase = '',
   actionProgress = '';
 const connection = new WalletermConnect($('wallet-connection'), {
+  sessionStorageKey: 'walleterm-demo-connection-v1',
   onBusyChange: () => render(),
   onStateChange: () => render(),
   onChange(value) {
