@@ -213,5 +213,56 @@
     "https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getHealth",
     "https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLatestLedger"
   ],
-  "verified_at": "2026-09-27T01:01:57.194Z"
+  "verified_at": "2026-09-27T01:01:57.194Z",
+  "browser_acceptance": {
+    "status": "passed",
+    "source_commit": "d0a3919da60e417a6da2684d2bbe3c8672747a09",
+    "browser": "visible Chrome, controlled through computer use",
+    "fresh_install_prefix": "/tmp/walleterm-observable-contract-test",
+    "release_id": "e360aafb021f8c411ac20ecf",
+    "demo_url": "https://arrangement-api-franchise-missile.trycloudflare.com",
+    "tunnel_url": "https://royalty-begin-pro-nest.trycloudflare.com",
+    "wallet": "existing dedicated walleterm-v2-test-a 1Password key",
+    "flow": [
+      "Connect wallet",
+      "Increment counter",
+      "Review explicit C-account AddressV2 entry",
+      "Sign contract authorization",
+      "Review enforcing simulation and final fee",
+      "Sign transaction",
+      "Submit to testnet",
+      "Observe transaction complete and counter 3 to 4"
+    ],
+    "signatures_requested": 2,
+    "submissions": 1,
+    "counter_before": 3,
+    "counter_after": 4,
+    "ui_result": "Contract authorization verified. Counter changed from 3 to 4.",
+    "independent_rpc_verification": {
+      "status": "SUCCESS",
+      "checked_at": "2026-09-27T01:17:47.113Z",
+      "rpc": "https://soroban-testnet.stellar.org",
+      "hash": "b9c7aefbe337c1a208a22c982e573d75338a86889b597fe054b35d6ed960eee8",
+      "ledger": 4889644,
+      "charged_fee_stroops": "13782",
+      "signer": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+      "account": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+      "target": "CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E",
+      "counter": 4,
+      "authorization": {
+        "type": "sorobanCredentialsAddressV2",
+        "nonce": "4609327776194934888",
+        "expiration_ledger": 4889697,
+        "digest": "a6a5607ef2caa264577ddea33f5432193b24fdee0f7b12af08faab24adf7dbae",
+        "independently_verified": true
+      },
+      "transaction_signature_independently_verified": true
+    },
+    "limits": [
+      "The existing contracts were reused; browser setup deployment was not retested.",
+      "A fresh desktop approval prompt was not observed by the agent.",
+      "The live OpenZeppelin adapter was not tested."
+    ],
+    "connection_note": "The first connection canceled during wallet discovery, before any signature. A fresh connection completed."
+  }
 }

@@ -116,6 +116,12 @@ The first run found a ledger-response size limit before SDK authorization signin
 The bridge now reads `getHealth.latestLedger` and requires healthy status.
 The final live run passed after that fix.
 
+A later visible Chrome test used freshly rebuilt tunnel and demo services.
+It signed the explicit C-account authorization, then signed the transaction separately.
+One submission changed the counter from 3 to 4 in ledger 4889644.
+Independent RPC checks verified both signatures and the accepted transaction.
+The acceptance record keeps this browser result separate from the earlier runner results.
+
 Protocol references:
 [Contract authorization](https://developers.stellar.org/docs/build/guides/auth/contract-authorization),
 [Signing Soroban invocations](https://developers.stellar.org/docs/build/guides/transactions/signing-soroban-invocations).
