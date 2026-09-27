@@ -63,6 +63,7 @@ func run(args []string, in io.Reader, out, diagnostic io.Writer, socketPath stri
 	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
 		return writeOutput(out, `walleterm list [--human]
 walleterm sign [--human] < request.json
+walleterm sign-auth < request.json
 walleterm tunnel [--port 8787]
 walleterm demo [--port 8788]
 walleterm --help
@@ -90,6 +91,9 @@ Companion skill: ~/.agents/skills/walleterm/SKILL.md (install with make install-
 	}
 	if len(args) == 1 && args[0] == "--version" {
 		return writeOutput(out, "walleterm "+version+"\n")
+	}
+	if len(args) > 0 && args[0] == "sign-auth" {
+		return runAuthCommand(args[1:], out)
 	}
 	if len(args) > 0 && (args[0] == "tunnel" || args[0] == "demo") {
 		return runServiceCommand(args[0], args[1:], out)

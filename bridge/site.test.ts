@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { browserScript } from './test/support.ts';
+import * as sdk from '@stellar/stellar-sdk';
+import { attachAuthSignature, createAuthEntry, inspectAuthEntry } from '../sdk/authorization.ts';
+import { authorizationExpiry, deployment, hex, validateContractReview } from '../demo/site/contracts.ts';
+import type { ContractReview } from '../demo/site/contracts.ts';
 
 // The page reads and writes only these element members.
 interface MockElement {
@@ -105,6 +109,235 @@ function contextFor(html: string, extras: Record<string, unknown> = {}) {
 }
 const app = () => browserScript(new URL('../demo/site/app.ts', import.meta.url));
 const ok = (data: unknown) => ({ ok: true, json: async () => data });
+
+function contractPage() {
+  const key = sdk.Keypair.random(),
+    signer = key.publicKey();
+  const accountId = deployment(signer, 'account').id,
+    targetId = deployment(signer, 'target').id;
+  const call = new sdk.Contract(targetId).call(
+    'ping',
+    sdk.nativeToScVal(accountId, { type: 'address' }),
+    sdk.xdr.ScVal.scvU32(1),
+  );
+  const body = call.body;
+  if (body.type !== 'invokeHostFunction' || body.value.hostFunction.type !== 'hostFunctionTypeInvokeContract')
+    throw Error();
+  const invocation = new sdk.xdr.SorobanAuthorizedInvocation({
+    function: sdk.xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+      body.value.hostFunction.invokeContract,
+    ),
+    subInvocations: [],
+  });
+  const unsigned = createAuthEntry({ address: accountId, invocation, nonce: 8n, expirationLedger: 160 });
+  const review: ContractReview = {
+    stage: 'increment',
+    accountId,
+    targetId,
+    before: 4,
+    authorizationReady: false,
+    authorizations: [{ xdr: unsigned, address: accountId, adapter: 'contract-ed25519' }],
+  };
+  const transaction = new sdk.TransactionBuilder(new sdk.Account(signer, '1'), {
+    fee: '600',
+    networkPassphrase: sdk.Networks.TESTNET,
+  })
+    .addOperation(
+      sdk.Operation.invokeHostFunction({
+        func: body.value.hostFunction,
+        auth: [sdk.xdr.SorobanAuthorizationEntry.fromXDR(unsigned, 'base64')],
+      }),
+    )
+    .setSorobanData(new sdk.SorobanDataBuilder().setResourceFee('500').build())
+    .setTimeout(180)
+    .build();
+  let stored: string | null = null,
+    authSignatures = 0,
+    envelopes = 0,
+    ledger = 100;
+  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    StellarSdk: sdk,
+    contractHex: hex,
+    validateContractReview,
+    authorizationExpiry,
+    contractRecord: {
+      kind: 'contract_counter',
+      address: signer,
+      hash: hex(transaction.hash()),
+      xdr: transaction.toXDR(),
+      state: 'waiting',
+      contract: review,
+    },
+    crypto,
+    localStorage: {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => {
+        stored = value;
+      },
+      removeItem: () => {
+        stored = null;
+      },
+    },
+    demoRpc: () => ({ getLatestLedger: async () => ({ sequence: ledger }) }),
+    assembleAuthorizedContract: async (_server: unknown, _transaction: unknown, value: ContractReview) => {
+      assert.equal(value.authorizations[0].signed, true);
+      return new sdk.TransactionBuilder(new sdk.Account(signer, '1'), {
+        fee: '800',
+        networkPassphrase: sdk.Networks.TESTNET,
+      })
+        .addOperation(
+          sdk.Operation.invokeHostFunction({
+            func: body.value.hostFunction,
+            auth: [sdk.xdr.SorobanAuthorizationEntry.fromXDR(value.authorizations[0].xdr, 'base64')],
+          }),
+        )
+        .setSorobanData(new sdk.SorobanDataBuilder().setResourceFee('700').build())
+        .setTimeout(180)
+        .build();
+    },
+    contractWallet: {
+      token: 'mock',
+      async signAuthEntry(
+        encoded: string,
+        options: { address: string; adapter: { type: 'contract-ed25519' } },
+      ) {
+        authSignatures++;
+        const input = {
+          auth_entry_xdr: encoded,
+          public_key: signer,
+          address: options.address,
+          adapter: options.adapter,
+          network_passphrase: sdk.Networks.TESTNET,
+        };
+        const checked = inspectAuthEntry(input, signer, 100);
+        return {
+          signedAuthEntryXdr: attachAuthSignature(input, signer, 100, hex(key.sign(checked.digest))),
+          signerAddress: signer,
+        };
+      },
+      async signTransaction(encoded: string) {
+        envelopes++;
+        const signed = sdk.TransactionBuilder.fromXDR(encoded, sdk.Networks.TESTNET);
+        signed.sign(key);
+        return { signedTxXdr: signed.toXDR(), signerAddress: signer };
+      },
+    },
+  });
+  f.run(app());
+  f.run('pending=contractRecord; wallet=contractWallet');
+  return {
+    ...f,
+    stored: () => stored,
+    signatures: () => ({ authSignatures, envelopes }),
+    setLedger(value: number) {
+      ledger = value;
+    },
+  };
+}
+
+test('demo signs custom authorization first and requires a separate transaction-signing action', async () => {
+  const f = contractPage();
+  await f.promise('requestSignature()');
+  assert.deepEqual(f.signatures(), { authSignatures: 1, envelopes: 0 });
+  assert.equal(f.run('pending.state'), 'review');
+  assert.equal(f.run('pending.contract.authorizationReady'), true);
+  f.run('render()');
+  assert.equal(f.el('sign').textContent, 'Sign transaction');
+  assert.ok(f.stored()?.includes('signed'));
+  await f.promise("pending.state='waiting'; requestSignature()");
+  assert.deepEqual(f.signatures(), { authSignatures: 1, envelopes: 1 });
+  assert.equal(f.run('pending.state'), 'signed');
+});
+
+test('unknown custom authorization survives clearing until its ledger expiry passes', async () => {
+  const f = contractPage();
+  f.run("pending.state='signing_unknown'; save()");
+  const saved = f.stored();
+  await f.click('clear');
+  assert.equal(f.stored(), saved);
+  assert.equal(f.run('pending.state'), 'signing_unknown');
+  assert.match(f.el('status').textContent, /after ledger 160/);
+  f.setLedger(161);
+  await f.click('clear');
+  assert.equal(f.run('pending'), null);
+});
+
+test('unverified authorization responses keep the reviewed entry and its expiry protected', async () => {
+  const f = contractPage();
+  const original = f.run('pending.xdr');
+  f.run(
+    "contractWallet.signAuthEntry=async()=>{throw Object.assign(Error('Unverified authorization result.'),{requestState:'unknown',canceled:false})}",
+  );
+  await assert.rejects(f.promise('requestSignature()'), /Unverified/);
+  assert.equal(f.run('pending.state'), 'signing_unknown');
+  assert.equal(f.run('pending.xdr'), original);
+  assert.equal(f.run('authorizationExpiry(pending.contract)'), 160);
+  await f.click('clear');
+  assert.equal(f.run('pending.state'), 'signing_unknown');
+});
+
+test('a saved contract journal rejects another signed transaction before submission', async () => {
+  const f = contractPage();
+  await f.promise('requestSignature()');
+  await f.promise("pending.state='waiting'; requestSignature()");
+  f.run('save()');
+  const saved = JSON.parse(f.stored()!);
+  const other = sdk.Keypair.random();
+  const transaction = new sdk.TransactionBuilder(new sdk.Account(other.publicKey(), '1'), {
+    fee: '100',
+    networkPassphrase: sdk.Networks.TESTNET,
+  })
+    .addOperation(sdk.Operation.manageData({ name: 'unreviewed', value: 'different' }))
+    .setTimeout(180)
+    .build();
+  transaction.sign(other);
+  saved.signed_xdr = transaction.toXDR();
+  f.context.changedJournal = saved;
+  assert.throws(() => f.run('verifySignedRecord(changedJournal)'), /differs from/);
+  f.context.localStorage.getItem = () => JSON.stringify(saved);
+  assert.throws(() => f.run('readJournal()'), /differs from/);
+});
+
+test('a definitive RPC rejection preserves its result without polling', async () => {
+  const f = contractPage();
+  await f.promise('requestSignature()');
+  await f.promise("pending.state='waiting'; requestSignature()");
+  f.run('account={address:pending.address}; save()');
+  let polls = 0;
+  f.context.demoRpc = () => ({
+    sendTransaction: async () => ({
+      status: 'ERROR',
+      errorResult: { result: { type: 'txInsufficientBalance' }, toXdr: () => 'rejection-xdr' },
+    }),
+    getTransaction: async () => {
+      polls++;
+      throw Error('Unexpected poll.');
+    },
+  });
+  await f.click('submit');
+  assert.equal(f.run('pending.state'), 'failed');
+  assert.equal(f.run('pending.result.result_xdr'), 'rejection-xdr');
+  assert.equal(polls, 0);
+});
+
+test('an RPC error without rejection evidence preserves the unknown submission', async () => {
+  const f = contractPage();
+  await f.promise('requestSignature()');
+  await f.promise("pending.state='waiting'; requestSignature()");
+  f.run('account={address:pending.address}; save()');
+  let polls = 0;
+  f.context.demoRpc = () => ({
+    sendTransaction: async () => ({ status: 'ERROR' }),
+    getTransaction: async () => {
+      polls++;
+      throw Error('No transaction evidence.');
+    },
+  });
+  await f.click('submit');
+  assert.equal(f.run('pending.state'), 'unknown');
+  assert.equal(polls, 1);
+  assert.match(f.el('status').textContent, /uncertain/);
+});
 test('signing shows retry progress and stops at the server expiry after the page wakes', async () => {
   let now = Date.now(),
     tick: (() => void) | undefined,

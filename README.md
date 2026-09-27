@@ -107,13 +107,14 @@ Review it in the demo and select Sign. Approve 1Password on the Mac if it asks.
 The demo submits the signed transaction to testnet.
 
 A website integrates through [the browser client](sdk/walleterm.ts). The website approves its own requests, so use dedicated testnet keys.
-The bridge supports testnet native payments, data entries, and sell offers.
+The bridge supports testnet native payments, data entries, sell offers, and supported Soroban transactions.
+The [contract authorization demo](docs/CONTRACT-AUTHORIZATION.md) signs an explicit C-account entry before the transaction envelope.
 See [the bridge guide](docs/WEB-BRIDGE.md) for setup, recovery, and integration details.
 The [demo activity log](docs/DEMO-ACTIVITY.md) keeps browser history and supports JSON export.
 
 ## Boundaries
 
-The signing commands are `list` and `sign`. Manage key creation, names, and archival in 1Password.
+The signing commands are `list`, `sign`, and `sign-auth`. Manage key creation, names, and archival in 1Password.
 The signing command does not know a digest's network, amount, destination, or contract policy.
 Inspect and approve the source artifact before signing it.
 The 1Password prompt identifies the application and key. Cached approval can allow later signatures without another prompt.

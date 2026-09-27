@@ -476,3 +476,24 @@ Testnet acceptance, dedicated testnet keys only:
 - These OpenZeppelin delegation results use `require_auth_for_args`, not native CAP-71 delegate credentials.
 - See `PROTOCOL-UPDATES.md` for the subsequent native CAP-71 and CAP-85 compatibility work.
 - 7: any passkey path. Out of scope for now.
+
+## 12. Generic authorization API
+
+The new `openzeppelin-ed25519` adapter uses the commit pinned in section 1.
+It supports one external Ed25519 signer per request.
+It requires `verifier` and `context_rule_ids`, with one rule ID per invocation context.
+It signs `sha256(host_payload || XDR(ScVal::Vec<U32>))`.
+It builds the exact `AuthPayload` map from section 2.2.
+The adapter does not infer rule IDs, verifier ownership, or deployed account policy.
+The website must verify those facts and enforce-simulate the result.
+
+New signing APIs require AddressV2 credentials, including native G-account requests.
+Legacy V1 omits the authorization address from its digest and permits cross-address replay.
+The new API rejects V1 without conversion. Existing legacy fixtures remain unchanged.
+The API also rejects delegated credentials and SourceAccount entries.
+Normal SourceAccount authorization remains valid inside generic Soroban transaction envelopes.
+
+Request identity includes every adapter field, including the verifier address.
+The verifier address does not enter the OpenZeppelin digest.
+Exact returned-artifact verification therefore checks the complete signature map as well as the signature.
+This validation cannot stop a signature holder from constructing another artifact that contract policy accepts.

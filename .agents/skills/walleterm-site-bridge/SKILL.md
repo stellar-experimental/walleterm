@@ -14,7 +14,8 @@ An unchanged website needs an integration or a compatible wallet adapter.
 
 - For service setup, the demo, or website integration, read [the service reference](references/service.md).
 - For an unchanged website, read [manual interception](references/interception.md).
-- For fee bumps, Soroban, or contract authorization, use the direct `walleterm` skill.
+- For Soroban envelopes and explicit contract authorization, read the service reference and its authorization section.
+- For fee bumps or delegated authorization, use the direct `walleterm` skill.
   The public bridge does not support those formats.
 
 Resolve references and scripts from this skill's directory. Keep the caller directory unchanged.
