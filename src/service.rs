@@ -1,5 +1,5 @@
-//! `walleterm tunnel` and `walleterm demo`. The Bun sidecar still runs both services;
-//! this module only validates options and starts it with a clean environment.
+//! `walleterm tunnel` and `walleterm demo`: option parsing, startup banners, signals, and exit codes.
+//! The tunnel runs natively. The demo still starts the Bun sidecar until its assets are embedded.
 
 use std::ffi::OsString;
 use std::io::Write;
@@ -63,6 +63,189 @@ fn fail(out: &mut dyn Write, code: &'static str, message: &str) -> i32 {
     if code == "invalid_input" { 2 } else { 1 }
 }
 
+/// The bridge as a tunnel service: a loopback listener that serves the protocol.
+pub struct BridgeService {
+    bridge: std::sync::Arc<crate::bridge::Bridge>,
+    port: u16,
+    stop: crate::cancel::Cancel,
+}
+
+impl BridgeService {
+    pub fn new(bridge: std::sync::Arc<crate::bridge::Bridge>, port: u16) -> Self {
+        Self { bridge, port, stop: crate::cancel::Cancel::new() }
+    }
+}
+
+impl crate::tunnel::Service for BridgeService {
+    fn name(&self) -> &'static str {
+        "walleterm"
+    }
+    fn listen(&self) -> crate::bridge::BoxFuture<crate::error::Result<()>> {
+        let (bridge, port, stop) = (self.bridge.clone(), self.port, self.stop.clone());
+        Box::pin(async move {
+            let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await.map_err(|e| {
+                if e.kind() == std::io::ErrorKind::AddrInUse {
+                    crate::error::Error::new(
+                        "address_in_use",
+                        "The local port is in use. Choose another --port.",
+                    )
+                } else {
+                    crate::error::Error::new("internal", "The local service did not start. Try again.")
+                }
+            })?;
+            let handler: crate::http::Handler = std::sync::Arc::new(move |req, body| {
+                let bridge = bridge.clone();
+                Box::pin(async move { bridge.handle(req, body).await })
+            });
+            tokio::spawn(crate::http::serve(listener, handler, std::time::Duration::from_secs(150), stop));
+            Ok(())
+        })
+    }
+    fn close(&self) -> crate::bridge::BoxFuture<()> {
+        let (bridge, stop) = (self.bridge.clone(), self.stop.clone());
+        Box::pin(async move {
+            stop.abort();
+            bridge.close().await;
+        })
+    }
+    fn set_public_origin(&self, origin: &str) {
+        let _ = self.bridge.set_public_origin(origin);
+    }
+    fn pairing(&self) -> Option<serde_json::Value> {
+        Some(self.bridge.pairing())
+    }
+    fn on_pairing_changed(&self, callback: Box<dyn Fn() + Send + Sync>) {
+        self.bridge.on_pairing_changed(callback);
+    }
+}
+
+struct Terminal;
+
+impl crate::tunnel::Output for Terminal {
+    fn write(&self, text: &str) -> bool {
+        let mut out = std::io::stdout().lock();
+        out.write_all(text.as_bytes()).and_then(|()| out.flush()).is_ok()
+    }
+    fn columns(&self) -> Option<usize> {
+        crate::platform::terminal_columns()
+    }
+}
+
+/// SIGINT or SIGTERM cancels the returned flag.
+fn signals() -> crate::cancel::Cancel {
+    use tokio::signal::unix::{SignalKind, signal};
+    let stop = crate::cancel::Cancel::new();
+    let flag = stop.clone();
+    tokio::spawn(async move {
+        let (Ok(mut interrupt), Ok(mut terminate)) =
+            (signal(SignalKind::interrupt()), signal(SignalKind::terminate()))
+        else {
+            return;
+        };
+        tokio::select! {
+            _ = interrupt.recv() => {}
+            _ = terminate.recv() => {}
+        }
+        flag.abort();
+    });
+    stop
+}
+
+/// `walleterm tunnel`: the testnet signing bridge behind a Quick Tunnel.
+fn run_tunnel(port: u16) -> i32 {
+    let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
+        Ok(runtime) => runtime,
+        Err(_) => return 1,
+    };
+    runtime.block_on(async {
+        let cwd = std::env::current_dir().unwrap_or_default();
+        let setting = match crate::config::load_vault(&cwd, std::env::var("OP_VAULT").ok()) {
+            Ok(setting) => setting,
+            Err(_) => {
+                println!("The .env file in this directory could not be read.");
+                return 1;
+            }
+        };
+        for name in &setting.ignored {
+            eprintln!("Walleterm ignores OP_VAULT in {name}. Move it to .env.");
+        }
+        let banner = match setting.vault.as_deref().filter(|v| !v.is_empty()) {
+            Some(vault) => format!(
+                "Website wallets: 1Password vault {}.\n",
+                serde_json::to_string(vault).unwrap_or_default()
+            ),
+            None => {
+                "Website wallets: every Ed25519 key in the 1Password SSH agent. Set OP_VAULT to limit them.\n"
+                    .to_owned()
+            }
+        };
+        let output: std::sync::Arc<dyn crate::tunnel::Output> = std::sync::Arc::new(Terminal);
+        if !output.write(&banner) {
+            return 1;
+        }
+        let (Some(socket), Ok(client)) = (crate::platform::agent_socket(), crate::ledger::https_client())
+        else {
+            println!("The signing bridge requires macOS and the 1Password SSH agent.");
+            return 1;
+        };
+        let probe_client = match crate::ledger::https_client() {
+            Ok(client) => std::sync::Arc::new(client),
+            Err(e) => {
+                println!("{}", e.message);
+                return 1;
+            }
+        };
+        let bridge =
+            crate::bridge::Bridge::new(crate::bridge::production(socket, setting.vault, client), port);
+        let service = std::sync::Arc::new(BridgeService::new(bridge, port));
+        run_launch("Walleterm tunnel", port, service, output, probe_client).await
+    })
+}
+
+/// Launch, wait for the service to end, and report a startup failure in plain text.
+pub async fn run_launch(
+    label: &str,
+    port: u16,
+    service: std::sync::Arc<dyn crate::tunnel::Service>,
+    output: std::sync::Arc<dyn crate::tunnel::Output>,
+    client: std::sync::Arc<crate::ledger::HttpsClient>,
+) -> i32 {
+    let probe_client = client.clone();
+    let probe: Box<crate::tunnel::ProbeFn> = Box::new(move |origin, cancel| {
+        let client = probe_client.clone();
+        Box::pin(async move { crate::tunnel::public_probe(&client, &origin, &cancel).await })
+    });
+    let ready_client = client.clone();
+    let deps = crate::tunnel::LaunchDeps {
+        spawn_tunnel: Box::new(crate::tunnel::spawn_supervisor),
+        ready: Box::new(move |origin, name, cancel| {
+            let client = ready_client.clone();
+            Box::pin(async move {
+                let probe: Box<crate::tunnel::ProbeFn> = Box::new(move |origin, cancel| {
+                    let client = client.clone();
+                    Box::pin(async move { crate::tunnel::public_probe(&client, &origin, &cancel).await })
+                });
+                crate::tunnel::public_ready(&origin, name, &probe, &cancel).await
+            })
+        }),
+        probe,
+        output,
+        environment: std::env::vars().collect(),
+        health_interval: crate::tunnel::HEALTH_INTERVAL,
+        recovery_delay: crate::tunnel::RECOVERY_DELAY,
+        stop: signals(),
+    };
+    match crate::tunnel::launch(label, port, service, deps).await {
+        Ok(running) => running.done().await,
+        Err((e, code)) => {
+            if e.code != "service_stopped" {
+                println!("{}", e.message);
+            }
+            code
+        }
+    }
+}
+
 pub fn run(command: &str, args: &[&str], out: &mut dyn Write) -> i32 {
     if let ["--help" | "-h"] = args {
         let vault = if command == "tunnel" {
@@ -84,6 +267,9 @@ pub fn run(command: &str, args: &[&str], out: &mut dyn Write) -> i32 {
     }
     if !on_path("cloudflared") {
         return fail(out, "start_failed", "Install cloudflared. On macOS, run: brew install cloudflared");
+    }
+    if command == "tunnel" {
+        return run_tunnel(port);
     }
     let binary = std::env::current_exe().and_then(std::fs::canonicalize);
     let sidecar = binary.as_ref().ok().and_then(|b| b.parent()).map(|dir| dir.join("walleterm-bridge"));

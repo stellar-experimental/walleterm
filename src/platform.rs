@@ -43,6 +43,14 @@ fn home_dir(uid: u32) -> Option<PathBuf> {
     }
 }
 
+/// The terminal width of standard output, or `None` when it is not a terminal.
+pub fn terminal_columns() -> Option<usize> {
+    // SAFETY: winsize is plain data; TIOCGWINSZ fills it for a terminal and fails otherwise.
+    let mut size: libc::winsize = unsafe { std::mem::zeroed() };
+    let ok = unsafe { libc::ioctl(libc::STDOUT_FILENO, libc::TIOCGWINSZ, &mut size) } == 0;
+    (ok && size.ws_col > 0).then_some(usize::from(size.ws_col))
+}
+
 /// Wait until `fd` is readable or `deadline` passes. Returns `false` on timeout.
 pub fn wait_readable(fd: RawFd, deadline: Instant) -> io::Result<bool> {
     wait_ready(fd, libc::POLLIN, deadline)

@@ -466,6 +466,14 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
             return output_error(io.out, false, &invalid("Use walleterm sign-auth < request.json."));
         }
         [command @ ("tunnel" | "demo"), rest @ ..] => return crate::service::run(command, rest, io.out),
+        // The private supervisor mode of `walleterm tunnel`. It is not part of the public interface.
+        ["tunnel-child", rest @ ..] => {
+            let args = rest.iter().map(|s| s.to_string()).collect();
+            let Ok(runtime) = tokio::runtime::Builder::new_current_thread().enable_all().build() else {
+                return 1;
+            };
+            return runtime.block_on(crate::tunnel::run_supervisor(args));
+        }
         _ => {}
     }
     let human = args.len() == 2 && args[1] == "--human";

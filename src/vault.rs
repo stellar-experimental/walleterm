@@ -9,7 +9,7 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
 use serde_json::Value;
 use tokio::io::AsyncReadExt;
-use tokio::process::{Child, Command};
+use tokio::process::Command;
 
 use crate::cancel::Cancel;
 use crate::error::{Error, Result};
@@ -25,21 +25,6 @@ const GRACE: Duration = Duration::from_millis(1500);
 
 fn unavailable(message: &str) -> Error {
     Error::new("bridge_unavailable", message)
-}
-
-/// Stop a child: SIGTERM, then SIGKILL after the grace period, then wait for exit.
-pub async fn stop_child(child: &mut Child, grace: Duration) {
-    if let Ok(Some(_)) = child.try_wait() {
-        return;
-    }
-    if let Some(pid) = child.id() {
-        // SAFETY: the PID belongs to our own child, which we have not reaped yet.
-        unsafe { libc::kill(pid as i32, libc::SIGTERM) };
-    }
-    if tokio::time::timeout(grace, child.wait()).await.is_err() {
-        let _ = child.start_kill();
-        let _ = tokio::time::timeout(grace, child.wait()).await;
-    }
 }
 
 /// Run the 1Password CLI with bounded output. A failure returns no CLI diagnostics.
@@ -77,7 +62,7 @@ async fn op(program: &OsStr, args: &[&str], cancel: &Cancel) -> std::result::Res
         () = cancel.cancelled() => Err(()),
     };
     if result.is_err() {
-        stop_child(&mut child, GRACE).await;
+        crate::process::stop_child(&mut child, GRACE).await;
     }
     result
 }
