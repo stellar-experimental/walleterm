@@ -31,6 +31,10 @@ When a browser, shell, or Git step fails in a strange way, read [the tool traps]
    Done when every changed image layer serves the same bytes as its site file, and both artboard screenshots look right.
 9. **Check the site.** Render the page with `agent-browser` at each Paper artboard width, and 1 pixel on each side of every `@media` width in `site/index.html`. Compare it with the Paper artboards and with a render from before the change.
    Done when no width scrolls sideways, no cream shape touches another across a section edge, and every changed picture sits where Paper puts it.
+   When `site/art/` or the page styles changed, also compare before and after in Chrome and Safari at several pixel ratios.
+   Chrome: `agent-browser set viewport` at 390×844 at 3x, 768×1024 at 2x, and 1440×900 at 1x and 2x.
+   Safari: Mobile Safari in the iOS Simulator on an iPhone (3x) and an iPad (2x). [The tool traps](references/tooling.md) give the commands.
+   Done when each changed picture looks the same in both browsers at every ratio, with no blur, gap, or shift in either.
 10. **Record.** A new trait or lesson goes in the standard. A new reference goes in the index, then run `uv run design/tools/artcheck.py baseline`. A new tool trap goes in the traps file.
 
 ## Report

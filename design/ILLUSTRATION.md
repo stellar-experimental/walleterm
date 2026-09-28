@@ -106,6 +106,10 @@ Lessons from building the measures:
 - Trim the ends of a leg before measuring its width. The foot tick made one leg look 25% uneven.
 - One drawing's random draws move `stroke_cv` noticeably. Judge a default against several scenes, not one.
 - Change a measure only when it measures the wrong thing, and prove the change on the references first.
+- `artcheck.py` renders with Chrome. Chrome drew the old blur filter well, so every measure passed while Safari showed a blurry wallet.
+  Passing measures prove the drawing, not every browser. Check changed site art in Safari too (see the illustration skill, step 9).
+- A soft edge must keep a line's total darkness. A halo that only adds ink outside the edge raises `stroke_h`.
+  A blur moves ink from inside the edge to outside, so the replacement thins the core by the ink its halo adds.
 
 ## Site art
 

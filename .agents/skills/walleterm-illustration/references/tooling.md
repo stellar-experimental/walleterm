@@ -4,7 +4,28 @@
 
 - `agent-browser screenshot` resolves a relative path against its daemon, not your shell. Pass absolute paths.
 - `agent-browser` can hang on `open`. Run `agent-browser close`, then retry. `artcheck.py` retries once this way.
-- Wrap an SVG in a small HTML page to render it at an exact size. Chromium's own screenshot is the source of truth for the site.
+- Wrap an SVG in a small HTML page to render it at an exact size.
+- A Chrome render alone is not the source of truth for the site. Safari draws SVG filters at 1x and scales them up,
+  so a blur that looked right in every Chrome check made the wallet blurry in Safari. Check changed art in Safari too.
+- `agent-browser set viewport W H SCALE` sets the pixel ratio. A full-page screenshot at scale 2 is twice the CSS width.
+
+## Safari
+
+- `agent-browser -p ios` needs Appium, which is not installed. It can also pick a simulator whose iOS runtime is missing.
+- Without Appium, drive Mobile Safari with the simulator directly. Screenshots come at the device's own ratio:
+
+  ```sh
+  udid=$(xcrun simctl list devices available | grep 'iPhone 17 Pro (' | head -1 | sed -E 's/.*\(([0-9A-F-]+)\).*/\1/')
+  xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b
+  xcrun simctl openurl "$udid" http://127.0.0.1:8802/   # the simulator reaches the Mac's loopback
+  xcrun simctl io "$udid" screenshot /absolute/path/safari-iphone.png
+  xcrun simctl shutdown all
+  ```
+
+- Serve `site/` from each version with `python3 -m http.server PORT --bind 0.0.0.0` in a `git archive` copy, one port for before and one for after.
+- The simulator cannot scroll without Appium. To see pictures below the fold, serve a small page that shows each `art/*.svg` at its site size.
+- An iPad Pro simulator gives desktop-class Safari at 2x. Its first launch can show a system banner over the top of the page.
+- Desktop Safari's `safaridriver` needs `safaridriver --enable` once, with an administrator password.
 
 ## Shell
 
