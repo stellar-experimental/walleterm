@@ -48,5 +48,8 @@ install-skill:
 test:
 	go test ./...
 	go vet ./...
+	cargo fmt --all --check
+	cargo clippy --workspace --all-targets --locked -- -D warnings
+	cargo test --workspace --locked
 	bun run typecheck
 	bun run test

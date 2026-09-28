@@ -1,0 +1,28 @@
+[package]
+name = "walleterm"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.93"
+publish = false
+description = "Stellar signing companion for agents using 1Password."
+
+[dependencies]
+stellar-xdr = { version = "=28.0.0", default-features = false, features = ["std", "base64"] }
+stellar-strkey = { version = "=0.0.13", default-features = false }
+ed25519-dalek = { version = "=2.2.0", default-features = false, features = ["std"] }
+sha2 = { version = "=0.10.9", default-features = false, features = ["std"] }
+base64 = { version = "=0.22.1", default-features = false, features = ["std"] }
+serde = { version = "=1.0.229", default-features = false, features = ["std", "derive"] }
+serde_json = { version = "=1.0.151", default-features = false, features = ["std"] }
+
+[profile.release]
+opt-level = "s"
+lto = "thin"
+codegen-units = 1
+strip = true
+panic = "unwind"
+
+[workspace]
+members = ["."]
+exclude = ["fixtures"]
+resolver = "3"
