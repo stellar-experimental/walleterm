@@ -53,6 +53,8 @@ bun tests/live.ts cap85
 ```
 
 Run `contracts` before `extended` or `cap85`; they need its deployment checkpoint.
+The `contracts` and `extended` runners check each recorded authorization entry against the expected tree of its row.
+A mismatch stops the row before any signing request.
 Review [the test matrix](TEST-MATRIX.md) and the relevant fixture README before selecting individual rows.
 The core signs digests only. These runners construct, sign, submit, and check the test transactions.
 

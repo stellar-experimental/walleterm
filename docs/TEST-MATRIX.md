@@ -68,6 +68,15 @@ Use the CLI under test for all live signer signatures.
 | C12 | Duplicate signers and reordered signatures | Follow exact contract rules; duplicates never increase authority |
 | C13 | Contract signer rotation or context update | New rules apply; old authorization fails where required |
 
+Each contract row declares its expected authorization entries.
+An entry has AddressV2 credentials, an address, and a full root invocation with its sub-invocations.
+The `contracts` and `extended` runners check every recorded entry against them before any change or signing request.
+They reject extra, missing, changed, signed, V1, and source-account entries.
+Deliberate negative changes apply only after the original tree passes this check.
+Source-only uploads and deployments accept only the entries of the local operation.
+This check has offline tests in `tests/contracts.test.ts`.
+C01-C13 and E01-E03 have no live run with this check yet.
+
 ## Evidence per live scenario
 
 Extended testnet scenarios passed on 2026-09-25:
@@ -90,7 +99,7 @@ The extended runner preserves completed steps and labels reused evidence separat
 - Record actual negative-test errors. Do not count transport failures as authorization rejection.
 - Mark contract-specific and host-protocol restrictions explicitly.
 
-Passkeys remain outside these Ed25519 acceptance claims.
+Passkeys are not planned and are out of scope.
 
 ## Protocol compatibility extension
 

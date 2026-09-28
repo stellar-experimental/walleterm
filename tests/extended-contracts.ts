@@ -6,8 +6,8 @@ import { requestError } from '../sdk/errors.ts';
 // E02 OpenZeppelin `Signer::Delegated(G_b)`: a second auth entry rooted at oz.__check_auth([auth_digest]).
 // E03 OpenZeppelin contract-specific context rule, threshold update through `execute`, rule removal.
 //
-// Shared helpers: invoke (with extraAuth), submitSourceOnly, checkCheckpoint, UnknownSubmission,
-// addressCredentials, and the ScVal builders. Deployments use a separate checkpoint file.
+// Shared helpers: invoke (with expected entries and extraAuth), submitSourceOnly, checkCheckpoint,
+// UnknownSubmission, addressCredentials, and the ScVal builders. Deployments use a separate checkpoint file.
 // The baseline checkpoint (nine instances) is validated and read only.
 import { readFileSync, writeFileSync, openSync, fsyncSync, closeSync, renameSync, existsSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
@@ -27,12 +27,14 @@ import {
   signersVec,
   ozAuthDigest,
   countContexts,
+  contractFn,
   ozAuthorizer,
   accountSignature,
   requireAddressCredentials,
   type CheckpointContext,
   type ContractsState,
   type EntryMeta,
+  type ExpectedAuth,
   type ExtraAuthInput,
   type InvokeOptions,
   type Manifest,
@@ -145,24 +147,6 @@ export function mixedAuthPayload(sdk: Sdk, sigs: MixedSignature[], ids: number[]
     ],
   ]);
 }
-export const contractFn = (
-  sdk: Sdk,
-  contract: string,
-  name: string,
-  args: xdr.ScVal[],
-  subInvocations: xdr.SorobanAuthorizedInvocation[] = [],
-) =>
-  new sdk.xdr.SorobanAuthorizedInvocation({
-    function: sdk.xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
-      new sdk.xdr.InvokeContractArgs({
-        contractAddress: new sdk.Address(contract).toScAddress(),
-        functionName: name,
-        args,
-      }),
-    ),
-    subInvocations,
-  });
-
 // ---------- G-account multisig authorizer (several signers on one entry) ----------
 export const gMultiAuthorizer = (
   ctx: SigningContext,
@@ -248,18 +232,6 @@ const entryAddress = (sdk: Sdk, entry: xdr.SorobanAuthorizationEntry) =>
   sdk.Address.fromScAddress(requireAddressCredentials(entry).address).toString();
 const cloneEntry = (sdk: Sdk, entry: xdr.SorobanAuthorizationEntry) =>
   sdk.xdr.SorobanAuthorizationEntry.fromXdr(entry.toXdr());
-// Builds address credentials of the same variant as a signed entry.
-function credentialsOfVariant(
-  sdk: Sdk,
-  variant: xdr.SorobanCredentials['type'],
-  credentials: xdr.SorobanAddressCredentials,
-) {
-  if (variant === 'sorobanCredentialsAddress')
-    return sdk.xdr.SorobanCredentials.sorobanCredentialsAddress(credentials);
-  if (variant === 'sorobanCredentialsAddressV2')
-    return sdk.xdr.SorobanCredentials.sorobanCredentialsAddressV2(credentials);
-  throw new TypeError(`A delegate entry cannot use ${variant} credentials.`);
-}
 const isUnknown = (e: RequestError | undefined) =>
   e instanceof UnknownSubmission || e?.code === 'unknown_submission';
 
@@ -306,7 +278,7 @@ export function loadBase(ctx: CheckpointContext, manifest: Manifest, file = BASE
     throw new Error('baseline upload of multisig_account_example.wasm missing');
   return base;
 }
-// Defaults only when the file does not exist. Any other read or parse error stops the run.
+// Defaults only when the file does not exist. Any other read or parse error, or a missing field, stops the run.
 export function loadState(
   ctx: CheckpointContext,
   base: ContractsState,
@@ -319,11 +291,13 @@ export function loadState(
     done: {},
     steps: {},
   };
+  if (!state.contracts || !state.done || !state.steps)
+    throw new Error('extended checkpoint lacks contracts, done, or steps; review evidence before reuse');
   const binding = bindingFor(ctx, base);
   const populated =
-    Object.keys(state.contracts ?? {}).length ||
-    Object.keys(state.done ?? {}).length ||
-    Object.keys(state.steps ?? {}).length ||
+    Object.keys(state.contracts).length ||
+    Object.keys(state.done).length ||
+    Object.keys(state.steps).length ||
     state.b_original;
   if (state.binding) {
     if (JSON.stringify(state.binding) !== JSON.stringify(binding))
@@ -335,7 +309,6 @@ export function loadState(
   }
   if (state.oz_commit !== OZ_COMMIT) throw new Error('extended checkpoint OpenZeppelin revision mismatch');
   state.binding = binding;
-  state.steps ??= {};
   for (const [name, c] of Object.entries(state.contracts)) {
     if (
       !base.wasm[c.wasm] ||
@@ -480,9 +453,10 @@ async function e01(ctx: LiveContext, c: BaseContracts, state: ExtendedState): Pr
   details.b_configured = await snapshotAccount(ctx, b.publicKey);
   const args = [addr(sdk, b.publicKey), u32(sdk, 1)];
   const st = { target: c.target1, who: b.publicKey };
+  const expected = [{ address: b.publicKey, invocation: contractFn(sdk, c.target1, 'ping', args) }];
   const ping = (label: string, opts: Partial<InvokeOptions>) =>
     step(label, () =>
-      invoke(ctx, { contractId: c.target1, method: 'ping', args, state: st, label, ...opts }),
+      invoke(ctx, { contractId: c.target1, method: 'ping', args, expected, state: st, label, ...opts }),
     );
   const diag = (label: string, text: string) => async (opts: Partial<InvokeOptions>) => {
     const result = await ping(label, opts);
@@ -591,9 +565,9 @@ export const ozDelegatedAuthorizer = (
     );
   },
 });
-// extraAuth seam: crafts and signs the delegate entry after the OZ entry is signed. Inside __check_auth the OZ
-// account calls delegate.require_auth_for_args((auth_digest,)), so the entry is rooted at
-// oz.__check_auth([auth_digest]) and uses the same credential variant as the OZ entry.
+// extraAuth seam: crafts and signs the delegate entry after invoke checks and signs the OZ entry. Inside
+// __check_auth the OZ account calls delegate.require_auth_for_args((auth_digest,)), so the entry is rooted at
+// oz.__check_auth([auth_digest]) and uses AddressV2 credentials like the OZ entry.
 export interface DelegateEntryOptions {
   account: string;
   delegate: TestKey;
@@ -618,19 +592,19 @@ export const delegateEntryFor =
         ? contractFn(sdk, account, '__check_auth', [bytes(sdk, digest)])
         : cloneEntry(sdk, ozSigned).rootInvocation;
     const nonce = BigInt('0x' + randomBytes(8).toString('hex')) & ((1n << 62n) - 1n);
-    const variant = ozSigned.credentials.type;
-    const credentials = new sdk.xdr.SorobanAddressCredentials({
-      address: new sdk.Address(delegate.publicKey).toScAddress(),
-      nonce,
-      signatureExpirationLedger: 0,
-      signature: sdk.xdr.ScVal.scvVoid(),
-    });
     const entry = new sdk.xdr.SorobanAuthorizationEntry({
-      credentials: credentialsOfVariant(sdk, variant, credentials),
+      credentials: sdk.xdr.SorobanCredentials.sorobanCredentialsAddressV2(
+        new sdk.xdr.SorobanAddressCredentials({
+          address: new sdk.Address(delegate.publicKey).toScAddress(),
+          nonce,
+          signatureExpirationLedger: 0,
+          signature: sdk.xdr.ScVal.scvVoid(),
+        }),
+      ),
       rootInvocation: root,
     });
     const extra: EntryMeta = {
-      variant,
+      variant: entry.credentials.type,
       address: delegate.publicKey,
       signer: `G:${delegate.name}`,
       scheme: 'delegate-check-auth-root',
@@ -692,6 +666,7 @@ async function e02(
     method = 'ping',
     callArgs = args,
     stateCheck = st,
+    invocation = contractFn(sdk, target, method, callArgs),
   ) => {
     details[name] = await step(label, () =>
       invoke(ctx, {
@@ -702,6 +677,7 @@ async function e02(
         expect,
         state: stateCheck,
         authorizers: [ozDelegatedAuthorizer(ctx, account, keys.b, { digestIds })],
+        expected: [{ address: account, invocation }],
         extraAuth: delegateEntryFor(ctx, { account, delegate: keys.b, delegateRoot, omit }),
       }),
     );
@@ -710,6 +686,8 @@ async function e02(
   await run('wrong_root_rejected', 'E02-delegated-wrong-root', { delegateRoot: 'target-call' }, E.auth);
   await run('wrong_digest_rejected', 'E02-delegated-wrong-digest', { digestIds: [0, 0] }, E.auth);
   await run('missing_delegate_rejected', 'E02-delegated-missing', { omit: true }, E.auth);
+  const outerArgs = [addr(sdk, account), addr(sdk, c.target2), u32(sdk, 1)];
+  // outer(who, inner, n) calls inner.ping(who, n), so the tree holds that call below the root.
   await run(
     'nested_tree_passes',
     'E02-delegated-nested',
@@ -717,8 +695,9 @@ async function e02(
     undefined,
     c.target1,
     'outer',
-    [addr(sdk, account), addr(sdk, c.target2), u32(sdk, 1)],
+    outerArgs,
     { target: c.target2, who: account },
+    contractFn(sdk, c.target1, 'outer', outerArgs, [contractFn(sdk, c.target2, 'ping', args)]),
   );
   return details;
 }
@@ -748,6 +727,11 @@ async function e03(
   };
   const step = stepper(ctx, state, 'E03', details);
   const admin = [ozAuthorizer(ctx, account, c.verifier, [keys.a])]; // rule 0: Default, A only
+  // Every E03 call records one entry for the account, rooted at the direct call. Calls that the account
+  // makes itself (policy install, set_threshold) use invoker authorization and add nothing below the root.
+  const own = (contract: string, method: string, args: xdr.ScVal[]): ExpectedAuth[] => [
+    { address: account, invocation: contractFn(sdk, contract, method, args) },
+  ];
   const byRule1 = (ks: TestKey[]) => [ozAuthorizer(ctx, account, c.verifier, ks, { ruleId: 1 })];
   const ping1 = [addr(sdk, account), u32(sdk, 1)];
   const st1 = { target: c.target1, who: account };
@@ -800,19 +784,21 @@ async function e03(
       throw new Error(
         'E03: rule 1 absent with no creation record but later step evidence exists; failing closed',
       );
+    const ruleArgs = [
+      contextRuleType(sdk, 'CallContract', c.target1),
+      str(sdk, 'ctx-target1'),
+      sdk.xdr.ScVal.scvVoid(),
+      signersVec(sdk, [ozSignerOf(c, keys.b, 'b'), ozSignerOf(c, keys.c, 'c')]),
+      scMap(sdk, [[addr(sdk, c.threshold), scMap(sdk, [[sym(sdk, 'threshold'), u32(sdk, 1)]])]]),
+    ];
     const addRule = await step('E03-add-rule-target1', () =>
       invoke(ctx, {
         contractId: account,
         method: 'add_context_rule',
         authorizers: admin,
+        expected: own(account, 'add_context_rule', ruleArgs),
         label: 'E03-add-rule-target1',
-        args: [
-          contextRuleType(sdk, 'CallContract', c.target1),
-          str(sdk, 'ctx-target1'),
-          sdk.xdr.ScVal.scvVoid(),
-          signersVec(sdk, [ozSignerOf(c, keys.b, 'b'), ozSignerOf(c, keys.c, 'c')]),
-          scMap(sdk, [[addr(sdk, c.threshold), scMap(sdk, [[sym(sdk, 'threshold'), u32(sdk, 1)]])]]),
-        ],
+        args: ruleArgs,
       }),
     );
     details.add_rule = addRule;
@@ -820,11 +806,12 @@ async function e03(
     saveState(state);
     rule = await readRule1();
     if (!rule) throw new Error('E03: rule 1 not readable after add_context_rule');
+  }
+  if (rule) {
+    // The execute call below carries this RPC read, so a resumed run checks it too.
     const native: { id: unknown } = sdk.scValToNative(rule);
     const id = Number(native.id);
     if (id !== 1) throw new Error(`E03: expected rule id 1, got ${id}`);
-  }
-  if (rule) {
     const threshold = await readThreshold();
     details.threshold_at_start = threshold;
     if (threshold === 1) {
@@ -839,6 +826,7 @@ async function e03(
           method: 'ping',
           args: ping1,
           authorizers: byRule1([keys.b]),
+          expected: own(c.target1, 'ping', ping1),
           label: 'E03-rule1-b-target1',
           state: st1,
         }),
@@ -849,6 +837,7 @@ async function e03(
           method: 'ping',
           args: ping1,
           authorizers: byRule1([keys.b]),
+          expected: own(c.target2, 'ping', ping1),
           label: 'E03-rule1-target2',
           expect: E.unvalidated,
           state: { target: c.target2, who: account },
@@ -861,23 +850,26 @@ async function e03(
           method: 'ping',
           args: ping1,
           authorizers: [ozAuthorizer(ctx, account, c.verifier, [keys.b], { ruleId: 0 })],
+          expected: own(c.target1, 'ping', ping1),
           label: 'E03-rule0-b',
           expect: E.unvalidated,
           state: st1,
         }),
       );
       // Threshold 1 -> 2 through ExecutionEntryPoint::execute, authorized by rule 0. The policy sees the account as invoker.
+      const executeArgs = [
+        addr(sdk, c.threshold),
+        sym(sdk, 'set_threshold'),
+        sdk.xdr.ScVal.scvVec([u32(sdk, 2), rule, addr(sdk, account)]),
+      ];
       details.set_threshold_2 = await step('E03-set-threshold-2', () =>
         invoke(ctx, {
           contractId: account,
           method: 'execute',
           authorizers: admin,
+          expected: own(account, 'execute', executeArgs),
           label: 'E03-set-threshold-2',
-          args: [
-            addr(sdk, c.threshold),
-            sym(sdk, 'set_threshold'),
-            sdk.xdr.ScVal.scvVec([u32(sdk, 2), rule, addr(sdk, account)]),
-          ],
+          args: executeArgs,
         }),
       );
       details.threshold_after_update = await readThreshold();
@@ -895,6 +887,7 @@ async function e03(
         method: 'ping',
         args: ping1,
         authorizers: byRule1([keys.b]),
+        expected: own(c.target1, 'ping', ping1),
         label: 'E03-after-update-b-only',
         expect: E.notAllowed,
         state: st1,
@@ -906,6 +899,7 @@ async function e03(
         method: 'ping',
         args: ping1,
         authorizers: byRule1([keys.b, keys.c]),
+        expected: own(c.target1, 'ping', ping1),
         label: 'E03-after-update-b-c',
         state: st1,
       }),
@@ -916,6 +910,7 @@ async function e03(
         method: 'remove_context_rule',
         args: [u32(sdk, 1)],
         authorizers: admin,
+        expected: own(account, 'remove_context_rule', [u32(sdk, 1)]),
         label: 'E03-remove-rule-1',
       }),
     );
@@ -932,6 +927,7 @@ async function e03(
       method: 'ping',
       args: ping1,
       authorizers: byRule1([keys.b, keys.c]),
+      expected: own(c.target1, 'ping', ping1),
       label: 'E03-removed-rule',
       expect: E.ruleNotFound,
       state: st1,
@@ -1110,52 +1106,45 @@ async function selfTest() {
     dup.length === 3 && new Set(dup.map((s) => Buffer.from(s.public_key).toString('hex'))).size === 2,
     'duplicate keeps two distinct keys plus one repeat',
   );
-  // Delegate entry: __check_auth root, both credential variants, preimage type follows the variant.
-  for (const variant of ['sorobanCredentialsAddress', 'sorobanCredentialsAddressV2'] as const) {
-    const creds = new sdk.xdr.SorobanAddressCredentials({
-      address: new sdk.Address(g.publicKey()).toScAddress(),
-      nonce: 5n,
-      signatureExpirationLedger: 0,
-      signature: sdk.xdr.ScVal.scvVoid(),
-    });
-    const entry = new sdk.xdr.SorobanAuthorizationEntry({
-      credentials: credentialsOfVariant(sdk, variant, creds),
-      rootInvocation: contractFn(sdk, verifier, '__check_auth', [bytes(sdk, Buffer.alloc(32, 3))]),
-    });
-    const pre = sdk.buildAuthorizationEntryPreimage(entry, 100, sdk.Networks.TESTNET);
-    assert(
-      pre.type ===
-        (variant.endsWith('V2')
-          ? 'envelopeTypeSorobanAuthorizationWithAddress'
-          : 'envelopeTypeSorobanAuthorization'),
-      `preimage for ${variant}`,
-    );
-    const signed = await sdk.authorizeEntry(
-      entry,
-      async (_p, pl) => ({
-        signatureScVal: accountSignature(sdk, [
-          { rawKey: key.rawPublicKey, signature: await ctx.signDigest(key, Buffer.from(pl)) },
-        ]),
-        address: key.publicKey,
+  // Delegate entry: __check_auth root with AddressV2 credentials and the address-bound preimage.
+  const delegateEntry = new sdk.xdr.SorobanAuthorizationEntry({
+    credentials: sdk.xdr.SorobanCredentials.sorobanCredentialsAddressV2(
+      new sdk.xdr.SorobanAddressCredentials({
+        address: new sdk.Address(g.publicKey()).toScAddress(),
+        nonce: 5n,
+        signatureExpirationLedger: 0,
+        signature: sdk.xdr.ScVal.scvVoid(),
       }),
-      100,
-      sdk.Networks.TESTNET,
-    );
-    const fn = callOf(signed);
-    assert(
-      String(fn.functionName) === '__check_auth' &&
-        bytesOf(fn.args[0]).length === 32 &&
-        requireAddressCredentials(signed).signatureExpirationLedger === 100,
-      `delegate entry ${variant}`,
-    );
-    assert(
-      g.verify(
-        Buffer.from(sdk.hash(pre.toXdr())),
-        Buffer.from(signaturesOf(requireAddressCredentials(signed).signature)[0].signature),
-      ),
-      `delegate signature ${variant}`,
-    );
-  }
+    ),
+    rootInvocation: contractFn(sdk, verifier, '__check_auth', [bytes(sdk, Buffer.alloc(32, 3))]),
+  });
+  const pre = sdk.buildAuthorizationEntryPreimage(delegateEntry, 100, sdk.Networks.TESTNET);
+  assert(pre.type === 'envelopeTypeSorobanAuthorizationWithAddress', 'AddressV2 preimage');
+  const delegateSigned = await sdk.authorizeEntry(
+    delegateEntry,
+    async (_p, pl) => ({
+      signatureScVal: accountSignature(sdk, [
+        { rawKey: key.rawPublicKey, signature: await ctx.signDigest(key, Buffer.from(pl)) },
+      ]),
+      address: key.publicKey,
+    }),
+    100,
+    sdk.Networks.TESTNET,
+  );
+  const delegateFn = callOf(delegateSigned);
+  assert(
+    String(delegateFn.functionName) === '__check_auth' &&
+      bytesOf(delegateFn.args[0]).length === 32 &&
+      requireAddressCredentials(delegateSigned).signatureExpirationLedger === 100,
+    'delegate entry',
+  );
+  assert(
+    g.verify(
+      Buffer.from(sdk.hash(pre.toXdr())),
+      Buffer.from(signaturesOf(requireAddressCredentials(delegateSigned).signature)[0].signature),
+    ),
+    'delegate signature',
+  );
   // extraAuth flow offline: OZ entry signed by the delegated authorizer, then the delegate entry from the seam.
   const ozCreds = new sdk.xdr.SorobanAddressCredentials({
     address: new sdk.Address(verifier).toScAddress(),
@@ -1194,7 +1183,7 @@ async function selfTest() {
       extra[0].credentials.type === 'sorobanCredentialsAddressV2' &&
       String(dfn.functionName) === '__check_auth' &&
       Buffer.from(bytesOf(dfn.args[0])).toString('hex') === meta.digest,
-    'delegate entry bound to the OZ digest with the same variant',
+    'delegate entry bound to the OZ digest with AddressV2 credentials',
   );
   assert(
     entries.length === 2 && entries[1].scheme === 'delegate-check-auth-root',
@@ -1257,22 +1246,28 @@ async function selfTest() {
     /binding mismatch/,
     'base artifact change rejected',
   );
-  const legacy = pathToFileURL(join(dir, 'legacy.json'));
-  write(
-    legacy,
-    JSON.stringify({
-      oz_commit: OZ_COMMIT,
-      contracts: {
-        x: {
-          id: verifier,
-          wasm: 'multisig_account_example.wasm',
-          wasm_sha256: manifest.artifacts['multisig_account_example.wasm'].sha256,
-        },
+  const unbound = pathToFileURL(join(dir, 'unbound.json'));
+  const unboundState = {
+    oz_commit: OZ_COMMIT,
+    contracts: {
+      x: {
+        id: verifier,
+        wasm: 'multisig_account_example.wasm',
+        wasm_sha256: manifest.artifacts['multisig_account_example.wasm'].sha256,
       },
-      done: {},
-    }),
+    },
+    done: {},
+    steps: {},
+  };
+  write(unbound, JSON.stringify(unboundState));
+  throws(() => loadState(ctx, base, manifest, unbound), /no binding/, 'unbound populated state rejected');
+  const partial = pathToFileURL(join(dir, 'partial.json'));
+  write(partial, JSON.stringify({ ...fresh, steps: undefined }));
+  throws(
+    () => loadState(ctx, base, manifest, partial),
+    /lacks contracts, done, or steps/,
+    'missing steps rejected',
   );
-  throws(() => loadState(ctx, base, manifest, legacy), /no binding/, 'unbound populated state rejected');
   const unreadable = pathToFileURL(join(dir, 'dir.json'));
   mkdirSync(unreadable);
   throws(() => loadState(ctx, base, manifest, unreadable), /cannot read/, 'EISDIR is not defaulted');
