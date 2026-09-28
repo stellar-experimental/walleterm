@@ -112,6 +112,11 @@ test('getNetwork answers without a session or bridge request', async () => {
     code: -3,
     ext: ['walleterm:not_connected'],
   });
+  // Bad text fails before the session check, which can send a request.
+  expect((await f.wallet.signMessage('a\ud800b')).error).toMatchObject({
+    code: -3,
+    ext: ['walleterm:invalid_request'],
+  });
   expect(f.requests()).toBe(0);
 });
 
