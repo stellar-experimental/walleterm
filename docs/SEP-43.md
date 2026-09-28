@@ -184,17 +184,27 @@ Kit v2.7.0 defines `ModuleInterface.onChange`, but the Kit core never calls it.
 Only the Scopuly module implements it. The Kit updates its address through `authModal()` and `fetchAddress()`.
 So `WalletermModule.onChange(callback)` reports each switch with `{ address, network, networkPassphrase }`.
 A disconnection or an expired session reports an empty address with a `-3` error.
-A Kit website connects the hook once and reads the event:
+A Kit website connects the hook once. It reads the event and acts only while Walleterm is the selected Kit wallet:
 
 ```ts
-walletermModule.onChange(({ address }) =>
-  address ? StellarWalletsKit.fetchAddress() : StellarWalletsKit.disconnect(),
-);
+const walletermActive = () => {
+  try {
+    return StellarWalletsKit.selectedModule.productId === WALLETERM_ID;
+  } catch {
+    return false; // No Kit wallet is selected.
+  }
+};
+walletermModule.onChange(({ address }) => {
+  if (!walletermActive()) return;
+  return address ? StellarWalletsKit.fetchAddress() : StellarWalletsKit.disconnect();
+});
 ```
 
 `fetchAddress()` calls the module's `getAddress()`, which returns the new address without a dialog.
 `StellarWalletsKit.disconnect()` clears the Kit address. It calls the module's `disconnect()`, which finds no session.
 A hook that always calls `fetchAddress()` would open the pairing dialog after every disconnection or expiry.
+Both Kit calls use the selected Kit module. Without the guard, a Walleterm event would act on another wallet.
+The other wallet could then disconnect, or open its own popup.
 Change events run after the switch settles. The Kit check found that an earlier event failed a `fetchAddress()` call.
 
 ### Sessions

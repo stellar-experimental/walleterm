@@ -100,7 +100,8 @@ The component publishes the recovered account. Failed recovery disables transact
 The SDK defaults to the `selected` scope: one wallet for each connection. It is the least-privilege scope.
 Use `new Walleterm({ walletScope: 'available' })` only with an interface that displays the broader permission.
 `wallet.onChange(listener)` reports each switch and disconnection.
-A Stellar Wallets Kit website connects `walletermModule.onChange(({ address }) => address ? StellarWalletsKit.fetchAddress() : StellarWalletsKit.disconnect())`.
+A Stellar Wallets Kit website connects the guarded hook in [SEP-43](SEP-43.md#scopes-and-switching).
+It acts only while Walleterm is the selected Kit wallet. It calls `fetchAddress()` for an address and `disconnect()` for none.
 That hook never opens the pairing dialog after a disconnection or an expired session.
 
 Changing wallets preserves a saved demo transaction and its original signer.

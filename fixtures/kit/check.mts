@@ -4,7 +4,7 @@
 //   bun install --cwd fixtures/kit --frozen-lockfile --ignore-scripts && bun fixtures/kit/check.mts
 import assert from 'node:assert/strict';
 import { StellarWalletsKit } from '@creit.tech/stellar-wallets-kit/sdk';
-import { Networks } from '@creit.tech/stellar-wallets-kit/types';
+import { ModuleType, Networks } from '@creit.tech/stellar-wallets-kit/types';
 import type { ModuleInterface } from '@creit.tech/stellar-wallets-kit/types';
 import {
   Account,
@@ -19,7 +19,7 @@ import {
 } from '@stellar/stellar-sdk';
 import { createBridge } from '../../bridge/server.ts';
 import { Walleterm } from '../../sdk/walleterm.ts';
-import { WalletermModule } from '../../sdk/kit.ts';
+import { WALLETERM_ID, WalletermModule } from '../../sdk/kit.ts';
 
 const key = Keypair.random(),
   other = Keypair.random();
@@ -71,8 +71,32 @@ try {
   const typed: ModuleInterface = module;
   assert.equal(typed.productId, 'walleterm');
 
+  // A second Kit wallet. The documented hook must never act on it.
+  const otherAddress = Keypair.random().publicKey();
+  const otherCalls = { getAddress: 0, disconnect: 0 };
+  const refuse = async () => Promise.reject({ code: -3, message: 'Not used by this check.' });
+  const otherWallet: ModuleInterface = {
+    moduleType: ModuleType.HOT_WALLET,
+    productId: 'other',
+    productName: 'Other',
+    productUrl: 'https://other.example',
+    productIcon: '',
+    isAvailable: async () => true,
+    getAddress: async () => {
+      otherCalls.getAddress++;
+      return { address: otherAddress };
+    },
+    signTransaction: refuse,
+    signAuthEntry: refuse,
+    signMessage: refuse,
+    getNetwork: async () => ({ network: 'TESTNET', networkPassphrase: Networks.TESTNET }),
+    disconnect: async () => {
+      otherCalls.disconnect++;
+    },
+  };
+
   // The Kit defaults to PUBLIC. Walleterm refuses it before any bridge request.
-  StellarWalletsKit.init({ modules: [module], selectedWalletId: 'walleterm' });
+  StellarWalletsKit.init({ modules: [module, otherWallet], selectedWalletId: 'walleterm' });
   const unsigned = new TransactionBuilder(new Account(key.publicKey(), '1'), {
     fee: '100',
     networkPassphrase: Networks.TESTNET,
@@ -128,18 +152,25 @@ try {
     networkPassphrase: Networks.TESTNET,
   });
 
-  // The Kit core does not subscribe to onChange. A website connects the documented, event-aware hook.
+  // The Kit core does not subscribe to onChange. A website connects the documented, guarded hook.
   let hookFailure: unknown;
   let events = Promise.withResolvers<void>();
-  module.onChange(
-    ({ address }) =>
-      void (address ? StellarWalletsKit.fetchAddress() : StellarWalletsKit.disconnect())
-        .then(() => events.resolve())
-        .catch((error) => {
-          hookFailure = error;
-          events.resolve();
-        }),
-  );
+  const walletermActive = () => {
+    try {
+      return StellarWalletsKit.selectedModule.productId === WALLETERM_ID;
+    } catch {
+      return false; // No Kit wallet is selected.
+    }
+  };
+  module.onChange(({ address }) => {
+    if (!walletermActive()) return events.resolve();
+    void (address ? StellarWalletsKit.fetchAddress() : StellarWalletsKit.disconnect())
+      .then(() => events.resolve())
+      .catch((error) => {
+        hookFailure = error;
+        events.resolve();
+      });
+  });
   const settled = async () => {
     await events.promise;
     events = Promise.withResolvers<void>();
@@ -189,6 +220,19 @@ try {
   await cleared();
   assert.equal(dialogs, afterPairing);
   results.expiry_401 = 'signing returned -3, Kit address cleared, no dialog';
+
+  // With another Kit wallet selected, the guard ignores Walleterm switches and disconnections.
+  await pairAgain();
+  StellarWalletsKit.setWallet('other');
+  assert.deepEqual(await StellarWalletsKit.fetchAddress(), { address: otherAddress });
+  const selected = { ...otherCalls };
+  await wallet.selectWallet(other.publicKey());
+  await settled();
+  await wallet.disconnect();
+  await settled();
+  assert.deepEqual(otherCalls, selected);
+  assert.deepEqual(await StellarWalletsKit.getAddress(), { address: otherAddress });
+  results.other_wallet = 'guard ignored Walleterm events while another Kit wallet was selected';
 
   // A disconnection from the Kit side revokes the bridge session.
   await pairAgain();

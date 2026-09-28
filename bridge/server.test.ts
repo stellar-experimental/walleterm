@@ -1151,6 +1151,32 @@ test('closing the bridge aborts signing and reports it', async () => {
   assert.match(f.logs[0], /^Signature withheld or stopped for /);
 });
 
+for (const ending of ['disconnect', 'expiry'] as const)
+  test(`${ending} withholds a signed, undelivered result as unknown`, async () => {
+    let clock = Date.now();
+    const f = await fixture({ review: undefined, now: () => clock }),
+      a = await f.connect();
+    const request = input('undelivered');
+    assert.equal((await f.request('/v1/requests', request, a)).status, 201);
+    // The website never polls, so the bridge has not delivered the signature.
+    await until(() => f.logs.length === 1);
+    const hash = Buffer.from(TransactionBuilder.fromXDR(request.xdr, Networks.TESTNET).hash()).toString(
+      'hex',
+    );
+    assert.equal(f.logs[0], `Signed ${hash} (account ${publicKey}, sequence 11) for ${a.site}.\n`);
+    if (ending === 'disconnect') assert.equal((await f.request('/v1/disconnect', {}, a)).status, 200);
+    else clock += 3600001;
+    const read = await f.request('/v1/requests/undelivered', undefined, a);
+    assert.equal(read.status, 401);
+    assert.equal(read.data.signed_tx_xdr, undefined);
+    // After signing, the outcome is unknown. A denied state would print no line.
+    assert.deepEqual(f.logs, [
+      f.logs[0],
+      `Signature withheld or stopped for ${hash} (account ${publicKey}, sequence 11): The website connection was revoked.\n`,
+    ]);
+    assert.equal(f.calls(), 1);
+  });
+
 test('canceling a signed request withholds its result', async () => {
   const f = await fixture(),
     a = await f.connect();

@@ -735,8 +735,8 @@ export class Walleterm {
         previousRevoked = false;
       }
       // Revoking the previous session can take a while. A canceled pairing then keeps no session.
-      if (signal?.aborted && this.client === previous) {
-        this.#use(null);
+      if (signal?.aborted) {
+        if (this.client === previous) this.#use(null);
         signal.throwIfAborted();
       }
     }

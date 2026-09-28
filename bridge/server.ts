@@ -209,6 +209,11 @@ export function createBridge({
     message: string,
     error?: Sep43Error,
   ) {
+    // After signing starts, a signature can exist. The outcome is never denied or expired.
+    if (r.state === 'signing' || r.state === 'signed') {
+      state = 'unknown';
+      error = undefined;
+    }
     r.state = state;
     r.error = error
       ? { ...error, requestState: state }
@@ -258,7 +263,11 @@ export function createBridge({
     s.revoked = true;
     for (const r of records.values())
       if (r.session_id === s.id && (active(r) || r.state === 'signed')) {
-        end(r, r.state === 'signing' ? 'unknown' : 'denied', 'The website connection was revoked.');
+        end(
+          r,
+          ['signing', 'signed'].includes(r.state) ? 'unknown' : 'denied',
+          'The website connection was revoked.',
+        );
         reviews.get(r.record_id)?.abort();
       }
   }
