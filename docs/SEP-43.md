@@ -73,7 +73,7 @@ So a `Walleterm` object is a Stellar SDK `contract.Signer`. Its `address` is an 
 | `getAddress()` | With a session, it confirms the session through `GET /v1/account`. Without one, it opens pairing. `skipRequestAccess: true` returns `-3 walleterm:not_connected` instead. A closed dialog returns `-4`. |
 | `signTransaction()` | It checks the envelope locally, sends one request, and verifies the returned envelope. `submit: true` or `submitUrl` returns `-3`. The bridge never submits. |
 | `signAuthEntry()` | Section 2. |
-| `signMessage()` | Section 2a. It checks the text, the network, and the address before any request. |
+| `signMessage()` | Section 2a. It checks the text and the network before any request, and the address before the signing request. |
 | `getNetwork()` | It returns `{ network: 'TESTNET', networkPassphrase: 'Test SDF Network ; September 2015' }` without a session. |
 
 ### Native methods
@@ -171,12 +171,16 @@ if (error) throw error;
 Keypair.fromPublicKey(signerAddress).verifyMessage(text, Uint8Array.from(atob(signedMessage), (c) => c.charCodeAt(0)));
 ```
 
-Before any request, the SDK checks these points:
+The SDK checks these points before it sends the signing request:
 
 1. `message` is a string, and `message.isWellFormed()` is true.
    `TextEncoder` turns a lone surrogate into U+FFFD, so the signature would cover other text.
 2. The text has 1–1024 UTF-8 bytes. The limit counts bytes, not characters.
-3. The network is testnet, and `opts.address` is absent or the selected G-address.
+3. The network is testnet.
+4. `opts.address` is absent or the selected G-address.
+
+The SDK checks points 1–3 before any request.
+A restored session can read `GET /v1/account` before the SDK checks point 4.
 
 The SDK sends one `message` request. It verifies the result with `Keypair.verifyMessage` before it returns it.
 `signedMessage` is the Base64 64-byte signature. `signerAddress` is the selected G-address.

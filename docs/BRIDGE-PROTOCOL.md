@@ -185,9 +185,9 @@ Message request from https://example.com for G... (43 bytes, digest <hex>, no ne
 The line escapes control, format, bidirectional, separator, and private-use characters. The usual result line follows.
 A SEP-53 signature is a permanent, portable proof that the key approved the text.
 It binds no network, origin, nonce, or expiry, unless the text contains them.
+So the testnet rule does not limit a message signature.
 The 1Password prompt shows no text. Cached 1Password approval can skip that prompt.
-So the testnet rule does not limit a message signature. Connect only dedicated testnet keys.
-Never use a Walleterm key as an identity or a key-derivation source for another service.
+Connect only dedicated testnet keys. Never use a Walleterm key as an identity or a key-derivation source for another service.
 
 ## Expiry
 
