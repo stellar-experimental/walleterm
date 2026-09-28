@@ -903,6 +903,71 @@
    }
   },
   {
+   "id": "auth-openzeppelin-near-integer",
+   "kind": "auth_entry",
+   "input": {
+    "auth_entry_xdr": "AAAAAgAAAAEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAf////////+FAAAAoAAAAAEAAAAAAAAAAQICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAAAADmFyYml0cmFyeV9jYWxsAAAAAAACAAAAAwAAACoAAAAPAAAACHJldmlld2VkAAAAAQAAAAAAAAABAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAAAAOYXJiaXRyYXJ5X2NhbGwAAAAAAAIAAAADAAAAKgAAAA8AAAAIcmV2aWV3ZWQAAAAA",
+    "network_passphrase": "Test SDF Network ; September 2015",
+    "public_key": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57",
+    "address": "CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526",
+    "adapter": {
+     "type": "openzeppelin-ed25519",
+     "verifier": "CABQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGCK3",
+     "context_rule_ids": [
+      0.9999999999999999,
+      4
+     ]
+    }
+   },
+   "latest_ledger": 100,
+   "expect": {
+    "error": {
+     "code": "invalid_input",
+     "message": "Provide a verifier C-address and one uint32 rule ID per authorization context."
+    }
+   }
+  },
+  {
+   "id": "auth-ledger-near-integer",
+   "kind": "auth_entry",
+   "input": {
+    "auth_entry_xdr": "AAAAAgAAAAAAAAAA6kpsY+KcUgq+9VB7Ey7F+ZVHdq6+vnuSQh7qaRRG0iz/////////hQAAAKAAAAABAAAAAAAAAAECAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgAAAA5hcmJpdHJhcnlfY2FsbAAAAAAAAgAAAAMAAAAqAAAADwAAAAhyZXZpZXdlZAAAAAEAAAAAAAAAAQICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAAAADmFyYml0cmFyeV9jYWxsAAAAAAACAAAAAwAAACoAAAAPAAAACHJldmlld2VkAAAAAA==",
+    "network_passphrase": "Test SDF Network ; September 2015",
+    "public_key": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57",
+    "address": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57",
+    "adapter": {
+     "type": "account"
+    }
+   },
+   "latest_ledger": 99.99999999999999,
+   "expect": {
+    "error": {
+     "code": "invalid_input",
+     "message": "Use a positive uint32 ledger number."
+    }
+   }
+  },
+  {
+   "id": "auth-base64url",
+   "kind": "auth_entry",
+   "input": {
+    "auth_entry_xdr": "AAAAAgAAAAAAAAAA6kpsY-KcUgq-9VB7Ey7F-ZVHdq6-vnuSQh7qaRRG0iwAAAs6c84v8gAAAKAAAAABAAAAAAAAAAECAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgAAAA5hcmJpdHJhcnlfY2FsbAAAAAAAAgAAAAMAAAAqAAAADwAAAAhyZXZpZXdlZAAAAAEAAAAAAAAAAQICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAAAADmFyYml0cmFyeV9jYWxsAAAAAAACAAAAAwAAACoAAAAPAAAACHJldmlld2VkAAAAAA==",
+    "network_passphrase": "Test SDF Network ; September 2015",
+    "public_key": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57",
+    "address": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57",
+    "adapter": {
+     "type": "account"
+    }
+   },
+   "latest_ledger": 100,
+   "expect": {
+    "error": {
+     "code": "invalid_input",
+     "message": "Use canonical authorization XDR."
+    }
+   }
+  },
+  {
    "id": "preimage-account",
    "kind": "preimage",
    "preimage_xdr": "AAAACs7gMC1ZhE0yvcqRXIID3USzP7t+3BkFHqN6vt8o7NRyAAAAAAAAADcAAADcAAAAAAAAAADqSmxj4pxSCr71UHsTLsX5lUd2rr6+e5JCHuppFEbSLAAAAAAAAAABAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAAAAOYXJiaXRyYXJ5X2NhbGwAAAAAAAIAAAADAAAAKgAAAA8AAAAIcmV2aWV3ZWQAAAABAAAAAAAAAAECAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgAAAA5hcmJpdHJhcnlfY2FsbAAAAAAAAgAAAAMAAAAqAAAADwAAAAhyZXZpZXdlZAAAAAA=",
@@ -1107,6 +1172,20 @@
     "error": {
      "code": "address_mismatch",
      "message": "Select a valid G-address."
+    }
+   }
+  },
+  {
+   "id": "preimage-base64url",
+   "kind": "preimage",
+   "preimage_xdr": "AAAACs7gMC1ZhE0yvcqRXIID3USzP7t-3BkFHqN6vt8o7NRyAAAAAAAAADcAAADcAAAAAAAAAADqSmxj4pxSCr71UHsTLsX5lUd2rr6-e5JCHuppFEbSLAAAAAAAAAABAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgIAAAAOYXJiaXRyYXJ5X2NhbGwAAAAAAAIAAAADAAAAKgAAAA8AAAAIcmV2aWV3ZWQAAAABAAAAAAAAAAECAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgAAAA5hcmJpdHJhcnlfY2FsbAAAAAAAAgAAAAMAAAAqAAAADwAAAAhyZXZpZXdlZAAAAAA=",
+   "public_key": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57",
+   "network_passphrase": "Test SDF Network ; September 2015",
+   "latest_ledger": 100,
+   "expect": {
+    "error": {
+     "code": "invalid_request",
+     "message": "Use canonical authorization preimage XDR."
     }
    }
   },
@@ -1709,6 +1788,41 @@
     "signature": "e27a1a2ab098e7ec9cd1c4d965c4b3da8650a6b8d526adb5b78533538ee2d3efe6249732754525cec291511dac5a0a1d1ea8790e2435fd6b48246da95adc6909",
     "signed_tx_xdr": "AAAAAgAAAADqSmxj4pxSCr71UHsTLsX5lUd2rr6+e5JCHuppFEbSLAAACcQAAAAAAAAAKgAAAAEAAAAAa0nR9gAAAABrSdJ4AAAAAAAAAAoAAAAAAAAAAAAAAAD9FyQ4WqDHW2T7eM1gL6HZkf3r92sTxY7XAurINen2GAAAAAAAmJaAAAAAAAAAAAYAAAABVVNEAAAAAAD9FyQ4WqDHW2T7eM1gL6HZkf3r92sTxY7XAurINen2GH//////////AAAAAAAAAAoAAAABawAAAAAAAAEAAAABdgAAAAAAAAAAAAALAAAAAAAAAGMAAAAAAAAABQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAC2V4YW1wbGUuY29tAAAAAAAAAAABAAAAAOpKbGPinFIKvvVQexMuxfmVR3auvr57kkIe6mkURtIsAAAACAAAAAD9FyQ4WqDHW2T7eM1gL6HZkf3r92sTxY7XAurINen2GAAAAAAAAAAQAAAAAP0XJDhaoMdbZPt4zWAvodmR/ev3axPFjtcC6sg16fYYAAAAAQAAAAD9FyQ4WqDHW2T7eM1gL6HZkf3r92sTxY7XAurINen2GAAAABEAAAAAAAAACQAAAAAAAAAYAAAAAAAAAAECAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgAAAAVoZWxsbwAAAAAAAAEAAAADAAAAAQAAAAAAAAAAAAAAARRG0iwAAABA4noaKrCY5+yc0cTZZcSz2oZQprjVJq21t4UzU47i0+/mJJcydUUlzsKRUR2sWgodHqh5DiQ1/WtIJG2pWtxpCQ=="
    }
+  },
+  {
+   "id": "tx-base64url",
+   "kind": "transaction",
+   "input": {
+    "kind": "transaction",
+    "xdr": "AAAAAgAAAADqSmxj4pxSCr71UHsTLsX5lUd2rr6-e5JCHuppFEbSLAAAAPoAAAAAAAAAKgAAAAEAAAAAa0nR9gAAAABrSdJ4AAAAAAAAAAEAAAAAAAAACgAAAAFrAAAAAAAAAQAAAAY_Pz8-Pj4AAAAAAAAAAAAA",
+    "network_passphrase": "Test SDF Network ; September 2015",
+    "address": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57"
+   },
+   "now_ms": 1800000000000,
+   "expect": {
+    "error": {
+     "code": "invalid_request",
+     "message": "Use canonical transaction XDR."
+    }
+   }
+  },
+  {
+   "id": "tx-invalid-asset-code",
+   "kind": "transaction",
+   "input": {
+    "kind": "transaction",
+    "xdr": "AAAAAgAAAADqSmxj4pxSCr71UHsTLsX5lUd2rr6+e5JCHuppFEbSLAAAAPoAAAAAAAAAKgAAAAEAAAAAa0nR9gAAAABrSdJ4AAAAAAAAAAEAAAAAAAAAAQAAAAD9FyQ4WqDHW2T7eM1gL6HZkf3r92sTxY7XAurINen2GAAAAAEhAAAAAAAAAOpKbGPinFIKvvVQexMuxfmVR3auvr57kkIe6mkURtIsAAAAAACYloAAAAAAAAAAAA==",
+    "network_passphrase": "Test SDF Network ; September 2015",
+    "address": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57"
+   },
+   "now_ms": 1800000000000,
+   "expect": {
+    "error": {
+     "code": "invalid_request",
+     "message": "The transaction XDR is invalid."
+    }
+   },
+   "rust_accepts": true
   }
  ]
 }

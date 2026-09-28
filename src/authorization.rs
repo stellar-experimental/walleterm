@@ -292,3 +292,57 @@ pub fn attach_auth_signature(
 pub fn digest_hex(checked: &CheckedAuth) -> String {
     hex(&checked.digest)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verification_rejects_a_weak_key() {
+        // The compressed identity point, with an identity R and a zero S, verifies under a cofactor-free check.
+        let mut identity = [0u8; 32];
+        identity[0] = 1;
+        let mut signature = [0u8; 64];
+        signature[0] = 1;
+        assert!(!verify(&identity, b"any message", &signature));
+    }
+
+    #[test]
+    fn verification_rejects_a_noncanonical_scalar() {
+        use ed25519_dalek::{Signer, SigningKey};
+        let key = SigningKey::from_bytes(&[7; 32]);
+        let message = [1u8; 32];
+        let mut signature = key.sign(&message).to_bytes();
+        assert!(verify(&key.verifying_key().to_bytes(), &message, &signature));
+        // Replace S with the Ed25519 group order L; S must be below L.
+        const L: [u8; 32] = [
+            0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10,
+        ];
+        signature[32..].copy_from_slice(&L);
+        assert!(!verify(&key.verifying_key().to_bytes(), &message, &signature));
+    }
+
+    #[test]
+    fn json_u32_follows_number_is_integer() {
+        let parse = |text: &str| json_u32(&serde_json::from_str::<Value>(text).unwrap());
+        for (text, want) in [
+            ("0", Some(0)),
+            ("4294967295", Some(u32::MAX)),
+            ("1.0", Some(1)),
+            ("1e2", Some(100)),
+            ("4.294967295e9", Some(u32::MAX)),
+            ("-0", Some(0)),
+            ("0.9999999999999999", None),
+            ("99.99999999999999", None),
+            ("1.5", None),
+            ("-1", None),
+            ("4294967296", None),
+            ("\"7\"", None),
+            ("true", None),
+            ("null", None),
+        ] {
+            assert_eq!(parse(text), want, "{text}");
+        }
+    }
+}

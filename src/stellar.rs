@@ -19,7 +19,7 @@ pub enum Decode {
     NonCanonical,
 }
 
-/// Node's Base64 decoder accepts whitespace, missing padding, and nonzero trailing bits.
+/// Node's Base64 decoder accepts whitespace, missing padding, nonzero trailing bits, and the URL alphabet.
 /// Use it only to tell a noncanonical alias from invalid input.
 const LENIENT: GeneralPurpose = GeneralPurpose::new(
     &base64::alphabet::STANDARD,
@@ -41,7 +41,15 @@ pub fn decode<T: ReadXdr + WriteXdr>(encoded: &str) -> Result<T, Decode> {
             _ => Err(Decode::NonCanonical),
         };
     }
-    let compact: String = encoded.chars().filter(|c| !c.is_ascii_whitespace()).collect();
+    let compact: String = encoded
+        .chars()
+        .filter(|c| !c.is_ascii_whitespace())
+        .map(|c| match c {
+            '-' => '+',
+            '_' => '/',
+            c => c,
+        })
+        .collect();
     match LENIENT.decode(compact) {
         Ok(bytes) if T::from_xdr(&bytes, limits(bytes.len())).is_ok() => Err(Decode::NonCanonical),
         _ => Err(Decode::Invalid),
@@ -111,6 +119,10 @@ mod tests {
         assert_eq!(decode::<SorobanAuthorizedInvocation>(&text), Ok(value.clone()));
         let spaced = format!("{} {}", &text[..4], &text[4..]);
         assert_eq!(decode::<SorobanAuthorizedInvocation>(&spaced), Err(Decode::NonCanonical));
+        let url = text.replace('+', "-").replace('/', "_");
+        if url != text {
+            assert_eq!(decode::<SorobanAuthorizedInvocation>(&url), Err(Decode::NonCanonical));
+        }
         let mut bytes = xdr_bytes(&value);
         bytes.extend([0, 0, 0, 0]);
         assert_eq!(decode::<SorobanAuthorizedInvocation>(&STANDARD.encode(bytes)), Err(Decode::Invalid));

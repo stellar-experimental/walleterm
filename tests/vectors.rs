@@ -97,6 +97,7 @@ fn every_frozen_vector_matches() {
     assert!(cases.len() >= 80, "the vector file lost cases");
     let failures: Vec<String> = cases
         .iter()
+        .filter(|case| case.get("rust_accepts").is_none())
         .filter_map(|case| {
             let actual = run(case, &key, public_key);
             (actual != case["expect"])
@@ -110,6 +111,38 @@ fn every_frozen_vector_matches() {
         cases.len(),
         failures.join("\n")
     );
+}
+
+/// Recorded difference (fixtures/parity/README.md): v3 structural admission accepts a valid envelope whose
+/// content the JS SDK refuses to model. The body and existing signatures stay exact; one signature is appended.
+#[test]
+fn structural_admission_accepts_what_the_sdk_cannot_model() {
+    use stellar_xdr::{Limits, ReadXdr, TransactionEnvelope};
+    let vectors = vectors();
+    let seed = lower_hex::<32>(vectors["mock_seed_hex"].as_str().unwrap()).unwrap();
+    let key = SigningKey::from_bytes(&seed);
+    let public_key = vectors["public_key"].as_str().unwrap();
+    let accepted: Vec<&Value> =
+        vectors["cases"].as_array().unwrap().iter().filter(|c| c.get("rust_accepts") == Some(&json!(true))).collect();
+    assert_eq!(accepted.len(), 1);
+    for case in accepted {
+        assert!(case["expect"]["error"].is_object(), "the TS side must still reject {}", case["id"]);
+        let input = &case["input"];
+        let xdr = input["xdr"].as_str().unwrap();
+        let (checked, _, _) =
+            inspect_transaction(xdr, input["network_passphrase"].as_str().unwrap(), public_key, public_key, case["now_ms"].as_u64().unwrap())
+                .unwrap();
+        let signed = attach_signature(&checked, &hex(&key.sign(&checked.hash).to_bytes())).unwrap();
+        let (TransactionEnvelope::Tx(before), TransactionEnvelope::Tx(after)) = (
+            TransactionEnvelope::from_xdr_base64(xdr, Limits::none()).unwrap(),
+            TransactionEnvelope::from_xdr_base64(&signed, Limits::none()).unwrap(),
+        ) else {
+            panic!("a V1 envelope");
+        };
+        assert_eq!(before.tx, after.tx);
+        assert_eq!(after.signatures.len(), before.signatures.len() + 1);
+        assert_eq!(&after.signatures[..before.signatures.len()], &before.signatures[..]);
+    }
 }
 
 #[test]
