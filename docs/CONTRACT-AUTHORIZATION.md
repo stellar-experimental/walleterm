@@ -109,7 +109,9 @@ It never submits those negative controls.
 It preserves pending submission evidence and stops after uncertain results.
 
 The [2026-09-26 acceptance record](../evidence/contract-auth-demo-2026-09-26.json) records the completed testnet checks and limits.
-All 270 offline tests passed. The independent Astra review reported no remaining actionable findings.
+That record and the Chrome test below predate the merge of the audited `main` fixes.
+Live acceptance has not run again on the integrated source.
+At that time, all 270 offline tests passed. The independent Astra review reported no remaining actionable findings.
 The CLI and SDK each signed a C-account entry before a separate envelope signature.
 The accepted transactions changed the counter from 0 to 3 across the recorded runs.
 The first run found a ledger-response size limit before SDK authorization signing.
