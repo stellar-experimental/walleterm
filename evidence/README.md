@@ -57,6 +57,13 @@ It used the existing `oz_basic_a` account and deployed nothing.
 The CLI and the SDK each signed one authorization entry. Two increments changed the counter from 2 to 4.
 Six negative controls requested no signature and were not submitted.
 
+[The SEP-43 record](sep43-live-2026-09-28.json) covers live acceptance of the SEP-43 wallet API and the Stellar Wallets Kit module.
+It used the demo and the loopback page in `fixtures/kit/live/` with test-a and test-b.
+The run signed 7 transactions and 2 authorization entries. The counter changed from 7 to 8.
+Four refused requests reached no signer, and a Kit disconnection revoked the session.
+The record lists two defects: withheld audit lines for delivered signatures, and an empty wallet menu after a reload.
+The run used the `OP_VAULT` filter because the unfiltered list included a non-test key.
+
 ## Tracked summaries and local records
 
 Git includes this index, acceptance summaries, site records, the browser QA report, and the mobile proof summaries.

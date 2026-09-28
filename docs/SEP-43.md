@@ -311,6 +311,13 @@ Live acceptance needs fresh approval and dedicated testnet keys:
 2. Demo: increment the fixture counter through `signAuthEntry`, then `signTransaction`.
 3. Kit fixture page with a real 1Password key: `authModal`, `signTransaction`, `signAuthEntries`, switch, and `disconnect`.
 4. Zero signature requests for PUBLIC, a V1 preimage, `signMessage`, and `submit: true`.
+5. A `changeTrust` transaction, which the removed operation allowlist refused.
+
+The coordinator ran these steps on testnet on 2026-09-28. All steps passed.
+[The live record](../evidence/sep43-live-2026-09-28.json) holds the hashes, ledgers, fees, and account states.
+The run signed 7 transactions and 2 authorization entries. Step 4 produced no signature.
+It found two defects. After a switch or a revoke, the terminal reported delivered signatures as withheld.
+After a reload, the header menu showed no wallets until Refresh.
 
 ## Deviations from SEP-43
 
