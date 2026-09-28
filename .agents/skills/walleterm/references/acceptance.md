@@ -35,4 +35,4 @@ X07 separately observed SDK 27 simple-account acceptance and pinned OpenZeppelin
 The OpenZeppelin diagnostic reported `Error(Value, MissingValue)` while decoding `ExternalRef`.
 X07 is an observation, not an asserted pass. These results apply to the tested code and adapters.
 Other legacy `address` cases and OpenZeppelin `Delegated` C-address adapters lack live coverage.
-Passkeys are not implemented.
+Passkeys are not planned and are out of scope.

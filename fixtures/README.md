@@ -111,4 +111,4 @@ The separate `cap71/` fixtures cover native delegated credentials, including nes
 CAP71-01 through CAP71-12 passed on protocol 28 testnet.
 See `../docs/PROTOCOL-UPDATES.md` for evidence and diagnostic limits.
 The `cap85/` fixtures cover external executable references and account context compatibility.
-Passkeys remain outside these Ed25519 claims.
+Passkeys are not planned and are out of scope.

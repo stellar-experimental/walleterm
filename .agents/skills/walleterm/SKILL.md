@@ -59,5 +59,5 @@ The fixed macOS socket is the only runtime socket. The CLI does not use `SSH_AUT
 `OP_VAULT` filters website wallet selection through `walleterm tunnel`. It accepts a vault name or ID.
 Filtering requires the 1Password CLI. Local `walleterm list` and `walleterm sign` remain independent of `OP_VAULT`.
 The signature proves key possession. It does not prove vault history, network choice, policy approval, or transaction acceptance.
-Passkeys require separate support.
+Passkeys are not planned and are out of scope.
 Another C-account signature format needs a matching adapter for its digest and signature layout. `walleterm sign` stays the same Ed25519 digest signer.

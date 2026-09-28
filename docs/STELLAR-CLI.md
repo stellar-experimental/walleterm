@@ -197,7 +197,7 @@ These items are known and not yet covered. They are deferred, not excluded. Each
 | `address_with_delegates` credentials (CAP-71-01) | The CLI does not sign them. No helper exists | A helper that builds `delegates` sorted by `address`, without duplicates. Each delegate signs the top-level `_with_address` digest |
 | Nested delegates (`nested_delegates`) | Not covered | Recursive assembly with the same sorting rules, plus a fixture contract that calls `delegate_account_auth` |
 | Legacy delegation (`require_auth` inside `__check_auth`) | Not covered | Extra auth entries with their own nonces, and a second simulation step |
-| Contract signers on G-accounts (CAP-72) | Not researched | Research at a pinned CAP revision first |
+| Contract signers on G-accounts (CAP-72) | Not planned | Out of scope |
 | OpenZeppelin smart account signature format | Pinned source, WASM hashes, and live acceptance passed | Other versions need separate checks |
 | Protocol 28 XDR differences | Classic CLI build, hash, decode, encode, and send passed | Contract simulation remains a separate check |
 | `stellar-walleterm` plugin dispatch | Local `stellar walleterm --version` passed | The alias forwards arguments and standard input to the same binary |
