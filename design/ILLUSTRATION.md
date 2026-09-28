@@ -47,6 +47,17 @@ Two traits in the references are artifacts of the image generator. Leave them ou
 - A thin light halo along the outside of ink lines.
 - Faint smears inside flat fills.
 
+## Flat shapes
+
+Moons, dots, fields, bars, and the keyhole are cut paper, not drawing. They have no outline.
+Circles are very slightly out of round: a slow wobble of 0.2% to 0.5% of the radius. The keyhole top is 1.3%.
+That is half a pixel on a 150-pixel circle and 1 to 2 pixels on the largest moon. It is felt more than seen.
+Straight flat edges are ruler-straight. The red bar in 12 and the keyhole sides in 10 bow by 0.06% or less.
+`cutCircle` in [`hand.ts`](art/hand.ts) draws the circles. Its wobble repeats around the circle, so it has no seam.
+
+Excalidraw's hand-drawn look does not fit this style. It outlines fills, doubles strokes, and overshoots the start of a closed shape.
+At its default roughness, a keyhole breaks into two separately outlined pieces. Keep one idea from it and rough.js: a seeded, slightly varied radius.
+
 ## Colors
 
 Use the median of the references. A parity recreation may match the color of its one reference instead.
@@ -81,13 +92,23 @@ Two checks prove it, and both are required:
 1. **Numbers.** `artcheck.py compare` measures the reference and the candidate the same way. Each metric must sit inside the reference band. For a recreation, it must also sit near its own reference.
 2. **Eyes.** The compare sheet shows the mascot, three zoomed details, and an ink overlay. Numbers passed once while the right edge had a hook and the legs had knees. The sheet showed both at once.
 
-The measures cover the mascot only. Scene shapes, composition, and color fields need the sheet and a reviewer.
+The measures cover the mascot, circles, and straight flat edges. Composition and color fields need the sheet and a reviewer.
+A perfect circle fails `circle_wobble`, because it sits below the reference band.
 On a dark ground, the ink measures do not run. The sheet review carries those pictures alone.
 At strokes under about 4 pixels, `edge_ramp` is noisy. Compare at the reference's full size.
+
+Lessons from building the measures:
+
+- Fit an edge only between its corners. A window that reaches a rounded corner reports a false bow.
+- Measure widths with a subpixel method. Counting whole pixels made `edge_ramp` jump between runs.
+- Trim the ends of a leg before measuring its width. The foot tick made one leg look 25% uneven.
+- One drawing's random draws move `stroke_cv` noticeably. Judge a default against several scenes, not one.
+- Change a measure only when it measures the wrong thing, and prove the change on the references first.
 
 ## Site art
 
 Every file in `site/art/` is generated. Change `art/build.ts`, then run the build. Hand edits to those files are lost.
+The Paper designs are the official reference for the site layout. Place new art in Paper before you accept it on the site.
 Each site file is a crop of a full recreation. The recreation's parity check therefore covers the site file.
 
 | Site file | Section | Reference |
@@ -96,7 +117,7 @@ Each site file is a crop of a full recreation. The recreation's parity check the
 | `request.svg` | How it works | 04 |
 | `keyhole.svg` | Boundaries | 10 |
 | `bridge.svg`, `bridge-narrow.svg` | Websites | 08 |
-| `night-wallet.svg`, `horizon.svg` | Install | 11 |
+| `night-wallet.svg`, `horizon.svg`, `night-moon.svg` | Install | 11 |
 | `favicon.svg` | Browser tab | 01, with heavier ink for 16 pixels |
 | `../apple-touch-icon.png` | iOS home screen | the favicon, full bleed at 180 pixels. iOS rounds the corners. |
 
@@ -106,7 +127,8 @@ Site art stays SVG: one file stays sharp at every width and pixel density. Use a
 ## Tools
 
 - `bun design/art/build.ts` writes each scene to `design/art/out/` and each site crop to `site/art/`.
-- `uv run design/tools/artcheck.py compare REF CANDIDATE --out SHEET` checks parity and writes the review sheet. It renders an SVG with `agent-browser`. Add `--walk` for the walking pose.
+- `uv run design/tools/artcheck.py suite` compares every built scene with its same-named reference and writes each sheet. It exits 1 on any failure.
+- `uv run design/tools/artcheck.py compare REF CANDIDATE --out SHEET` checks one scene: the mascot, its circles, and its flat edges. It renders an SVG with `agent-browser`. Add `--walk` for the walking pose.
 - `uv run design/tools/artcheck.py trace REF` reports the corners and placement of the mascot in a reference.
 - `uv run design/tools/artcheck.py measure IMAGE` prints every metric as JSON.
 - `uv run design/tools/artcheck.py render SVG PNG` rasterizes an SVG at its own size, for the touch icon.
@@ -122,3 +144,5 @@ Research with `parallel-cli` on 2026-09-28:
 - [Simulating Hand-Drawn Motion with SVG Filters](https://camillovisini.com/coding/simulating-hand-drawn-motion-with-svg-filters): `feTurbulence` into `feDisplacementMap`, and "boiling" by changing the seed.
 - NYPL, [10 Things About Goodnight Moon](https://www.nypl.org/blog/2022/09/30/goodnight-moon-margaret-wise-brown): the room darkens across the book.
 - [The Art of Dr. Seuss](https://www.drseussart.com/illustration-art-description): numbered color charts and a limited palette.
+- Excalidraw, MIT license. [`packages/element/src/shape.ts`](https://github.com/excalidraw/excalidraw/blob/master/packages/element/src/shape.ts): `generateRoughOptions`, with roughness 0 (architect), 1 (artist), or 2 (cartoonist) and a seed on each element.
+- rough.js 4.6.6, MIT license. [`src/renderer.ts`](https://github.com/rough-stuff/rough/blob/master/src/renderer.ts): an ellipse is a ring of offset points with a radius varied by `curveFitting` (0.95 by default).

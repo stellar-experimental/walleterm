@@ -10,11 +10,13 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="walleterm">
 <meta property="og:description" content="Your agent asks. 1Password signs.">
-<meta property="og:image" content="og.png">
+<meta property="og:url" content="https://walleterm.com/">
+<meta property="og:image" content="https://walleterm.com/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A red folded wallet with thin legs stands under a cream moon on a green field.">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://walleterm.com/">
 <link rel="icon" href="art/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -27,7 +29,6 @@
   --moon: #f4eddc;
   --moss: #758747;
   --deep-moss: #2a4525;
-  --night-moon: #fbf4e4;
   --night: #050404;
   --sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
   --mono: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
@@ -158,7 +159,8 @@ svg { display: block; }
 /* Websites */
 .websites { padding-bottom: 0; }
 .websites .inner { display: flex; align-items: center; justify-content: space-between; gap: var(--gap); }
-.bridge { height: max(240px, 29vw); margin-top: clamp(64px, 8vw, 120px); }
+/* Held at its 1440px height; the art's ground runs wide, so wider screens show more ground. */
+.bridge { height: clamp(240px, 29vw, 418px); margin-top: clamp(64px, 8vw, 120px); }
 .bridge { display: block; }
 .bridge img { display: block; width: 100%; height: 100%; }
 .websites .heading { max-width: 540px; }
@@ -191,7 +193,7 @@ svg { display: block; }
 .install { position: relative; overflow: hidden; padding-bottom: 48px; --m: 56vw; }
 /* Cut by the top edge, as in reference 11. Its top chord starts right of the bridge gap above. */
 .night-moon {
-  position: absolute; width: var(--m); aspect-ratio: 1; border-radius: 50%; background: var(--night-moon);
+  position: absolute; display: block; width: var(--m); height: auto; aspect-ratio: 1;
   left: calc(85% - var(--m) / 2); top: calc(15px - var(--m) / 2);
 }
 .install .inner { position: relative; }
@@ -225,6 +227,12 @@ svg { display: block; }
 .footer-meta a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .footer-meta p { font-size: 14px; color: color-mix(in srgb, var(--moon) 72%, transparent); }
 
+/* Above 1440px the moon and the night wallet hold their 1440px size and stay with the content column. */
+@media (min-width: 1441px) {
+  .install { --m: 806px; }
+  .night-moon { left: calc(50% + 504px - var(--m) / 2); }
+  .horizon-wallet { left: calc(50% - 423.4px); }
+}
 /* Below 1200px the Boundaries description column gets too narrow. Stack the heading above the list. */
 @media (max-width: 1200px) {
   .boundaries .grid { grid-template-columns: minmax(0, 1fr); gap: 56px; }
@@ -253,6 +261,12 @@ svg { display: block; }
   .footer-meta { align-items: flex-start; }
   .site-footer { flex-direction: column-reverse; align-items: flex-start; }
 }
+/* The narrow bridge centers its gap from 700px down. */
+@media (max-width: 700px) {
+  /* A whole moon clear of the top edge, so it never meets the centered bridge gap. */
+  .night-moon { --m: 44vw; left: auto; right: -8vw; top: 28px; }
+  .install { padding-top: calc(44vw + 56px); }
+}
 /* Phone */
 @media (max-width: 560px) {
   .wordmark { font-size: 24px; }
@@ -261,14 +275,14 @@ svg { display: block; }
   .how .inner { gap: 56px; }
   .terminal { padding: 24px 20px; font-size: 14px; }
   .commands pre { padding: 64px 20px 24px; font-size: 13px; }
-  /* A whole moon clear of the top edge, so it never meets the centered bridge gap. */
-  .night-moon { --m: 44vw; left: auto; right: -8vw; top: 28px; }
-  .install { padding-top: calc(44vw + 56px); }
+  /* Titles shrink with the column so the longest line still fits: 7.2 and 9.6 font sizes wide. */
+  .hero h1 { font-size: min(46px, calc((100vw - 2 * var(--gutter)) / 7.2)); }
+  .title { font-size: min(36px, calc((100vw - 2 * var(--gutter)) / 9.6)); }
   .horizon-wallet { width: 80px; }
   .horizon { height: 126px; }
   .horizon-line { top: 115px; }
   .code-object ul { flex-direction: column; gap: 6px; }
-  .footer-meta ul { display: grid; grid-template-columns: repeat(2, max-content); gap: 10px 40px; }
+  .footer-meta ul { gap: 10px 40px; }
 }
 </style>
 </head>
@@ -327,17 +341,17 @@ svg { display: block; }
         <li class="step">
           <span class="step-number" aria-hidden="true">01</span>
           <h3>Your agent prepares the transaction</h3>
-          <p class="muted">It builds and inspects the transaction with the Stellar CLI, then computes its digest.</p>
+          <p class="muted">It builds and checks the transaction with the Stellar CLI.</p>
         </li>
         <li class="step">
           <span class="step-number" aria-hidden="true">02</span>
-          <h3>1Password signs the digest</h3>
-          <p class="muted">walleterm sends the digest to the 1Password SSH agent. Approve on your Mac if asked.</p>
+          <h3>1Password signs it</h3>
+          <p class="muted">walleterm asks 1Password to sign. Approve on your Mac if asked.</p>
         </li>
         <li class="step">
           <span class="step-number" aria-hidden="true">03</span>
           <h3>walleterm checks the signature</h3>
-          <p class="muted">It verifies the Ed25519 signature, then returns one JSON object to your agent.</p>
+          <p class="muted">It checks the signature, then returns one JSON object to your agent.</p>
         </li>
       </ol>
 
@@ -345,7 +359,7 @@ svg { display: block; }
         <div class="caption">
           <h3>Made for agents to read</h3>
           <p class="muted">Each command returns one JSON object. A failure returns a stable error code.</p>
-          <p class="muted">Skills ship for Claude Code, Codex, OpenCode, and Grok. It also runs as <code>stellar walleterm</code>.</p>
+          <p class="muted">Skills ship for Claude Code, Codex, OpenCode, and Grok. It also works as a Stellar CLI plugin: <code>stellar walleterm</code>.</p>
         </div>
         <pre class="terminal span-2" aria-label="Example sign command and its output"><span class="prompt">$ </span>walleterm sign &lt; request.json
 {
@@ -369,23 +383,23 @@ svg { display: block; }
       <dl class="span-2">
         <div>
           <dt>Keys stay in 1Password</dt>
-          <dd class="muted">You create the Ed25519 key inside 1Password. walleterm never exports, prints, logs, or caches a private key.</dd>
+          <dd class="muted">You create the key inside 1Password. walleterm never exports, prints, logs, or caches it.</dd>
         </div>
         <div>
           <dt>Every signature is checked</dt>
-          <dd class="muted">walleterm verifies each signature against the public key before it returns it. It never retries a signature.</dd>
+          <dd class="muted">walleterm checks each signature against your public key before it returns it.</dd>
         </div>
         <div>
-          <dt>You review the transaction</dt>
-          <dd class="muted">The signer sees a digest, not an amount or a destination. Inspect the transaction before you sign it.</dd>
+          <dt>You approve in 1Password</dt>
+          <dd class="muted">1Password asks before it signs, the same way it does for SSH.</dd>
         </div>
         <div>
-          <dt>Websites stay on testnet</dt>
-          <dd class="muted">The website bridge accepts testnet transactions only. Use dedicated keys, not a shared SSH key.</dd>
+          <dt>Websites never see your key</dt>
+          <dd class="muted">A website can ask for a signature. The key stays in 1Password.</dd>
         </div>
         <div>
-          <dt>macOS and Ed25519 today</dt>
-          <dd class="muted">walleterm needs the 1Password desktop app on a Mac. Passkey support is a separate, future task.</dd>
+          <dt>Uses the 1Password you have</dt>
+          <dd class="muted">walleterm uses the SSH agent in the 1Password desktop app on your Mac. Your vaults and settings do not change.</dd>
         </div>
       </dl>
     </div>
@@ -396,14 +410,13 @@ svg { display: block; }
       <div class="heading">
         <p class="eyebrow">Websites</p>
         <h2 class="title" id="websites-title">A website can ask, too.</h2>
-        <p class="lede">Run <code>walleterm tunnel</code>. A testnet website connects with a QR code or an eight-digit code. Then it can request signatures from the key you pick.</p>
+        <p class="lede">Run <code>walleterm tunnel</code>. A website connects with a QR code or an eight-digit code. Then it can request signatures from the key you pick.</p>
       </div>
       <div class="code-object">
         <p class="digits" aria-label="Example connection code: 4821 0937">4821 0937</p>
         <ul>
           <li>Works once</li>
           <li>Expires in five minutes</li>
-          <li>Testnet only</li>
         </ul>
       </div>
     </div>
@@ -414,7 +427,7 @@ svg { display: block; }
   </section>
 
   <section class="spread night install" id="install" aria-labelledby="install-title">
-    <div class="night-moon" aria-hidden="true"></div>
+    <img class="night-moon" src="art/night-moon.svg" alt="" width="1000" height="1000">
     <div class="inner">
       <div class="install-row">
         <div class="install-copy">
@@ -441,9 +454,8 @@ walleterm list --human</pre>
         <div class="footer-meta">
           <ul>
             <li><a href="https://github.com/stellar-experimental/walleterm">GitHub</a></li>
-            <li><a href="https://github.com/stellar-experimental/walleterm/blob/main/docs/INTERFACE.md">Interface</a></li>
-            <li><a href="https://github.com/stellar-experimental/walleterm/blob/main/docs/WEB-BRIDGE.md">Web bridge</a></li>
-            <li><a href="https://github.com/stellar-experimental/walleterm/blob/main/evidence/README.md">Test evidence</a></li>
+            <li><a href="https://github.com/stellar-experimental/walleterm/blob/main/docs/INTERFACE.md">Docs</a></li>
+            <li><a href="https://github.com/stellar-experimental/walleterm/blob/main/docs/WEB-BRIDGE.md">Website guide</a></li>
           </ul>
           <p>An experimental project for Stellar. Use testnet accounts.</p>
         </div>
