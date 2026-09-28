@@ -3,7 +3,7 @@
 // Nothing here reaches a network.
 import { expect, test } from 'bun:test';
 import { createHash, createPublicKey, verify } from 'node:crypto';
-import { Keypair, StrKey, TransactionBuilder } from '@stellar/stellar-sdk';
+import { Keypair, StrKey, TransactionBuilder, xdr } from '@stellar/stellar-sdk';
 import { attachAuthSignature, inspectAuthEntry } from '../sdk/authorization.ts';
 import { inspectAuthPreimage, verifyPreimageSignature } from '../sdk/preimage.ts';
 import { inspectTransactionRequest, verifyTransactionSignature } from '../sdk/transaction.ts';
@@ -118,6 +118,23 @@ for (const c of vectors.cases as Case[]) {
     }
   });
 }
+
+test('the SDK preimage check refuses only expiration ledger 0', () => {
+  const c = (vectors.cases as Case[]).find((v) => v.id === 'preimage-account')!;
+  const preimage = xdr.HashIdPreimage.fromXDR(c.preimage_xdr as string, 'base64');
+  if (preimage.type !== 'envelopeTypeSorobanAuthorizationWithAddress') throw Error('A V2 preimage.');
+  const withExpiration = (signatureExpirationLedger: number) =>
+    xdr.HashIdPreimage.envelopeTypeSorobanAuthorizationWithAddress(
+      new xdr.HashIdPreimageSorobanAuthorizationWithAddress({
+        ...preimage.sorobanAuthorizationWithAddress,
+        signatureExpirationLedger,
+      }),
+    ).toXDR('base64');
+  const inspect = (ledger: number) =>
+    inspectAuthPreimage(withExpiration(ledger), G, c.network_passphrase as string);
+  expect(() => inspect(0)).toThrow('Ledger 0');
+  for (const ledger of [1, 0xffffffff]) expect(inspect(ledger).details.expiration_ledger).toBe(ledger);
+});
 
 // SEP-53 v1.0.0 test cases. The key is the public SEP-53 test key: a mock key, never funded or used live.
 const SEP53_KEY = 'GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L';
