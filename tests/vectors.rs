@@ -15,7 +15,7 @@ use walleterm::util::{hex, lower_hex, sha256};
 /// Reviewed behavior changes from `audit/2026-09-28-sign-design/DESIGN.md` (PR A). `"ok"` means the case now signs.
 /// No request reads a ledger, so every `latest_ledger` window and value check is gone. Expiration ledger 0 still fails.
 /// A transaction needs no time bounds. Only a nonzero `max_time` at or before now fails.
-/// The request key must equal the selected key; the bridge names the mismatch with `address_mismatch`.
+/// A request for another key runs `bridge::admit`, which refuses it with `address_mismatch`.
 /// A preimage bound to another G-address passes the shared core. The bridge still refuses it (`tests/bridge.rs`).
 const CHANGED: &[(&str, &str)] = &[
     ("auth-window-61", "ok"),
@@ -73,12 +73,6 @@ fn run(case: &Value, key: &SigningKey, public_key: &str) -> Value {
     match case["kind"].as_str().unwrap() {
         "auth_entry" => {
             let input = &case["input"];
-            if input["public_key"].as_str() != Some(public_key) {
-                return error(Error::new(
-                    "address_mismatch",
-                    "The requested account differs from the selected account.",
-                ));
-            }
             let text = |name: &str| input[name].as_str().unwrap_or_default().to_owned();
             let artifact = Artifact::Authorization {
                 entry_xdr: text("auth_entry_xdr"),
@@ -86,6 +80,14 @@ fn run(case: &Value, key: &SigningKey, public_key: &str) -> Value {
                 adapter: input.get("adapter").cloned().unwrap_or(Value::Null),
             };
             let passphrase = text("network_passphrase");
+            // A request for another signer: the CLI names its key in `public_key`, and the bridge admission refuses it.
+            let requested = text("public_key");
+            if requested != public_key {
+                return match walleterm::bridge::admit(&artifact, &passphrase, &requested, public_key, 0) {
+                    Ok(_) => json!({ "admitted": requested }),
+                    Err(e) => error(e),
+                };
+            }
             let scope = Scope { key: public_key, passphrase: Some(&passphrase), now_ms: 0 };
             match sign(&artifact, &scope, key) {
                 Ok((digest, raw, signed)) => json!({

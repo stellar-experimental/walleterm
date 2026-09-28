@@ -706,6 +706,35 @@ async fn expiry_before_review_never_signs() {
     f.close().await;
 }
 
+/// A request lasts at most five minutes, also when the transaction has no bounds or a distant max_time.
+#[tokio::test]
+async fn a_request_lasts_at_most_five_minutes_without_a_nearer_max_time() {
+    use support::tx::*;
+    let f = Fixture::new(Options::default()).await;
+    let a = f.connect(SITE).await;
+    let (key, now) = (f.key.clone(), f.controls.now());
+    let requests = [
+        request_with(&f, "no-bounds", text(&build(ed(&key), vec![data("u", None)], 100, now, 0))),
+        request_with(&f, "one-day", text(&build(ed(&key), vec![data("d", None)], 100, now, 86_400))),
+        preimage_request(&f, "preimage", 220),
+    ];
+    let cap = walleterm::util::iso_millis((now + 300_000) as i64);
+    for request in &requests {
+        let r = f.post("/v1/requests", request.clone(), &a).await;
+        assert_eq!(r.status, 201, "{}: {}", request["id"], r.body);
+        assert_eq!(r.body["expires_at"], json!(cap), "{}", request["id"]);
+    }
+    f.controls.advance(300_001);
+    // The first request is in review. The queue expires the others before their review starts.
+    f.controls.decide(true).await;
+    for request in &requests {
+        let id = request["id"].as_str().unwrap();
+        assert_eq!(f.result(&a, id).await.body["state"], "expired", "{id}");
+    }
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+    f.close().await;
+}
+
 #[tokio::test]
 async fn canceling_a_queued_review_never_signs_and_one_review_runs_at_a_time() {
     let f = Fixture::new(Options::default()).await;
@@ -1081,6 +1110,25 @@ async fn authorization_has_no_expiry_window_and_refuses_only_expiration_zero() {
         );
     }
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 3);
+    f.close().await;
+}
+
+/// The account adapter signs only for the selected G-address. Another G-account entry could be valid on chain
+/// when the selected key is one of its co-signers, so the bridge refuses it before review.
+#[tokio::test]
+async fn the_account_adapter_refuses_another_g_address() {
+    let f = Fixture::new(Options::default()).await;
+    let a = f.connect(SITE).await;
+    let other = address(&mock_key(9));
+    let mut request = authorization_request(&f, "other-account", json!({"type": "account"}), 160);
+    request["auth_entry_xdr"] = json!(support::auth::entry(&other, 160));
+    request["auth_address"] = json!(other);
+    let r = f.post("/v1/requests", request, &a).await;
+    assert_eq!(r.status, 400, "{}", r.body);
+    assert_eq!(r.body["error"]["ext"], json!(["walleterm:invalid_request"]));
+    assert_eq!(r.body["error"]["message"], "The account authorization must match the selected G-address.");
+    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 0);
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
     f.close().await;
 }
 

@@ -1250,6 +1250,12 @@ fn strict_refusals_never_reach_the_agent() {
     let mut moved = full_entry.clone();
     moved["address"] = json!(build::contract(2).to_string());
     add(moved, "The authorization address differs from the requested address.");
+    // The account adapter signs only for the selected G-address, even when another account lists the key.
+    let mut other_account = full_entry.clone();
+    other_account["auth_entry_xdr"] = json!(build::entry(build::address(other), 100, true));
+    other_account["address"] = json!(build::address(other).to_string());
+    other_account["adapter"] = json!({"type": "account"});
+    add(other_account, "The account authorization must match the selected G-address.");
     for (bytes, message) in cases {
         refused(&bytes, &message);
     }
