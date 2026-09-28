@@ -1,0 +1,411 @@
+{
+  "observed_at": "2026-09-28",
+  "network": "testnet",
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "testnet_protocol": 28,
+  "source": {
+    "main": "88167cfbd270383e172924e0a8a20f936f175fd5",
+    "tested_source_tree": "2bd4fa7ee28ec7a8e38b564558a01e36b946c938",
+    "note": "#13 changed audit files only. The tested source equals the 2bd4fa7 tree."
+  },
+  "install": {
+    "kind": "temporary prefix from the clean checkout",
+    "release_id": "f61bd085af7ab05c8f0c681c",
+    "source_files_matching_checkout": 36,
+    "mismatched": 0,
+    "user_install_changed": false,
+    "user_install_note": "The existing ~/.local install predates #10 and was not used."
+  },
+  "signers": {
+    "test-a": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+    "test-b": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+    "test-c": "GDAYLQYJ5TFW4SKZAXJFGX65GUALBBQ5C3UINZEJK66IAAEAGORJADBL"
+  },
+  "suites": {
+    "contract_auth_runner": {
+      "command": "WALLETERM_BINARY=<temporary prefix>/bin/walleterm bun --no-env-file tests/contract-auth-demo-live.ts evidence/public-test-keys.json",
+      "status": "passed",
+      "window_utc": [
+        "2026-09-28T12:43:36Z",
+        "2026-09-28T12:43:52Z"
+      ],
+      "transactions": [
+        {
+          "action": "increment; CLI sign-auth then envelope",
+          "hash": "40181a2aa36505dafd61624a97fec5a962c6073cc0085da4e886cf8cf0b56966",
+          "ledger": 4915168,
+          "charged_fee_stroops": "13785",
+          "successful": true,
+          "counter": [
+            4,
+            5
+          ]
+        },
+        {
+          "action": "increment; SDK signAuthEntry then envelope",
+          "hash": "8581525278e37f6dc670c168f78909fe6ff19143b44fb9b362aa309c84e4fa34",
+          "ledger": 4915169,
+          "charged_fee_stroops": "13785",
+          "successful": true,
+          "counter": [
+            5,
+            6
+          ]
+        }
+      ],
+      "negative_controls": {
+        "rejected_by_enforcing_simulation": 6,
+        "signatures_requested": 0,
+        "submitted": 0
+      },
+      "smart_account": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+      "target": "CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E"
+    },
+    "demo_through_tunnel": {
+      "path": "walleterm tunnel and walleterm demo over public Quick Tunnels; headless Chrome through agent-browser; wallet test-a",
+      "transactions": [
+        {
+          "action": "note (manageData)",
+          "hash": "45ffc2bc12a6b8675b3688be37cd8c427311c9318b4bec5a781c9cdc167d9fa6",
+          "ledger": 4915326,
+          "charged_fee_stroops": "100",
+          "successful": true
+        },
+        {
+          "action": "payment 0.01 XLM",
+          "hash": "9fec45e05e285d4877cf0b70a3d95cfebbb09c31e515fd8109cfc074cf6b6e56",
+          "ledger": 4915348,
+          "charged_fee_stroops": "100",
+          "successful": true
+        },
+        {
+          "action": "sell offer 0.1 XLM at 10 USDC",
+          "hash": "34dd564008fb4329888540f79569be16ecf16fd3728303806bfb4979fb56606d",
+          "ledger": 4915353,
+          "charged_fee_stroops": "100",
+          "successful": true,
+          "offer_id": "828659",
+          "rested": true
+        },
+        {
+          "action": "cancel offer 828659; signed, page reloaded, then submitted",
+          "hash": "4b8cd0b09836c63e9a7bb6b9687b87162f8570e3a8ef25074a09e15892c5d62c",
+          "ledger": 4915361,
+          "charged_fee_stroops": "100",
+          "successful": true
+        },
+        {
+          "action": "contract increment; explicit AddressV2 authorization then envelope; reloads between steps",
+          "hash": "7e2d3c2352839409d3f76b42326c92cd894681587b80536d1a9aef9c8a1df0c4",
+          "ledger": 4915389,
+          "charged_fee_stroops": "13785",
+          "successful": true,
+          "counter": [
+            6,
+            7
+          ]
+        }
+      ],
+      "bridge_signatures": 6,
+      "checks": [
+        "signed state keeps decoded details (C10)",
+        "signed classic record restored after reload and submitted",
+        "contract record restored and validated after reload before and after envelope signing",
+        "Discard cleared the record; the bridge received no signing request",
+        "Set up contract demo reported the existing setup",
+        "Disconnect cleared session and local storage"
+      ],
+      "final_open_offers": 0
+    },
+    "stellarterm": {
+      "site": "https://stellarterm.com/testnet",
+      "build": 2409,
+      "transport": "legacy Freighter window.postMessage helper; walleterm sign outside the browser",
+      "bundle_sha256": {
+        "https://stellarterm.com/buildInfo.js": "de528a2210ad35860979a0c337580d86711b4c6519cd04319eab94f2f667603e",
+        "https://stellarterm.com/scripts/main.bundle.js": "4ec473e2600e6d6a045afe836858cf29ecccd207cb497bc7d7033f9a645479ca",
+        "https://stellarterm.com/scripts/111.bundle.js": "919111608db54f703dc4852f675c9643e1819d57660e84575236d50971fcb51b"
+      },
+      "transactions": [
+        {
+          "action": "payment 0.01 XLM test-a to test-b",
+          "hash": "afd7b3f082b8b3e9f16f48b90a8d163a939431a8eaaa885e712bb39323e8be81",
+          "ledger": 4915433,
+          "charged_fee_stroops": "100",
+          "successful": true
+        },
+        {
+          "action": "changeTrust USDC:GA5ZSEJYB37JRC5AVCIA5MOP4RHTM335X2KGX3IHOJAPP5RE34K4KZVN",
+          "hash": "8cc05d7628175d8fd09e4d2399f9d652e3d27163b0cf324fe647384f64a25e87",
+          "ledger": 4915452,
+          "charged_fee_stroops": "100",
+          "successful": true
+        },
+        {
+          "action": "sell 0.1 XLM at 10 USDC",
+          "hash": "5337e8cf90a0c537f47d2fbfa9d05fc1d7898e435526c199e217c60f3bc5080b",
+          "ledger": 4915466,
+          "charged_fee_stroops": "100",
+          "successful": true,
+          "offer_id": "828660",
+          "rested": true
+        },
+        {
+          "action": "cancel offer 828660 from Activity",
+          "hash": "254be14f2a3c0ef7c54e6c6a6eb26e58e8415c908ce3a4fcfe1621d6ad0c87aa",
+          "ledger": 4915551,
+          "charged_fee_stroops": "100",
+          "successful": true
+        },
+        {
+          "action": "remove the GA5ZSEJY USDC trustline",
+          "hash": "dff15d3b6dfe077621da5b7eea7e49da75ce7a6fef8fbecd4aba7e5026248bf2",
+          "ledger": 4915559,
+          "charged_fee_stroops": "100",
+          "successful": true
+        }
+      ],
+      "page_observation": "After an edit-offer dialog was dismissed on the exchange page, StellarTerm reported \"Another transaction is currently in progress\" and sent no request. A reload cleared it. This is site behavior."
+    },
+    "asset_sandbox": {
+      "site": "https://stellar.cheesecakelabs.com/sandbox/v1",
+      "bundle_sha256": "009a6066c1c0219e2c93a1138d0dd41f4cd8efb1751d2cb5dda4d83a818da2af",
+      "issuer": "test-c",
+      "distributor_signer": "test-b",
+      "transactions": [
+        {
+          "action": "distributor changeTrust WTRR0928 issued by test-c, limit 10",
+          "hash": "a12bcfe419c57848ae5755d66bf33716733fbc29a13ce011c3e38ab68bee2bf1",
+          "ledger": 4915605,
+          "charged_fee_stroops": "100",
+          "successful": true
+        }
+      ],
+      "page_errors": [
+        "issuer-info returned HTTP 500 for test-a, then for test-c after asset creation",
+        "Could not update asset listing at this time",
+        "No assets created"
+      ],
+      "not_run": "Minting; the site asset list stayed empty."
+    },
+    "confidential_token": {
+      "site": "https://stellar-confidential-token-demo.billowing-moon-0c6f.workers.dev/wallet",
+      "wallet_bundle_sha256": "a3034255345769276294b048455f6ba819b85b09feabd33c1743a64a5419c8ad",
+      "user_authority": "The user again permitted the demo auxiliary confidential key in browser storage.",
+      "message_signing": {
+        "scheme": "SEP-53",
+        "digest": "92ea4a5f711f2820a2eba21b01c4556b2b8ef7bde990b9d215d83b019127c8dd",
+        "same_message_as_2026_09_26": true,
+        "walleterm_verified": true,
+        "independent_verification": true,
+        "signature_in_public_record": false
+      },
+      "registration": "skipped; the account was already registered",
+      "transactions": [
+        {
+          "action": "deposit 0.01 XLM",
+          "hash": "c249ab743427b95a3768be1af89203542d6f420c5a4b88b0c9b365ddab03533d",
+          "ledger": 4915640,
+          "charged_fee_stroops": "103712",
+          "successful": true
+        },
+        {
+          "action": "merge receiving to spendable",
+          "hash": "32e18083dbaa543e76f127c6c3a485aa9749d86c495e4b591e95b4e7afcf59f1",
+          "ledger": 4915705,
+          "charged_fee_stroops": "8310",
+          "successful": true
+        },
+        {
+          "action": "withdraw 0.01 XLM",
+          "hash": "685dd92ab053dd73823321b2480b7ec45ead8495336a83100a2957abc0bee968",
+          "ledger": 4915716,
+          "charged_fee_stroops": "229929",
+          "successful": true
+        }
+      ],
+      "final_state": {
+        "spendable_xlm": "0",
+        "receiving_xlm": "0",
+        "page_reports_state_matches_chain": true
+      },
+      "cleanup": "Removed the derived ctd:sk entry without reading it; closed the browser."
+    },
+    "pagebook": {
+      "site": "https://tomerweller.com/pagebook/",
+      "bundle": "assets/index-aPMnDDva.js",
+      "bundle_sha256": "dc5a44b37d9a0d0cbd1f50471251dcd8aa9689d34e8790585b84c2d1cbf229be",
+      "contract": "CAYPAQDKNWMHRATKU5DQ327VDHVRSIVK7UGVWT2A5SUZCUFTLUHXH2JA",
+      "method": "The 2026-09-26 public-key-only adapter, regenerated byte-identically; the original bundle was routed out and the instrumented copy imported.",
+      "transactions": [
+        {
+          "action": "sell no-rest 22450; 0 lots filled; escrow refunded",
+          "hash": "191108b0f78063ec16574775770a32b39338168de8e52f7d79433d14ba7bfda0",
+          "ledger": 4915751,
+          "charged_fee_stroops": "73784",
+          "successful": true
+        },
+        {
+          "action": "sell no-rest 22400; 0 lots filled; escrow refunded",
+          "hash": "7530c1d928c7cd0fbbb318168f61127f64410bff9dd50a67fc0127d91bde5fc7",
+          "ledger": 4915781,
+          "charged_fee_stroops": "74256",
+          "successful": true
+        },
+        {
+          "action": "sell no-rest 22400; 0 lots filled; escrow refunded",
+          "hash": "68ff79312f9e5a0a7e469bc6cd3a3914862443bd4c2cb25e050a47842a311946",
+          "ledger": 4915796,
+          "charged_fee_stroops": "74256",
+          "successful": true
+        },
+        {
+          "action": "sell no-rest 22250; 1 lot filled",
+          "hash": "9782181b51eee92df5ac35762e4b0a6db5f7f1a6761797bae164e79a631efb50",
+          "ledger": 4915814,
+          "charged_fee_stroops": "132409",
+          "successful": true
+        },
+        {
+          "action": "buy fill-or-kill no-rest 22540; 1 lot filled",
+          "hash": "89dbd260c53ae89e50ac71a7a5ad5f5ef4b502b7ef66dd599ac1aef5775b6e7c",
+          "ledger": 4915869,
+          "charged_fee_stroops": "314336",
+          "successful": true
+        },
+        {
+          "action": "post-only sell 23090; rested",
+          "hash": "57af00839146f5d15ea280b74bae79e8e1387299c3e32edfc9ee6f5b5a6e3a95",
+          "ledger": 4915874,
+          "charged_fee_stroops": "182262",
+          "successful": true
+        },
+        {
+          "action": "replace resting sell to 23095",
+          "hash": "6753c76d4286aec206252ce08b5f92135bad5b5088cf678050b204789620a4e5",
+          "ledger": 4915883,
+          "charged_fee_stroops": "153723",
+          "successful": true
+        },
+        {
+          "action": "settle sell; 10 XLM refunded",
+          "hash": "ad680f3ee08bd668c75e2800f4f05a692c135ea09a91898c059305b607bef701",
+          "ledger": 4915890,
+          "charged_fee_stroops": "38904",
+          "successful": true
+        },
+        {
+          "action": "post-only buy 21000; 2.1 USDC escrowed",
+          "hash": "c321fc4b160faedb5d53d946c9153adbd9157e41f9b66c18de9be932a78c5110",
+          "ledger": 4915895,
+          "charged_fee_stroops": "182552",
+          "successful": true
+        },
+        {
+          "action": "settle buy; 2.1 USDC refunded",
+          "hash": "0425cf3266db4bae555d99fac154119dba8248ce70ed711f143b26edb07ef1b8",
+          "ledger": 4915899,
+          "charged_fee_stroops": "39201",
+          "successful": true
+        }
+      ],
+      "client_refusal": "One fill-or-kill buy failed the client fill check. No signing request was created.",
+      "key_controls": "generate and reveal produced no identity and no secret text",
+      "final_open_orders": 0,
+      "note": "The first three sells did not cross because the bot-driven best bid fell below each limit before simulation."
+    }
+  },
+  "signatures": {
+    "total": 30,
+    "fresh_1password_prompt": "not verified; cached approval can suppress a prompt"
+  },
+  "cleanup": {
+    "tunnel_and_demo_stopped": true,
+    "cloudflared_processes": 0,
+    "agent_browser_sessions": 0,
+    "chrome_for_testing_processes": 0,
+    "pagebook_route_removed": true
+  },
+  "local_records": "evidence/site-live/rerun-2026-09-28 and evidence/contract-auth-live",
+  "final_accounts": [
+    {
+      "account": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+      "sequence": "20897180558557338",
+      "balances": [
+        {
+          "asset": "USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+          "balance": "2.1191369"
+        },
+        {
+          "asset": "XLM",
+          "balance": "19955.8102231"
+        }
+      ],
+      "signers": [
+        {
+          "public_key": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+          "weight": 1
+        }
+      ],
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "subentry_count": 2
+    },
+    {
+      "account": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+      "sequence": "20897184853524499",
+      "balances": [
+        {
+          "asset": "WTBRG925:GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+          "balance": "0.0000000"
+        },
+        {
+          "asset": "WTRR0928:GDAYLQYJ5TFW4SKZAXJFGX65GUALBBQ5C3UINZEJK66IAAEAGORJADBL",
+          "balance": "0.0000000"
+        },
+        {
+          "asset": "XLM",
+          "balance": "10000.0195430"
+        }
+      ],
+      "signers": [
+        {
+          "public_key": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+          "weight": 1
+        }
+      ],
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "subentry_count": 2
+    },
+    {
+      "account": "GDAYLQYJ5TFW4SKZAXJFGX65GUALBBQ5C3UINZEJK66IAAEAGORJADBL",
+      "sequence": "20897189148491777",
+      "balances": [
+        {
+          "asset": "XLM",
+          "balance": "10000.0101070"
+        }
+      ],
+      "signers": [
+        {
+          "public_key": "GDAYLQYJ5TFW4SKZAXJFGX65GUALBBQ5C3UINZEJK66IAAEAGORJADBL",
+          "weight": 1
+        }
+      ],
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "subentry_count": 0
+    }
+  ],
+  "testnet_transactions_verified_successful": 26
+}

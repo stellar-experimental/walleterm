@@ -110,7 +110,6 @@ It preserves pending submission evidence and stops after uncertain results.
 
 The [2026-09-26 acceptance record](../evidence/contract-auth-demo-2026-09-26.json) records the completed testnet checks and limits.
 That record and the Chrome test below predate the merge of the audited `main` fixes.
-Live acceptance has not run again on the integrated source.
 At that time, all 270 offline tests passed. The independent Astra review reported no remaining actionable findings.
 The CLI and SDK each signed a C-account entry before a separate envelope signature.
 The accepted transactions changed the counter from 0 to 3 across the recorded runs.
@@ -123,6 +122,13 @@ It signed the explicit C-account authorization, then signed the transaction sepa
 One submission changed the counter from 3 to 4 in ledger 4889644.
 Independent RPC checks verified both signatures and the accepted transaction.
 The acceptance record keeps this browser result separate from the earlier runner results.
+
+The [2026-09-28 rerun](../evidence/live-rerun-2026-09-28.json) tested the integrated source from a temporary installation.
+The runner passed again. The CLI and SDK increments changed the counter from 4 to 6.
+Its six negative controls requested no signatures.
+A headless Chrome demo run through public tunnels changed the counter from 6 to 7.
+It reloaded the page before and after the envelope signature. The record passed validation each time.
+The OpenZeppelin adapter still has offline validation only. A fresh 1Password prompt was not verified.
 
 Protocol references:
 [Contract authorization](https://developers.stellar.org/docs/build/guides/auth/contract-authorization),
