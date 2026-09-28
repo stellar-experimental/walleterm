@@ -32,3 +32,30 @@ The files stay in plain Git with their original bytes. Git LFS would add a requi
 GitHub source archives would then hold pointer files, not images. Lossless recompression saves only 12%.
 
 The site uses 01 (hero), 04 (How it works), 10 (Boundaries), 08 (Websites), and 11 (Install).
+
+## Feature studies
+
+[`studies/v2-feature-studies.png`](studies/v2-feature-studies.png) is a contact sheet of 16 picture ideas, one for each walleterm feature.
+It is 2094 × 1550 and was added on 2026-09-28 with its original bytes.
+Use it for composition: the shapes and ground that carry each idea. Do not use it for style.
+Its lines are ruler-straight and its mascot is simplified. The hand-drawn traits come from the references above.
+`artcheck.py` reads only this folder's top level, so the sheet stays out of `metrics.json`.
+
+| Study | Ground | Feature |
+| --- | --- | --- |
+| 01 | cream | List public Ed25519 keys |
+| 02 | deep moss | Keys remain inside 1Password |
+| 03 | cream | Sign an explicit 32-byte digest |
+| 04 | moss | Verify the returned Ed25519 signature |
+| 05 | black | Temporary HTTPS tunnel for a website |
+| 06 | cream | Single-use eight-digit connection code |
+| 07 | moss | Scan a tunnel QR code on a phone |
+| 08 | cream | Choose and switch among granted wallets |
+| 09 | deep moss | Limit available website wallets to a vault |
+| 10 | cream | Human approval through 1Password |
+| 11 | black | Testnet native payment |
+| 12 | cream | Testnet data entry |
+| 13 | cream | Testnet sell offer |
+| 14 | moss | Soroban C-account authorization |
+| 15 | cream | Session expiration and reconnection |
+| 16 | black | Pause after an unknown submission outcome |

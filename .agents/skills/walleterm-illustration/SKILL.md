@@ -12,6 +12,7 @@ When a browser, shell, or Git step fails in a strange way, read [the tool traps]
 ## Loop
 
 1. **Pick the reference.** Choose the image in `design/reference/` nearest to the picture: same ground, same pose. The [index](../../../design/reference/README.md) lists each one.
+   For a new feature picture, start from its composition in the index's feature studies, then take the style from a reference.
    Done when you can name one reference file and the idea the picture carries.
 2. **Construct.** Add or edit a scene in `design/art/build.ts`. For a recreation, place the mascot with `placeFromTrace` and the output of `uv run design/tools/artcheck.py trace REF`.
    Use mascot defaults. Draw circles with `disc`. Set an option only for a trait the reference shows, and write that reason in a comment.
