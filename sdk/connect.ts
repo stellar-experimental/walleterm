@@ -56,6 +56,8 @@ export class WalletermConnect {
   account: Account | null = null;
   wallets: Signer[] = [];
   nextWallets: Signer[] = [];
+  // The client whose wallet list was requested. The menu loads it once; Refresh retries.
+  listed: WalletermClient | null = null;
   busy = false;
   working = false;
   phase = '';
@@ -479,8 +481,8 @@ export class WalletermConnect {
     this.renderWallets();
     this.update();
     this.$('copy').focus();
-    // A restored session has no wallet list yet. Load it when the user opens the menu.
-    if (this.account && !this.wallets.length) void this.refresh();
+    // A restored session has no wallet list yet. Load it once when the user opens the menu.
+    if (this.account && !this.wallets.length && this.listed !== this.client) void this.refresh();
   }
   rows(target: HTMLElement, keys: Signer[], choose: (key: Signer) => void, active?: string | null) {
     target.replaceChildren();
@@ -516,6 +518,7 @@ export class WalletermConnect {
   async refresh() {
     if (this.destroyed || !this.client || this.busy || this.working || this.refreshing) return;
     const client = this.client;
+    this.listed = client;
     this.refreshing = true;
     this.update();
     this.message('Refreshing wallets. Unlock 1Password if it asks.', true);

@@ -1154,7 +1154,7 @@ test('closing the bridge aborts signing and reports it', async () => {
 // The terminal reports a withheld signature only when the bridge never sent it.
 for (const ending of ['switch', 'disconnect', 'expiry'] as const)
   for (const delivered of [false, true])
-    test(`${ending} ends a ${delivered ? 'delivered' : 'undelivered'} signature as unknown and ${delivered ? 'prints no withheld line' : 'logs it as withheld'}`, async () => {
+    test(`${ending} ends ${delivered ? 'a delivered' : 'an undelivered'} signature as unknown and ${delivered ? 'prints no withheld line' : 'logs it as withheld'}`, async () => {
       let clock = Date.now();
       const f = await fixture({ review: undefined, listSigners: async () => both, now: () => clock }),
         a = await scoped(f, 'https://site-one.example');
@@ -1196,8 +1196,29 @@ for (const ending of ['switch', 'disconnect', 'expiry'] as const)
       assert.equal(f.calls(), 1);
     });
 
+test('a repeated create delivers a signature, and a later switch prints no withheld line', async () => {
+  const f = await fixture({ review: undefined, listSigners: async () => both }),
+    a = await scoped(f, 'https://site-one.example');
+  const request = { ...input('repeated'), selection_revision: 1 };
+  assert.equal((await f.request('/v1/requests', request, a)).status, 201);
+  await until(() => f.logs.length === 1);
+  // The website never polls. The repeated create alone returns the signature.
+  const repeated = await f.request('/v1/requests', request, a);
+  assert.equal(repeated.status, 200);
+  assert.equal(repeated.data.state, 'signed');
+  assert.ok(repeated.data.signed_tx_xdr);
+  assert.equal((await select(f, a, other.publicKey(), 1)).status, 200);
+  const read = await f.request('/v1/requests/repeated', undefined, a);
+  assert.equal(read.data.state, 'unknown');
+  assert.equal(read.data.signed_tx_xdr, undefined);
+  assert.equal(read.data.error?.message, 'The bridge sent the signature before the wallet changed.');
+  assert.equal(f.logs.length, 1);
+  assert.match(f.logs[0], /^Signed [0-9a-f]{64} \(account G/);
+  assert.equal(f.calls(), 1);
+});
+
 for (const delivered of [false, true])
-  test(`canceling a ${delivered ? 'delivered' : 'undelivered'} signed request ends it as unknown and ${delivered ? 'prints no withheld line' : 'logs it as withheld'}`, async () => {
+  test(`canceling ${delivered ? 'a delivered' : 'an undelivered'} signed request ends it as unknown and ${delivered ? 'prints no withheld line' : 'logs it as withheld'}`, async () => {
     const f = await fixture(),
       a = await f.connect();
     await f.request('/v1/requests', input(), a);
