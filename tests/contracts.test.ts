@@ -1,5 +1,6 @@
 // Offline C11 checks for the shared contract harness. A mocked RPC returns each recorded tree.
 // invoke and submitSourceOnly must check every recorded entry before any mutation or signing request.
+// E03 must check its RPC-read context rule before the execute call carries it.
 // Isolated mock keys only. No network, no 1Password agent.
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
@@ -15,7 +16,13 @@ import {
   type ExpectedAuth,
   type InvokeOptions,
 } from './contracts.ts';
-import { delegateEntryFor, ozDelegatedAuthorizer } from './extended-contracts.ts';
+import {
+  checkContextRule,
+  contextRuleType,
+  delegateEntryFor,
+  ozDelegatedAuthorizer,
+  type KnownContextRule,
+} from './extended-contracts.ts';
 import { simulationError, simulationSuccess } from './simulations.ts';
 import type { AnyTransaction, SigningContext, TestKey } from './types.ts';
 
@@ -375,6 +382,18 @@ test('a mutation cannot repair a changed recorded tree', async () => {
   assertNothingSigned(calls, beforeSign);
 });
 
+test('a presigned row that also declares expected entries makes zero calls', async () => {
+  const fresh = mock([v2(B, ping)]);
+  const first = await invoke(fresh.ctx, pingRow(fresh.ctx));
+  const { ctx, calls } = mock([v2(B, ping)]);
+  await assert.rejects(
+    invoke(ctx, pingRow(ctx, { presigned: first.auth_xdr })),
+    /presigned row cannot declare expected entries/,
+  );
+  assert.equal(calls.record, 0);
+  assertNothingSigned(calls);
+});
+
 test('a presigned replay records nothing and requests no signature', async () => {
   const fresh = mock([v2(B, ping)]);
   const first = await invoke(fresh.ctx, pingRow(fresh.ctx));
@@ -452,6 +471,15 @@ test('a source-only deployment signs its envelope only for the exact local creat
     [sourceEntry(root), sourceEntry(root)],
     [sourceEntry(root), v2(B, ping)],
     [v2(keys.a.publicKey, root)],
+    // A subtree under the creation would spend key A's authority inside the constructor.
+    [
+      sourceEntry(
+        new sdk.xdr.SorobanAuthorizedInvocation({
+          function: root.function,
+          subInvocations: [contractFn(sdk, other, 'transfer', [addr(keys.a.publicKey), addr(B), u32(1)])],
+        }),
+      ),
+    ],
   ]) {
     const run = mock(recorded);
     await assert.rejects(submitSourceOnly(run.ctx, operation, 'deploy'), /differs from the local operation/);
@@ -467,4 +495,66 @@ test('a source-only upload accepts no recorded entry', async () => {
   const run = mock([sourceEntry(ping)]);
   await assert.rejects(submitSourceOnly(run.ctx, operation, 'upload'), /differs from the local operation/);
   assertNothingSigned(run.calls);
+});
+
+// Host XDR of rule 0 of the testnet 2-of-3 account CCPAACPW...NJMZ, read on 2026-09-28 at ledger 4917172.
+const HOST_RULE =
+  'AAAAEQAAAAEAAAAIAAAADwAAAAxjb250ZXh0X3R5cGUAAAAQAAAAAQAAAAEAAAAPAAAAB0RlZmF1bHQAAAAADwAAAAJpZAAAAAAAAwAAAAAAAAAPAAAABG5hbWUAAAAOAAAACG11bHRpc2lnAAAADwAAAAhwb2xpY2llcwAAABAAAAABAAAAAQAAABIAAAABJ72sNRRTPVN38go86gwViYeK2WhICtW3ABecnqvPXXUAAAAPAAAACnBvbGljeV9pZHMAAAAAABAAAAABAAAAAQAAAAMAAAAAAAAADwAAAApzaWduZXJfaWRzAAAAAAAQAAAAAQAAAAMAAAADAAAAAAAAAAMAAAABAAAAAwAAAAIAAAAPAAAAB3NpZ25lcnMAAAAAEAAAAAEAAAADAAAAEAAAAAEAAAADAAAADwAAAAhFeHRlcm5hbAAAABIAAAABbcxnQgfWEn4YuJX7EstCXQBkR3VEU7yMdiydSR79CnoAAAANAAAAIFlPVp2s/hVVBpdHutx4O34sYywulYWBWF6X4JNjsuReAAAAEAAAAAEAAAADAAAADwAAAAhFeHRlcm5hbAAAABIAAAABbcxnQgfWEn4YuJX7EstCXQBkR3VEU7yMdiydSR79CnoAAAANAAAAIGVvN5Y00OPvKWFkS3FU7HC6P7hCtok3BY89zlpytczDAAAAEAAAAAEAAAADAAAADwAAAAhFeHRlcm5hbAAAABIAAAABbcxnQgfWEn4YuJX7EstCXQBkR3VEU7yMdiydSR79CnoAAAANAAAAIMGFwwnsy25JWQXSU1/dNQCwhh0W6IbkiVe8gACAM6KQAAAADwAAAAt2YWxpZF91bnRpbAAAAAAB';
+const hostVerifier = 'CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR';
+const hostRule: KnownContextRule = {
+  id: 0,
+  contextType: contextRuleType(sdk, 'Default'),
+  name: 'multisig',
+  signers: [
+    '594f569dacfe1555069747badc783b7e2c632c2e958581585e97e09363b2e45e',
+    '656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3',
+    'c185c309eccb6e495905d2535fdd3500b0861d16e886e48957bc80008033a290',
+  ].map((key) => ({ verifier: hostVerifier, rawKey: Buffer.from(key, 'hex') })),
+  policies: ['CAT33LBVCRJT2U3X6IFDZ2QMCWEYPCWZNBEAVVNXAALZZHVLZ5OXKOMV'],
+};
+// Replaces one field of the host rule, as a changed RPC response would.
+function ruleWith(field: string, value: xdr.ScVal) {
+  const rule = sdk.xdr.ScVal.fromXdr(HOST_RULE, 'base64');
+  assert.equal(rule.type, 'scvMap');
+  return sdk.xdr.ScVal.scvMap(
+    (rule.map ?? []).map((entry) =>
+      String(sdk.scValToNative(entry.key)) === field
+        ? new sdk.xdr.ScMapEntry({ key: entry.key, val: value })
+        : entry,
+    ),
+  );
+}
+
+test('the E03 rule check accepts only the known definition of a host rule', () => {
+  checkContextRule(sdk, sdk.xdr.ScVal.fromXdr(HOST_RULE, 'base64'), hostRule);
+  const [first, second, third] = hostRule.signers;
+  const wrongDefinitions: KnownContextRule[] = [
+    { ...hostRule, id: 1 },
+    { ...hostRule, name: 'other' },
+    { ...hostRule, contextType: contextRuleType(sdk, 'CallContract', target) },
+    { ...hostRule, signers: [second, first, third] },
+    { ...hostRule, signers: [first, second] },
+    { ...hostRule, policies: [...hostRule.policies, other] },
+  ];
+  for (const known of wrongDefinitions)
+    assert.throws(
+      () => checkContextRule(sdk, sdk.xdr.ScVal.fromXdr(HOST_RULE, 'base64'), known),
+      /context rule/,
+    );
+  const vec = (values: xdr.ScVal[]) => sdk.xdr.ScVal.scvVec(values);
+  const changedRules = [
+    ruleWith('valid_until', u32(5)),
+    ruleWith('name', sdk.xdr.ScVal.scvString('other')),
+    ruleWith('id', u32(1)),
+    ruleWith('policies', vec([addr(other)])),
+    ruleWith('signers', vec([])),
+    ruleWith('signer_ids', vec([u32(0), u32(1)])),
+    ruleWith('signer_ids', vec([sdk.xdr.ScVal.scvI32(0), sdk.xdr.ScVal.scvI32(1), sdk.xdr.ScVal.scvI32(2)])),
+    ruleWith('policy_ids', vec([sdk.nativeToScVal(0, { type: 'u64' })])),
+  ];
+  for (const rule of changedRules)
+    assert.throws(
+      () => checkContextRule(sdk, rule, hostRule),
+      /context rule 0 (differs|has invalid registry ids)/,
+    );
 });

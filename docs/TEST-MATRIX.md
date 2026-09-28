@@ -74,6 +74,7 @@ The `contracts` and `extended` runners check every recorded entry against them b
 They reject extra, missing, changed, signed, V1, and source-account entries.
 Deliberate negative changes apply only after the original tree passes this check.
 Source-only uploads and deployments accept only the entries of the local operation.
+E03 compares its RPC-read context rule with the known rule before the `execute` call carries it.
 This check has offline tests in `tests/contracts.test.ts`.
 C01-C13 and E01-E03 have no live run with this check yet.
 

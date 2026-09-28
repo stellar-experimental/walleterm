@@ -462,7 +462,7 @@ export interface InvokeOptions {
   args?: xdr.ScVal[];
   finalArgs?: xdr.ScVal[];
   authorizers?: Authorizer[];
-  /** Every entry that record simulation must return. A `presigned` row records nothing. */
+  /** Every entry that record simulation must return. A `presigned` row records nothing and must omit it. */
   expected?: ExpectedAuth[];
   label: string;
   expect?: string | string[];
@@ -503,6 +503,8 @@ export async function invoke(
   }: InvokeOptions,
 ) {
   const { sdk, rpc, networkPassphrase } = ctx;
+  if (presigned && expected)
+    throw new Error(`${label}: a presigned row cannot declare expected entries; it records nothing`);
   const template = await buildTx(ctx, new sdk.Contract(contractId).call(method, ...args));
   const func = hostOperation(
     finalArgs ? await buildTx(ctx, new sdk.Contract(contractId).call(method, ...finalArgs)) : template,

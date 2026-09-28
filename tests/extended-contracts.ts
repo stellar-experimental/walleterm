@@ -124,6 +124,41 @@ export function contextRuleType(
     return sdk.xdr.ScVal.scvVec([sym(sdk, 'CreateContract'), bytes(sdk, value)]);
   throw new TypeError(`Invalid ${kind} context rule value.`);
 }
+/** The parts of an OpenZeppelin ContextRule that the caller defines. The account assigns only the registry ids. */
+export interface KnownContextRule {
+  id: number;
+  contextType: xdr.ScVal;
+  name: string;
+  signers: { verifier: string; rawKey: Uint8Array }[];
+  policies: string[];
+}
+// A read ContextRule must equal its known definition, with no expiry. signer_ids and policy_ids come from the
+// account registries and depend on its state, so they must only be u32 lists aligned with signers and policies.
+// Any other difference fails closed. The map key order is the host order of the struct fields.
+export function checkContextRule(sdk: Sdk, rule: xdr.ScVal, known: KnownContextRule) {
+  const read: { signer_ids?: unknown; policy_ids?: unknown } = sdk.scValToNative(rule);
+  const ids = (value: unknown, count: number) => {
+    if (
+      !Array.isArray(value) ||
+      value.length !== count ||
+      !value.every((n) => Number.isInteger(n) && n >= 0 && n <= 0xffffffff)
+    )
+      throw new Error(`context rule ${known.id} has invalid registry ids; failing closed`);
+    return sdk.xdr.ScVal.scvVec(value.map((n) => u32(sdk, n)));
+  };
+  const expected = scMap(sdk, [
+    [sym(sdk, 'context_type'), known.contextType],
+    [sym(sdk, 'id'), u32(sdk, known.id)],
+    [sym(sdk, 'name'), str(sdk, known.name)],
+    [sym(sdk, 'policies'), sdk.xdr.ScVal.scvVec(known.policies.map((p) => addr(sdk, p)))],
+    [sym(sdk, 'policy_ids'), ids(read.policy_ids, known.policies.length)],
+    [sym(sdk, 'signer_ids'), ids(read.signer_ids, known.signers.length)],
+    [sym(sdk, 'signers'), signersVec(sdk, known.signers)],
+    [sym(sdk, 'valid_until'), sdk.xdr.ScVal.scvVoid()],
+  ]);
+  if (rule.toXdr('base64') !== expected.toXdr('base64'))
+    throw new Error(`context rule ${known.id} differs from its known definition; failing closed`);
+}
 // Host map order for Signer keys: Vec compare -> Symbol ("Delegated" < "External"), then ScAddress XDR, then key bytes.
 const signerSortKey = (sdk: Sdk, s: MixedSignature) =>
   Buffer.concat([
@@ -733,6 +768,13 @@ async function e03(
     { address: account, invocation: contractFn(sdk, contract, method, args) },
   ];
   const byRule1 = (ks: TestKey[]) => [ozAuthorizer(ctx, account, c.verifier, ks, { ruleId: 1 })];
+  const rule1: KnownContextRule = {
+    id: 1,
+    contextType: contextRuleType(sdk, 'CallContract', c.target1),
+    name: 'ctx-target1',
+    signers: [ozSignerOf(c, keys.b, 'b'), ozSignerOf(c, keys.c, 'c')],
+    policies: [c.threshold],
+  };
   const ping1 = [addr(sdk, account), u32(sdk, 1)];
   const st1 = { target: c.target1, who: account };
   const readRule1 = async () => {
@@ -785,10 +827,10 @@ async function e03(
         'E03: rule 1 absent with no creation record but later step evidence exists; failing closed',
       );
     const ruleArgs = [
-      contextRuleType(sdk, 'CallContract', c.target1),
-      str(sdk, 'ctx-target1'),
+      rule1.contextType,
+      str(sdk, rule1.name),
       sdk.xdr.ScVal.scvVoid(),
-      signersVec(sdk, [ozSignerOf(c, keys.b, 'b'), ozSignerOf(c, keys.c, 'c')]),
+      signersVec(sdk, rule1.signers),
       scMap(sdk, [[addr(sdk, c.threshold), scMap(sdk, [[sym(sdk, 'threshold'), u32(sdk, 1)]])]]),
     ];
     const addRule = await step('E03-add-rule-target1', () =>
@@ -808,10 +850,8 @@ async function e03(
     if (!rule) throw new Error('E03: rule 1 not readable after add_context_rule');
   }
   if (rule) {
-    // The execute call below carries this RPC read, so a resumed run checks it too.
-    const native: { id: unknown } = sdk.scValToNative(rule);
-    const id = Number(native.id);
-    if (id !== 1) throw new Error(`E03: expected rule id 1, got ${id}`);
+    // The execute call below carries this RPC read. Fresh and resumed runs check it before any later signing.
+    checkContextRule(sdk, rule, rule1);
     const threshold = await readThreshold();
     details.threshold_at_start = threshold;
     if (threshold === 1) {
