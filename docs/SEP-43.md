@@ -229,8 +229,10 @@ A `storage` event tells each open tab about a change in another tab:
 
 A tab can act before it handles an event, for example when the event arrives late.
 Each tab records the saved token that it last read or wrote. It changes or removes only that saved session.
-When the saved token differs, the tab uses the saved session instead. A pairing in the tab replaces any saved session.
-So an old session's 401 or late confirmation never removes or overwrites a newer session.
+When the saved state differs, the tab follows it. It uses a newer session, or it discards its copy of a removed session.
+A pairing in the tab replaces any saved session. Storage that cannot be read proves nothing, so the tab then keeps its state.
+So an old session's 401 or late confirmation never removes, overwrites, or saves again a session that another tab changed.
+After a 401, `getAddress()` reads the newer saved session before it opens pairing.
 A signing request with an old selection revision fails with `-3 walleterm:conflict`, and the bridge signs nothing.
 The tab then reads `GET /v1/account`, so its next request uses the current wallet.
 

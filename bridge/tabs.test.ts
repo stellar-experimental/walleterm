@@ -213,6 +213,9 @@ test('a new pairing in another tab replaces the session without an intermediate 
   await until(() => second.wallet.client?.token === next && !!second.wallet.address, 'the new session');
   expect(second.changes).toEqual([key.publicKey()]);
   expect((await second.wallet.signTransaction(unsigned(key.publicKey()))).error).toBeUndefined();
+  // The tab that followed the new session now owns it too. Its own wallet change reaches the first tab.
+  await second.wallet.selectWallet(other.publicKey());
+  await until(() => first.wallet.address === other.publicKey(), 'the first tab to follow the switch');
 });
 
 test('another tab reporting the revoked session does not disconnect a tab that replaces it', async () => {
@@ -296,10 +299,8 @@ test('a tab that missed storage events follows the newer session after a 401 and
   await stale.wallet.getAddress({ skipRequestAccess: true });
   await f.pair(first.wallet);
   const next = first.wallet.client!.token!;
-  // The old session was revoked. The stale tab's request fails closed.
-  expect((await stale.wallet.getAddress({ skipRequestAccess: true })).error?.ext).toEqual([
-    'walleterm:not_connected',
-  ]);
+  // The old session was revoked. After the 401, the stale tab reads the newer saved session instead.
+  expect(await stale.wallet.getAddress({ skipRequestAccess: true })).toEqual({ address: key.publicKey() });
   await until(() => stale.wallet.address === key.publicKey(), 'the stale tab to follow the new session');
   await new Promise((resolve) => setTimeout(resolve, 20));
   expect(stale.wallet.client!.token).toBe(next);
@@ -318,9 +319,7 @@ test('a tab that receives storage events late keeps the newer session after a 40
   await late.wallet.getAddress({ skipRequestAccess: true });
   await f.pair(first.wallet);
   const next = first.wallet.client!.token!;
-  expect((await late.wallet.getAddress({ skipRequestAccess: true })).error?.ext).toEqual([
-    'walleterm:not_connected',
-  ]);
+  expect(await late.wallet.getAddress({ skipRequestAccess: true })).toEqual({ address: key.publicKey() });
   // The late event then reports the session that the tab already follows.
   await new Promise((resolve) => setTimeout(resolve, 120));
   expect(f.savedToken()).toBe(next);
@@ -385,4 +384,62 @@ test('a stale tab fails closed after another tab switches, then signs with the n
   expect(signed.error).toBeUndefined();
   expect(signed.signerAddress).toBe(other.publicKey());
   expect(f.signatures()).toBe(1);
+});
+
+test('a tab that missed a local discard in another tab does not save that session again', async () => {
+  const f = await website();
+  const first = f.tab();
+  await f.pair(first.wallet);
+  const token = first.wallet.client!.token!;
+  const stale = f.tab({ page: false });
+  await stale.wallet.getAddress({ skipRequestAccess: true });
+  // A local discard, for example WalletermModule.disconnect() after a failed revocation. The session stays live.
+  first.wallet.forgetConnection();
+  expect(f.savedToken()).toBeNull();
+  expect(await f.live(token)).toBe(true);
+  // The stale tab's session still answers. The tab follows the discard instead of saving the session again.
+  expect((await stale.wallet.getAddress({ skipRequestAccess: true })).error?.ext).toEqual([
+    'walleterm:not_connected',
+  ]);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(f.savedToken()).toBeNull();
+  expect(first.wallet.client).toBeNull();
+  expect(stale.wallet.client).toBeNull();
+  expect(first.changes).toEqual([key.publicKey(), null]);
+  expect(stale.changes).toEqual([key.publicKey(), null]);
+});
+
+test('after a 401, getAddress() reads the newer saved session and opens no pairing dialog', async () => {
+  const f = await website();
+  const first = f.tab();
+  await f.pair(first.wallet);
+  const stale = f.tab({ page: false });
+  await stale.wallet.getAddress({ skipRequestAccess: true });
+  await f.pair(first.wallet);
+  let opened = 0;
+  stale.wallet.ui = {
+    requestAccess: async () => {
+      opened++;
+      return '';
+    },
+  };
+  expect(await stale.wallet.getAddress()).toEqual({ address: key.publicKey() });
+  expect(opened).toBe(0);
+  expect(stale.wallet.client!.token).toBe(first.wallet.client!.token);
+});
+
+test('a tab that never restored can pair while another session is saved', async () => {
+  const f = await website();
+  const first = f.tab();
+  await f.pair(first.wallet);
+  const previous = first.wallet.client!.token!;
+  // This tab opened after the first pairing and never read the saved session.
+  const second = f.tab();
+  expect((await f.pair(second.wallet)).address).toBe(key.publicKey());
+  const next = second.wallet.client!.token!;
+  expect(next).not.toBe(previous);
+  expect(f.savedToken()).toBe(next);
+  await until(() => first.wallet.client?.token === next && !!first.wallet.address, 'the first tab to follow');
+  expect(first.changes).toEqual([key.publicKey()]);
+  expect(second.changes).toEqual([key.publicKey()]);
 });

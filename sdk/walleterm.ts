@@ -676,9 +676,10 @@ export class Walleterm {
     const storage = this.#storage();
     if (!storage) return;
     try {
-      // A tab that missed a storage event can hold an old session. It follows the saved one instead.
+      // A tab that missed a storage event can hold an old session. It follows the saved state instead:
+      // a newer session, or none when another tab discarded it. Unreadable storage proves nothing.
       const saved = this.#savedToken(storage);
-      if (saved !== null && saved !== this.#token) return this.#sync();
+      if (saved !== undefined && saved !== this.#token) return this.#sync();
       const client = this.client;
       if (client?.token && client.account?.address) {
         storage.setItem(
@@ -694,10 +695,16 @@ export class Walleterm {
       /* Unavailable storage leaves the connection in memory. */
     }
   }
-  /** The token of a well-formed saved session, or null. */
-  #savedToken(storage: Storage) {
+  /** The token of a well-formed saved session, null for none, or undefined when storage cannot be read. */
+  #savedToken(storage: Storage): string | null | undefined {
+    let saved;
     try {
-      const value = JSON.parse(storage.getItem(this.storageKey!) ?? 'null');
+      saved = storage.getItem(this.storageKey!);
+    } catch {
+      return undefined;
+    }
+    try {
+      const value = JSON.parse(saved ?? 'null');
       return value?.version === 3 && /^[A-Za-z0-9_-]{43}$/.test(value.token) ? (value.token as string) : null;
     } catch {
       return null;
@@ -775,6 +782,7 @@ export class Walleterm {
     const saved = this.#load(storage),
       client = this.client;
     if (!saved) {
+      this.#token = null;
       if (client) this.forgetConnection();
     } else if (client?.token === saved.client.token && client.url === saved.client.url) {
       this.#token = saved.client.token;
@@ -818,7 +826,7 @@ export class Walleterm {
     this.#restored = true;
     // A new pairing in this tab replaces any saved session.
     const storage = this.#storage();
-    if (storage) this.#token = this.#savedToken(storage);
+    if (storage) this.#token = this.#savedToken(storage) ?? null;
     this.#use(next);
     return { address: next.account.address, previousRevoked };
   }
@@ -866,14 +874,22 @@ export class Walleterm {
   getAddress({ skipRequestAccess = false }: { skipRequestAccess?: boolean } = {}) {
     return settle(emptyAddress, async () => {
       this.restore();
-      const client = this.client;
-      if (client?.token) {
+      // The address of a session, or null when it has none. A 401 ends a session and is not an error here.
+      const read = async (client: WalletermClient) => {
         try {
-          const account = await client.getAccount();
-          if (account.address) return { address: account.address };
+          return (await client.getAccount()).address || null;
         } catch (errorValue) {
           if (requestError(errorValue).status !== 401) throw errorValue;
+          return null;
         }
+      };
+      const client = this.client;
+      if (client?.token) {
+        let address = await read(client);
+        // The tab can follow a newer session that another tab saved. Read that one before opening pairing.
+        const next = this.client;
+        if (!address && next !== client && next?.token) address = await read(next);
+        if (address) return { address };
       }
       if (skipRequestAccess) throw walletermError('not_connected', 'Connect Walleterm first.');
       return { address: await this.requestAccess() };
