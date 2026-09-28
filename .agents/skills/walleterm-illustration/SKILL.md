@@ -1,6 +1,6 @@
 ---
 name: walleterm-illustration
-description: Draw or change walleterm illustrations and the wallet mascot at parity with the reference images. Use for a new scene, a site or social image, a change to the hand-drawn line or flat shapes, a parity check of art against design/reference, or an update to the Paper designs.
+description: Draw or change walleterm illustrations and the wallet mascot at parity with the reference images, and keep the Paper designs current. Use for a new scene, a site or social image, a change to the hand-drawn line or flat shapes, a parity check of art against design/reference, or any Paper or site layout change.
 ---
 
 # Walleterm illustration
@@ -26,10 +26,10 @@ When a browser, shell, or Git step fails in a strange way, read [the tool traps]
    Done when steps 4 and 5 are clean in the same pass.
 7. **Guard the suite.** After a change to `hand.ts`, `mascot.ts`, or a shared helper, run `uv run design/tools/artcheck.py suite`.
    Done when it exits 0 and you have read the sheet of every scene the change touched.
-8. **Check the site.** When `site/art/` changed, render the page with `agent-browser` at 1440, 820, and 390 pixels wide. Compare it with a render from before the change.
-   Done when no width scrolls sideways and every changed picture sits where it did.
-9. **Sync Paper.** When `site/art/` changed, update the Paper designs. Read [the Paper workflow](references/paper.md) first.
-   Done when every changed image layer serves the same bytes as its site file.
+8. **Place in Paper.** When `site/art/` changed, put the new art in the Paper designs before you accept it on the site. Paper is the official reference for the site. Read [the Paper workflow](references/paper.md) first.
+   Done when every changed image layer serves the same bytes as its site file, and both artboard screenshots look right.
+9. **Check the site.** Render the page with `agent-browser` at 1440, 820, and 390 pixels wide. Compare it with the Paper artboards and with a render from before the change.
+   Done when no width scrolls sideways and every changed picture sits where Paper puts it.
 10. **Record.** A new trait or lesson goes in the standard. A new reference goes in the index, then run `uv run design/tools/artcheck.py baseline`. A new tool trap goes in the traps file.
 
 ## Report

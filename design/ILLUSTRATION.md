@@ -108,6 +108,7 @@ Lessons from building the measures:
 ## Site art
 
 Every file in `site/art/` is generated. Change `art/build.ts`, then run the build. Hand edits to those files are lost.
+The Paper designs are the official reference for the site layout. Place new art in Paper before you accept it on the site.
 Each site file is a crop of a full recreation. The recreation's parity check therefore covers the site file.
 
 | Site file | Section | Reference |
