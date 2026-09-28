@@ -15,11 +15,12 @@ It captures signing requests without signing them.
 | --- | --- | --- |
 | `SUBMIT_TRANSACTION` | `transactionXdr`, supplied account and network fields | `signedTransaction` contains the signed V1 envelope |
 | `SUBMIT_BLOB` | `blob`, supplied account and API version | For confirmed API v4, `signedBlob` contains base64 signature bytes; `signerAddress` identifies the signer |
-| `SUBMIT_AUTH_ENTRY` | `entryXdr`, supplied account and network fields | Use the credential's matching direct-signing adapter and confirmed response format |
+| `SUBMIT_AUTH_ENTRY` | `entryXdr`: a `HashIdPreimage`, supplied account and network fields | For confirmed API 4.2.0 or later, `signedAuthEntry` contains Base64 signature bytes over `SHA-256(entryXdr bytes)` |
 
 The helper's `reply` command supports `SUBMIT_TRANSACTION` only.
 Use [message signing](message-signing.md) for `SUBMIT_BLOB`.
-For `SUBMIT_AUTH_ENTRY`, use the matching core `walleterm` reference before creating a bounded reply.
+For `SUBMIT_AUTH_ENTRY`, decode the preimage and review its network, bound address, expiry, and invocation tree.
+Sign the SHA-256 digest of its bytes with `walleterm sign` only after that review. Refuse a V1 preimage.
 Inspect the helper's unsupported-request list when the client needs another method.
 Choose another adapter when the confirmed transport differs.
 

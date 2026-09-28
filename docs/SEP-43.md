@@ -8,7 +8,7 @@ After a connection, the Walleterm SDK and its header component drive the interfa
 ## Summary
 
 - `Walleterm` in `sdk/walleterm.ts` has the SEP-43 methods `getAddress`, `signTransaction`, `signAuthEntry`, `signMessage`, and `getNetwork`.
-  They resolve SEP-43 results. A failure resolves `{ error: { code, message, ext } }`.
+  They resolve SEP-43 results. A failure resolves empty fields and `error: { code, message, ext }`, as Freighter does.
 - `getAddress()` owns pairing. Without a session, it opens the Walleterm dialog.
 - `signAuthEntry` signs a CAP-71 address-bound preimage and returns a Base64 Ed25519 signature.
 - `signMessage` always returns `-3`. See [future work](#future-work-message-signing).
@@ -45,7 +45,8 @@ type Sep43Error = {
   ext?: string[]; // ext[0] is a stable reason, such as "walleterm:not_connected".
   requestState?: 'denied' | 'expired' | 'unknown'; // Present after a bridge request.
 };
-type Result<T> = (T & { error?: undefined }) | ({ [K in keyof T]?: undefined } & { error: Sep43Error });
+// As in Freighter, a failure returns the same fields as empty strings.
+type Result<T> = T & { error?: Sep43Error };
 
 interface SignOptions {
   networkPassphrase?: string; // Default: testnet. Another value fails.
@@ -63,6 +64,8 @@ getNetwork(): Promise<Result<{ network: string; networkPassphrase: string }>>;
 ```
 
 These methods never reject. SDK 17.1.0 `AssembledTransaction` and Freighter read `{ ..., error }`.
+The SDK types a SEP-43 result as `{ signedTxXdr: string } & { error? }`. Empty strings keep that type.
+So a `Walleterm` object is a Stellar SDK `contract.Signer`. Its `address` is an empty string without a session.
 `signerAddress` is always the selected G-address. `opts.address` names the signing key.
 
 | Method | Behavior |
@@ -76,6 +79,7 @@ These methods never reject. SDK 17.1.0 `AssembledTransaction` and Freighter read
 ### Native methods
 
 These methods belong to the Walleterm SDK. Failures throw a `WalletermError` with `code`, `ext`, and `status`.
+`WalletermClient` is the single-session client under `Walleterm`. It throws instead of returning results.
 
 | Member | Purpose |
 | --- | --- |
@@ -83,7 +87,7 @@ These methods belong to the Walleterm SDK. Failures throw a `WalletermError` wit
 | `address`, `url`, `walletScope` | Read-only state. The SDK contract client reads `address`. |
 | `connect({ url, code, selectWallet, signal })` | Pairs a tunnel. A failure keeps the current session. |
 | `listWallets()`, `selectWallet(publicKey)` | Discovery and switching. |
-| `onChange(listener)` | Reports each address change, including disconnection. Returns an unsubscribe function. |
+| `onChange(listener)` | Reports each address change, including disconnection, after the operation settles. Returns an unsubscribe function. |
 | `signAuthorization(entryXdr, { address, adapter })` | Adapter signing for a complete AddressV2 entry. It resolves a `Result`. |
 | `disconnect()`, `forgetConnection()` | Revokes the session, or discards it locally. |
 
@@ -100,7 +104,7 @@ These methods belong to the Walleterm SDK. Failures throw a `WalletermError` wit
 | `-3` | `walleterm:rate_limited` | A bridge connection or request limit. |
 | `-3` | `walleterm:expired` | The request expired before signing. |
 | `-4` | `walleterm:rejected` | The user closed the dialog, the website canceled, the session ended, or a review denied the request. |
-| `-2` | `walleterm:bridge_unavailable` | The tunnel stayed unreachable. |
+| `-2` | `walleterm:bridge_unavailable` | The tunnel was unreachable for a call that does not sign. Signing retries until its deadline. |
 | `-2` | `walleterm:ledger_unavailable` | The trusted ledger check failed before signing. |
 | `-1` | `walleterm:result_unknown` | Signing started and no verified result arrived. `requestState` is `unknown`. |
 | `-1` | `walleterm:internal` | Any other failure. |
@@ -185,10 +189,12 @@ walletermModule.onChange(() => StellarWalletsKit.fetchAddress());
 
 `fetchAddress()` calls the module's `getAddress()`, which returns the new address without a dialog.
 A disconnection reports an empty address with a `-3` error.
+Change events run after the switch settles. The Kit check found that an earlier event failed a `fetchAddress()` call.
 
 ### Sessions
 
-The SDK saves `{ url, token }` in `sessionStorage` under `walleterm:session`, per tab.
+The SDK saves `{ version: 3, url, token }` in `sessionStorage` under `walleterm:session`, per tab.
+After pairing, the wallet owns the session. Destroying `WalletermConnect` does not revoke it.
 `sessionStorageKey: null` keeps the session in memory only.
 A reload checks `GET /v1/account` before it publishes an address.
 A 401 removes the saved session. A network failure keeps it.
@@ -253,12 +259,24 @@ The module ships here only. Upstream registration would reach future Kit release
 It would not remove the tunnel or make Walleterm safe for mainnet.
 
 `fixtures/kit/` pins Kit 2.7.0 in its own package and lockfile. The root package does not depend on the Kit.
-Its check type-checks the module against the Kit `ModuleInterface` and drives the Kit SDK against a mock bridge.
-Run it with `bun install --cwd fixtures/kit --frozen-lockfile --ignore-scripts && bun fixtures/kit/check.mts`.
+Its check type-checks the module against the Kit `ModuleInterface`.
+It then drives the real Kit SDK against an in-process bridge with random mock keys:
+PUBLIC refusal, pairing, transaction and preimage signing, message refusal, network, switching, and disconnection.
+Run it from the repository root:
+
+```sh
+bun install --cwd fixtures/kit --frozen-lockfile --ignore-scripts
+bunx tsc --noEmit -p fixtures/kit/tsconfig.json
+bun fixtures/kit/check.mts
+```
+
+CI does not run this check yet. The Kit tree adds about 500 MB to the fixture directory only.
+`bridge/kit.test.ts` covers the module in CI without the Kit.
 
 ## 8. Verification
 
-Offline tests cover each SEP-43 method, each error code, preimage validation, switching events, the removed operation rules, and the Kit module.
+Offline tests cover each SEP-43 method, each error code, and preimage validation.
+They also cover switching events, the removed operation rules, and the Kit module.
 An independent reviewer checks the signing path before acceptance. Check these points:
 
 - Every rejected request reaches no signer call.

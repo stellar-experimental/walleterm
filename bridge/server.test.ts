@@ -2,7 +2,16 @@ import { jest, onTestFinished, test } from 'bun:test';
 import { request as httpRequest } from 'node:http';
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
-import { Account, Asset, Keypair, Memo, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
+import {
+  Account,
+  Asset,
+  Keypair,
+  Memo,
+  MuxedAccount,
+  Networks,
+  Operation,
+  TransactionBuilder,
+} from '@stellar/stellar-sdk';
 import { createBridge } from './server.ts';
 import { inspectTransaction } from './transaction.ts';
 import { WalletermClient } from '../sdk/walleterm.ts';
@@ -31,9 +40,10 @@ function input(id = 'request-1', options: InputOptions = {}) {
   if (options.memo) tx.addMemo(options.memo);
   return {
     id,
-    public_key: publicKey,
+    kind: 'transaction' as const,
+    address: publicKey,
     network_passphrase: Networks.TESTNET,
-    transaction_xdr: tx
+    xdr: tx
       .setTimeout(options.timeout ?? 180)
       .build()
       .toXDR(),
@@ -56,12 +66,12 @@ function signalOf(options?: SignalOptions): AbortSignal {
 interface ReplyData {
   token?: string;
   state?: RequestState;
-  signed_xdr?: string;
+  signed_tx_xdr?: string;
+  error?: { code: number; message: string; ext?: string[] };
+  address?: string | null;
   hash?: string;
-  message?: string;
   signers?: Signer[];
   grant_id?: string;
-  public_key?: string | null;
   selection_revision?: number;
   expires_at?: string;
 }
@@ -139,7 +149,7 @@ async function fixture(options: BridgeOptions = {}) {
   }
   onTestFinished(() => bridge.close());
   async function connect(site = 'https://site-one.example') {
-    const r = await request('/v1/connect', { code: bridge.pairing.code }, { site });
+    const r = await request('/v1/connect', { code: bridge.pairing.code, wallet_scope: 'selected' }, { site });
     assert.equal(r.status, 201);
     const s = { site, token: r.data.token };
     assert.equal((await request('/v1/select', { public_key: publicKey }, s)).status, 200);
@@ -181,16 +191,26 @@ test('short codes expire, rotate once, and pause for one minute after five incor
   assert.match(original, /^\d{8}$/);
   await f.connect();
   assert.notEqual(f.bridge.pairing.code, original);
-  assert.equal((await f.request('/v1/connect', { code: original })).status, 403);
+  assert.equal((await f.request('/v1/connect', { code: original, wallet_scope: 'selected' })).status, 403);
   clock += 300001;
-  assert.equal((await f.request('/v1/connect', { code: f.bridge.pairing.code })).status, 403);
+  assert.equal(
+    (await f.request('/v1/connect', { code: f.bridge.pairing.code, wallet_scope: 'selected' })).status,
+    403,
+  );
   clock -= 300001;
   const beforeLock = f.bridge.pairing.code;
-  for (let i = 0; i < 5; i++) assert.equal((await f.request('/v1/connect', { code: 'wrong' })).status, 403);
+  for (let i = 0; i < 5; i++)
+    assert.equal((await f.request('/v1/connect', { code: 'wrong', wallet_scope: 'selected' })).status, 403);
   assert.notEqual(f.bridge.pairing.code, beforeLock);
-  assert.equal((await f.request('/v1/connect', { code: f.bridge.pairing.code })).status, 429);
+  assert.equal(
+    (await f.request('/v1/connect', { code: f.bridge.pairing.code, wallet_scope: 'selected' })).status,
+    429,
+  );
   clock += 60000;
-  assert.equal((await f.request('/v1/connect', { code: f.bridge.pairing.code })).status, 201);
+  assert.equal(
+    (await f.request('/v1/connect', { code: f.bridge.pairing.code, wallet_scope: 'selected' })).status,
+    201,
+  );
   assert.equal(f.calls(), 0);
 });
 
@@ -214,7 +234,10 @@ test('an unused code rotates at expiry', () => {
 test('ended sessions release their connection slots', async () => {
   const f = await fixture();
   for (let i = 0; i < 65; i++) {
-    const { status, data } = await f.request('/v1/connect', { code: f.bridge.pairing.code });
+    const { status, data } = await f.request('/v1/connect', {
+      code: f.bridge.pairing.code,
+      wallet_scope: 'selected',
+    });
     assert.equal(status, 201);
     assert.equal((await f.request('/v1/disconnect', {}, { token: data.token })).status, 200);
   }
@@ -239,8 +262,8 @@ test('two origins have separate authority; only the review hook decides a reques
   const approved = await f.result(a);
   assert.equal(approved.data.state, 'signed');
   assert.equal(f.calls(), 1);
-  assert.ok(approved.data.signed_xdr);
-  const tx = TransactionBuilder.fromXDR(approved.data.signed_xdr, Networks.TESTNET);
+  assert.ok(approved.data.signed_tx_xdr);
+  const tx = TransactionBuilder.fromXDR(approved.data.signed_tx_xdr, Networks.TESTNET);
   assert.ok(key.verify(tx.hash(), tx.signatures[0].signature.toBytes()));
   assert.equal((await f.request('/v1/requests', initial, a)).data.state, 'signed');
   assert.equal(f.calls(), 1);
@@ -253,10 +276,10 @@ test('two origins have separate authority; only the review hook decides a reques
   ]);
 });
 
-test('wallet discovery requires a session and legacy wallet selection cannot change', async () => {
+test('wallet discovery requires a session and a selected-scope wallet cannot change', async () => {
   const f = await fixture();
   assert.equal((await f.request('/v1/signers')).status, 401);
-  const { data } = await f.request('/v1/connect', { code: f.bridge.pairing.code });
+  const { data } = await f.request('/v1/connect', { code: f.bridge.pairing.code, wallet_scope: 'selected' });
   const a = { token: data.token };
   assert.equal((await f.request('/v1/signers', undefined, a)).data.signers?.[0]?.public_key, publicKey);
   assert.equal((await f.request('/v1/requests', input(), a)).status, 409);
@@ -435,7 +458,7 @@ for (const phase of ['approved', 'signing', 'signed'])
     release?.();
     const result = await f.result(a);
     assert.equal(result.data.state, phase === 'approved' ? 'denied' : 'unknown');
-    assert.equal(result.data.signed_xdr, undefined);
+    assert.equal(result.data.signed_tx_xdr, undefined);
   });
 
 test('SDK switches in one session and recovers a lost selection response', async () => {
@@ -490,7 +513,7 @@ test('a delayed account response cannot overwrite a newer SDK wallet', async () 
     selectWallet: async (keys) => keys[0].public_key,
   });
   hold = true;
-  const old = client.getAddress();
+  const old = client.getAccount();
   const rejected = assert.rejects(old, /connection changed/);
   const resume = await until(() => release);
   await client.selectWallet(other.publicKey());
@@ -590,7 +613,7 @@ test('SDK withholds a delayed successful signature after a same-session wallet c
     walletScope: 'available',
     selectWallet: async (keys) => keys[0].public_key,
   });
-  const signing = client.signTransaction(input().transaction_xdr).catch((error: unknown) => error);
+  const signing = client.signTransaction(input().xdr).catch((error: unknown) => error);
   const resume = await until(() => release);
   await client.selectWallet(other.publicKey());
   resume();
@@ -607,7 +630,7 @@ for (const change of ['unchanged', 'A-B', 'A-B-A'] as const) {
     const sent: { path: string; body?: string; token: string | null }[] = [];
     const release = Promise.withResolvers<void>();
     onTestFinished(() => release.resolve());
-    let delivered: { id: string; signed_xdr: string } | undefined;
+    let delivered: { id: string; signed_tx_xdr: string } | undefined;
     const client = f.client('https://adapter.example', {
       page: null,
       fetch: async (url, options) => {
@@ -636,12 +659,12 @@ for (const change of ['unchanged', 'A-B', 'A-B-A'] as const) {
     const second = f.client('https://adapter.example', { page: null });
     second.token = client.token;
     second.walletScope = 'available';
-    await second.getAddress();
+    await second.getAccount();
     const token = client.token,
       generation = client.generation,
       original = input();
     sent.length = 0;
-    const signing = client.signTransaction(original.transaction_xdr);
+    const signing = client.signTransaction(original.xdr);
     const outcome =
       change === 'unchanged'
         ? signing
@@ -653,26 +676,23 @@ for (const change of ['unchanged', 'A-B', 'A-B-A'] as const) {
             return true;
           });
     const signed = await until(() => delivered);
-    const transaction = TransactionBuilder.fromXDR(signed.signed_xdr, Networks.TESTNET);
-    assert.deepEqual(
-      transaction.hash(),
-      TransactionBuilder.fromXDR(original.transaction_xdr, Networks.TESTNET).hash(),
-    );
+    const transaction = TransactionBuilder.fromXDR(signed.signed_tx_xdr, Networks.TESTNET);
+    assert.deepEqual(transaction.hash(), TransactionBuilder.fromXDR(original.xdr, Networks.TESTNET).hash());
     assert.ok(key.verify(transaction.hash(), transaction.signatures[0].signature.toBytes()));
     if (change !== 'unchanged') await second.selectWallet(other.publicKey());
     if (change === 'A-B-A') await second.selectWallet(publicKey);
-    assert.equal((await client.getAddress()).address, change === 'A-B' ? other.publicKey() : publicKey);
+    assert.equal((await client.getAccount()).address, change === 'A-B' ? other.publicKey() : publicKey);
     assert.equal(client.revision, change === 'unchanged' ? 1 : change === 'A-B' ? 2 : 3);
     assert.equal(client.generation, generation);
     assert.equal(client.token, token);
     const record = await second.request(`/v1/requests/${signed.id}`);
     assert.equal(record.state, change === 'unchanged' ? 'signed' : 'unknown');
-    if (change !== 'unchanged') assert.equal(record.signed_xdr, undefined);
+    if (change !== 'unchanged') assert.equal(record.signed_tx_xdr, undefined);
     release.resolve();
     const result = await outcome;
     if (change === 'unchanged') {
       assert.ok(result);
-      assert.deepEqual(result, { signedTxXdr: signed.signed_xdr, signerAddress: publicKey });
+      assert.deepEqual(result, { signedTxXdr: signed.signed_tx_xdr, signerAddress: publicKey });
     }
     const creates = sent.filter(({ path }) => path === '/v1/requests');
     assert.equal(creates.length, 1);
@@ -754,9 +774,9 @@ test('SDK keeps signing blocked when an aborted selection still awaits discovery
   controller.abort(Error('Selection canceled'));
   await failed;
   assert.equal(client.account, null);
-  await assert.rejects(client.signTransaction(input().transaction_xdr), /select a wallet first/);
+  await assert.rejects(client.signTransaction(input().xdr), /select a wallet first/);
   await assert.rejects(client.selectWallet(publicKey), /Recover the account/);
-  await assert.rejects(client.getAddress(), /not confirmed/);
+  await assert.rejects(client.getAccount(), /not confirmed/);
   hold = false;
   assert.ok(release);
   release();
@@ -769,7 +789,7 @@ test('SDK keeps signing blocked when an aborted selection still awaits discovery
         })
       ).data.selection_revision === 2,
   );
-  assert.equal((await client.getAddress()).address, other.publicKey());
+  assert.equal((await client.getAccount()).address, other.publicKey());
   assert.equal(f.calls(), 0);
 });
 
@@ -797,7 +817,7 @@ test('SDK rejects account reads started during a wallet selection', async () => 
   hold = true;
   const changing = client.selectWallet(other.publicKey());
   await waiting.promise;
-  await assert.rejects(client.getAddress(), /selection to finish/);
+  await assert.rejects(client.getAccount(), /selection to finish/);
   hold = false;
   assert.ok(release);
   release();
@@ -823,7 +843,7 @@ test('SDK preserves signing uncertainty when session expiry prevents cancellatio
   const client = f.client('https://adapter.example');
   await client.connect({ code: f.bridge.pairing.code, selectWallet: async (keys) => keys[0].public_key });
   const signing = client
-    .signTransaction(input().transaction_xdr)
+    .signTransaction(input().xdr)
     .then(() => requestError(Error('The signature was delivered.')), requestError);
   await waiting.promise;
   clock += 3600001;
@@ -835,58 +855,104 @@ test('SDK preserves signing uncertainty when session expiry prevents cancellatio
   assert.equal(client.token, null);
 });
 
-test('invalid or excessive transactions never invoke review or signing', async () => {
+test('structurally invalid requests never invoke review or signing', async () => {
   const f = await fixture(),
     a = await f.connect();
-  for (const item of [
-    { ...input(), network_passphrase: Networks.PUBLIC },
-    input('bad-fee', { fee: '100001' }),
-    input('no-expiry', { timeout: 0 }),
-    input('long', { timeout: 600 }),
-    input('wrong-source', { source: other.publicKey() }),
-    input('op-source', {
-      operation: Operation.manageData({ name: 'x', value: 'y', source: other.publicKey() }),
-    }),
-    input('unsupported', { operation: Operation.setOptions({ homeDomain: 'example.com' }) }),
-    { ...input(), transaction_xdr: 'garbage' },
-    { ...input(), public_key: other.publicKey() },
-    { ...input(), extra: true },
-  ])
-    assert.equal((await f.request('/v1/requests', item, a)).status, 400, item.id);
+  const cases: [Record<string, unknown>, string][] = [
+    [{ ...input('mainnet'), network_passphrase: Networks.PUBLIC }, 'walleterm:network_unsupported'],
+    [input('no-expiry', { timeout: 0 }), 'walleterm:invalid_request'],
+    [input('long', { timeout: 600 }), 'walleterm:invalid_request'],
+    [input('wrong-source', { source: other.publicKey() }), 'walleterm:address_mismatch'],
+    [{ ...input('garbage'), xdr: 'garbage' }, 'walleterm:invalid_request'],
+    [{ ...input('address'), address: other.publicKey() }, 'walleterm:address_mismatch'],
+    [{ ...input('extra'), extra: true }, 'walleterm:invalid_request'],
+    [{ ...input('kindless'), kind: undefined }, 'walleterm:invalid_request'],
+    [{ ...input('signed'), xdr: signedBy(input().xdr, key) }, 'walleterm:invalid_request'],
+  ];
+  for (const [item, reason] of cases) {
+    const reply = await f.request('/v1/requests', item, a);
+    assert.equal(reply.status, 400, String(item.id));
+    assert.equal(reply.data.error?.code, -3, String(item.id));
+    assert.deepEqual(reply.data.error?.ext, [reason], String(item.id));
+  }
   assert.equal(f.calls(), 0);
   assert.equal(f.reviews(), 0);
 });
 
-test('review records exact offer price, destination, memo and data bytes', () => {
-  const offer = inspectTransaction(
-    input('offer', {
-      operation: Operation.manageSellOffer({
-        selling: Asset.native(),
-        buying: new Asset('USD', other.publicKey()),
-        amount: '0.1',
-        price: { n: 1, d: 3 },
-        offerId: '10',
+function signedBy(transactionXdr: string, signer: Keypair) {
+  const tx = TransactionBuilder.fromXDR(transactionXdr, Networks.TESTNET);
+  tx.sign(signer);
+  return tx.toXDR();
+}
+function build(source: string, operations: xdr.Operation[], fee = '100') {
+  const tx = new TransactionBuilder(new Account(source, '10'), { fee, networkPassphrase: Networks.TESTNET });
+  for (const operation of operations) tx.addOperation(operation);
+  return tx.setTimeout(180).build();
+}
+
+test('the bridge filters no operations and signs only for a required signer', async () => {
+  const f = await fixture({ review: undefined }),
+    a = await f.connect(),
+    client = f.client('https://site-one.example');
+  await client.connect({ code: f.bridge.pairing.code, selectWallet: async () => publicKey });
+  const inner = build(other.publicKey(), [
+    Operation.payment({ destination: publicKey, asset: Asset.native(), amount: '1' }),
+  ]);
+  inner.sign(other);
+  const envelopes = {
+    options: build(publicKey, [Operation.setOptions({ homeDomain: 'example.com' })], '100001').toXDR(),
+    many: build(publicKey, [
+      Operation.manageData({ name: 'a', value: 'b' }),
+      Operation.changeTrust({ asset: new Asset('USD', other.publicKey()) }),
+      Operation.payment({
+        destination: other.publicKey(),
+        asset: Asset.native(),
+        amount: '1',
+        source: other.publicKey(),
       }),
-    }),
-    publicKey,
-  ).details;
-  assert.ok(offer.operation.type === 'manageSellOffer');
-  assert.equal(offer.operation.price_numerator, 1);
-  assert.equal(offer.operation.price_denominator, 3);
-  assert.equal(offer.operation.offer_id, '10');
-  const pay = inspectTransaction(
-    input('pay', {
-      memo: Memo.text('a'),
-      operation: Operation.payment({ destination: other.publicKey(), asset: Asset.native(), amount: '0.01' }),
-    }),
-    publicKey,
-  ).details;
-  assert.ok(pay.operation.type === 'payment');
-  assert.equal(pay.operation.destination, other.publicKey());
-  assert.equal(pay.memo.value, 'a');
-  const data = inspectTransaction(input(), publicKey).details.operation;
-  assert.ok(data.type === 'manageData');
-  assert.equal(data.value_hex, Buffer.from('hello').toString('hex'));
+    ]).toXDR(),
+    // The selected key is an operation source. The transaction source signs separately.
+    operationSource: signedBy(
+      build(other.publicKey(), [Operation.manageData({ name: 'a', value: 'b', source: publicKey })]).toXDR(),
+      other,
+    ),
+    feeBump: TransactionBuilder.buildFeeBumpTransaction(publicKey, '200', inner, Networks.TESTNET).toXDR(),
+    // A muxed source signs with its base key.
+    muxed: new TransactionBuilder(new MuxedAccount(new Account(publicKey, '10'), '7'), {
+      fee: '100',
+      networkPassphrase: Networks.TESTNET,
+    })
+      .addOperation(Operation.manageData({ name: 'm', value: 'x' }))
+      .setTimeout(180)
+      .build()
+      .toXDR(),
+  };
+  for (const [id, xdrValue] of Object.entries(envelopes)) {
+    assert.equal((await f.request('/v1/requests', { ...input(id), xdr: xdrValue }, a)).status, 201, id);
+    const signed = await f.result(a, id);
+    assert.equal(signed.data.state, 'signed', id);
+    const before = TransactionBuilder.fromXDR(xdrValue, Networks.TESTNET);
+    const after = TransactionBuilder.fromXDR(signed.data.signed_tx_xdr!, Networks.TESTNET);
+    assert.equal(after.signatures.length, before.signatures.length + 1, id);
+    assert.ok(key.verify(after.hash(), after.signatures.at(-1)!.signature.toBytes()), id);
+    const result = await client.signTransaction(xdrValue);
+    assert.equal(result.signerAddress, publicKey);
+  }
+});
+
+test('review receives generic details and the exact envelope', () => {
+  const request = input('pay', {
+    memo: Memo.text('a'),
+    operation: Operation.payment({ destination: other.publicKey(), asset: Asset.native(), amount: '0.01' }),
+  });
+  const { details } = inspectTransaction(request, publicKey);
+  assert.equal(details.transaction_xdr, request.xdr);
+  assert.equal(details.envelope_type, 'transaction');
+  assert.deepEqual(details.operations, [{ type: 'payment', source: publicKey }]);
+  assert.equal(
+    details.hash,
+    Buffer.from(TransactionBuilder.fromXDR(request.xdr, Networks.TESTNET).hash()).toString('hex'),
+  );
 });
 
 test('denial, expiry and removal of a key do not sign', async () => {
@@ -949,7 +1015,7 @@ for (const revoke of [false, true])
     if (revoke) assert.equal(r.status, 401);
     else {
       assert.equal(r.data.state, 'unknown');
-      assert.equal(r.data.signed_xdr, undefined);
+      assert.equal(r.data.signed_tx_xdr, undefined);
     }
     assert.equal(f.logs.length, 2);
     assert.match(f.logs[0], /^Signature withheld or stopped for [0-9a-f]{64} \(account G/);
@@ -963,7 +1029,7 @@ test('invalid signatures are never delivered', async () => {
   await f.decide();
   const result = await f.result(a);
   assert.equal(result.data.state, 'unknown');
-  assert.equal(result.data.signed_xdr, undefined);
+  assert.equal(result.data.signed_tx_xdr, undefined);
 });
 
 test('restart invalidates old credentials and requests', async () => {
@@ -992,7 +1058,7 @@ test('SDK uses the code and wallet picker, signs, and reconnects after revocatio
   assert.equal((await connect()).address, publicKey);
   const old = client.token;
   // The address and network default to the connected account.
-  const signing = client.signTransaction(input('sdk').transaction_xdr);
+  const signing = client.signTransaction(input('sdk').xdr);
   await f.decide();
   const result = await signing;
   assert.ok(result.signedTxXdr);
@@ -1019,7 +1085,7 @@ test('SDK preserves denied state and clears a canceled wallet selection', async 
   );
   assert.equal(client.token, null);
   await client.connect({ code: f.bridge.pairing.code, selectWallet: async (keys) => keys[0].public_key });
-  const denied = client.signTransaction(input('denied-sdk').transaction_xdr);
+  const denied = client.signTransaction(input('denied-sdk').xdr);
   await f.decide(false);
   await assert.rejects(denied, (error) => requestError(error).requestState === 'denied');
 });
@@ -1029,25 +1095,12 @@ test('aborting an SDK request cancels its review and never signs', async () => {
     client = f.client('https://adapter.example'),
     controller = new AbortController();
   await client.connect({ code: f.bridge.pairing.code, selectWallet: async (keys) => keys[0].public_key });
-  const signing = client.signTransaction(input('aborted').transaction_xdr, { signal: controller.signal });
+  const signing = client.signTransaction(input('aborted').xdr, { signal: controller.signal });
   await until(() => f.reviews() === 1);
   controller.abort();
   await assert.rejects(signing);
   await until(() => f.decisions[0]?.signal.aborted);
   assert.equal(f.calls(), 0);
-});
-
-test('invalid UTF-8 data names fail before review', () => {
-  const r = input(),
-    tx = TransactionBuilder.fromXDR(r.transaction_xdr, Networks.TESTNET);
-  const envelope = tx.toEnvelope();
-  assert.ok(envelope.type === 'envelopeTypeTx');
-  const body = envelope.value.tx.operations[0].body;
-  assert.ok(body.type === 'manageData');
-  // The name field is readonly, but its bytes are not. 0xFF makes the name invalid UTF-8.
-  body.value.dataName.bytes.set([255, 97]);
-  r.transaction_xdr = envelope.toXDR('base64');
-  assert.throws(() => inspectTransaction(r, publicKey), /UTF-8/);
 });
 
 test('closing the bridge aborts signing and reports it', async () => {
@@ -1078,7 +1131,7 @@ test('canceling a signed request withholds its result', async () => {
   assert.equal((await f.result(a)).data.state, 'signed');
   const canceled = await f.request('/v1/requests/request-1/cancel', {}, a);
   assert.equal(canceled.data.state, 'unknown');
-  assert.equal(canceled.data.signed_xdr, undefined);
+  assert.equal(canceled.data.signed_tx_xdr, undefined);
   assert.match(f.logs.at(-1) ?? '', /^Signature withheld or stopped/);
 });
 
@@ -1095,7 +1148,7 @@ test('SDK retries a failed poll and a lost first response', async () => {
   };
   const client = f.client('https://adapter.example', { fetch: flaky });
   await client.connect({ code: f.bridge.pairing.code, selectWallet: async (keys) => keys[0].public_key });
-  const signing = client.signTransaction(input('flaky').transaction_xdr);
+  const signing = client.signTransaction(input('flaky').xdr);
   await f.decide();
   assert.ok((await signing).signedTxXdr);
   assert.equal(f.calls(), 1);
@@ -1115,7 +1168,7 @@ test('leaving the page cancels an open SDK request', async () => {
   });
   await client.connect({ code: f.bridge.pairing.code, selectWallet: async (keys) => keys[0].public_key });
   const signing = client
-    .signTransaction(input('leave').transaction_xdr)
+    .signTransaction(input('leave').xdr)
     .then(() => requestError(Error('The signature was delivered.')), requestError);
   await until(() => f.reviews() === 1);
   page.dispatchEvent(new Event('pagehide'));
@@ -1148,7 +1201,7 @@ test('concurrent key listings share one signer process', async () => {
       return [{ public_key: publicKey }];
     },
   });
-  const { data } = await f.request('/v1/connect', { code: f.bridge.pairing.code });
+  const { data } = await f.request('/v1/connect', { code: f.bridge.pairing.code, wallet_scope: 'selected' });
   const a = { token: data.token };
   const calls = Array.from({ length: 20 }, () => f.request('/v1/signers', undefined, a));
   await delay(20);
@@ -1170,7 +1223,7 @@ test('SDK retries stop when the connection changes', async () => {
   };
   const client = f.client('https://adapter.example', { fetch: flaky });
   await client.connect({ code: f.bridge.pairing.code, selectWallet: async (keys) => keys[0].public_key });
-  await assert.rejects(client.signTransaction(input('changed').transaction_xdr), /connection changed/);
+  await assert.rejects(client.signTransaction(input('changed').xdr), /connection changed/);
   assert.equal(f.reviews(), 0);
 });
 
@@ -1186,7 +1239,7 @@ test('SDK reports an unconfirmed cancel and accepts a primitive abort reason', a
   await client.connect({ code: f.bridge.pairing.code, selectWallet: async (keys) => keys[0].public_key });
   const controller = new AbortController();
   const signing = client
-    .signTransaction(input('offline').transaction_xdr, { signal: controller.signal })
+    .signTransaction(input('offline').xdr, { signal: controller.signal })
     .catch((error: unknown) => error);
   await until(() => f.reviews() === 1);
   down = true;
@@ -1209,7 +1262,7 @@ test('SDK does not retry a non-JSON 4xx response', async () => {
     },
   });
   await client.connect({ code: f.bridge.pairing.code, selectWallet: async (keys) => keys[0].public_key });
-  await assert.rejects(client.signTransaction(input('big').transaction_xdr), /unreadable response \(413\)/);
+  await assert.rejects(client.signTransaction(input('big').xdr), /unreadable response \(413\)/);
   assert.equal(posts, 1);
 });
 
@@ -1250,6 +1303,9 @@ test('without a review hook, the bridge signs a valid request with no terminal s
   assert.equal(signed.data.state, 'signed');
   assert.equal(f.reviews(), 0);
   assert.equal(f.calls(), 1);
-  assert.equal((await f.request('/v1/requests', input('bad-fee', { fee: '100001' }), a)).status, 400);
+  assert.equal(
+    (await f.request('/v1/requests', { ...input('mainnet'), network_passphrase: Networks.PUBLIC }, a)).status,
+    400,
+  );
   assert.equal(f.calls(), 1);
 });

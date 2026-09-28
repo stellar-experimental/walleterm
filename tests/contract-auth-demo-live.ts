@@ -124,7 +124,7 @@ async function authorize(prepared: ContractPreparation, method: 'cli' | 'sdk') {
       method === 'cli'
         ? await cliAuth(input, latestLedger)
         : (
-            await client!.signAuthEntry(authorization.xdr, {
+            await client!.signAuthorization(authorization.xdr, {
               address: authorization.address,
               adapter: input.adapter,
             })

@@ -61,5 +61,6 @@ export function browserScript(url: URL): string {
     .transformSync(readFileSync(url, 'utf8'))
     .replace(/^import\s+(?:[\s\S]*?\s+from\s+)?['"][^'"]+['"];?\n/gm, '')
     .replace(/^export \* from .*\n/gm, '')
+    .replace(/^export \{[^}]*\}(?: from ['"][^'"]+['"])?;?\n/gm, '')
     .replace(/^export (?=(?:async )?(?:class|function|const|let) )/gm, '');
 }

@@ -2,6 +2,7 @@
 
 Use this path for arbitrary messages, login challenges, or signatures that derive application keys.
 Walleterm signs one supplied 32-byte digest. The public tunnel has no arbitrary-message signing method.
+Its SEP-43 `signMessage` returns error `-3`. See the future-work notes in `docs/SEP-43.md`.
 Use direct `walleterm sign` outside the browser after reviewing the captured request.
 
 ## Review the message

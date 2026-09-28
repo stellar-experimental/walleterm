@@ -1,0 +1,8 @@
+{
+  "name": "walleterm-kit-fixture",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@creit.tech/stellar-wallets-kit": "2.7.0"
+  }
+}

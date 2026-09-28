@@ -1,7 +1,8 @@
 # Website connection component
 
 The demo mounts `WalletermConnect` in its header.
-The component owns the connection dialog, camera scan, wallet picker, and connected wallet dropdown.
+The component owns the pairing dialog, camera scan, wallet picker, and connected wallet dropdown.
+It is also the dialog that `Walleterm.getAddress()` opens when no session exists.
 The dropdown lists wallets, marks the active wallet, copies its address, refreshes discovery, and disconnects.
 Opening the connection dialog focuses Scan tunnel QR code. The camera starts only when the user selects that button.
 The manual form stays available when the dialog opens.
@@ -28,34 +29,38 @@ The build includes the scanner dependency in its shared JavaScript files.
 ```
 
 ```js
+import { Walleterm } from '/sdk/walleterm.js';
 import { WalletermConnect } from '/sdk/connect.js';
 
-let wallet;
-const connection = new WalletermConnect(
-  document.getElementById('wallet-connection'),
-  { onChange({ client, account }) {
-    wallet = client; // null after disconnection
-    renderAccount(account); // { address, networkPassphrase }, or null
-  } },
-);
+const wallet = new Walleterm({ walletScope: 'available' });
+const connection = new WalletermConnect(document.getElementById('wallet-connection'), {
+  wallet, // Optional. Share one wallet with a Stellar Wallets Kit module.
+  onChange({ wallet: connected, account }) {
+    renderAccount(account); // { address, networkPassphrase }, or null after disconnection.
+  },
+});
 
 // Keep the selected wallet fixed during a transaction action.
 connection.setBusy(true);
 try {
-  const result = await wallet.signTransaction(unsignedXdr);
-  // The website handles the result.
+  const { signedTxXdr, error } = await wallet.signTransaction(unsignedXdr);
+  // The website handles the result or the SEP-43 error.
 } finally {
   connection.setBusy(false);
   connection.sync(); // Clear a connection invalidated by an expired session.
 }
 ```
 
-The component keeps connection credentials in memory by default.
-Set `sessionStorageKey` to a website-specific name to enable reload recovery.
-The demo uses `sessionStorageKey: 'walleterm-demo-connection-v1'`.
-It saves the bridge URL and session token in `sessionStorage` for the current tab.
+The component registers itself as the wallet's pairing interface.
+`wallet.getAddress()` then opens its dialog and resolves after the user selects a key.
+Closing the dialog resolves `getAddress()` with error `-4`.
+Without a mounted component, `getAddress()` loads a dialog-only component. Load `connect.css` on that page too.
+The component also follows changes made through the wallet, such as `wallet.disconnect()` or session expiry.
+
+The wallet saves the bridge URL and session token in `sessionStorage` for the current tab.
+The key is `walleterm:session`. `new Walleterm({ sessionStorageKey: null })` keeps credentials in memory only.
 It never saves the one-use connection code or a private key.
-The website's scripts can read this token. Use this option only on a trusted website.
+The website's scripts can read this token. Use Walleterm only on a trusted website.
 Reload checks `/v1/account` before publishing the wallet or enabling transaction actions.
 The bridge supplies the current account, wallet scope, and selection revision.
 Recovery does not request wallet discovery, sign a transaction, or submit a transaction.
@@ -65,11 +70,14 @@ A 401 response or Disconnect removes the saved session.
 Unavailable browser storage leaves the connection in memory.
 The demo keeps its transaction recovery record separately in `localStorage`.
 
+After a pairing completes, the wallet owns the session. Destroying the component does not revoke it.
+A pairing that has not finished stops when the component closes or is destroyed.
+
 The connection health message uses normal document flow.
 Let the host container grow when a message appears.
 The demo places the message below the header controls and above the page content.
 
-`WalletermClient.listWallets({ signal })` refreshes public wallet metadata without changing the selected account.
+`Walleterm.listWallets({ signal })` refreshes public wallet metadata without changing the selected account.
 The wallet picker receives an empty list when discovery returns no keys. It can refresh or cancel.
 Discovery and selection requests allow 135 seconds. Other requests allow 15 seconds.
 The caller can cancel each request before its deadline.
@@ -79,7 +87,7 @@ The caller can cancel each request before its deadline.
 The component requests `wallet_scope: "available"` when it pairs.
 Before selection, it explains that the website can switch among the displayed wallets and request signatures.
 The first selection fixes the granted wallet list. A new key requires a new connection.
-Selecting a wallet in the dropdown calls `WalletermClient.selectWallet(publicKey, { signal })`.
+Selecting a wallet in the dropdown selects it through the wallet's current session.
 It keeps the current session and needs no new code or scan.
 Wallet changes cancel unfinished signing requests and preserve the session expiry.
 A lost selection response triggers account recovery before the SDK permits another signature.
@@ -87,10 +95,9 @@ An unchanged account cannot confirm a selection that still waits for discovery.
 Signing stays disabled until recovery confirms the requested wallet and an increased selection revision.
 The component publishes the recovered account. Failed recovery disables transaction actions.
 
-The standalone SDK defaults to a fixed wallet grant.
-Pass `walletScope: 'available'` to `connect()` only after displaying the broader permission.
-Older bridges reject that option. Update the bridge instead of retrying with a different grant.
-The QR format remains protocol v2.
+The SDK defaults to the `selected` scope: one wallet for each connection. It is the least-privilege scope.
+Use `new Walleterm({ walletScope: 'available' })` only with an interface that displays the broader permission.
+`wallet.onChange(listener)` reports each switch. A Stellar Wallets Kit website can call `StellarWalletsKit.fetchAddress()` there.
 
 Changing wallets preserves a saved demo transaction and its original signer.
 The demo enables Sign only when the connected wallet matches that signer.

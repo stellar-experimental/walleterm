@@ -4,7 +4,7 @@ import QRCode from 'qrcode';
 import jsQR from 'jsqr';
 import { parseConnection, scanConnection } from '../sdk/scan.ts';
 const pairing = () => ({
-  walleterm: 2,
+  walleterm: 3,
   url: 'https://bridge.example',
   code: '00123456',
   expires_at: new Date(Date.now() + 300000).toISOString(),

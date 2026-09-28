@@ -9,6 +9,7 @@ import {
   SorobanDataBuilder,
   StrKey,
   TransactionBuilder,
+  hash,
   xdr,
 } from '@stellar/stellar-sdk';
 import { WalletermClient } from '../sdk/walleterm.ts';
@@ -50,7 +51,16 @@ function fixture(artifact: unknown, reply = true) {
     page: null,
     fetch: async () => {
       requests++;
-      return Response.json(reply ? { state: 'signed', signed_xdr: artifact } : { state: 'signed' });
+      return Response.json(
+        reply
+          ? {
+              state: 'signed',
+              signed_tx_xdr: artifact,
+              signed_auth_entry: artifact,
+              signed_auth_entry_xdr: artifact,
+            }
+          : { state: 'signed' },
+      );
     },
   });
   client.token = 'session';
@@ -164,12 +174,13 @@ test('SDK freezes transaction signer and network options while awaiting the resp
     page: null,
     fetch: async (_url, options) => {
       expect(JSON.parse(String(options?.body))).toMatchObject({
-        public_key: key.publicKey(),
+        kind: 'transaction',
+        address: key.publicKey(),
         network_passphrase: Networks.TESTNET,
-        transaction_xdr: original,
+        xdr: original,
       });
       await pending;
-      return Response.json({ state: 'signed', signed_xdr: signed() });
+      return Response.json({ state: 'signed', signed_tx_xdr: signed() });
     },
   });
   client.token = 'session';
@@ -221,13 +232,98 @@ test('SDK authorization artifact verification failures always preserve unknown s
   ]) {
     const f = fixture(artifact);
     await unknownOutcome(
-      f.client.signAuthEntry(input.auth_entry_xdr, { address: contract, adapter: input.adapter }),
+      f.client.signAuthorization(input.auth_entry_xdr, { address: contract, adapter: input.adapter }),
     );
     expect(f.requests()).toBe(1);
   }
   const missing = fixture(undefined, false);
   await unknownOutcome(
-    missing.client.signAuthEntry(input.auth_entry_xdr, { address: contract, adapter: input.adapter }),
+    missing.client.signAuthorization(input.auth_entry_xdr, { address: contract, adapter: input.adapter }),
   );
   expect(missing.requests()).toBe(1);
+});
+
+function preimageFor(address: string, { network = Networks.TESTNET, nonce = 7n, v1 = false } = {}) {
+  const invocation = new xdr.SorobanAuthorizedInvocation({
+    function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+      new xdr.InvokeContractArgs({
+        contractAddress: new Address(contract).toScAddress(),
+        functionName: 'increment',
+        args: [],
+      }),
+    ),
+    subInvocations: [],
+  });
+  const common = {
+    networkId: hash(Buffer.from(network)),
+    nonce,
+    signatureExpirationLedger: 160,
+    invocation,
+  };
+  return (
+    v1
+      ? xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(
+          new xdr.HashIdPreimageSorobanAuthorization(common),
+        )
+      : xdr.HashIdPreimage.envelopeTypeSorobanAuthorizationWithAddress(
+          new xdr.HashIdPreimageSorobanAuthorizationWithAddress({
+            ...common,
+            address: new Address(address).toScAddress(),
+          }),
+        )
+  ).toXDR('base64');
+}
+const preimageSignature = (preimage: string, signer = key) =>
+  Buffer.from(signer.sign(hash(Buffer.from(preimage, 'base64')))).toString('base64');
+
+test('SEP-43 authorization preimages return a verified Base64 signature for G- and C-addresses', async () => {
+  for (const address of [key.publicKey(), contract]) {
+    const preimage = preimageFor(address),
+      f = fixture(preimageSignature(preimage));
+    expect(await f.client.signAuthEntry(preimage)).toEqual({
+      signedAuthEntry: preimageSignature(preimage),
+      signerAddress: key.publicKey(),
+    });
+    expect(f.requests()).toBe(1);
+  }
+});
+
+test('invalid preimages fail before sending', async () => {
+  const f = fixture(preimageSignature(preimageFor(contract)));
+  for (const [preimage, reason] of [
+    [preimageFor(contract, { v1: true }), 'walleterm:unsupported'],
+    [preimageFor(contract, { network: Networks.PUBLIC }), 'walleterm:network_unsupported'],
+    [preimageFor(other.publicKey()), 'walleterm:address_mismatch'],
+    [preimageFor(contract) + '\n', 'walleterm:invalid_request'],
+    ['not XDR', 'walleterm:invalid_request'],
+    [signed(), 'walleterm:invalid_request'],
+  ]) {
+    const error = await f.client.signAuthEntry(preimage).then(
+      () => null,
+      (caught) => caught,
+    );
+    expect(error.ext).toEqual([reason]);
+    expect(error.requestState).toBeUndefined();
+  }
+  expect(f.requests()).toBe(0);
+});
+
+test('returned preimage signatures that fail verification preserve unknown outcomes', async () => {
+  const preimage = preimageFor(contract),
+    valid = preimageSignature(preimage);
+  const raw = Buffer.from(valid, 'base64');
+  for (const artifact of [
+    'not base64',
+    null,
+    '',
+    preimageSignature(preimage, other),
+    preimageSignature(preimageFor(contract, { nonce: 8n })),
+    raw.toString('hex'),
+    valid.slice(0, -3) + 'B==',
+    Buffer.concat([raw, Buffer.from([0])]).toString('base64'),
+  ]) {
+    const f = fixture(artifact);
+    await unknownOutcome(f.client.signAuthEntry(preimage));
+    expect(f.requests()).toBe(1);
+  }
 });

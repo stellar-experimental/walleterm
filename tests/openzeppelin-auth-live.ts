@@ -485,7 +485,7 @@ async function main() {
     guard.assertClear();
     record('sdk-auth-request', 'requested', { input });
     requested(input);
-    const result = await client!.signAuthEntry(input.auth_entry_xdr, {
+    const result = await client!.signAuthorization(input.auth_entry_xdr, {
       address: input.address,
       adapter: input.adapter,
     });

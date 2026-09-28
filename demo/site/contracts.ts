@@ -8,6 +8,8 @@ import {
   Operation,
   StrKey,
   TransactionBuilder,
+  authorizeEntry,
+  buildAuthorizationEntryPreimage,
   hash,
   nativeToScVal,
   rpc,
@@ -245,31 +247,21 @@ export async function prepareContract(
         rootInvocation: entry.rootInvocation,
       });
     } else {
-      if (
-        credentials.type !== 'sorobanCredentialsAddress' &&
-        credentials.type !== 'sorobanCredentialsAddressV2'
-      )
-        throw Error('The contract returned unsupported authorization credentials.');
+      // Address-bound V2 credentials only. V1 permits cross-address signature replay.
+      if (credentials.type !== 'sorobanCredentialsAddressV2')
+        throw Error('The contract returned authorization credentials other than AddressV2.');
       if (
         Address.fromScAddress(credentials.value.address).toString() !== authorizer ||
         credentials.value.signature.type !== 'scvVoid'
       )
         throw Error('The contract returned a different authorizer or an existing signature.');
       prepared = new xdr.SorobanAuthorizationEntry({
-        credentials:
-          credentials.type === 'sorobanCredentialsAddress'
-            ? xdr.SorobanCredentials.sorobanCredentialsAddress(
-                new xdr.SorobanAddressCredentials({
-                  ...credentials.value,
-                  signatureExpirationLedger: recorded.latestLedger + 60,
-                }),
-              )
-            : xdr.SorobanCredentials.sorobanCredentialsAddressV2(
-                new xdr.SorobanAddressCredentials({
-                  ...credentials.value,
-                  signatureExpirationLedger: recorded.latestLedger + 60,
-                }),
-              ),
+        credentials: xdr.SorobanCredentials.sorobanCredentialsAddressV2(
+          new xdr.SorobanAddressCredentials({
+            ...credentials.value,
+            signatureExpirationLedger: recorded.latestLedger + 60,
+          }),
+        ),
         rootInvocation: entry.rootInvocation,
       });
     }
@@ -389,6 +381,7 @@ export function validateContractReview(transactionXdr: string, signer: string, r
   const entry = parseAuthEntry(authorization.xdr),
     credentials = addressCredentials(entry);
   if (
+    entry.credentials.type !== 'sorobanCredentialsAddressV2' ||
     authorization.address !== authorizer ||
     Address.fromScAddress(credentials.address).toString() !== authorizer ||
     authorization.adapter !== (review.stage === 'increment' ? 'contract-ed25519' : 'account') ||
@@ -421,22 +414,48 @@ export function validateContractReview(transactionXdr: string, signer: string, r
   }
   const envelopeEntry = host.auth[0];
   const unsignedIdentity = (value: xdr.SorobanAuthorizationEntry) => {
+    if (value.credentials.type !== 'sorobanCredentialsAddressV2')
+      throw Error('The transaction contains authorization credentials other than AddressV2.');
     const credentials = new xdr.SorobanAddressCredentials({
       ...addressCredentials(value),
       signature: xdr.ScVal.scvVoid(),
     });
     return new xdr.SorobanAuthorizationEntry({
       rootInvocation: value.rootInvocation,
-      credentials:
-        value.credentials.type === 'sorobanCredentialsAddressV2'
-          ? xdr.SorobanCredentials.sorobanCredentialsAddressV2(credentials)
-          : xdr.SorobanCredentials.sorobanCredentialsAddress(credentials),
+      credentials: xdr.SorobanCredentials.sorobanCredentialsAddressV2(credentials),
     }).toXdr('base64');
   };
   if (unsignedIdentity(envelopeEntry) !== unsignedIdentity(entry))
     throw Error('The saved authorization identity differs from the transaction.');
   if (review.authorizationReady && envelopeEntry.toXdr('base64') !== authorization.xdr)
     throw Error('The transaction contains a different signed authorization.');
+}
+
+/**
+ * Sign one reviewed entry through SEP-43 `signAuthEntry`, then attach this demo account's signature format.
+ * The website owns the format: a native account uses the signature vector, the demo C-account uses raw bytes.
+ */
+export async function signDemoAuthorization(
+  authorization: DemoAuthorization,
+  signAuthEntry: (preimageXdr: string) => Promise<{ signedAuthEntry: string; signerAddress: string }>,
+) {
+  const entry = parseAuthEntry(authorization.xdr);
+  if (entry.credentials.type !== 'sorobanCredentialsAddressV2')
+    throw Error('The demo signs only AddressV2 authorization.');
+  const expiration = addressCredentials(entry).signatureExpirationLedger;
+  const preimage = buildAuthorizationEntryPreimage(entry, expiration, Networks.TESTNET);
+  const { signedAuthEntry, signerAddress } = await signAuthEntry(preimage.toXdr('base64'));
+  const signature = Uint8Array.from(atob(signedAuthEntry), (c) => c.charCodeAt(0));
+  const signed = await authorizeEntry(
+    entry,
+    async () =>
+      authorization.adapter === 'account'
+        ? { signature, publicKey: signerAddress }
+        : { signatureScVal: xdr.ScVal.scvBytes(signature) },
+    expiration,
+    Networks.TESTNET,
+  );
+  return signed.toXdr('base64');
 }
 
 export async function verifyContractResult(server: DemoRpc, signer: string, review: ContractReview) {

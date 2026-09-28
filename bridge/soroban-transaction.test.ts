@@ -29,7 +29,7 @@ const invocation = new xdr.SorobanAuthorizedInvocation({
   subInvocations: [],
 });
 function input(operation: xdr.Operation, fee = '1000000') {
-  const transaction_xdr = new TransactionBuilder(new Account(key.publicKey(), '10'), {
+  const transactionXdr = new TransactionBuilder(new Account(key.publicKey(), '10'), {
     fee,
     networkPassphrase: Networks.TESTNET,
   })
@@ -38,7 +38,12 @@ function input(operation: xdr.Operation, fee = '1000000') {
     .setTimeout(180)
     .build()
     .toXDR();
-  return { public_key: key.publicKey(), network_passphrase: Networks.TESTNET, transaction_xdr };
+  return {
+    kind: 'transaction' as const,
+    address: key.publicKey(),
+    network_passphrase: Networks.TESTNET,
+    xdr: transactionXdr,
+  };
 }
 const host = (func: xdr.HostFunction, auth: xdr.SorobanAuthorizationEntry[] = []) =>
   Operation.invokeHostFunction({ func, auth });
@@ -70,12 +75,10 @@ test('generic Soroban upload, create, invoke, restore and extend envelopes sign 
     const parsed = TransactionBuilder.fromXDR(signed, Networks.TESTNET);
     expect(parsed.signatures).toHaveLength(1);
     expect(key.verify(parsed.hash(), parsed.signatures[0].signature.toBytes())).toBe(true);
-    expect(() => inspectTransaction({ ...request, transaction_xdr: signed }, key.publicKey())).toThrow(
-      'unsigned',
-    );
+    expect(() => inspectTransaction({ ...request, xdr: signed }, key.publicKey())).toThrow('already signed');
   }
 });
-test('envelopes permit SourceAccount and signed explicit G/C entries, but never sign an auth entry implicitly', () => {
+test('envelopes carry any authorization entries, and envelope signing never signs an entry', () => {
   const source = new xdr.SorobanAuthorizationEntry({
     rootInvocation: invocation,
     credentials: xdr.SorobanCredentials.sorobanCredentialsSourceAccount(),
@@ -96,12 +99,18 @@ test('envelopes permit SourceAccount and signed explicit G/C entries, but never 
       auth_entry_xdr: createAuthEntry({ address, invocation, nonce: 1n, expirationLedger: 160 }),
     };
     const unsigned = parseAuthEntry(authInput.auth_entry_xdr);
-    expect(() =>
-      inspectTransaction(
-        input(host(xdr.HostFunction.hostFunctionTypeInvokeContract(args), [unsigned])),
-        key.publicKey(),
-      ),
-    ).toThrow('Sign explicit');
+    // The bridge does not inspect embedded entries. The envelope signature leaves them unchanged.
+    const request = input(host(xdr.HostFunction.hostFunctionTypeInvokeContract(args), [unsigned]));
+    const envelope = attachSignature(
+      request,
+      key.publicKey(),
+      Buffer.from(key.sign(inspectTransaction(request, key.publicKey()).tx.hash())).toString('hex'),
+    );
+    const body = xdr.TransactionEnvelope.fromXDR(envelope, 'base64');
+    if (body.type !== 'envelopeTypeTx') throw Error();
+    const operation = body.value.tx.operations[0].body;
+    if (operation.type !== 'invokeHostFunction') throw Error();
+    expect(operation.value.auth[0].toXDR('base64')).toBe(unsigned.toXDR('base64'));
     const checked = inspectAuthEntry(authInput, key.publicKey(), 100);
     const signed = parseAuthEntry(
       attachAuthSignature(
@@ -119,13 +128,13 @@ test('envelopes permit SourceAccount and signed explicit G/C entries, but never 
     ).not.toThrow();
   }
 });
-test('Soroban envelope fee, preconditions, signer and unsupported credentials remain bounded', () => {
+test('Soroban envelopes keep structural checks and permit any fee and credential type', () => {
   const op = host(xdr.HostFunction.hostFunctionTypeInvokeContract(args));
-  expect(() => inspectTransaction(input(op, '100000001'), key.publicKey())).toThrow('fee');
+  expect(() => inspectTransaction(input(op, '100000001'), key.publicKey())).not.toThrow();
   const request = input(op);
-  expect(() =>
-    inspectTransaction({ ...request, transaction_xdr: request.transaction_xdr + '\n' }, key.publicKey()),
-  ).toThrow('canonical');
+  expect(() => inspectTransaction({ ...request, xdr: request.xdr + '\n' }, key.publicKey())).toThrow(
+    'canonical',
+  );
   expect(() => inspectTransaction(request, Keypair.random().publicKey())).toThrow('selected');
   const entry = parseAuthEntry(
     createAuthEntry({ address: contract, invocation, nonce: 1n, expirationLedger: 160 }),
@@ -145,5 +154,5 @@ test('Soroban envelope fee, preconditions, signer and unsupported credentials re
       input(host(xdr.HostFunction.hostFunctionTypeInvokeContract(args), [delegated])),
       key.publicKey(),
     ),
-  ).toThrow('delegated');
+  ).not.toThrow();
 });

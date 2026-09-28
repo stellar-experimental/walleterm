@@ -156,7 +156,9 @@ test('trusted ledger rejects redirects, malformed responses, and request failure
     throw Error('Offline');
   });
   try {
-    await expect(latestTestnetLedger({ signal: new AbortController().signal })).rejects.toThrow('Offline');
+    await expect(latestTestnetLedger({ signal: new AbortController().signal })).rejects.toThrow(
+      'ledger is unavailable',
+    );
   } finally {
     restore();
   }

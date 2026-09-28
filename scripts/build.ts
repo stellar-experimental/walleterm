@@ -10,6 +10,7 @@ const result = await Bun.build({
     'sdk/walleterm.ts',
     'sdk/authorization.ts',
     'sdk/connect.ts',
+    'sdk/kit.ts',
     'sdk/scan.ts',
     'demo/site/activity.ts',
     'demo/site/code-view.ts',

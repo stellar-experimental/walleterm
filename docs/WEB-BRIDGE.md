@@ -64,7 +64,7 @@ Open the public demo URL or scan its QR code on your phone.
 
 The offer action needs an authorized trustline to `USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`.
 This is the testnet USDC issuer in the Stellar documentation. A new Friendbot account has no trustline.
-The bridge cannot sign `changeTrust`. Create the trustline with direct signing instead.
+The demo has no trustline action. Create the trustline with direct signing instead.
 Build it with `stellar tx new change-trust --source-account G... --line USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 --network testnet --build-only`.
 Then follow the [direct V1 envelope steps](../.agents/skills/walleterm/references/classic-native.md#v1-transaction-envelope) to review, sign, and submit it.
 
@@ -79,8 +79,9 @@ Compare it with the website you opened. Do not type codes into websites you do n
 | --- | --- |
 | `walleterm tunnel` | Supervised tunnel, connection codes, transaction limits, verified signatures |
 | `walleterm demo` | Static demo website, browser transaction construction, browser submission and recovery |
-| `sdk/walleterm.ts` | Website connection, wallet selection, signing request and result polling, cancellation, disconnection |
-| `sdk/connect.ts` and `sdk/connect.css` | Header button, connection dialog, wallet list, active wallet changes, disconnection |
+| `sdk/walleterm.ts` | SEP-43 wallet, pairing, wallet selection, request polling, cancellation, sessions, disconnection |
+| `sdk/connect.ts` and `sdk/connect.css` | Header button, pairing dialog, wallet list, active wallet changes, disconnection |
+| `sdk/kit.ts` | Stellar Wallets Kit module |
 | `sdk/scan.ts` | Optional camera scan of the tunnel QR code |
 | `walleterm sign` | Existing local 1Password signing interface; unchanged |
 
@@ -89,63 +90,53 @@ The demo serves the pinned Stellar SDK 17.1.0 browser bundle from its installed 
 
 ## Website adapter
 
-For the ready-made header component, see [the connection UI](CONNECTION-UI.md).
-The component keeps connection controls separate from website transactions.
-The component explains a grant for the displayed wallets before the first selection.
-Wallet changes use the same session and need no new scan or code.
-The first selection fixes the grant. Later keys require a new connection.
-The standalone client defaults to one wallet. Use `walletScope: 'available'` for explicit wallet switching.
-
-
-Build the [TypeScript client](../sdk/walleterm.ts) with `bun run build`.
-Copy the full `dist/` directory with your website, or use the package exports.
+Walleterm is a [SEP-43](SEP-43.md) wallet. Build the [TypeScript client](../sdk/walleterm.ts) with `bun run build`.
+Copy the full `dist/` directory and `sdk/connect.css` with your website, or use the package exports.
 Keep the generated shared chunks beside their entry directories.
-The demo serves the client at `/sdk/walleterm.js`:
 
 ```js
-import { WalletermClient } from './walleterm.js';
+import { Walleterm } from './walleterm.js';
 
-const wallet = new WalletermClient(bridgeUrl);
-const { address, networkPassphrase } = await wallet.connect({
-  code,                                    // Eight digits from the tunnel terminal.
-  selectWallet: signers => chooseKey(signers), // Return one public_key.
-});
-
-// The website builds and reviews an unsigned supported testnet transaction.
-// The address and network default to the connected account, as in SEP-43.
-const { signedTxXdr } = await wallet.signTransaction(unsignedXdr);
+const wallet = new Walleterm();
+const { address, error } = await wallet.getAddress(); // Opens the pairing dialog once.
+// The website builds and reviews an unsigned testnet transaction.
+const { signedTxXdr } = await wallet.signTransaction(unsignedXdr, { networkPassphrase: Networks.TESTNET });
 // The website verifies the result and asks the user before submission.
 await wallet.disconnect();
 ```
 
-The adapter exposes `connect`, `listWallets`, `selectWallet`, `getAddress`, `signTransaction`, and `disconnect`.
-The standalone client keeps the website capability in memory.
-The connection component can save it in `sessionStorage` through the `sessionStorageKey` option.
-The demo enables this option and checks the session after reload before it enables transaction actions.
-An expired session requires a new code. Recovery never repeats signing or submission.
-The SDK retries network errors and 5xx responses on the same connection. An abort, a rejection, or leaving the page cancels the bridge request.
-After a failure, build a new transaction. SDK errors include `requestState` when the bridge reports one.
-`error.canceled` reports cancellation or lost session access. It does not prove that signing stopped.
-A cancellation 401 sets `canceled: true` and `requestState: 'unknown'` because the session cannot deliver its result.
-If cancellation fails without confirming lost session access, `error.canceled` is false.
+The SEP-43 methods are `getAddress`, `signTransaction`, `signAuthEntry`, `signMessage`, and `getNetwork`.
+They resolve results and never reject. A failure returns empty fields and `error: { code, message, ext }`.
+`getAddress()` opens the pairing dialog when no session exists. Load `connect.css` on the page.
+`signMessage` returns `-3` for now. `signTransaction` rejects `submit` with `-3`, because the bridge never submits.
+The Stellar SDK contract client accepts the wallet object directly, for example `signAuthEntries({ signAuthEntry: wallet })`.
+
+The default wallet scope is `selected`: one wallet for each connection.
+`new Walleterm({ walletScope: 'available' })` permits switching among the wallets granted at first selection.
+The header component uses that scope and explains the grant before selection.
+See [the connection UI](CONNECTION-UI.md). `wallet.onChange(listener)` reports each switch and disconnection.
+
+The wallet saves its bridge URL and session token in `sessionStorage` for the current tab.
+A reload checks the session before it publishes an address. An expired session requires a new code.
+`sessionStorageKey: null` keeps the session in memory only. Recovery never repeats signing or submission.
+The SDK retries network errors and 5xx responses on the same connection. An abort or leaving the page cancels the bridge request.
+After a failure, build a new transaction. `error.requestState` reports the bridge state when one exists.
+`requestState: 'unknown'` means that signing started and no verified result arrived.
 Preserve an unknown signing outcome. Decline the 1Password prompt if it appears.
-The adapter is local source code. It is not a published package or a registered Stellar Wallets Kit module.
+
+A Stellar Wallets Kit website imports `WalletermModule` from `walleterm/kit`. See [SEP-43](SEP-43.md#7-stellar-wallets-kit-module).
+The adapter is local source code. It is not a published package or a registered Kit module.
 
 ## Supported transactions
 
-The bridge supports Stellar testnet and one unsigned operation per transaction.
-Classic operations include:
-
-- Native XLM payment to a G-address.
-- Set or delete a data entry.
-- Create, update, or cancel a sell offer with explicit assets and an exact rational price.
-
-Soroban operations include contract invocation, upload, deployment, TTL extension, and restoration.
-Explicit AddressV2 entries use `client.signAuthEntry` before envelope signing.
+The bridge signs testnet transaction envelopes that need the selected key. It filters no operations.
+The selected key must be the transaction source, an operation source, or the fee-bump fee source.
+Time bounds must be valid now and end within five minutes.
+Existing signatures from other keys stay in place. The bridge appends one signature.
+Explicit Soroban authorization entries use `signAuthEntry` before envelope signing.
 See [contract authorization](CONTRACT-AUTHORIZATION.md) for the separate authorization and transaction steps.
-General envelopes can use normal SourceAccount authorization.
-Mainnet, fee bumps, and unsupported operations fail before signing.
-See [the protocol contract](../bridge/PROTOCOL.md) for exact limits.
+Mainnet and V0 envelopes fail before signing. See [the protocol contract](../bridge/PROTOCOL.md) for exact rules.
+Safety comes from review of each request. An agentic review will use the bridge's `review` hook.
 
 ## Approval and recovery
 
@@ -196,12 +187,9 @@ Restart the bridge to revoke all website sessions.
 
 ## Future work
 
-A future Wallets Kit module can wrap this client and provide its connection UI and metadata.
-The upstream kit exposes `getAddress` and `signTransaction`, with `signedTxXdr` results.
-See the [upstream repository](https://github.com/Creit-Tech/Stellar-Wallets-Kit), checked on 2026-09-25.
-That API similarity supports the adapter direction. It does not prove full Kit compatibility.
-An unchanged website still needs an integration or wallet-provider adapter.
+The Wallets Kit module ships in this repository only. An unchanged website still needs an integration.
+Message signing returns `-3`. Its abuse cases and options are in [SEP-43 future work](SEP-43.md#future-work-message-signing).
 A stable named tunnel, longer session management, and production availability remain future work.
 Cloudflare terminates TLS and can read tokens and XDR. Add end-to-end encryption before any mainnet use.
 The bridge shows the website Origin as a claim. Verified website identity remains future work.
-An automated policy review can later decide requests through the bridge's `review` hook, with no terminal step.
+An agentic review can later decide requests through the bridge's `review` hook, with no terminal step.

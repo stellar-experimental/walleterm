@@ -48,3 +48,4 @@ coverage.out
 !/evidence/mobile-poc/*.json
 
 /dist/
+/fixtures/kit/node_modules/
