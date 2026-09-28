@@ -34,7 +34,7 @@ The hand-drawn feel comes from the line itself. Five traits make it, and all fiv
 | Weight | Width is 2% to 3.5% of the panel height. It scales with the drawing. | `width` in the line section of [`art.rs`](../tools/src/art.rs) |
 | Drift | Long lines bow a little. The right panel edge bends inward about 1% in all 16 references, so its bottom corner flares. | `bow`, `drift`, `bias`; `right_bow` in the mascot section |
 | Tilt | Nothing is exactly vertical or square. Legs are straight but splay outward by up to 6%. | `jitter`; `splay` in the mascot section |
-| Swell | Width changes slowly along a line, by 2% to 14%. Ink pools slightly at joins and ends. | `swell`; an 8% pool in `ink_stroke` |
+| Swell | Width changes slowly along a line, by 2% to 14%. Ink pools slightly at joins and ends. | `swell`; an 8% pool in `inkStroke` |
 | Softness | The ink edge ramps over about a third of a stroke width. | `soften` in the mascot section |
 
 `artcheck.py baseline` records the exact bands in `reference/metrics.json`. The bands are the numbers to trust.
