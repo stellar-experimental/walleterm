@@ -76,7 +76,7 @@ Search, filtering, and export use local data and do not show artificial waiting 
 - The activity accessibility check reported zero violations and zero incomplete checks.
 - The connection dialog reported zero violations and four contrast checks requiring manual review.
 - Visual review confirmed readable text on the white dialog surface.
-- `requestSignature` matches the released version. `sdk/walleterm.js` is unchanged.
+- `requestSignature` matches the released version. `sdk/walleterm.js` (now `sdk/walleterm.ts`) is unchanged.
 
 These checks requested no live signatures, account funding, or network submissions.
 Mock signing and mocked confirmation do not establish 1Password or testnet acceptance.

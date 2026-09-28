@@ -89,7 +89,7 @@ Browser checks used isolated Chromium sessions and local sample data:
 The timing above is one local observation. It is not a device performance guarantee.
 The viewport checks do not establish physical iPhone or Safari acceptance.
 No live signatures, account funding, or transaction submission occurred.
-The `requestSignature` function and `sdk/walleterm.js` remain unchanged.
+The `requestSignature` function and `sdk/walleterm.js` (now `sdk/walleterm.ts`) remain unchanged.
 
 ## Screenshots
 

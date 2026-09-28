@@ -608,7 +608,7 @@ async fn a_closed_parent_pipe_stops_the_supervisor_and_its_stubborn_child() {
         .stderr(std::process::Stdio::null())
         .spawn()
         .unwrap();
-    until(|| dir.join("child.json").exists() && !tunnels(&dir).is_empty()).await;
+    until_for(|| dir.join("child.json").exists() && !tunnels(&dir).is_empty(), 2000).await;
     let record: Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("child.json")).unwrap()).unwrap();
     assert_eq!(record["parent_pid"], json!(std::process::id()));
@@ -694,7 +694,7 @@ async fn sighup_stops_the_supervisor_and_its_stubborn_child() {
         .stderr(std::process::Stdio::null())
         .spawn()
         .unwrap();
-    until(|| dir.join("child.json").exists() && !tunnels(&dir).is_empty()).await;
+    until_for(|| dir.join("child.json").exists() && !tunnels(&dir).is_empty(), 2000).await;
     let cloudflared = tunnels(&dir)[0];
     // SAFETY: a test-owned process. `child.json` exists only after its handlers do.
     unsafe { libc::kill(supervisor.id().unwrap() as i32, libc::SIGHUP) };
