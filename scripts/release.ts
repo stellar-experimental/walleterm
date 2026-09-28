@@ -104,7 +104,7 @@ function release() {
   source = join(mkdtempSync(join(tmpdir(), 'walleterm-release-')), 'source');
   run('git', ['worktree', 'add', '--quiet', '--detach', source, commit]);
   {
-    run('bun', ['install', '--frozen-lockfile', '--ignore-scripts', '--production'], source);
+    run('bun', ['install', '--frozen-lockfile', '--ignore-scripts'], source);
     run(process.execPath, ['--no-env-file', 'scripts/package.ts', stage, version], source);
 
     // Hardened runtime is required for notarization. Only the Bun JIT receives an entitlement.

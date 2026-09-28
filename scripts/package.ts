@@ -68,7 +68,7 @@ run(
 writeFileSync(join(out, 'NOTICES.txt'), notices());
 console.log(`Built walleterm ${version} in ${out}.`);
 
-// List every production package that can reach the bridge or the demo browser files.
+// List every package that can reach the bridge or the demo browser files.
 function notices() {
   const sections = new Map<string, string>();
   const visit = (name: string, from: string) => {
@@ -85,7 +85,9 @@ function notices() {
     for (const dependency of Object.keys(manifest.dependencies ?? {})) visit(dependency, dir);
   };
   const app = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
-  for (const dependency of Object.keys(app.dependencies)) visit(dependency, root);
+  // The demo bundles some development packages, such as its syntax highlighter. Skip tools that ship no code.
+  for (const dependency of Object.keys({ ...app.dependencies, ...app.devDependencies }))
+    if (!/^(@types\/|typescript$|prettier$)/.test(dependency)) visit(dependency, root);
   const syntax = readFileSync(join(root, 'demo/site/vendor/syntax.LICENSE'), 'utf8').trim();
   return (
     [
