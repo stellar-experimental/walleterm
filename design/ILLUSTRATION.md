@@ -69,6 +69,9 @@ SVG displacement filters measure in absolute units, so the same filter looks dif
 The only filter is a slight blur for softness. It sits inside the mascot's scaled group, so it scales with the drawing.
 Rough.js and xkcd-style jitter make sketchy, doubled lines. This style needs one confident stroke, so the generator uses a single stroke with low roughness.
 The ink body follows perfect-freehand's method: a centerline, a width at each point, and midpoint quadratic smoothing.
+Lines place a point every 1.25 line widths, at most 120 per line. Lines 10 units wide or more use whole-unit coordinates.
+Denser output measured the same in every parity scene and looked the same at 8× zoom, but it was 2.5 to 4 times larger.
+A spacing of 2 widths was too sparse: it thinned the legs by 8% and softened the edges of the finest line (01).
 
 ## Parity
 
@@ -95,8 +98,10 @@ Each site file is a crop of a full recreation. The recreation's parity check the
 | `bridge.svg`, `bridge-narrow.svg` | Websites | 08 |
 | `night-wallet.svg`, `horizon.svg` | Install | 11 |
 | `favicon.svg` | Browser tab | 01, with heavier ink for 16 pixels |
+| `../apple-touch-icon.png` | iOS home screen | the favicon, full bleed at 180 pixels. iOS rounds the corners. |
 
 `site/og.png` is reference 01 itself, cropped to 1200 × 630. It keeps its hand-drawn wordmark.
+Site art stays SVG: one file stays sharp at every width and pixel density. Use a raster only where a platform requires it, such as the social preview and the touch icon.
 
 ## Tools
 
@@ -104,6 +109,7 @@ Each site file is a crop of a full recreation. The recreation's parity check the
 - `uv run design/tools/artcheck.py compare REF CANDIDATE --out SHEET` checks parity and writes the review sheet. It renders an SVG with `agent-browser`. Add `--walk` for the walking pose.
 - `uv run design/tools/artcheck.py trace REF` reports the corners and placement of the mascot in a reference.
 - `uv run design/tools/artcheck.py measure IMAGE` prints every metric as JSON.
+- `uv run design/tools/artcheck.py render SVG PNG` rasterizes an SVG at its own size, for the touch icon.
 
 ## Sources
 

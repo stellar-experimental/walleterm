@@ -61,7 +61,8 @@ export function wobbleLine(a: Point, b: Point, hand: Hand, random: () => number)
   const d = sub(b, a);
   const L = len(d);
   const n: Point = [-d[1] / L, d[0] / L];
-  const steps = Math.max(4, Math.ceil(L / (hand.width * 0.5)));
+  // A point every 1.25 widths keeps every measured trait; denser points only add bytes.
+  const steps = Math.min(120, Math.max(4, Math.ceil(L / (hand.width * 1.25))));
   const r = random() * 2 - 1;
   const bow = hand.bias !== undefined ? hand.bias * L : r * hand.bow * L;
   const drift = noise1d(random, 2 + Math.floor(random() * 2));
@@ -137,12 +138,16 @@ export function inkStroke(pts: Point[], hand: Hand, random: () => number, widthS
     ...[...right].reverse(),
     ...cap(pts[0], right[0], sub(pts[0], pts[1])),
   ];
-  return smoothPath(ring, true);
+  // Whole units are fine once a line is 10 units wide: the error stays under 5% of its width.
+  return smoothPath(ring, true, hand.width >= 10 ? 1 : 10);
 }
 
-/** Quadratic smoothing through midpoints (the perfect-freehand path method). */
-export function smoothPath(ring: Point[], closed: boolean): string {
-  const f = (v: number) => Math.round(v * 10) / 10;
+/**
+ * Quadratic smoothing through midpoints (the perfect-freehand path method).
+ * `scale` sets the coordinate precision: 10 keeps one decimal, 1 keeps whole units.
+ */
+export function smoothPath(ring: Point[], closed: boolean, scale = 10): string {
+  const f = (v: number) => Math.round(v * scale) / scale;
   const p = closed ? [...ring, ring[0]] : ring;
   let d = `M${f(p[0][0])} ${f(p[0][1])}`;
   for (let i = 1; i < p.length - 1; i++) {

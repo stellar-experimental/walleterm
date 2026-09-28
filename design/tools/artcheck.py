@@ -8,6 +8,7 @@
   uv run design/tools/artcheck.py trace IMAGE...            # construction corners
   uv run design/tools/artcheck.py compare REF CANDIDATE [--out sheet.png] [--bands-only] [--walk]
   uv run design/tools/artcheck.py baseline                  # rebuild reference bands
+  uv run design/tools/artcheck.py render SVG PNG            # rasterize at the SVG's own size
 
 CANDIDATE may be a PNG or an SVG. An SVG is rendered with agent-browser at the
 reference size. The compare command exits 1 when a metric leaves its band, or
@@ -317,6 +318,12 @@ if __name__ == "__main__":
         print(json.dumps([trace(p) for p in args], indent=1))
     elif cmd == "baseline":
         baseline()
+    elif cmd == "render":
+        import re, shutil
+        head = open(args[0]).read(400)
+        size = tuple(int(v) for v in re.search(r'width="(\d+)" height="(\d+)"', head).groups())
+        shutil.move(render_svg(args[0], size), args[1])
+        print(args[1], size)
     elif cmd == "compare":
         out = args[args.index("--out") + 1] if "--out" in args else None
         sys.exit(1 if compare(args[0], args[1], out, "--bands-only" in args, "--walk" in args) else 0)

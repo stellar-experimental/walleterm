@@ -322,6 +322,15 @@ export const scenes: Record<string, Scene> = {
       place(10, 19, 38, { legs: 'none', hand: { width: 70 }, soften: 0 }),
     site: [{ file: 'favicon.svg', crop: [0, 0, 64, 64] }],
   },
+
+  // Apple touch icon, full bleed: iOS rounds the corners itself. Render it to PNG with
+  // `uv run design/tools/artcheck.py render design/art/out/touch-icon.svg site/apple-touch-icon.png`.
+  'touch-icon': {
+    width: 180,
+    height: 180,
+    background: moss,
+    body: () => place(34, 58, 96, { legs: 'none', hand: { width: 52 }, soften: 0 }),
+  },
 };
 
 function svg(scene: Scene, viewBox: string, size: string, background: boolean, fit?: string) {
