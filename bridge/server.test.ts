@@ -1151,43 +1151,97 @@ test('closing the bridge aborts signing and reports it', async () => {
   assert.match(f.logs[0], /^Signature withheld or stopped for /);
 });
 
-for (const ending of ['disconnect', 'expiry'] as const)
-  test(`${ending} withholds a signed, undelivered result as unknown`, async () => {
-    let clock = Date.now();
-    const f = await fixture({ review: undefined, now: () => clock }),
-      a = await f.connect();
-    const request = input('undelivered');
-    assert.equal((await f.request('/v1/requests', request, a)).status, 201);
-    // The website never polls, so the bridge has not delivered the signature.
-    await until(() => f.logs.length === 1);
-    const hash = Buffer.from(TransactionBuilder.fromXDR(request.xdr, Networks.TESTNET).hash()).toString(
-      'hex',
-    );
-    assert.equal(f.logs[0], `Signed ${hash} (account ${publicKey}, sequence 11) for ${a.site}.\n`);
-    if (ending === 'disconnect') assert.equal((await f.request('/v1/disconnect', {}, a)).status, 200);
-    else clock += 3600001;
-    const read = await f.request('/v1/requests/undelivered', undefined, a);
-    assert.equal(read.status, 401);
-    assert.equal(read.data.signed_tx_xdr, undefined);
-    // After signing, the outcome is unknown. A denied state would print no line.
-    assert.deepEqual(f.logs, [
-      f.logs[0],
-      `Signature withheld or stopped for ${hash} (account ${publicKey}, sequence 11): The website connection was revoked.\n`,
-    ]);
-    assert.equal(f.calls(), 1);
-  });
+// The terminal reports a withheld signature only when the bridge never sent it.
+for (const ending of ['switch', 'disconnect', 'expiry'] as const)
+  for (const delivered of [false, true])
+    test(`${ending} ends ${delivered ? 'a delivered' : 'an undelivered'} signature as unknown and ${delivered ? 'prints no withheld line' : 'logs it as withheld'}`, async () => {
+      let clock = Date.now();
+      const f = await fixture({ review: undefined, listSigners: async () => both, now: () => clock }),
+        a = await scoped(f, 'https://site-one.example');
+      const request = { ...input('ended'), selection_revision: 1 };
+      assert.equal((await f.request('/v1/requests', request, a)).status, 201);
+      await until(() => f.logs.length === 1);
+      const hash = Buffer.from(TransactionBuilder.fromXDR(request.xdr, Networks.TESTNET).hash()).toString(
+        'hex',
+      );
+      const about = `${hash} (account ${publicKey}, sequence 11)`;
+      assert.equal(f.logs[0], `Signed ${about} for ${a.site}.\n`);
+      if (delivered) {
+        const sent = await f.request('/v1/requests/ended', undefined, a);
+        assert.equal(sent.data.state, 'signed');
+        assert.ok(sent.data.signed_tx_xdr);
+      }
+      if (ending === 'switch') assert.equal((await select(f, a, other.publicKey(), 1)).status, 200);
+      else if (ending === 'disconnect') assert.equal((await f.request('/v1/disconnect', {}, a)).status, 200);
+      else clock += 3600001;
+      const read = await f.request('/v1/requests/ended', undefined, a);
+      assert.equal(read.data.signed_tx_xdr, undefined);
+      if (ending === 'switch') {
+        assert.equal(read.status, 200);
+        assert.equal(read.data.state, 'unknown');
+        assert.equal(read.data.error?.code, -1);
+        assert.equal(
+          read.data.error?.message,
+          delivered
+            ? 'The bridge sent the signature before the wallet changed.'
+            : 'The active wallet changed.',
+        );
+      } else assert.equal(read.status, 401);
+      const reason =
+        ending === 'switch' ? 'The active wallet changed.' : 'The website connection was revoked.';
+      assert.deepEqual(
+        f.logs,
+        delivered ? [f.logs[0]] : [f.logs[0], `Signature withheld or stopped for ${about}: ${reason}\n`],
+      );
+      assert.equal(f.calls(), 1);
+    });
 
-test('canceling a signed request withholds its result', async () => {
-  const f = await fixture(),
-    a = await f.connect();
-  await f.request('/v1/requests', input(), a);
-  await f.decide();
-  assert.equal((await f.result(a)).data.state, 'signed');
-  const canceled = await f.request('/v1/requests/request-1/cancel', {}, a);
-  assert.equal(canceled.data.state, 'unknown');
-  assert.equal(canceled.data.signed_tx_xdr, undefined);
-  assert.match(f.logs.at(-1) ?? '', /^Signature withheld or stopped/);
+test('a repeated create delivers a signature, and a later switch prints no withheld line', async () => {
+  const f = await fixture({ review: undefined, listSigners: async () => both }),
+    a = await scoped(f, 'https://site-one.example');
+  const request = { ...input('repeated'), selection_revision: 1 };
+  assert.equal((await f.request('/v1/requests', request, a)).status, 201);
+  await until(() => f.logs.length === 1);
+  // The website never polls. The repeated create alone returns the signature.
+  const repeated = await f.request('/v1/requests', request, a);
+  assert.equal(repeated.status, 200);
+  assert.equal(repeated.data.state, 'signed');
+  assert.ok(repeated.data.signed_tx_xdr);
+  assert.equal((await select(f, a, other.publicKey(), 1)).status, 200);
+  const read = await f.request('/v1/requests/repeated', undefined, a);
+  assert.equal(read.data.state, 'unknown');
+  assert.equal(read.data.signed_tx_xdr, undefined);
+  assert.equal(read.data.error?.message, 'The bridge sent the signature before the wallet changed.');
+  assert.equal(f.logs.length, 1);
+  assert.match(f.logs[0], /^Signed [0-9a-f]{64} \(account G/);
+  assert.equal(f.calls(), 1);
 });
+
+for (const delivered of [false, true])
+  test(`canceling ${delivered ? 'a delivered' : 'an undelivered'} signed request ends it as unknown and ${delivered ? 'prints no withheld line' : 'logs it as withheld'}`, async () => {
+    const f = await fixture(),
+      a = await f.connect();
+    await f.request('/v1/requests', input(), a);
+    await f.decide();
+    await until(() => f.logs.length === 1);
+    if (delivered) assert.equal((await f.result(a)).data.state, 'signed');
+    const canceled = await f.request('/v1/requests/request-1/cancel', {}, a);
+    assert.equal(canceled.data.state, 'unknown');
+    assert.equal(canceled.data.signed_tx_xdr, undefined);
+    assert.equal(
+      canceled.data.error?.message,
+      delivered
+        ? 'The bridge sent the signature, then the website canceled.'
+        : 'The website canceled this request.',
+    );
+    assert.equal(f.logs.length, delivered ? 1 : 2);
+    assert.match(f.logs[0], /^Signed /);
+    if (!delivered)
+      assert.match(
+        f.logs[1],
+        /^Signature withheld or stopped for .*: The website canceled this request\.\n$/,
+      );
+  });
 
 test('SDK retries a failed poll and a lost first response', async () => {
   const f = await fixture();

@@ -64,7 +64,8 @@ The website's scripts can read this token. Use Walleterm only on a trusted websi
 Reload checks `/v1/account` before publishing the wallet or enabling transaction actions.
 The bridge supplies the current account, wallet scope, and selection revision.
 Recovery does not request wallet discovery, sign a transaction, or submit a transaction.
-Use Refresh in the wallet menu to load the wallet list after recovery.
+The wallet menu loads the wallet list once when it first opens after recovery. Unlock 1Password if it asks.
+If that lookup fails, use Refresh.
 A network failure retains the saved session and permits later health checks.
 A 401 response or Disconnect removes the saved session.
 Unavailable browser storage leaves the connection in memory.
