@@ -64,13 +64,7 @@ func runServiceCommand(command string, args []string, out io.Writer) int {
 	if err != nil {
 		return outputError(out, true, err)
 	}
-	environment := make([]string, 0, len(os.Environ())+1)
-	for _, value := range os.Environ() {
-		if !strings.HasPrefix(value, "WALLETERM_BINARY=") {
-			environment = append(environment, value)
-		}
-	}
-	environment = append(environment, "WALLETERM_BINARY="+binary)
+	environment := append(bridgeEnvironment(), "WALLETERM_BINARY="+binary)
 	if err := syscall.Exec(bridge, []string{bridge, command, string(encoded)}, environment); err != nil {
 		return outputError(out, true, failure("start_failed", "The service could not start."))
 	}
@@ -92,4 +86,17 @@ func bridgePath() (string, string, error) {
 		return "", "", failure("start_failed", "The walleterm-bridge binary is missing. Reinstall walleterm.")
 	}
 	return bridge, binary, nil
+}
+
+// Bun reads BUN_OPTIONS, BUN_BE_BUN, and similar variables even in a compiled executable.
+// Drop them so the caller's environment cannot load code into the bridge.
+func bridgeEnvironment() []string {
+	environment := make([]string, 0, len(os.Environ()))
+	for _, value := range os.Environ() {
+		name, _, _ := strings.Cut(value, "=")
+		if !strings.HasPrefix(name, "BUN_") && name != "NODE_OPTIONS" && name != "WALLETERM_BINARY" {
+			environment = append(environment, value)
+		}
+	}
+	return environment
 }

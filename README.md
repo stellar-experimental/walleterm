@@ -200,8 +200,13 @@ xcrun notarytool store-credentials walleterm-notary --apple-id <Apple ID> --team
 ```
 
 `bun scripts/release.ts 0.2.0` builds, signs, and notarizes `release/0.2.0/walleterm-0.2.0-darwin-arm64.zip`.
-Add `--no-notarize` to check the build and signatures without Apple. Do not publish that archive.
+It builds from a fresh worktree of `HEAD` with the Bun and Go versions that CI pins.
+It checks the Developer ID authority, the hardened runtime, and the exact entitlements of each binary.
+Add `--no-notarize` to check the build and signatures without Apple. That archive has an `-unnotarized` name.
 `bun scripts/release.ts 0.2.0 --publish` also tags the commit and creates the GitHub release.
-It then updates `Casks/walleterm.rb` with the archive checksum and pushes that change to `main`.
-Publish from a clean checkout of `origin/main`.
+It requires a passing Test workflow on `HEAD`, which must equal `origin/main`.
+It downloads the uploaded archive and compares its checksum.
+It then opens a pull request that points `Casks/walleterm.rb` at the new archive. Merging it updates Homebrew users.
 The Homebrew install needs a public repository. The tap and release downloads use anonymous Git and HTTPS.
+The tap is this repository, so anyone who can merge to `main` can change the cask.
+Protect `main`, require code owner review, and turn on immutable releases.

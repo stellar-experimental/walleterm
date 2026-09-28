@@ -35,3 +35,20 @@ func TestSeparatedHelp(t *testing.T) {
 		}
 	}
 }
+
+func TestBridgeEnvironment(t *testing.T) {
+	t.Setenv("BUN_OPTIONS", "--preload x.js")
+	t.Setenv("BUN_BE_BUN", "1")
+	t.Setenv("NODE_OPTIONS", "--require x.js")
+	t.Setenv("WALLETERM_BINARY", "/tmp/other")
+	t.Setenv("OP_VAULT", "Private")
+	environment := strings.Join(bridgeEnvironment(), "\n")
+	for _, name := range []string{"BUN_OPTIONS=", "BUN_BE_BUN=", "NODE_OPTIONS=", "WALLETERM_BINARY="} {
+		if strings.Contains(environment, name) {
+			t.Fatalf("kept %s", name)
+		}
+	}
+	if !strings.Contains(environment, "OP_VAULT=Private") {
+		t.Fatal("dropped OP_VAULT")
+	}
+}

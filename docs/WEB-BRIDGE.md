@@ -20,6 +20,7 @@ The terminal needs no input. It prints one line for each produced or withheld si
 `OP_VAULT` accepts a vault name or ID and limits website wallets to that vault.
 Save `OP_VAULT=Private` in `.env` in the directory where you start the tunnel.
 The tunnel reads only `OP_VAULT` from this file. An exported shell variable overrides it.
+The tunnel prints the active vault filter at startup. It warns about `OP_VAULT` in `.env.local` and similar files.
 Git ignores `.env`, and the installer does not copy it. Existing tunnels keep their startup environment.
 Restart the tunnel after changing the setting. Reconnect the website with the new tunnel URL and code.
 Install the 1Password CLI with `brew install --cask 1password-cli` for vault filtering.

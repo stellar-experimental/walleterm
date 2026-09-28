@@ -1,6 +1,15 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join, relative, resolve } from 'node:path';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { demoFiles } from '../demo/server.ts';
 
@@ -21,23 +30,23 @@ const version = versionArg || (described.status === 0 ? described.stdout.trim().
 if (!/^[0-9A-Za-z.+-]+$/.test(version)) throw Error('Use a version with letters, digits, ".", "+", or "-".');
 mkdirSync(out, { recursive: true });
 
-run(process.execPath, ['scripts/build.ts']);
-// Import each demo file as an embedded asset. The bridge serves the same routes as a source checkout.
-const entry = join(root, 'dist', 'bridge-main.ts');
-const imports: string[] = [],
-  routes: string[] = [];
-Object.entries(demoFiles()).forEach(([route, [path, type]], index) => {
-  const from = relative(join(root, 'dist'), path);
-  imports.push(
-    `import f${index} from ${JSON.stringify(from.startsWith('.') ? from : `./${from}`)} with { type: 'file' };`,
-  );
-  routes.push(`  ${JSON.stringify(route)}: [f${index}, ${JSON.stringify(type)}],`);
-});
-writeFileSync(
-  entry,
-  `import { main } from '../bridge/main.ts';\n${imports.join('\n')}\nawait main(process.argv.slice(2), {\n${routes.join('\n')}\n});\n`,
-);
+// Build browser files and the generated entry in a private directory. Concurrent builds cannot mix them.
+const work = mkdtempSync(join(tmpdir(), 'walleterm-package-'));
 try {
+  const dist = join(work, 'dist');
+  run(process.execPath, ['scripts/build.ts', dist]);
+  // Import each demo file as an embedded asset. The bridge serves the same routes as a source checkout.
+  const imports: string[] = [],
+    routes: string[] = [];
+  Object.entries(demoFiles(dist)).forEach(([route, [path, type]], index) => {
+    imports.push(`import f${index} from ${JSON.stringify(path)} with { type: 'file' };`);
+    routes.push(`  ${JSON.stringify(route)}: [f${index}, ${JSON.stringify(type)}],`);
+  });
+  const entry = join(work, 'bridge-main.ts');
+  writeFileSync(
+    entry,
+    `import { main } from ${JSON.stringify(join(root, 'bridge/main.ts'))};\n${imports.join('\n')}\nawait main(process.argv.slice(2), {\n${routes.join('\n')}\n});\n`,
+  );
   // Callers must not change the runtime through .env or bunfig.toml in their working directory.
   const result = await Bun.build({
     entrypoints: [entry],
@@ -46,15 +55,15 @@ try {
   });
   if (!result.success) throw new AggregateError(result.logs, 'The bridge build failed.');
 } finally {
-  rmSync(entry, { force: true });
+  rmSync(work, { recursive: true, force: true });
 }
+// Give Go only what it needs. Variables such as GOFLAGS in a loaded .env cannot change the build.
+const goEnvironment: NodeJS.ProcessEnv = { CGO_ENABLED: '0', GOTOOLCHAIN: 'local' };
+for (const name of ['PATH', 'HOME', 'TMPDIR']) goEnvironment[name] = process.env[name];
 run(
   'go',
   ['build', '-trimpath', '-ldflags', `-s -w -X main.version=${version}`, '-o', join(out, 'walleterm'), '.'],
-  {
-    ...process.env,
-    CGO_ENABLED: '0',
-  },
+  goEnvironment,
 );
 writeFileSync(join(out, 'NOTICES.txt'), notices());
 console.log(`Built walleterm ${version} in ${out}.`);

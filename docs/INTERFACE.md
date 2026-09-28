@@ -37,6 +37,8 @@ The review shows the selected payment recipient. Neither command accepts `--reci
 Both commands run in the installed `walleterm-bridge` binary beside `walleterm`.
 That binary includes the Bun runtime and the website files.
 It ignores `bunfig.toml` and `.env` in the working directory. The tunnel reads only `OP_VAULT` from `.env`.
+`walleterm` removes `BUN_*` and `NODE_OPTIONS` variables before it starts the bridge.
+The tunnel prints its wallet filter at startup. It warns about `OP_VAULT` in other `.env.*` files, which it ignores.
 Public mode needs cloudflared. The signing bridge also needs macOS and the 1Password SSH agent.
 Each public service owns a private temporary Cloudflare configuration and a supervised child process.
 Each service checks its public URL every 15 seconds. Healthy checks produce no log output.

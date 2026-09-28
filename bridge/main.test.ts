@@ -4,20 +4,21 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadVaultSetting } from './main.ts';
 
-test('the tunnel reads only OP_VAULT from .env and keeps shell values', () => {
+test('the tunnel reads only OP_VAULT from .env, keeps shell values, and reports ignored files', () => {
   const directory = mkdtempSync(join(tmpdir(), 'walleterm-env-'));
-  const file = join(directory, '.env');
   try {
-    writeFileSync(file, '# vault\nOP_VAULT="Private Keys"\nOTHER=value\n');
+    const empty: NodeJS.ProcessEnv = {};
+    expect(loadVaultSetting(directory, empty)).toEqual([]);
+    expect(empty).toEqual({});
+    writeFileSync(join(directory, '.env'), '# vault\nOP_VAULT="Private Keys"\nOTHER=value\n');
+    writeFileSync(join(directory, '.env.local'), 'OP_VAULT=Other\n');
+    writeFileSync(join(directory, '.env.example'), 'OP_VAULT=Example\n');
     const env: NodeJS.ProcessEnv = {};
-    loadVaultSetting(file, env);
+    expect(loadVaultSetting(directory, env)).toEqual(['.env.local']);
     expect(env).toEqual({ OP_VAULT: 'Private Keys' });
     const shell: NodeJS.ProcessEnv = { OP_VAULT: '' };
-    loadVaultSetting(file, shell);
+    loadVaultSetting(directory, shell);
     expect(shell).toEqual({ OP_VAULT: '' });
-    const missing: NodeJS.ProcessEnv = {};
-    loadVaultSetting(join(directory, 'missing'), missing);
-    expect(missing).toEqual({});
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

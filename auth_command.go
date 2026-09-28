@@ -2,7 +2,6 @@ package main
 
 import (
 	"io"
-	"os"
 	"syscall"
 )
 
@@ -19,7 +18,7 @@ func runAuthCommand(args []string, out io.Writer) int {
 		return outputError(out, false, err)
 	}
 	// Pass the resolved executable as an argument. The caller cannot substitute another signer.
-	if err := syscall.Exec(bridge, []string{bridge, "sign-auth", binary}, os.Environ()); err != nil {
+	if err := syscall.Exec(bridge, []string{bridge, "sign-auth", binary}, bridgeEnvironment()); err != nil {
 		return outputError(out, false, failure("start_failed", "The authorization service could not start."))
 	}
 	return 0

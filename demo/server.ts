@@ -4,10 +4,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AddressInfo } from 'node:net';
 const here = dirname(fileURLToPath(import.meta.url));
-const assets = join(here, '../dist');
 export type DemoFiles = Record<string, [path: string, type: string]>;
 // Map each public route to a source checkout file. The compiled bridge passes embedded copies instead.
-export function demoFiles(): DemoFiles {
+export function demoFiles(assets = join(here, '../dist')): DemoFiles {
   const files: DemoFiles = {
     '/': [join(here, 'site/index.html'), 'text/html'],
     '/activity.js': [join(assets, 'demo/site/activity.js'), 'text/javascript'],

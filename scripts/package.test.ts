@@ -9,7 +9,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { demoFiles } from '../demo/server.ts';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-let directory: string, bin: string, work: string;
+let directory: string, bin: string, work: string, dist: string;
 beforeAll(() => {
   directory = mkdtempSync(join(tmpdir(), 'walleterm-package-'));
   bin = join(directory, 'bin');
@@ -19,6 +19,9 @@ beforeAll(() => {
     encoding: 'utf8',
   });
   expect(build.status, build.stderr).toBe(0);
+  // Build a separate reference copy. Browser builds are deterministic, so the bytes must match.
+  dist = join(directory, 'dist');
+  expect(spawnSync(process.execPath, ['scripts/build.ts', dist], { cwd: root }).status).toBe(0);
   // A hostile working directory must not change the compiled runtime.
   spawnSync('mkdir', [work]);
   writeFileSync(join(work, 'bunfig.toml'), 'preload = ["./preload.ts"]\n');
@@ -35,10 +38,19 @@ test('the package reports its version and includes notices', () => {
   expect(readFileSync(join(bin, 'NOTICES.txt'), 'utf8')).toContain('== @stellar/stellar-sdk ');
 });
 
-test('sign-auth runs through the compiled bridge and ignores bunfig.toml in the caller directory', () => {
+test('sign-auth ignores bunfig.toml, package.json, and Bun variables from the caller', () => {
+  writeFileSync(join(work, 'package.json'), JSON.stringify({ scripts: { 'sign-auth': 'touch ran' } }));
+  writeFileSync(join(work, 'sign-auth.ts'), `require('node:fs').writeFileSync('ran', '');\n`);
+  const env = {
+    ...process.env,
+    BUN_OPTIONS: '--preload ./preload.ts',
+    BUN_BE_BUN: '1',
+    NODE_OPTIONS: '--require ./preload.ts',
+  };
   for (const input of ['{}', '{"auth_entry_xdr":"bad"}', '{}{}', ' '.repeat(49153)]) {
     const result = spawnSync(join(bin, 'walleterm'), ['sign-auth'], {
       cwd: work,
+      env,
       input,
       encoding: 'utf8',
       timeout: 10000,
@@ -64,7 +76,7 @@ test('the compiled demo serves every embedded route and supervises cloudflared t
   });
   const demo = spawn(join(bin, 'walleterm'), ['demo', '--port', String(port)], {
     cwd: work,
-    env: { ...process.env, PATH: `${tools}:${process.env.PATH}` },
+    env: { ...process.env, PATH: `${tools}:${process.env.PATH}`, BUN_OPTIONS: '--preload ./preload.ts' },
     stdio: 'ignore',
   });
   try {
@@ -74,7 +86,7 @@ test('the compiled demo serves every embedded route and supervises cloudflared t
     expect(existsSync(marker)).toBe(true);
     const session = await fetch(`${origin}/api/session`);
     expect(await session.json()).toEqual({ service: 'walleterm-demo' });
-    for (const [route, [path, type]] of Object.entries(demoFiles())) {
+    for (const [route, [path, type]] of Object.entries(demoFiles(dist))) {
       const response = await fetch(origin + route);
       expect(response.status).toBe(200);
       expect(response.headers.get('content-type')).toBe(`${type}; charset=utf-8`);
