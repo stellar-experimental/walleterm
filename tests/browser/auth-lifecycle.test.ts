@@ -16,7 +16,10 @@ const key = Keypair.random(),
   other = Keypair.random();
 const contract = (n: number) => StrKey.encodeContract(new Uint8Array(32).fill(n));
 const address = contract(1);
-function request(adapter: AuthAdapter = { type: 'contract-ed25519' }): AuthEntryInput {
+function request(
+  adapter: AuthAdapter = { type: 'contract-ed25519' },
+  expirationLedger = 160,
+): AuthEntryInput {
   const invocation = new xdr.SorobanAuthorizedInvocation({
     function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
       new xdr.InvokeContractArgs({
@@ -32,8 +35,21 @@ function request(adapter: AuthAdapter = { type: 'contract-ed25519' }): AuthEntry
     address,
     network_passphrase: Networks.TESTNET,
     adapter,
-    auth_entry_xdr: createAuthEntry({ address, invocation, nonce: 7n, expirationLedger: 160 }),
+    auth_entry_xdr: createAuthEntry({ address, invocation, nonce: 7n, expirationLedger }),
   };
+}
+// createAuthEntry refuses ledger 0, so write it into the XDR directly, as simulation can leave it.
+function zeroExpiration(encoded: string) {
+  const entry = xdr.SorobanAuthorizationEntry.fromXDR(encoded, 'base64');
+  if (entry.credentials.type !== 'sorobanCredentialsAddressV2') throw Error('Use an AddressV2 entry.');
+  const credentials = new xdr.SorobanAddressCredentials({
+    ...entry.credentials.addressV2,
+    signatureExpirationLedger: 0,
+  });
+  return new xdr.SorobanAuthorizationEntry({
+    rootInvocation: entry.rootInvocation,
+    credentials: xdr.SorobanCredentials.sorobanCredentialsAddressV2(credentials),
+  }).toXDR('base64');
 }
 const pause = (ms = 1) => new Promise((resolve) => setTimeout(resolve, ms));
 async function until(check: () => boolean) {
@@ -47,7 +63,6 @@ async function fixture(options: HostOptions = {}) {
   let calls = 0;
   const bridge = await createHost({
     listSigners: async () => [key, other].map((k) => ({ public_key: k.publicKey() })),
-    latestLedger: async () => 100,
     sign: async (_key, digest) => {
       calls++;
       return Buffer.from(key.sign(Buffer.from(digest, 'hex'))).toString('hex');
@@ -92,7 +107,7 @@ test('auth lifecycle signs once, binds adapters on retries, and verifies complet
     await pause();
   }
   expect(reply?.state).toBe('signed');
-  expect(verifyAuthEntrySignature(input, reply!.signed_auth_entry_xdr!, 100)).toBe(true);
+  expect(verifyAuthEntrySignature(input, reply!.signed_auth_entry_xdr!)).toBe(true);
   expect((await f.client.request('/v1/requests', body)).signed_auth_entry_xdr).toBe(
     reply!.signed_auth_entry_xdr,
   );
@@ -139,31 +154,26 @@ for (const action of ['cancel', 'pagehide', 'switch', 'revoke'] as const) {
     expect(await rejected).toBeInstanceOf(Error);
   });
 }
-test('auth expires by trusted ledger before signing and after a slow signature', async () => {
-  const first = await fixture({ latestLedger: async () => 160 });
-  const input = request();
+test('auth has no expiry window: any set expiration signs, and ledger 0 never reaches the signer', async () => {
+  const f = await fixture();
+  for (const expirationLedger of [1, 0xffffffff]) {
+    const input = request(undefined, expirationLedger);
+    const result = await f.client.signAuthorization(input.auth_entry_xdr, {
+      address,
+      adapter: input.adapter,
+    });
+    expect(verifyAuthEntrySignature(input, result.signedAuthEntryXdr)).toBe(true);
+  }
+  expect(f.calls()).toBe(2);
+  const unset = request();
+  const zero = await fixture();
   await expect(
-    first.client.signAuthorization(input.auth_entry_xdr, { address, adapter: input.adapter }),
-  ).rejects.toThrow('60 ledgers');
-  expect(first.calls()).toBe(0);
-  let reads = 0;
-  const second = await fixture({ latestLedger: async () => (++reads === 1 ? 100 : 160) });
-  await expect(
-    second.client.signAuthorization(input.auth_entry_xdr, { address, adapter: input.adapter }),
-  ).rejects.toThrow('60 ledgers');
-  expect(second.calls()).toBe(1);
+    zero.client.signAuthorization(zeroExpiration(unset.auth_entry_xdr), { address, adapter: unset.adapter }),
+  ).rejects.toThrow('Ledger 0');
+  expect(zero.calls()).toBe(0);
 });
-test('ledger failure and malformed signer output cannot produce an authorization result', async () => {
+test('malformed signer output cannot produce an authorization result', async () => {
   const input = request();
-  const missing = await fixture({
-    latestLedger: async () => {
-      throw Error('The ledger is unavailable.');
-    },
-  });
-  await expect(
-    missing.client.signAuthorization(input.auth_entry_xdr, { address, adapter: input.adapter }),
-  ).rejects.toThrow('unavailable');
-  expect(missing.calls()).toBe(0);
   const bad = await fixture({ sign: async () => '00'.repeat(64) });
   await expect(
     bad.client.signAuthorization(input.auth_entry_xdr, { address, adapter: input.adapter }),
@@ -187,11 +197,10 @@ test('SDK freezes adapter options and rejects a substituted signed artifact', as
         adapter: wire.adapter,
       };
       await wait;
-      const checked = inspectAuthEntry(captured!, key.publicKey(), 100);
+      const checked = inspectAuthEntry(captured!, key.publicKey());
       const signed = attachAuthSignature(
         captured!,
         key.publicKey(),
-        100,
         Buffer.from(key.sign(checked.digest)).toString('hex'),
       );
       return Response.json({ kind: 'authorization', state: 'signed', signed_auth_entry_xdr: signed });
@@ -205,19 +214,18 @@ test('SDK freezes adapter options and rejects a substituted signed artifact', as
   input.adapter.verifier = contract(4);
   release();
   const result = await promise;
-  expect(verifyAuthEntrySignature(captured!, result.signedAuthEntryXdr, 100)).toBe(true);
+  expect(verifyAuthEntrySignature(captured!, result.signedAuthEntryXdr)).toBe(true);
   const wrong = request();
   const fake = new WalletermClient('https://bridge.example', {
     page: null,
     fetch: async () => {
-      const checked = inspectAuthEntry(wrong, key.publicKey(), 100);
+      const checked = inspectAuthEntry(wrong, key.publicKey());
       return Response.json({
         kind: 'authorization',
         state: 'signed',
         signed_auth_entry_xdr: attachAuthSignature(
           wrong,
           key.publicKey(),
-          100,
           Buffer.from(key.sign(checked.digest)).toString('hex'),
         ),
       });

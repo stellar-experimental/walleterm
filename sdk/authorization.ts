@@ -3,7 +3,6 @@ import { Address, Keypair, StrKey, hash, xdr } from '@stellar/stellar-sdk';
 /** Schemas pinned to SDK 17.1.0 and the commit below. No delegated signers. */
 export const OPENZEPPELIN_AUTH_COMMIT = 'a5bd8cbd3d0bb8efbd5cf5e2edf9734f87e47640';
 export const MAX_AUTH_XDR = 32768;
-export const MAX_AUTH_LEDGER_WINDOW = 60;
 export type AuthAdapter =
   | { type: 'account' }
   | { type: 'contract-ed25519' }
@@ -116,7 +115,8 @@ const symbol = (s: string) => xdr.ScVal.scvSymbol(s);
 const bytes = (value: Uint8Array) => xdr.ScVal.scvBytes(value);
 const map = (pairs: [xdr.ScVal, xdr.ScVal][]) =>
   xdr.ScVal.scvMap(pairs.map(([key, val]) => new xdr.ScMapEntry({ key, val })));
-export function inspectAuthEntry(input: AuthEntryInput, selectedPublicKey: string, latestLedger: number) {
+/** Check one unsigned AddressV2 entry. No check reads a ledger. The network enforces expiry. */
+export function inspectAuthEntry(input: AuthEntryInput, selectedPublicKey: string) {
   if (!input || typeof input !== 'object') invalid('Use an authorization request object.');
   if (!StrKey.isValidEd25519PublicKey(selectedPublicKey) || input.public_key !== selectedPublicKey)
     invalid('The requested signer differs from the selected key.');
@@ -132,10 +132,9 @@ export function inspectAuthEntry(input: AuthEntryInput, selectedPublicKey: strin
   if (Address.fromScAddress(credentials.address).toString() !== input.address)
     invalid('The authorization address differs from the requested address.');
   if (credentials.signature.type !== 'scvVoid') invalid('Use an unsigned authorization entry.');
-  ledger(latestLedger);
   const expiration = credentials.signatureExpirationLedger;
-  if (expiration <= latestLedger || expiration > latestLedger + MAX_AUTH_LEDGER_WINDOW)
-    invalid('The authorization must expire within the next 60 ledgers.');
+  // Ledger 0 is always in the past. Simulation leaves it at 0 when the caller never set it.
+  if (expiration === 0) invalid('Set the authorization expiration ledger. Ledger 0 is always in the past.');
   const adapter = input.adapter;
   if (!adapter || typeof adapter !== 'object' || Array.isArray(adapter))
     invalid('Provide an authorization adapter.');
@@ -192,13 +191,8 @@ export function inspectAuthEntry(input: AuthEntryInput, selectedPublicKey: strin
   };
 }
 /** Verify raw Ed25519 independently, then change only the signature ScVal. */
-export function attachAuthSignature(
-  input: AuthEntryInput,
-  publicKey: string,
-  latestLedger: number,
-  signature: string,
-): string {
-  const checked = inspectAuthEntry(input, publicKey, latestLedger);
+export function attachAuthSignature(input: AuthEntryInput, publicKey: string, signature: string): string {
+  const checked = inspectAuthEntry(input, publicKey);
   if (typeof signature !== 'string' || !/^[a-f0-9]{128}$/.test(signature))
     invalid('The signer returned an invalid signature.');
   const raw = Uint8Array.from(signature.match(/../g)!, (h) => parseInt(h, 16));
@@ -227,11 +221,7 @@ export function attachAuthSignature(
 }
 
 /** Verify the complete returned artifact against the reviewed unsigned request. */
-export function verifyAuthEntrySignature(
-  input: AuthEntryInput,
-  signedAuthEntryXdr: string,
-  latestLedger: number,
-): true {
+export function verifyAuthEntrySignature(input: AuthEntryInput, signedAuthEntryXdr: string): true {
   const signed = parseAuthEntry(signedAuthEntryXdr);
   const value = addressCredentials(signed).signature;
   const asBytes = (v: xdr.ScVal) => {
@@ -253,7 +243,7 @@ export function verifyAuthEntrySignature(
   } catch {
     return invalid('The signed authorization schema is invalid.');
   }
-  if (attachAuthSignature(input, input.public_key, latestLedger, hex(raw)) !== signedAuthEntryXdr)
+  if (attachAuthSignature(input, input.public_key, hex(raw)) !== signedAuthEntryXdr)
     invalid('The signed authorization differs from the reviewed request.');
   return true;
 }

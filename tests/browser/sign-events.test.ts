@@ -36,7 +36,6 @@ async function scenario(ending: 'delivered' | 'undelivered' | 'canceled' | 'fail
   const logs: string[] = [];
   const host = await createHost({
     listSigners: async () => [{ public_key: key.publicKey() }],
-    latestLedger: async () => 100,
     sign: async (_key, digest) => {
       signerCalls++;
       if (ending === 'failed') throw Object.assign(Error('Mock signer failure'), { status: 502 });

@@ -19,7 +19,6 @@ async function website() {
   let signatures = 0;
   const paths: string[] = [];
   const bridge = await createHost({
-    latestLedger: async () => 100,
     listSigners: async () => [key, other].map((k) => ({ public_key: k.publicKey() })),
     sign: async (publicKey, digest) => {
       signatures++;

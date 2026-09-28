@@ -216,8 +216,7 @@ function signedAuth(input = authInput()) {
   return attachAuthSignature(
     input,
     key.publicKey(),
-    100,
-    Buffer.from(key.sign(inspectAuthEntry(input, key.publicKey(), 100).digest)).toString('hex'),
+    Buffer.from(key.sign(inspectAuthEntry(input, key.publicKey()).digest)).toString('hex'),
   );
 }
 test('SDK authorization artifact verification failures always preserve unknown signing outcomes', async () => {
