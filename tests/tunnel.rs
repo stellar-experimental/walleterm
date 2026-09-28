@@ -1,6 +1,8 @@
 //! The service launcher with mock tunnels, and the real supervisor with a mock cloudflared.
 //! Ported from bridge/launch.test.ts and bridge/tunnel-child.test.ts in the legacy TypeScript tests at 52a7fc3. Nothing here reaches Cloudflare.
 
+mod support;
+
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -859,4 +861,66 @@ async fn shutdown_while_recovery_stops_the_old_tunnel_waits_for_that_stop() {
     let _ = std::fs::remove_dir_all(&dir);
     assert!(!old_alive, "shutdown returned before the old tunnel stopped");
     assert!(!record_kept, "shutdown removed the private directory last");
+}
+
+/// Review P7-FIX-S1: shutdown closes the bridge at once, even while recovery still owns the old tunnel.
+/// A signature that arrives after shutdown starts never reaches the website.
+#[tokio::test]
+async fn shutdown_during_retirement_cancels_bridge_signing_first() {
+    let dir = scratch();
+    scripted_cloudflared(&dir, "1 2");
+    let unhealthy = Arc::new(AtomicBool::new(false));
+    let health = unhealthy.clone();
+    let (h, mut deps) = harness(Plan {
+        probe: Box::new(move |_, _| {
+            if health.load(Ordering::SeqCst) {
+                Err(Error::new("internal", "Mock network failure"))
+            } else {
+                Ok((200, Some("walleterm".into())))
+            }
+        }),
+        health: Duration::from_millis(20),
+        ..Plan::default()
+    });
+    let cwds = real_supervisor(&mut deps, &dir);
+    // The fixture gives the mock signer and HTTP client. The launcher serves a new bridge on a free port.
+    let options = support::Options { review: false, ..support::Options::default() };
+    let mut f = support::Fixture::new(options).await;
+    f.close().await;
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    f.port = listener.local_addr().unwrap().port();
+    drop(listener);
+    let options = support::Options { review: false, key: f.key.clone() };
+    f.bridge = walleterm::bridge::Bridge::new(support::deps(&f.controls, &options), f.port);
+    let service = Arc::new(walleterm::service::BridgeService::new(f.bridge.clone(), f.port));
+    let running = launch("Walleterm tunnel", f.port, service, deps).await.map_err(|e| e.0).unwrap();
+    let site = f.connect("https://review.example").await;
+    let gate = f.controls.hold_signing();
+    let body = json!({
+        "id": "late",
+        "kind": "transaction",
+        "address": f.public_key,
+        "network_passphrase": support::TESTNET,
+        "xdr": support::transaction(&f.key, f.controls.now(), 180),
+    });
+    assert_eq!(f.post("/v1/requests", body, &site).await.status, 201);
+    until(|| f.controls.signs.load(Ordering::SeqCst) == 1).await;
+    unhealthy.store(true, Ordering::SeqCst);
+    until_for(|| h.output.text().contains("Restarting the public tunnel."), 2000).await;
+    let stopping = tokio::spawn(async move { running.stop(0).await });
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let closing = f.bridge.closing();
+    let canceled = f.controls.sign_cancels.lock().unwrap()[0].is_cancelled();
+    let _ = gate.send(());
+    let delivered = !closing && f.result(&site, "late").await.body["signed_tx_xdr"].is_string();
+    assert_eq!(stopping.await.unwrap(), 0);
+    let old = tunnels(&dir)[0];
+    until_for(|| !alive(old), 2000).await;
+    assert!(!cwds.lock().unwrap()[0].exists());
+    f.close().await;
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(
+        closing && canceled && !delivered,
+        "closing {closing}, canceled {canceled}, delivered {delivered}"
+    );
 }

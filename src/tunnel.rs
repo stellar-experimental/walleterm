@@ -330,10 +330,11 @@ pub async fn launch(
                     .get_or_init(|| async {
                         controller.cancel(stopped());
                         let mut result = requested;
-                        // A start in progress sees the cancellation, stores its tunnel, and releases this.
-                        let _started = starting.lock().await;
-                        let tunnel = shared.tunnel.lock().unwrap().take();
+                        // The service closes at once, so bridge signing stops without waiting for the tunnel.
+                        // The tunnel stop waits for a start or retirement in progress to release its lock.
                         let stop_tunnel = async {
+                            let _started = starting.lock().await;
+                            let tunnel = shared.tunnel.lock().unwrap().take();
                             match tunnel {
                                 Some(mut t) => (t.stop)().await,
                                 None => true,
