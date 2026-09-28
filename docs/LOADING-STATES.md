@@ -76,7 +76,7 @@ Search, filtering, and export use local data and do not show artificial waiting 
 - The activity accessibility check reported zero violations and zero incomplete checks.
 - The connection dialog reported zero violations and four contrast checks requiring manual review.
 - Visual review confirmed readable text on the white dialog surface.
-- `requestSignature` matches the released version. `sdk/walleterm.js` is unchanged.
+- `requestSignature` matches the released version. `sdk/walleterm.js` (now `sdk/walleterm.ts`) is unchanged.
 
 These checks requested no live signatures, account funding, or network submissions.
 Mock signing and mocked confirmation do not establish 1Password or testnet acceptance.
@@ -109,16 +109,19 @@ The public page reported no browser errors.
 
 ## Changed files
 
-- `sdk/connect.js`
+This list names the files of 2026-09-26. Later work replaced the `.js` and `.mjs` files.
+Parentheses name the current file.
+
+- `sdk/connect.js` (now `sdk/connect.ts`)
 - `sdk/connect.css`
-- `demo/site/app.js`
+- `demo/site/app.js` (now `demo/site/app.ts`)
 - `demo/site/index.html`
 - `demo/site/style.css`
-- `demo/site/activity.js`
+- `demo/site/activity.js` (now `demo/site/activity.ts`)
 - `demo/site/activity.css`
-- `bridge/connect.test.mjs`
-- `bridge/site.test.mjs`
-- `bridge/activity.test.mjs`
+- `bridge/connect.test.mjs` (now `tests/browser/connect.test.ts`)
+- `bridge/site.test.mjs` (now `tests/browser/site.test.ts`)
+- `bridge/activity.test.mjs` (now `tests/browser/activity.test.ts`)
 - `docs/LOADING-STATES.md`
 
 ## Instant action feedback

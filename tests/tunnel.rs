@@ -608,7 +608,7 @@ async fn a_closed_parent_pipe_stops_the_supervisor_and_its_stubborn_child() {
         .stderr(std::process::Stdio::null())
         .spawn()
         .unwrap();
-    until(|| dir.join("child.json").exists() && !tunnels(&dir).is_empty()).await;
+    until_for(|| dir.join("child.json").exists() && !tunnels(&dir).is_empty(), 2000).await;
     let record: Value =
         serde_json::from_str(&std::fs::read_to_string(dir.join("child.json")).unwrap()).unwrap();
     assert_eq!(record["parent_pid"], json!(std::process::id()));
@@ -677,6 +677,85 @@ async fn stopping_a_supervisor_stops_its_stubborn_child_within_the_grace_periods
     assert!(started.elapsed() < Duration::from_secs(5));
     until(|| !alive(cloudflared)).await;
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+/// Review C04: a closed terminal sends SIGHUP. The supervisor handles it as SIGTERM, even with its pipe open.
+#[tokio::test]
+async fn sighup_stops_the_supervisor_and_its_stubborn_child() {
+    let (dir, _cleanup) = scratch();
+    mock_cloudflared(&dir);
+    let mut supervisor = tokio::process::Command::new(env!("CARGO_BIN_EXE_walleterm"))
+        .arg("tunnel-child")
+        .env_clear()
+        .env("PATH", format!("{}:/bin:/usr/bin", dir.display()))
+        .current_dir(&dir)
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .unwrap();
+    until_for(|| dir.join("child.json").exists() && !tunnels(&dir).is_empty(), 2000).await;
+    let cloudflared = tunnels(&dir)[0];
+    // SAFETY: a test-owned process. `child.json` exists only after its handlers do.
+    unsafe { libc::kill(supervisor.id().unwrap() as i32, libc::SIGHUP) };
+    let status = tokio::time::timeout(Duration::from_secs(5), supervisor.wait()).await.unwrap().unwrap();
+    for _ in 0..500 {
+        if !alive(cloudflared) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(4)).await;
+    }
+    let survived = alive(cloudflared);
+    // SAFETY: a test-owned mock process. Nothing else stops it after a failure.
+    unsafe { libc::kill(cloudflared, libc::SIGKILL) };
+    assert_eq!(status.code(), Some(0), "the supervisor exits normally");
+    assert!(!survived, "the supervisor stops cloudflared");
+}
+
+/// Review C04: SIGHUP stops each real service as Ctrl+C does. It removes the private directory,
+/// and no process remains in the tunnel group.
+#[tokio::test]
+async fn sighup_stops_each_service_and_removes_its_private_directory() {
+    for command in ["demo", "tunnel"] {
+        let (dir, _cleanup) = scratch();
+        scripted_cloudflared(&dir, "");
+        let temporary = dir.join("tmp");
+        std::fs::create_dir(&temporary).unwrap();
+        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        let mut service = tokio::process::Command::new(env!("CARGO_BIN_EXE_walleterm"))
+            .args([command, "--port", &port.to_string()])
+            .env_clear()
+            .env("PATH", format!("{}:/bin:/usr/bin", dir.display()))
+            .env("TMPDIR", &temporary)
+            .current_dir(&dir)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .kill_on_drop(true)
+            .spawn()
+            .unwrap();
+        let private = || -> Vec<PathBuf> {
+            std::fs::read_dir(&temporary)
+                .unwrap()
+                .filter_map(|entry| Some(entry.ok()?.path()))
+                .filter(|path| path.file_name().unwrap().to_string_lossy().starts_with("walleterm-tunnel-"))
+                .collect()
+        };
+        let started = || -> Option<Value> {
+            let text = std::fs::read_to_string(private().first()?.join("run-1/child.json")).ok()?;
+            serde_json::from_str(&text).ok()
+        };
+        // The mock records its PID after it starts to ignore SIGTERM.
+        until_for(|| started().is_some() && tunnels(&dir).len() == 1, 2000).await;
+        let supervisor = started().unwrap()["supervisor_pid"].as_i64().unwrap() as i32;
+        // SAFETY: a test-owned process.
+        unsafe { libc::kill(service.id().unwrap() as i32, libc::SIGHUP) };
+        let status = tokio::time::timeout(Duration::from_secs(10), service.wait()).await.unwrap().unwrap();
+        assert!(private().is_empty(), "{command} removes its private directory");
+        assert_eq!(status.code(), Some(0), "{command} exits normally");
+        // SAFETY: signal 0 only checks whether the supervisor's group has a member.
+        until_for(|| unsafe { libc::killpg(supervisor, 0) } != 0, 500).await;
+    }
 }
 
 #[test]

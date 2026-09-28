@@ -117,20 +117,22 @@ impl crate::tunnel::Output for Terminal {
     }
 }
 
-/// SIGINT or SIGTERM cancels the returned flag.
+/// SIGINT, SIGTERM, or SIGHUP cancels the returned flag. A closed terminal sends SIGHUP.
+/// The handlers exist before the service creates its directory or starts a child.
 fn signals() -> crate::cancel::Cancel {
     use tokio::signal::unix::{SignalKind, signal};
     let stop = crate::cancel::Cancel::new();
+    let (Ok(mut interrupt), Ok(mut terminate), Ok(mut hangup)) =
+        (signal(SignalKind::interrupt()), signal(SignalKind::terminate()), signal(SignalKind::hangup()))
+    else {
+        return stop;
+    };
     let flag = stop.clone();
     tokio::spawn(async move {
-        let (Ok(mut interrupt), Ok(mut terminate)) =
-            (signal(SignalKind::interrupt()), signal(SignalKind::terminate()))
-        else {
-            return;
-        };
         tokio::select! {
             _ = interrupt.recv() => {}
             _ = terminate.recv() => {}
+            _ = hangup.recv() => {}
         }
         flag.abort();
     });
