@@ -1,7 +1,7 @@
 # Structured authorization signing
 
 Use `walleterm sign-auth < request.json` for a reviewed unsigned AddressV2 entry.
-The command requires installed Bun service files.
+The installed `walleterm` binary runs it. It needs no other runtime files.
 
 ```json
 {

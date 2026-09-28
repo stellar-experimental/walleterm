@@ -1,6 +1,7 @@
 // Offline compatibility check for Stellar Wallets Kit 2.7.0, pinned in this fixture package only.
-// It drives the real Kit SDK against an in-process bridge. It uses isolated random mock keys only.
+// It drives the real Kit SDK against the Rust bridge (walleterm-test-host). It uses isolated random mock keys only.
 // Run from the repository root:
+//   cargo build --locked --features test-host --bin walleterm-test-host
 //   bun install --cwd fixtures/kit --frozen-lockfile --ignore-scripts && bun fixtures/kit/check.mts
 import assert from 'node:assert/strict';
 import { StellarWalletsKit } from '@creit.tech/stellar-wallets-kit/sdk';
@@ -17,16 +18,13 @@ import {
   hash,
   xdr,
 } from '@stellar/stellar-sdk';
-import { createBridge } from '../../bridge/server.ts';
+import { createHost } from '../../tests/browser/host.ts';
 import { Walleterm } from '../../sdk/walleterm.ts';
 import { WALLETERM_ID, WalletermModule } from '../../sdk/kit.ts';
 
 const key = Keypair.random(),
   other = Keypair.random();
-const bridge = createBridge({
-  port: 0,
-  log() {},
-  review: undefined,
+const bridge = await createHost({
   latestLedger: async () => 100,
   listSigners: async () => [key, other].map((k) => ({ public_key: k.publicKey() })),
   sign: async (publicKey, digest) =>
@@ -34,11 +32,7 @@ const bridge = createBridge({
       'hex',
     ),
 });
-await bridge.listen();
-const bound = bridge.server.address();
-if (!bound || typeof bound === 'string') throw Error('The mock bridge did not bind.');
-const origin = `http://127.0.0.1:${bound.port}`;
-bridge.setPublicOrigin(origin);
+const origin = bridge.origin;
 const results: Record<string, string> = {};
 let dialogs = 0;
 try {
@@ -59,7 +53,7 @@ try {
         return (
           await target.connect({
             url: origin,
-            code: bridge.pairing.code,
+            code: await bridge.code(),
             selectWallet: async () => key.publicKey(),
           })
         ).address;

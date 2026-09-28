@@ -21,7 +21,7 @@ uses it for these types.
   and `Cargo.lock` hashes, artifact hashes).
 - `build.sh` builds both workspaces with `stellar contract build` (soroban-sdk
   28 refuses a plain `cargo build` for wasm), runs both test suites, and writes
-  the manifest.
+  the manifest with `cargo run -q -p walleterm-tools -- cap85-manifest`.
 
 ## Contracts
 

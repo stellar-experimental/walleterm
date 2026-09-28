@@ -1,18 +1,16 @@
 // Offline cross-tab check for Stellar Wallets Kit 2.7.0 and the Walleterm Kit module.
 // Each tab is a worker with its own Kit state. The parent holds the origin localStorage and relays storage events.
-// It drives an in-process bridge with isolated random mock keys only. Run from the repository root:
+// It drives the Rust bridge in walleterm-test-host with isolated random mock keys only. Run from the repository root:
+//   cargo build --locked --features test-host --bin walleterm-test-host
 //   bun install --cwd fixtures/kit --frozen-lockfile --ignore-scripts && bun fixtures/kit/tabs.mts
 import assert from 'node:assert/strict';
 import { Keypair } from '@stellar/stellar-sdk';
-import { createBridge } from '../../bridge/server.ts';
+import { createHost } from '../../tests/browser/host.ts';
 
 const key = Keypair.random(),
   other = Keypair.random();
 const site = 'https://tabs.example';
-const bridge = createBridge({
-  port: 0,
-  log() {},
-  review: undefined,
+const bridge = await createHost({
   latestLedger: async () => 100,
   listSigners: async () => [key, other].map((k) => ({ public_key: k.publicKey() })),
   sign: async (publicKey, digest) =>
@@ -20,11 +18,7 @@ const bridge = createBridge({
       'hex',
     ),
 });
-await bridge.listen();
-const bound = bridge.server.address();
-if (!bound || typeof bound === 'string') throw Error('The mock bridge did not bind.');
-const origin = `http://127.0.0.1:${bound.port}`;
-bridge.setPublicOrigin(origin);
+const origin = bridge.origin;
 
 // The origin's localStorage. Each write goes to every other open tab as a storage event.
 const storage = new Map<string, string>();
@@ -67,7 +61,7 @@ async function open() {
   return {
     kitAddress: () => call<string | null>('kitAddress'),
     walletAddress: () => call<string | null>('walletAddress'),
-    connect: () => call<string>('connect', bridge.pairing.code),
+    connect: async () => call<string>('connect', await bridge.code()),
     switchTo: (publicKey: string) => call<string>('switchTo', publicKey),
     kitDisconnect: () => call<void>('kitDisconnect'),
     sign: () => call<{ signer?: string; error?: string }>('sign'),

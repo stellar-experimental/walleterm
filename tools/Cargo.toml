@@ -1,0 +1,11 @@
+[package]
+name = "walleterm-tools"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.93"
+publish = false
+description = "Maintainer tools for walleterm: package, install, and release. Never shipped."
+
+[dependencies]
+serde_json = { version = "=1.0.151", default-features = false, features = ["std"] }
+sha2 = { version = "=0.10.9", default-features = false, features = ["std"] }

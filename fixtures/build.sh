@@ -32,4 +32,4 @@ for pkg in multisig-account-example multisig-ed25519-verifier-example \
 done
 (cd "$HERE/contracts" && stellar contract build --out-dir "$OUT")
 
-bun "$HERE/manifest.ts" "$OUT" "$OZ_COMMIT"
+cargo run --locked -q --manifest-path "$HERE/../Cargo.toml" -p walleterm-tools -- fixture-manifest "$OUT" "$OZ_COMMIT"

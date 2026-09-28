@@ -3,6 +3,8 @@
 // Usage: WALLETERM_BINARY=/isolated/prefix/bin/walleterm bun --no-env-file tests/openzeppelin-auth-live.ts /path/to/public-test-keys.json
 // The account, verifier, and target come from live/contracts-state.json beside the metadata file.
 // The runner checks their code, rule, and signer with read-only RPC calls before each signing request.
+// The website half uses the Rust bridge with its production signer on loopback. Build it first:
+// cargo build --locked --features test-host --bin walleterm-test-host
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { spawn } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -22,8 +24,7 @@ import {
   xdr,
 } from '@stellar/stellar-sdk';
 import type { Transaction } from '@stellar/stellar-sdk';
-import { createBridge } from '../bridge/server.ts';
-import { signDigest } from '../bridge/signer.ts';
+import { createHost, type Host } from './browser/host.ts';
 import { WalletermClient } from '../sdk/walleterm.ts';
 import {
   MAX_AUTH_LEDGER_WINDOW,
@@ -424,14 +425,7 @@ async function main() {
     networkPassphrase: Networks.TESTNET,
     record,
   });
-  const bridge = createBridge({
-    port: 0,
-    log: () => {},
-    sign: (...args) => {
-      usage.signatures++;
-      return signDigest(...args);
-    },
-  });
+  let bridge: Host | undefined;
   const controls = { rejected_by_enforcing_simulation: 0, signatures_requested: 0, submitted: 0 };
   let client: WalletermClient | undefined;
   // A signed entry stays usable until expiry if its outcome is unknown. Blocked records keep that ledger.
@@ -531,11 +525,9 @@ async function main() {
     const d = loadDeployment(state, manifest, signer);
     const verified = await verifyDeployment(server, d);
     record('deployment', 'verified', { deployment: d, ...verified, oz_commit: OPENZEPPELIN_AUTH_COMMIT });
-    await bridge.listen();
-    const bound = bridge.server.address();
-    if (!bound || typeof bound === 'string') throw Error('The local acceptance bridge did not bind.');
-    const origin = `http://127.0.0.1:${bound.port}`;
-    bridge.setPublicOrigin(origin);
+    // The test host reports each call to the 1Password signer.
+    bridge = await createHost({ production: true, onSign: () => usage.signatures++ });
+    const origin = bridge.origin;
     client = new WalletermClient(origin, {
       page: null,
       pollInterval: 100,
@@ -543,7 +535,7 @@ async function main() {
         fetch(url, { ...options, headers: { ...options?.headers, Origin: 'http://127.0.0.1:8788' } }),
     });
     await client.connect({
-      code: bridge.pairing.code,
+      code: await bridge.code(),
       selectWallet: async (signers) => {
         if (!signers.some((key) => key.public_key === signer))
           throw Error('The dedicated test signer is unavailable.');
@@ -627,7 +619,7 @@ async function main() {
     process.exitCode = 1;
   } finally {
     await client?.disconnect().catch(() => {});
-    await bridge.close();
+    await bridge?.close();
     unlinkSync(lock);
   }
 }

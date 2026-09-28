@@ -46,9 +46,9 @@ XDR alone does not identify the network. Check the material terms against the us
 For Soroban transactions, inspect every authorization invocation tree, including nested token transfers.
 Read the matching core `walleterm` reference for its signing format.
 
-For V1 envelopes, [classic-attach.py](../scripts/classic-attach.py) verifies and attaches one raw Ed25519 signature.
+For V1 envelopes, [classic-attach.ts](../scripts/classic-attach.ts) verifies and attaches one raw Ed25519 signature.
 It preserves the body and existing signatures. It refuses an existing output file.
-It needs Python 3, Bun, Stellar CLI, and [verify-signature.ts](../scripts/verify-signature.ts) beside it.
+It needs Bun and Stellar CLI. It verifies the signature with `node:crypto`, separately from the signer.
 Use it only after reviewing the transaction. It does not check ledger state, signer thresholds, or user authority.
 It preserves Soroban bodies in V1 envelopes too. Review their contract effects and authorization separately.
 

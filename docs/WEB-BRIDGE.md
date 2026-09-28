@@ -137,7 +137,7 @@ Time bounds must be valid now and end within five minutes.
 Existing signatures from other keys stay in place. The bridge appends one signature.
 Explicit Soroban authorization entries use `signAuthEntry` before envelope signing.
 See [contract authorization](CONTRACT-AUTHORIZATION.md) for the separate authorization and transaction steps.
-Mainnet and V0 envelopes fail before signing. See [the protocol contract](../bridge/PROTOCOL.md) for exact rules.
+Mainnet and V0 envelopes fail before signing. See [the protocol contract](BRIDGE-PROTOCOL.md) for exact rules.
 Safety comes from review of each request. An agentic review will use the bridge's `review` hook.
 
 ## Approval and recovery

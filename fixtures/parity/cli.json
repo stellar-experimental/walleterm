@@ -1,0 +1,908 @@
+{
+ "cases": [
+  {
+   "id": "list-json",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b"
+   ],
+   "no_socket": false,
+   "exit": 0,
+   "stdout": "{\"ok\":true,\"signers\":[{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"fingerprint\":\"SHA256:z/fSv0Z0RZS+Lccbc6ZoOWwt/fbj1VFJGSBKQbo4icE\",\"comment\":\"offline mock\"}]}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-human",
+   "args": [
+    "list",
+    "--human"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b"
+   ],
+   "no_socket": false,
+   "exit": 0,
+   "stdout": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57 SHA256:z/fSv0Z0RZS+Lccbc6ZoOWwt/fbj1VFJGSBKQbo4icE \"offline mock\"\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-empty",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c00000000"
+   ],
+   "no_socket": false,
+   "exit": 0,
+   "stdout": "{\"ok\":true,\"signers\":[]}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-skips-rsa",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c0000000200000017000000077373682d72736100000003010001000000010100000003525341000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000745643235353139"
+   ],
+   "no_socket": false,
+   "exit": 0,
+   "stdout": "{\"ok\":true,\"signers\":[{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"fingerprint\":\"SHA256:z/fSv0Z0RZS+Lccbc6ZoOWwt/fbj1VFJGSBKQbo4icE\",\"comment\":\"Ed25519\"}]}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-human-quotes-comment",
+   "args": [
+    "list",
+    "--human"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c000000136e616d651b5b33316d0a6e657874092271225c"
+   ],
+   "no_socket": false,
+   "exit": 0,
+   "stdout": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57 SHA256:z/fSv0Z0RZS+Lccbc6ZoOWwt/fbj1VFJGSBKQbo4icE \"name\\x1b[31m\\nnext\\t\\\"q\\\"\\\\\"\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-human-unicode-comment",
+   "args": [
+    "list",
+    "--human"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c636166c3a920e5908de5898d"
+   ],
+   "no_socket": false,
+   "exit": 0,
+   "stdout": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57 SHA256:z/fSv0Z0RZS+Lccbc6ZoOWwt/fbj1VFJGSBKQbo4icE \"café 名前\"\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-duplicate",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c00000002000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000161000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000162"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned a duplicate Ed25519 identity.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-short-key",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c00000001000000320000000b7373682d656432353531390000001f010101010101010101010101010101010101010101010101010101010101010000000178"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned an invalid key blob.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-empty-algorithm",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c0000000100000004000000000000000178"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned an invalid key blob.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-bad-utf8",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c00000001ff"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned an invalid identity.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-too-many",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c00000401"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned too many identities.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-wrong-type",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "05"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned an invalid identities response.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-trailing",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c0000000000"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned trailing identities data.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-truncated-identity",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "0c000000010000000401"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned an invalid identity.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-zero-frame",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "raw:00000000"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned an invalid frame length.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-oversized-frame",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "raw:00100001"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned an invalid frame length.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-truncated-frame",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [
+    "raw:000000100c"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned a truncated frame.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "list-closed",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned a truncated frame.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "sign-json",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b",
+    "0e000000530000000b7373682d6564323535313900000040013f9d903c1a0a90b0beea2534582e2bb694712503215236622851f5afd54ad5f2a89983965e192edd928d484bdb1e1e521ba704fbe37968371a11597363fb0d"
+   ],
+   "no_socket": false,
+   "exit": 0,
+   "stdout": "{\"ok\":true,\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\",\"signature\":\"013f9d903c1a0a90b0beea2534582e2bb694712503215236622851f5afd54ad5f2a89983965e192edd928d484bdb1e1e521ba704fbe37968371a11597363fb0d\",\"verified\":true}\n",
+   "stderr": "Request a signature for public key GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57 and digest 0101010101010101010101010101010101010101010101010101010101010101.\n",
+   "requests": [
+    "0b",
+    "0d000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c00000020010101010101010101010101010101010101010101010101010101010101010100000000"
+   ]
+  },
+  {
+   "id": "sign-human",
+   "args": [
+    "sign",
+    "--human"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b",
+    "0e000000530000000b7373682d6564323535313900000040013f9d903c1a0a90b0beea2534582e2bb694712503215236622851f5afd54ad5f2a89983965e192edd928d484bdb1e1e521ba704fbe37968371a11597363fb0d"
+   ],
+   "no_socket": false,
+   "exit": 0,
+   "stdout": "Public key: GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\nDigest: 0101010101010101010101010101010101010101010101010101010101010101\nSignature: 013f9d903c1a0a90b0beea2534582e2bb694712503215236622851f5afd54ad5f2a89983965e192edd928d484bdb1e1e521ba704fbe37968371a11597363fb0d\nVerified: true\n",
+   "stderr": "Request a signature for public key GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57 and digest 0101010101010101010101010101010101010101010101010101010101010101.\n",
+   "requests": [
+    "0b",
+    "0d000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c00000020010101010101010101010101010101010101010101010101010101010101010100000000"
+   ]
+  },
+  {
+   "id": "sign-refused",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b",
+    "05"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"signing_refused\",\"message\":\"The agent returned SSH_AGENT_FAILURE for the signing request.\"}}\n",
+   "stderr": "Request a signature for public key GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57 and digest 0101010101010101010101010101010101010101010101010101010101010101.\n",
+   "requests": [
+    "0b",
+    "0d000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c00000020010101010101010101010101010101010101010101010101010101010101010100000000"
+   ]
+  },
+  {
+   "id": "sign-refused-trailing",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b",
+    "0500"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned an invalid sign response.\"}}\n",
+   "stderr": "Request a signature for public key GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57 and digest 0101010101010101010101010101010101010101010101010101010101010101.\n",
+   "requests": [
+    "0b",
+    "0d000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c00000020010101010101010101010101010101010101010101010101010101010101010100000000"
+   ]
+  },
+  {
+   "id": "sign-wrong-algorithm",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b",
+    "0e0000004f000000077373682d72736100000040013f9d903c1a0a90b0beea2534582e2bb694712503215236622851f5afd54ad5f2a89983965e192edd928d484bdb1e1e521ba704fbe37968371a11597363fb0d"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned an invalid Ed25519 signature.\"}}\n",
+   "stderr": "Request a signature for public key GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57 and digest 0101010101010101010101010101010101010101010101010101010101010101.\n",
+   "requests": [
+    "0b",
+    "0d000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c00000020010101010101010101010101010101010101010101010101010101010101010100000000"
+   ]
+  },
+  {
+   "id": "sign-bad-signature",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b",
+    "0e000000530000000b7373682d656432353531390000004001010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101010101"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_signature\",\"message\":\"The agent signature failed Ed25519 verification.\"}}\n",
+   "stderr": "Request a signature for public key GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57 and digest 0101010101010101010101010101010101010101010101010101010101010101.\n",
+   "requests": [
+    "0b",
+    "0d000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c00000020010101010101010101010101010101010101010101010101010101010101010100000000"
+   ]
+  },
+  {
+   "id": "sign-short-signature",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b",
+    "0e000000520000000b7373682d656432353531390000003f013f9d903c1a0a90b0beea2534582e2bb694712503215236622851f5afd54ad5f2a89983965e192edd928d484bdb1e1e521ba704fbe37968371a11597363fb"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned an invalid Ed25519 signature.\"}}\n",
+   "stderr": "Request a signature for public key GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57 and digest 0101010101010101010101010101010101010101010101010101010101010101.\n",
+   "requests": [
+    "0b",
+    "0d000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c00000020010101010101010101010101010101010101010101010101010101010101010100000000"
+   ]
+  },
+  {
+   "id": "sign-trailing",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b",
+    "0e000000530000000b7373682d6564323535313900000040013f9d903c1a0a90b0beea2534582e2bb694712503215236622851f5afd54ad5f2a89983965e192edd928d484bdb1e1e521ba704fbe37968371a11597363fb0d00"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned an invalid signature wrapper.\"}}\n",
+   "stderr": "Request a signature for public key GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57 and digest 0101010101010101010101010101010101010101010101010101010101010101.\n",
+   "requests": [
+    "0b",
+    "0d000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c00000020010101010101010101010101010101010101010101010101010101010101010100000000"
+   ]
+  },
+  {
+   "id": "sign-wrong-type",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b",
+    "0c"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_protocol\",\"message\":\"The agent returned an invalid sign response.\"}}\n",
+   "stderr": "Request a signature for public key GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57 and digest 0101010101010101010101010101010101010101010101010101010101010101.\n",
+   "requests": [
+    "0b",
+    "0d000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c00000020010101010101010101010101010101010101010101010101010101010101010100000000"
+   ]
+  },
+  {
+   "id": "sign-key-not-found",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GAJZR5RMNUNEK7CRXJVEWXZ5XUXWT7FJGILCDDOITF7EC26RPWJ4UVOE\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"key_not_found\",\"message\":\"The selected public key is not available from the agent.\"}}\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "sign-human-key-not-found",
+   "args": [
+    "sign",
+    "--human"
+   ],
+   "stdin": "{\"public_key\":\"GAJZR5RMNUNEK7CRXJVEWXZ5XUXWT7FJGILCDDOITF7EC26RPWJ4UVOE\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [
+    "0c00000001000000330000000b7373682d6564323535313900000020ea4a6c63e29c520abef5507b132ec5f9954776aebebe7b92421eea691446d22c0000000c6f66666c696e65206d6f636b"
+   ],
+   "no_socket": false,
+   "exit": 1,
+   "stdout": "key_not_found: The selected public key is not available from the agent.\n",
+   "stderr": "",
+   "requests": [
+    "0b"
+   ]
+  },
+  {
+   "id": "usage-none",
+   "args": [],
+   "stdin": "",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"Use list or sign with an optional --human flag.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "usage-unknown",
+   "args": [
+    "export"
+   ],
+   "stdin": "",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"Use list or sign with an optional --human flag.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "usage-extra",
+   "args": [
+    "list",
+    "--human",
+    "x"
+   ],
+   "stdin": "",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"Use list or sign with an optional --human flag.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "usage-bad-flag",
+   "args": [
+    "list",
+    "--json"
+   ],
+   "stdin": "",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"Use list or sign with an optional --human flag.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "usage-human-unknown",
+   "args": [
+    "export",
+    "--human"
+   ],
+   "stdin": "",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "invalid_input: Use list or sign with an optional --human flag.\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "help",
+   "args": [
+    "--help"
+   ],
+   "stdin": "",
+   "agent": [],
+   "no_socket": true,
+   "exit": 0,
+   "stdout": "walleterm list [--human]\nwalleterm sign [--human] \u003c request.json\nwalleterm sign-auth \u003c request.json\nwalleterm tunnel [--port 8787]\nwalleterm demo [--port 8788]\nwalleterm --help\nwalleterm --version\n\nList and sign return JSON by default. --human changes their output format.\nTunnel and demo print readable public links and QR codes.\nList output: {\"ok\":true,\"signers\":[{\"public_key\":\"G...\",\"fingerprint\":\"SHA256:...\",\"comment\":\"...\"}]}\nSign input:  {\"public_key\":\"G...\",\"digest\":\"64 lowercase hexadecimal characters\"}\nSign output: {\"ok\":true,\"public_key\":\"G...\",\"digest\":\"...\",\"signature\":\"128 lowercase hexadecimal characters\",\"verified\":true}\nFinish sign input with EOF.\n\nUse 1Password desktop to create, manage, and approve signers.\nTunnel starts the testnet signing bridge. It prints a connection code and QR code for websites.\nOP_VAULT limits website wallets to a 1Password vault name or ID. Filtering requires the 1Password CLI.\nOP_VAULT does not filter the local list or sign commands.\nA connected website approves its own requests. 1Password can still ask for approval on the Mac.\nDemo starts an independent example website with its own temporary public URL and QR code.\nThe agent signs the 32 digest bytes. It cannot inspect the network, amount, destination, or contract policy.\nInspect the source transaction before you compute the digest. 1Password does not display Stellar transaction details.\nUse Stellar CLI to construct, inspect, and submit transactions.\nUse Stellar Raven for protocol research and contract discovery.\nCompanion skill: ~/.agents/skills/walleterm/SKILL.md (install with make install-skill).\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "help-short",
+   "args": [
+    "-h"
+   ],
+   "stdin": "",
+   "agent": [],
+   "no_socket": true,
+   "exit": 0,
+   "stdout": "walleterm list [--human]\nwalleterm sign [--human] \u003c request.json\nwalleterm sign-auth \u003c request.json\nwalleterm tunnel [--port 8787]\nwalleterm demo [--port 8788]\nwalleterm --help\nwalleterm --version\n\nList and sign return JSON by default. --human changes their output format.\nTunnel and demo print readable public links and QR codes.\nList output: {\"ok\":true,\"signers\":[{\"public_key\":\"G...\",\"fingerprint\":\"SHA256:...\",\"comment\":\"...\"}]}\nSign input:  {\"public_key\":\"G...\",\"digest\":\"64 lowercase hexadecimal characters\"}\nSign output: {\"ok\":true,\"public_key\":\"G...\",\"digest\":\"...\",\"signature\":\"128 lowercase hexadecimal characters\",\"verified\":true}\nFinish sign input with EOF.\n\nUse 1Password desktop to create, manage, and approve signers.\nTunnel starts the testnet signing bridge. It prints a connection code and QR code for websites.\nOP_VAULT limits website wallets to a 1Password vault name or ID. Filtering requires the 1Password CLI.\nOP_VAULT does not filter the local list or sign commands.\nA connected website approves its own requests. 1Password can still ask for approval on the Mac.\nDemo starts an independent example website with its own temporary public URL and QR code.\nThe agent signs the 32 digest bytes. It cannot inspect the network, amount, destination, or contract policy.\nInspect the source transaction before you compute the digest. 1Password does not display Stellar transaction details.\nUse Stellar CLI to construct, inspect, and submit transactions.\nUse Stellar Raven for protocol research and contract discovery.\nCompanion skill: ~/.agents/skills/walleterm/SKILL.md (install with make install-skill).\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "no-platform",
+   "args": [
+    "list"
+   ],
+   "stdin": "",
+   "agent": [],
+   "no_socket": true,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"unsupported_platform\",\"message\":\"The 1Password socket is available only on macOS.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-00",
+   "args": [
+    "sign"
+   ],
+   "stdin": "",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input must be one JSON object.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-01",
+   "args": [
+    "sign"
+   ],
+   "stdin": "null",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input must be one JSON object.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-02",
+   "args": [
+    "sign"
+   ],
+   "stdin": "[]",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input must be one JSON object.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-03",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{}",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The public key must be a canonical Ed25519 G-address.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-04",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input must be one JSON object.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-05",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}{}",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input must contain no trailing JSON.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-06",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}x",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input must contain no trailing JSON.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-07",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}\n",
+   "agent": [],
+   "no_socket": true,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_unavailable\",\"message\":\"The 1Password socket is unavailable.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-08",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input contains a duplicate field.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-09",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input contains a duplicate field.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-10",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\",\"extra\":\"x\"}",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input contains an unknown field.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-11",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":12}",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input must contain string fields.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-12",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":null}",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input must contain string fields.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-13",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [],
+   "no_socket": true,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_unavailable\",\"message\":\"The 1Password socket is unavailable.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-14",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\",\"digest\":\"01010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The digest must contain 64 lowercase hexadecimal characters.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-15",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"gdveu3dd4kofecv66vihwezoyx4zkr3wv27l464siipou2iui3jcza57\",\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The public key must be a canonical Ed25519 G-address.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-16",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\"}",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The digest must contain 64 lowercase hexadecimal characters.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-17",
+   "args": [
+    "sign"
+   ],
+   "stdin": "{\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\"}",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The public key must be a canonical Ed25519 G-address.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-18",
+   "args": [
+    "sign"
+   ],
+   "stdin": " {\"digest\":\"0101010101010101010101010101010101010101010101010101010101010101\",\"public_key\":\"GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57\"} ",
+   "agent": [],
+   "no_socket": true,
+   "exit": 1,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"agent_unavailable\",\"message\":\"The 1Password socket is unavailable.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-19",
+   "args": [
+    "sign"
+   ],
+   "stdin": "                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 ",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input must be at most 4096 bytes.\"}}\n",
+   "stderr": "",
+   "requests": []
+  },
+  {
+   "id": "input-20",
+   "args": [
+    "sign"
+   ],
+   "stdin": "�",
+   "agent": [],
+   "no_socket": true,
+   "exit": 2,
+   "stdout": "{\"ok\":false,\"error\":{\"code\":\"invalid_input\",\"message\":\"The input must be one JSON object.\"}}\n",
+   "stderr": "",
+   "requests": []
+  }
+ ],
+ "missing_socket": "/private/tmp/walleterm-capture-missing.sock",
+ "mock_public_key": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57",
+ "note": "Mock agent frames only. The mock key comes from a fixed seed (07 repeated). Never import it.",
+ "producer": {
+  "file": "main.go",
+  "generated": "2026-09-28",
+  "go": "1.27.1",
+  "source_commit": "52a7fc388e93e19482a9cc2a96408ac4328c526e",
+  "version": "dev"
+ },
+ "schema": 1
+}

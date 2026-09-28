@@ -15,16 +15,14 @@
   },
   "dependencies": {
     "@stellar/stellar-sdk": "17.1.0",
-    "jsqr": "1.4.0",
-    "qrcode": "1.5.4"
+    "jsqr": "1.4.0"
   },
   "devDependencies": {
-    "@types/bun": "1.4.2",
-    "@types/qrcode": "1.5.6",
-    "prettier": "3.9.9",
-    "typescript": "7.0.2",
     "@twinkleplop/bash": "0.1.5",
-    "@twinkleplop/json": "0.1.5"
+    "@twinkleplop/json": "0.1.5",
+    "@types/bun": "1.4.2",
+    "prettier": "3.9.9",
+    "typescript": "7.0.2"
   },
   "packageManager": "bun@1.4.2",
   "exports": {
