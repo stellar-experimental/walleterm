@@ -27,7 +27,7 @@ function invocation(children: xdr.SorobanAuthorizedInvocation[] = [], argument =
     subInvocations: children,
   });
 }
-function input(adapter: AuthAdapter = { type: 'account' }, version: 1 | 2 = 2): AuthEntryInput {
+function input(adapter: AuthAdapter = { type: 'account' }): AuthEntryInput {
   const address = adapter.type === 'account' ? key.publicKey() : contract(1);
   return {
     public_key: key.publicKey(),
@@ -39,7 +39,6 @@ function input(adapter: AuthAdapter = { type: 'account' }, version: 1 | 2 = 2): 
       invocation: invocation([invocation()]),
       nonce: -123n,
       expirationLedger: 160,
-      credentialVersion: version,
     }),
   };
 }
@@ -59,69 +58,69 @@ function mutate(request: AuthEntryInput, changes: Partial<xdr.SorobanAddressCred
     ...request,
     auth_entry_xdr: new xdr.SorobanAuthorizationEntry({
       rootInvocation: entry.rootInvocation,
-      credentials:
-        entry.credentials.type === 'sorobanCredentialsAddress'
-          ? xdr.SorobanCredentials.sorobanCredentialsAddress(credentials)
-          : xdr.SorobanCredentials.sorobanCredentialsAddressV2(credentials),
+      credentials: xdr.SorobanCredentials.sorobanCredentialsAddressV2(credentials),
     }).toXDR('base64'),
   };
 }
-for (const version of [1, 2] as const) {
-  for (const adapter of [
-    { type: 'account' },
-    { type: 'contract-ed25519' },
-    { type: 'openzeppelin-ed25519', verifier: contract(3), context_rule_ids: [0, 4] },
-  ] satisfies AuthAdapter[]) {
-    test(`auth ${version} ${adapter.type}: exact fields, nested calls, independent SDK preimage`, async () => {
-      if (version === 1) {
-        expect(() => inspectAuthEntry(input(adapter, version), key.publicKey(), 100)).toThrow('V2');
-        return;
-      }
-      const request = input(adapter, version),
-        checked = inspectAuthEntry(request, key.publicKey(), 100);
-      const result = signed(request);
-      expect(verifyAuthEntrySignature(request, result, 100)).toBe(true);
-      const after = parseAuthEntry(result);
-      expect(after.credentials.type).toBe(checked.entry.credentials.type);
-      expect(after.rootInvocation.toXDR('base64')).toBe(checked.entry.rootInvocation.toXDR('base64'));
-      expect(addressCredentials(after).nonce).toBe(-123n);
-      expect(addressCredentials(after).signatureExpirationLedger).toBe(160);
-      await authorizeEntry(
-        checked.entry,
-        async (_preimage, payload) => {
-          const expected =
-            adapter.type === 'openzeppelin-ed25519'
-              ? hash(
-                  new Uint8Array([
-                    ...payload,
-                    ...xdr.ScVal.scvVec([xdr.ScVal.scvU32(0), xdr.ScVal.scvU32(4)]).toXdr(),
-                  ]),
-                )
-              : payload;
-          expect(Buffer.from(checked.digest)).toEqual(Buffer.from(expected));
-          return { signatureScVal: addressCredentials(after).signature, address: request.address };
-        },
-        160,
-        Networks.TESTNET,
-      );
-      expect(() => attachAuthSignature(request, key.publicKey(), 100, '00'.repeat(64))).toThrow(
-        'verification',
-      );
-      expect(() =>
-        attachAuthSignature(
-          request,
-          key.publicKey(),
-          100,
-          Buffer.from(other.sign(checked.digest)).toString('hex'),
-        ),
-      ).toThrow('verification');
-      expect(() => inspectAuthEntry({ ...request, auth_entry_xdr: result }, key.publicKey(), 100)).toThrow(
-        'unsigned',
-      );
-    });
-  }
+for (const adapter of [
+  { type: 'account' },
+  { type: 'contract-ed25519' },
+  { type: 'openzeppelin-ed25519', verifier: contract(3), context_rule_ids: [0, 4] },
+] satisfies AuthAdapter[]) {
+  test(`auth ${adapter.type}: exact fields, nested calls, independent SDK preimage`, async () => {
+    const request = input(adapter),
+      checked = inspectAuthEntry(request, key.publicKey(), 100);
+    const result = signed(request);
+    expect(verifyAuthEntrySignature(request, result, 100)).toBe(true);
+    const after = parseAuthEntry(result);
+    expect(after.credentials.type).toBe(checked.entry.credentials.type);
+    expect(after.rootInvocation.toXDR('base64')).toBe(checked.entry.rootInvocation.toXDR('base64'));
+    expect(addressCredentials(after).nonce).toBe(-123n);
+    expect(addressCredentials(after).signatureExpirationLedger).toBe(160);
+    await authorizeEntry(
+      checked.entry,
+      async (_preimage, payload) => {
+        const expected =
+          adapter.type === 'openzeppelin-ed25519'
+            ? hash(
+                new Uint8Array([
+                  ...payload,
+                  ...xdr.ScVal.scvVec([xdr.ScVal.scvU32(0), xdr.ScVal.scvU32(4)]).toXdr(),
+                ]),
+              )
+            : payload;
+        expect(Buffer.from(checked.digest)).toEqual(Buffer.from(expected));
+        return { signatureScVal: addressCredentials(after).signature, address: request.address };
+      },
+      160,
+      Networks.TESTNET,
+    );
+    expect(() => attachAuthSignature(request, key.publicKey(), 100, '00'.repeat(64))).toThrow('verification');
+    expect(() =>
+      attachAuthSignature(
+        request,
+        key.publicKey(),
+        100,
+        Buffer.from(other.sign(checked.digest)).toString('hex'),
+      ),
+    ).toThrow('verification');
+    expect(() => inspectAuthEntry({ ...request, auth_entry_xdr: result }, key.publicKey(), 100)).toThrow(
+      'unsigned',
+    );
+  });
 }
-test('binding mutations invalidate signatures and preserve legacy address limitations', () => {
+test('V1 entries stay readable but are never rebuilt or signed', () => {
+  const request = input({ type: 'contract-ed25519' }),
+    entry = parseAuthEntry(request.auth_entry_xdr);
+  const v1 = new xdr.SorobanAuthorizationEntry({
+    rootInvocation: entry.rootInvocation,
+    credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(addressCredentials(entry)),
+  }).toXDR('base64');
+  expect(parseAuthEntry(v1).credentials.type).toBe('sorobanCredentialsAddress');
+  expect(() => inspectAuthEntry({ ...request, auth_entry_xdr: v1 }, key.publicKey(), 100)).toThrow('V2');
+  expect(() => setAuthEntryExpiration(v1, 150)).toThrow('V2');
+});
+test('binding mutations invalidate signatures', () => {
   const request = input({ type: 'contract-ed25519' }),
     result = signed(request);
   for (const changed of [
@@ -148,7 +147,6 @@ test('binding mutations invalidate signatures and preserve legacy address limita
     'signer',
   );
   expect(() => inspectAuthEntry({ ...input(), address: contract(1) }, key.publicKey(), 100)).toThrow();
-  expect(() => inspectAuthEntry(input({ type: 'contract-ed25519' }, 1), key.publicKey(), 100)).toThrow('V2');
 });
 test('expiry, unsigned canonical bounded XDR, variants and adapters fail closed', () => {
   const request = input(),

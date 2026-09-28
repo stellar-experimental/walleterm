@@ -491,7 +491,7 @@ The website must verify those facts and enforce-simulate the result.
 
 New signing APIs require AddressV2 credentials, including native G-account requests.
 Legacy V1 omits the authorization address from its digest and permits cross-address replay.
-The new API rejects V1 without conversion. Existing legacy fixtures remain unchanged.
+The new API rejects V1 without conversion.
 The API also rejects delegated credentials and SourceAccount entries.
 Normal SourceAccount authorization remains valid inside generic Soroban transaction envelopes.
 

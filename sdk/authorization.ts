@@ -25,6 +25,8 @@ export interface AuthSignOptions {
 const invalid = (message: string): never => {
   throw Object.assign(Error(message), { status: 400, code: 'invalid_input' });
 };
+// Reads address credentials. V1 stays readable because a transaction can carry signed V1 entries from others.
+// No helper here creates, rebuilds, or signs a V1 entry.
 export function addressCredentials(entry: xdr.SorobanAuthorizationEntry) {
   if (entry.credentials.type === 'sorobanCredentialsAddress') return entry.credentials.address;
   if (entry.credentials.type === 'sorobanCredentialsAddressV2') return entry.credentials.addressV2;
@@ -55,42 +57,40 @@ export function countAuthContexts(invocation: xdr.SorobanAuthorizedInvocation): 
   visit(invocation, 1);
   return count;
 }
+const V2_REQUIRED =
+  'Authorization signing requires address-bound V2 credentials. Legacy V1 permits cross-address replay.';
+/** Rebuild an AddressV2 entry with changed credential fields. V1 entries are never rebuilt. */
 function credentialsWith(
   entry: xdr.SorobanAuthorizationEntry,
   changes: Partial<xdr.SorobanAddressCredentials>,
 ) {
-  const credentials = new xdr.SorobanAddressCredentials({ ...addressCredentials(entry), ...changes });
+  if (entry.credentials.type !== 'sorobanCredentialsAddressV2') return invalid(V2_REQUIRED);
+  const credentials = new xdr.SorobanAddressCredentials({ ...entry.credentials.addressV2, ...changes });
   return new xdr.SorobanAuthorizationEntry({
     rootInvocation: entry.rootInvocation,
-    credentials:
-      entry.credentials.type === 'sorobanCredentialsAddress'
-        ? xdr.SorobanCredentials.sorobanCredentialsAddress(credentials)
-        : xdr.SorobanCredentials.sorobanCredentialsAddressV2(credentials),
+    credentials: xdr.SorobanCredentials.sorobanCredentialsAddressV2(credentials),
   });
 }
 function ledger(value: number) {
   if (!Number.isInteger(value) || value < 1 || value > 0xffffffff)
     invalid('Use a positive uint32 ledger number.');
 }
-/** Build a fresh explicit entry. This never converts SourceAccount credentials. */
+/** Build a fresh explicit AddressV2 entry. This never converts SourceAccount credentials. */
 export function createAuthEntry({
   address,
   invocation,
   nonce,
   expirationLedger,
-  credentialVersion = 2,
 }: {
   address: string;
   invocation: xdr.SorobanAuthorizedInvocation;
   nonce: bigint;
   expirationLedger: number;
-  credentialVersion?: 1 | 2;
 }): string {
   if (!StrKey.isValidEd25519PublicKey(address) && !StrKey.isValidContract(address))
     invalid('Use a G-address or C-address.');
   ledger(expirationLedger);
   if (typeof nonce !== 'bigint' || nonce < -(1n << 63n) || nonce >= 1n << 63n) invalid('Use an int64 nonce.');
-  if (credentialVersion !== 1 && credentialVersion !== 2) invalid('Use credential version 1 or 2.');
   countAuthContexts(invocation);
   const credentials = new xdr.SorobanAddressCredentials({
     address: new Address(address).toScAddress(),
@@ -100,10 +100,7 @@ export function createAuthEntry({
   });
   const entry = new xdr.SorobanAuthorizationEntry({
     rootInvocation: invocation,
-    credentials:
-      credentialVersion === 1
-        ? xdr.SorobanCredentials.sorobanCredentialsAddress(credentials)
-        : xdr.SorobanCredentials.sorobanCredentialsAddressV2(credentials),
+    credentials: xdr.SorobanCredentials.sorobanCredentialsAddressV2(credentials),
   });
   return parseAuthEntry(entry.toXDR('base64')).toXDR('base64');
 }
@@ -131,10 +128,7 @@ export function inspectAuthEntry(input: AuthEntryInput, selectedPublicKey: strin
     invalid('Provide the exact network passphrase.');
   const entry = parseAuthEntry(input.auth_entry_xdr),
     credentials = addressCredentials(entry);
-  if (entry.credentials.type !== 'sorobanCredentialsAddressV2')
-    invalid(
-      'Authorization signing requires address-bound V2 credentials. Legacy V1 permits cross-address replay.',
-    );
+  if (entry.credentials.type !== 'sorobanCredentialsAddressV2') invalid(V2_REQUIRED);
   if (Address.fromScAddress(credentials.address).toString() !== input.address)
     invalid('The authorization address differs from the requested address.');
   if (credentials.signature.type !== 'scvVoid') invalid('Use an unsigned authorization entry.');

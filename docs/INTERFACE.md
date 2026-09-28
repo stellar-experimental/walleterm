@@ -204,8 +204,8 @@ The bridge obtains its own trusted ledger instead.
 The new signing APIs require `sorobanCredentialsAddressV2`.
 They reject SourceAccount, delegated credentials, and legacy V1 credentials.
 V1 lacks address binding and permits signature reuse across addresses.
-The helpers preserve V1 during parsing, but signing rejects it without conversion.
-Existing legacy acceptance fixtures remain separate.
+The helpers can parse a V1 entry, because a transaction can carry signed V1 entries from other signers.
+They never create, rebuild, or sign a V1 entry.
 
 Adapters:
 
@@ -262,8 +262,8 @@ The bridge supplies ledger freshness. SDK verification does not independently qu
 
 Portable exports from `sdk/walleterm.ts` and `sdk/authorization.ts`:
 
-- `createAuthEntry({ address, invocation, nonce, expirationLedger, credentialVersion: 2 })` returns Base64 XDR.
-- `setAuthEntryExpiration(authEntryXdr, expirationLedger)` sets expiry on an unsigned entry.
+- `createAuthEntry({ address, invocation, nonce, expirationLedger })` returns Base64 XDR with AddressV2 credentials.
+- `setAuthEntryExpiration(authEntryXdr, expirationLedger)` sets expiry on an unsigned AddressV2 entry.
 - `parseAuthEntry(authEntryXdr)` returns the canonical, bounded XDR entry.
 - `addressCredentials(entry)` returns explicit V1/V2 address credentials without conversion.
 - `countAuthContexts(invocation)` counts the complete bounded invocation tree.

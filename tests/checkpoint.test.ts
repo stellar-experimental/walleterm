@@ -40,7 +40,7 @@ test('checkpoint rejects stale source, stale code, and unbound prior deployments
   );
   assert.throws(
     () => checkCheckpoint({ ...fresh(), contracts: { old: { id: 'C...', wasm: file } } }, manifest, ctx),
-    /explicit network\/key binding/,
+    /without a network\/key binding/,
   );
   const changed = structuredClone(manifest);
   changed.artifacts[file].sha256 = 'wrong';
