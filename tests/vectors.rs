@@ -122,16 +122,25 @@ fn structural_admission_accepts_what_the_sdk_cannot_model() {
     let seed = lower_hex::<32>(vectors["mock_seed_hex"].as_str().unwrap()).unwrap();
     let key = SigningKey::from_bytes(&seed);
     let public_key = vectors["public_key"].as_str().unwrap();
-    let accepted: Vec<&Value> =
-        vectors["cases"].as_array().unwrap().iter().filter(|c| c.get("rust_accepts") == Some(&json!(true))).collect();
+    let accepted: Vec<&Value> = vectors["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|c| c.get("rust_accepts") == Some(&json!(true)))
+        .collect();
     assert_eq!(accepted.len(), 1);
     for case in accepted {
         assert!(case["expect"]["error"].is_object(), "the TS side must still reject {}", case["id"]);
         let input = &case["input"];
         let xdr = input["xdr"].as_str().unwrap();
-        let (checked, _, _) =
-            inspect_transaction(xdr, input["network_passphrase"].as_str().unwrap(), public_key, public_key, case["now_ms"].as_u64().unwrap())
-                .unwrap();
+        let (checked, _, _) = inspect_transaction(
+            xdr,
+            input["network_passphrase"].as_str().unwrap(),
+            public_key,
+            public_key,
+            case["now_ms"].as_u64().unwrap(),
+        )
+        .unwrap();
         let signed = attach_signature(&checked, &hex(&key.sign(&checked.hash).to_bytes())).unwrap();
         let (TransactionEnvelope::Tx(before), TransactionEnvelope::Tx(after)) = (
             TransactionEnvelope::from_xdr_base64(xdr, Limits::none()).unwrap(),
