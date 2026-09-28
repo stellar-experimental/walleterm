@@ -250,6 +250,7 @@ fn build_sign_publish(
         }
     }
     let sha256 = sha256_hex(&std::fs::read(&archive).map_err(|e| e.to_string())?);
+    // site/install.sh reads this exact "<sha256>  <archive>" line from the latest release.
     let checksums = out.join("checksums.txt");
     std::fs::write(&checksums, format!("{sha256}  {archive_name}\n")).map_err(|e| e.to_string())?;
     std::fs::copy(stage.join("NOTICES.txt"), out.join("NOTICES.txt")).map_err(|e| e.to_string())?;
