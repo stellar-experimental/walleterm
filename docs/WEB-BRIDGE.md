@@ -109,7 +109,9 @@ await wallet.disconnect();
 The SEP-43 methods are `getAddress`, `signTransaction`, `signAuthEntry`, `signMessage`, and `getNetwork`.
 They resolve results and never reject. A failure returns empty fields and `error: { code, message, ext }`.
 `getAddress()` opens the pairing dialog when no session exists. Load `connect.css` on the page.
-`signMessage` signs SEP-53 text of 1–1024 UTF-8 bytes and returns a Base64 signature. `signTransaction` rejects `submit` with `-3`, because the bridge never submits.
+`signMessage` signs SEP-53 text of 1–1024 UTF-8 bytes and returns a Base64 signature.
+A message signature binds no network. See [SEP-43 message signing](SEP-43.md#2a-message-signing).
+`signTransaction` rejects `submit` with `-3`, because the bridge never submits.
 The Stellar SDK contract client accepts the wallet object directly, for example `signAuthEntries({ signAuthEntry: wallet })`.
 
 The default wallet scope is `selected`: one wallet for each connection.
@@ -192,7 +194,6 @@ Restart the bridge to revoke all website sessions.
 ## Future work
 
 The Wallets Kit module ships in this repository only. An unchanged website still needs an integration.
-A message signature binds no network. See [SEP-43 message signing](SEP-43.md#2a-message-signing).
 A stable named tunnel, longer session management, and production availability remain future work.
 Cloudflare terminates TLS and can read tokens and XDR. Add end-to-end encryption before any mainnet use.
 The bridge shows the website Origin as a claim. Verified website identity remains future work.

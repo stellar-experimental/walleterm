@@ -273,6 +273,15 @@ function preimageFor(address: string, { network = Networks.TESTNET, nonce = 7n, 
         )
   ).toXDR('base64');
 }
+// The last data character of a 64-byte signature carries 2 data bits and 4 zero bits. Setting one zero bit
+// keeps the decoded bytes, so only the canonical Base64 check can refuse the result.
+const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function nonCanonical(signature: string) {
+  const variant = signature.slice(0, -3) + BASE64[BASE64.indexOf(signature.at(-3)!) | 1] + '==';
+  expect(variant).not.toBe(signature);
+  expect(Buffer.from(variant, 'base64')).toEqual(Buffer.from(signature, 'base64'));
+  return variant;
+}
 const preimageSignature = (preimage: string, signer = key) =>
   Buffer.from(signer.sign(hash(Buffer.from(preimage, 'base64')))).toString('base64');
 
@@ -319,7 +328,7 @@ test('returned preimage signatures that fail verification preserve unknown outco
     preimageSignature(preimage, other),
     preimageSignature(preimageFor(contract, { nonce: 8n })),
     raw.toString('hex'),
-    valid.slice(0, -3) + 'B==',
+    nonCanonical(valid),
     Buffer.concat([raw, Buffer.from([0])]).toString('base64'),
   ]) {
     const f = fixture(artifact);
@@ -375,7 +384,7 @@ test('returned message signatures that fail verification preserve unknown outcom
     // The raw digest signature is not a SEP-53 signature.
     Buffer.from(key.sign(Buffer.from(message))).toString('base64'),
     raw.toString('hex'),
-    valid.slice(0, -3) + 'B==',
+    nonCanonical(valid),
     Buffer.concat([raw, Buffer.from([0])]).toString('base64'),
   ]) {
     const f = fixture(artifact);
