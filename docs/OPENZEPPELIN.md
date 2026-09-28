@@ -533,9 +533,13 @@ It does not show digest binding between two live rules.
 Offline tests in `tests/openzeppelin-auth-live.test.ts` cover the validation and control paths with mock keys.
 
 ```sh
+cargo build --locked --features test-host --bin walleterm-test-host
 WALLETERM_BINARY=/isolated/prefix/bin/walleterm \
   bun --no-env-file tests/openzeppelin-auth-live.ts /path/to/public-test-keys.json
 ```
+
+The local bridge is the Rust bridge in the test host's production mode, on loopback.
+The runner counts 1Password requests from the test host's signer-call events.
 
 The runner writes `openzeppelin-auth-live/` beside the metadata file.
 That directory holds `events.jsonl`, `summary.json`, and the submission journals.

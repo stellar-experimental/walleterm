@@ -14,14 +14,21 @@ import {
   verifyContractResult,
 } from './contracts.ts';
 import type { ContractReview } from './contracts.ts';
+import {
+  Account,
+  Asset,
+  Keypair,
+  Networks,
+  Operation,
+  StrKey,
+  TransactionBuilder,
+  xdr,
+} from '@stellar/stellar-sdk';
 import type { Horizon, Transaction } from '@stellar/stellar-sdk';
 import type { Account as WalletAccount } from '../../sdk/types.ts';
 import type { Sep43Error } from '../../sdk/errors.ts';
 import type { Walleterm } from '../../sdk/walleterm.ts';
 
-declare global {
-  var StellarSdk: typeof import('@stellar/stellar-sdk');
-}
 type Action = 'note' | 'payment' | 'offer' | 'cancel_offer' | 'contract_setup' | 'contract_counter';
 type State =
   | 'review'
@@ -90,8 +97,6 @@ function $<K extends string>(id: K): K extends keyof Elements ? Elements[K] : HT
   return element as K extends keyof Elements ? Elements[K] : HTMLElement;
 }
 const updateDetails = createCodeView($('details'), { label: 'JSON', disclosure: $('transaction-details') });
-const { Account, Asset, Keypair, Networks, Operation, StrKey, TransactionBuilder, xdr } =
-  globalThis.StellarSdk;
 const HORIZON = 'https://horizon-testnet.stellar.org';
 const ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
 const STORAGE = 'walleterm-demo-request-v1';
@@ -118,7 +123,7 @@ let busy = false,
   journalBlocked = false,
   actionPhase = '',
   actionProgress = '';
-// The connection component saves its session per tab and checks it after reload.
+// The connection component shares its session with the site's other tabs. It checks the session after a reload.
 const connection = new WalletermConnect($('wallet-connection'), {
   onBusyChange: () => render(),
   onStateChange: () => render(),

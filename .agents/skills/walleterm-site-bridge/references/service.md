@@ -1,16 +1,16 @@
 # Tunnel service and browser SDK
 
 This reference matches bridge protocol version 3 in Walleterm source on 2026-09-28.
-The bridge binary includes its own Bun runtime and Stellar SDK 17.1.0.
+The `walleterm` binary runs the bridge natively and embeds the demo website. The browser SDK uses Stellar SDK 17.1.0.
 Check `walleterm --help` for the installed command interface.
 Installing this skill does not install the binary, service assets, or dependencies.
 Start the service on the Mac that hosts 1Password. A cloud execution environment cannot use its local SSH socket.
 
 ## Start the service
 
-The tunnel needs macOS, the enabled 1Password SSH agent, cloudflared, and the installed `walleterm-bridge` binary.
+The tunnel needs macOS, the enabled 1Password SSH agent, cloudflared, and the installed `walleterm` binary.
 The demo needs cloudflared and the same binary.
-The Homebrew cask installs both. A source checkout installs both with `make install`.
+The Homebrew cask installs `walleterm` and cloudflared. A source checkout installs `walleterm` with `make install`.
 Do not rebuild the service merely to install or edit these skills.
 
 ```sh
@@ -120,8 +120,8 @@ Use the SDK instead of duplicating its session, revision, request-ID, and cancel
 
 ## Preserve unknown results
 
-The wallet saves its bridge URL and session token in `sessionStorage` under `walleterm:session`.
-`sessionStorageKey: null` keeps them in memory only. A reload checks `/v1/account` before it publishes an address.
+The wallet saves its bridge URL and session token in `localStorage` under `walleterm:session`. All tabs of the website share them.
+`storageKey: null` keeps them in memory only. A reload or a new tab checks `/v1/account` before it publishes an address.
 Recovery never repeats signing or submission. Disconnect and 401 responses clear the saved session.
 Network failures retain the saved session. Expired sessions require a new connection code.
 Restarting the bridge ends sessions and requests. It never retries signing.

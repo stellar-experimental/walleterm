@@ -1,5 +1,7 @@
 // Explicit live acceptance. Uses only pre-existing dedicated 1Password test keys.
 // Usage: WALLETERM_BINARY=/isolated/prefix/bin/walleterm bun --no-env-file tests/contract-auth-demo-live.ts /path/to/public-test-keys.json
+// The website half uses the Rust bridge with its production signer on loopback. Build it first:
+// cargo build --locked --features test-host --bin walleterm-test-host
 import { spawn } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -13,7 +15,7 @@ import {
   rpc,
   xdr,
 } from '@stellar/stellar-sdk';
-import { createBridge } from '../bridge/server.ts';
+import { createHost, type Host } from './browser/host.ts';
 import { WalletermClient } from '../sdk/walleterm.ts';
 import { addressCredentials, inspectAuthEntry, verifyAuthEntrySignature } from '../sdk/authorization.ts';
 import {
@@ -57,7 +59,7 @@ function record(id: string, status: string, details: Record<string, unknown> = {
   );
 }
 const guard = createSubmissionGuard({ rpc: server, directory, networkPassphrase: Networks.TESTNET, record });
-const bridge = createBridge({ port: 0, log: () => {} });
+let bridge: Host | undefined;
 let client: WalletermClient | undefined;
 
 async function cliAuth(input: AuthEntryInput, latestLedger: number) {
@@ -231,11 +233,8 @@ async function submit(prepared: ContractPreparation) {
 
 try {
   guard.assertClear();
-  await bridge.listen();
-  const bound = bridge.server.address();
-  if (!bound || typeof bound === 'string') throw Error('The local acceptance bridge did not bind.');
-  const origin = `http://127.0.0.1:${bound.port}`;
-  bridge.setPublicOrigin(origin);
+  bridge = await createHost({ production: true });
+  const origin = bridge.origin;
   client = new WalletermClient(origin, {
     page: null,
     pollInterval: 100,
@@ -243,7 +242,7 @@ try {
       fetch(url, { ...options, headers: { ...options?.headers, Origin: 'http://127.0.0.1:8788' } }),
   });
   await client.connect({
-    code: bridge.pairing.code,
+    code: await bridge.code(),
     selectWallet: async (signers) => {
       if (!signers.some((key) => key.public_key === signer))
         throw Error('The dedicated test signer is unavailable.');
@@ -298,6 +297,6 @@ try {
   process.exitCode = 1;
 } finally {
   await client?.disconnect().catch(() => {});
-  await bridge.close();
+  await bridge?.close();
   unlinkSync(lock);
 }

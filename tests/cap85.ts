@@ -1184,10 +1184,25 @@ async function x05(ctx: Cap85Context, state: Cap85State, manifest: Cap85Manifest
   return details;
 }
 
-async function x06(ctx: Cap85Context, state: Cap85State, manifest: Cap85Manifest) {
+export async function x06(ctx: Cap85Context, state: Cap85State, manifest: Cap85Manifest) {
   const { sdk, keys } = ctx;
   const manager = state.contracts.manager?.id;
   if (!manager) throw new Error('X06 needs X01');
+  // No resume after an executable change: a restart cannot observe the original executable again, and
+  // X06 never repeats an operation to recreate it. Startup reconciliation saves or clears any X06 marker,
+  // or stops the run, so a saved adopt step is the only record of a change. Stop for manual review.
+  const changed = ['adopt-ref', 'adopt-wasm'].flatMap((label) => {
+    const saved = state.steps[`X06:${label}`];
+    return saved ? [`${label} ${saved.hash}`] : [];
+  });
+  if (changed.length)
+    throw Object.assign(
+      new Error(
+        `X06: incomplete_evidence: the checkpoint holds ${changed.join(', ')} but not done.X06. ` +
+          'X06 does not resume after an executable change. Review these transactions, then recover as fixtures/cap85/README.md describes.',
+      ),
+      { code: 'incomplete_evidence' },
+    );
   const details: RowDetails = {
     title: 'a Wasm-deployed contract adopts the reference, then a direct Wasm again',
   };
@@ -1196,10 +1211,15 @@ async function x06(ctx: Cap85Context, state: Cap85State, manifest: Cap85Manifest
     addr(sdk, keys.b.publicKey),
   ]);
   details.target_plain = plain;
-  details.before = {
+  const before = (details.before = {
     executable: await readInstanceExecutable(ctx, plain),
     version: await readU32(ctx, plain, 'version'),
-  };
+  });
+  // A partial manual recovery can keep a target that adopt-ref already moved. Stop before any signature.
+  if (before.executable.type !== 'wasm' || before.version !== 1)
+    throw new Error(
+      'X06: the target does not start on the direct v1 executable; recover as fixtures/cap85/README.md describes',
+    );
   details.adopt_ref_by_admin_b = await step('adopt-ref', () =>
     invokeOperation(ctx, state, {
       operation: call(sdk, plain, 'adopt_ref', addr(sdk, manager), str(sdk, TAG)),
@@ -1351,7 +1371,9 @@ export async function runCap85(ctx: Cap85Context) {
         });
         throw e;
       }
-      ctx.record(row.id, 'failed', { error: String(e.stack ?? e) });
+      ctx.record(row.id, e.code === 'incomplete_evidence' ? 'incomplete_evidence' : 'failed', {
+        error: String(e.stack ?? e),
+      });
       throw e; // stop immediately on the first failed row
     }
     state.done[row.id] = details;
