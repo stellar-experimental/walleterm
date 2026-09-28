@@ -7,6 +7,8 @@
   },
   "include": [
     "check.mts",
+    "tab.mts",
+    "tabs.mts",
     "live/*.mts"
   ]
 }

@@ -1,3 +1,4 @@
+import { Networks } from '@stellar/stellar-sdk';
 import { Walleterm } from './walleterm.js';
 import type { AddressChange, Result } from './walleterm.js';
 
@@ -75,16 +76,27 @@ export class WalletermModule {
    * The Kit core does not call this hook. Connect it once, read the event, and act only while Walleterm is the
    * Kit's selected wallet. Both Kit calls use the selected module. See docs/SEP-43.md for the guarded hook.
    * A switch updates the Kit address. A disconnection or an expired session clears it without opening a dialog.
+   * Changes in other tabs of the website arrive here too.
    */
   onChange(callback: (event: KitChange) => void) {
-    this.wallet.onChange(({ address, network, networkPassphrase }: AddressChange) =>
+    const report = ({ address, network, networkPassphrase }: AddressChange) =>
       callback({
         address: address ?? '',
         network,
         networkPassphrase,
         ...(address ? {} : { error: { code: -3, message: 'Walleterm disconnected. Connect again.' } }),
-      }),
-    );
+      });
+    this.wallet.onChange(report);
+    // The Kit restores its address on load. Confirm the saved session, so the event reports its current state.
+    this.wallet.restore();
+    const client = this.wallet.client;
+    if (client?.token && !client.account?.address) void this.wallet.getAddress({ skipRequestAccess: true });
+    // Another call found first that the saved session ended. That report went out before this hook existed.
+    else if (client && !client.token)
+      queueMicrotask(() => {
+        if (this.wallet.client === client && !client.token)
+          report({ address: null, network: 'TESTNET', networkPassphrase: Networks.TESTNET });
+      });
   }
   async disconnect() {
     try {

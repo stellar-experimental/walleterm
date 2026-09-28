@@ -1,8 +1,9 @@
-// Offline check for the SEP-43 live acceptance page. It uses an in-process bridge and isolated random mock keys.
-// Run from the repository root: bun fixtures/kit/live/check.mts
+// Offline check for the SEP-43 live acceptance page. It uses the Rust bridge in walleterm-test-host and isolated
+// random mock keys. Run from the repository root:
+//   cargo build --locked --features test-host --bin walleterm-test-host && bun fixtures/kit/live/check.mts
 import assert from 'node:assert/strict';
 import { Keypair } from '@stellar/stellar-sdk';
-import { createBridge } from '../../../bridge/server.ts';
+import { createHost } from '../../../tests/browser/host.ts';
 import { Walleterm } from '../../../sdk/walleterm.ts';
 import { mismatches, runNegatives } from './negatives.mts';
 import { buildPage } from './serve.mts';
@@ -10,10 +11,7 @@ import type { BridgeRequest } from './negatives.mts';
 
 const key = Keypair.random();
 let signatures = 0;
-const bridge = createBridge({
-  port: 0,
-  log() {},
-  review: undefined,
+const bridge = await createHost({
   latestLedger: async () => 100,
   listSigners: async () => [{ public_key: key.publicKey() }],
   sign: async (_publicKey, digest) => {
@@ -21,15 +19,11 @@ const bridge = createBridge({
     return Buffer.from(key.sign(Buffer.from(digest, 'hex'))).toString('hex');
   },
 });
-await bridge.listen();
-const bound = bridge.server.address();
-if (!bound || typeof bound === 'string') throw Error('The mock bridge did not bind.');
-const origin = `http://127.0.0.1:${bound.port}`;
-bridge.setPublicOrigin(origin);
+const origin = bridge.origin;
 try {
   const requests: BridgeRequest[] = [];
   const wallet = new Walleterm({
-    sessionStorageKey: null,
+    storageKey: null,
     page: null,
     fetch: (input, init) => {
       const url = input instanceof Request ? input.url : String(input);
@@ -43,7 +37,7 @@ try {
         (
           await target.connect({
             url: origin,
-            code: bridge.pairing.code,
+            code: await bridge.code(),
             selectWallet: async () => key.publicKey(),
           })
         ).address,

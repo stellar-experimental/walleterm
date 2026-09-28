@@ -1,6 +1,6 @@
 import type { AuthAdapter } from './authorization.js';
 import type { Sep43Error } from './errors.js';
-/** Bridge protocol version 3 values. Connection credentials stay in memory or in sessionStorage. */
+/** Bridge protocol version 3 values. Connection credentials stay in memory or in localStorage. */
 export interface Signer {
   public_key: string;
   comment?: string;

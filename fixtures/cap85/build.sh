@@ -13,4 +13,4 @@ mkdir -p "$OUT"
 (cd "$HERE/contracts-sdk27" && cargo test --quiet)
 (cd "$HERE/contracts" && cargo test --quiet)
 find "$HERE/contracts" "$HERE/contracts-sdk27" -type d -name test_snapshots -prune -exec rm -rf {} +
-bun "$HERE/manifest.ts" "$HERE"
+cargo run --locked -q --manifest-path "$HERE/../../Cargo.toml" -p walleterm-tools -- cap85-manifest "$HERE"

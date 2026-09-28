@@ -24,6 +24,7 @@
 *.swp
 *.swo
 coverage.out
+__pycache__/
 **/test_snapshots/
 
 # Keep run state, signer metadata, and review scratch files on this machine.
@@ -54,3 +55,5 @@ coverage.out
 
 # Illustration build output. Parity recreations are test artifacts.
 /design/art/out/
+
+/target/

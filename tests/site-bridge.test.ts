@@ -1,7 +1,7 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,7 +41,7 @@ interface PageWindow {
 }
 
 const skill = fileURLToPath(new URL('../.agents/skills/walleterm-site-bridge/', import.meta.url));
-const attach = join(skill, 'scripts/classic-attach.py');
+const attach = join(skill, 'scripts/classic-attach.ts');
 const bridge = join(skill, 'scripts/legacy-freighter.ts');
 
 test('a reviewed V1 XDR crosses the legacy page bridge once', () => {
@@ -82,7 +82,7 @@ test('a reviewed V1 XDR crosses the legacy page bridge once', () => {
 
     const attached = JSON.parse(
       execFileSync(
-        'python3',
+        process.execPath,
         [
           attach,
           '--unsigned',
@@ -113,7 +113,7 @@ test('a reviewed V1 XDR crosses the legacy page bridge once', () => {
     assert.equal(signer.verify(transaction.hash(), parsed.signatures[0].signature), true);
 
     const wrongKey = spawnSync(
-      'python3',
+      process.execPath,
       [
         attach,
         '--unsigned',
@@ -146,7 +146,7 @@ test('a reviewed V1 XDR crosses the legacy page bridge once', () => {
       { mode: 0o600 },
     );
     const forged = spawnSync(
-      'python3',
+      process.execPath,
       [
         attach,
         '--unsigned',
@@ -166,6 +166,36 @@ test('a reviewed V1 XDR crosses the legacy page bridge once', () => {
     );
     assert.notEqual(forged.status, 0);
     assert.match(forged.stderr, /does not verify/);
+    assert.equal(existsSync(join(directory, 'forged.xdr')), false);
+
+    const again = spawnSync(
+      process.execPath,
+      [
+        attach,
+        '--unsigned',
+        unsignedPath,
+        '--signature',
+        signaturePath,
+        '--expected-public-key',
+        signer.publicKey(),
+        '--network-passphrase',
+        Networks.TESTNET,
+        '--expected-hash',
+        hash,
+        '--output',
+        signedPath,
+      ],
+      { encoding: 'utf8' },
+    );
+    assert.notEqual(again.status, 0);
+    assert.match(again.stderr, /Use a new output path/);
+    assert.equal(readFileSync(signedPath, 'utf8').trim(), signed);
+    assert.equal(statSync(signedPath).mode & 0o777, 0o600);
+
+    const unknown = spawnSync(process.execPath, [attach, '--unsigned', unsignedPath, '--force'], {
+      encoding: 'utf8',
+    });
+    assert.notEqual(unknown.status, 0);
 
     const source = execFileSync(
       process.execPath,
