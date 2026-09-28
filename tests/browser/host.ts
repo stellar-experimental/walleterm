@@ -19,6 +19,8 @@ export interface HostOptions {
   /** Present: every request waits for this review. Absent: the bridge approves valid requests. */
   review?: (request: ReviewRequest, options: Options) => Promise<boolean>;
   log?: (line: string) => unknown;
+  /** Called when the bridge calls its signer, before the signer answers. */
+  onSign?: () => unknown;
   /** Also serve the embedded demo website. Its origin is `demoOrigin`. */
   demo?: boolean;
   /**
@@ -88,6 +90,7 @@ export async function createHost(options: HostOptions = {}): Promise<Host> {
     if (message.ready) return ready.resolve(message.ready);
     if (message.reply !== undefined) return replies.get(message.reply)?.(message.value);
     if (message.log !== undefined) return options.log?.(message.log);
+    if (message.sign_called) return options.onSign?.();
     if (message.pairing_changed) return pairingChanged();
     if (message.abort !== undefined) {
       const reason = Object.assign(Error(message.reason?.message ?? 'Aborted'), {

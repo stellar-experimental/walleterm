@@ -425,10 +425,6 @@ async function main() {
     networkPassphrase: Networks.TESTNET,
     record,
   });
-  // Each bridge signing request ends in exactly one Signed or withheld log line.
-  const countSignature = (line: string) => {
-    if (line.startsWith('Signed ') || line.startsWith('Signature withheld or stopped')) usage.signatures++;
-  };
   let bridge: Host | undefined;
   const controls = { rejected_by_enforcing_simulation: 0, signatures_requested: 0, submitted: 0 };
   let client: WalletermClient | undefined;
@@ -529,7 +525,8 @@ async function main() {
     const d = loadDeployment(state, manifest, signer);
     const verified = await verifyDeployment(server, d);
     record('deployment', 'verified', { deployment: d, ...verified, oz_commit: OPENZEPPELIN_AUTH_COMMIT });
-    bridge = await createHost({ production: true, log: countSignature });
+    // The test host reports each call to the 1Password signer.
+    bridge = await createHost({ production: true, onSign: () => usage.signatures++ });
     const origin = bridge.origin;
     client = new WalletermClient(origin, {
       page: null,

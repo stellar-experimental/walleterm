@@ -154,7 +154,14 @@ fn main() {
         let offset = Arc::new(AtomicI64::new(0));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("a loopback port");
         let port = listener.local_addr().unwrap().port();
-        let bridge = Bridge::new(dependencies(&rpc, offset.clone()), port);
+        let mut dependencies = dependencies(&rpc, offset.clone());
+        // Each signer call, before it starts. The live harnesses count these, not terminal lines.
+        let sign = dependencies.sign;
+        dependencies.sign = Box::new(move |public_key, digest, cancel| {
+            send(&json!({ "sign_called": true }));
+            sign(public_key, digest, cancel)
+        });
+        let bridge = Bridge::new(dependencies, port);
         bridge.set_public_origin(&format!("http://127.0.0.1:{port}")).unwrap();
         bridge.on_pairing_changed(Box::new(|| send(&json!({ "pairing_changed": true }))));
         let stop = Cancel::new();

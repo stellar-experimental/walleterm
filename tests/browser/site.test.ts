@@ -96,6 +96,8 @@ function contextFor(html: string, extras: Record<string, unknown> = {}) {
     clearInterval() {},
     Option: class {},
     navigator: { locks: { request: async (_name: string, fn: () => unknown) => fn() } },
+    // app.ts imports its SDK classes, and browserScript() removes imports. Each test's SDK mock supplies them.
+    ...(extras.StellarSdk as Record<string, unknown> | undefined),
     ...extras,
   });
   // Errors must come from the page realm. A test-realm requestError fails its instanceof check and drops fields.

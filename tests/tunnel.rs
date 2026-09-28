@@ -838,3 +838,25 @@ async fn closed_output_keeps_the_url_deadline_and_the_stop_request() {
     assert_eq!(e.code, "service_stopped");
     drop(mock.exit);
 }
+
+/// Review P7-S1: shutdown during recovery waits until the old tunnel has stopped.
+#[tokio::test]
+async fn shutdown_while_recovery_stops_the_old_tunnel_waits_for_that_stop() {
+    let dir = scratch();
+    scripted_cloudflared(&dir, "1 2");
+    let (h, mut deps) = harness(Plan {
+        probe: Box::new(|_, _| Err(Error::new("internal", "Mock network failure"))),
+        health: Duration::from_millis(20),
+        ..Plan::default()
+    });
+    let cwds = real_supervisor(&mut deps, &dir);
+    let running = launch("Walleterm tunnel", 8796, h.service.clone(), deps).await.map_err(|e| e.0).unwrap();
+    let old = tunnels(&dir)[0];
+    until_for(|| h.output.text().contains("Restarting the public tunnel."), 2000).await;
+    assert_eq!(running.stop(0).await, 0);
+    let (old_alive, record_kept) = (alive(old), cwds.lock().unwrap()[0].exists());
+    until_for(|| !alive(old), 2000).await;
+    let _ = std::fs::remove_dir_all(&dir);
+    assert!(!old_alive, "shutdown returned before the old tunnel stopped");
+    assert!(!record_kept, "shutdown removed the private directory last");
+}

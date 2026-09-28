@@ -539,7 +539,7 @@ WALLETERM_BINARY=/isolated/prefix/bin/walleterm \
 ```
 
 The local bridge is the Rust bridge in the test host's production mode, on loopback.
-The runner counts 1Password requests from the bridge's `Signed` and withheld log lines.
+The runner counts 1Password requests from the test host's signer-call events.
 
 The runner writes `openzeppelin-auth-live/` beside the metadata file.
 That directory holds `events.jsonl`, `summary.json`, and the submission journals.

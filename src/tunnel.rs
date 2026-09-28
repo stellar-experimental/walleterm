@@ -533,7 +533,31 @@ pub async fn launch(
     }
     shared.started.store(true, Ordering::SeqCst);
     let label = label.to_owned();
-    tokio::spawn(monitor(label, deps, shared, service, controller, connect, print_connection, stop_all));
+    // Recovery stops the old tunnel under the start lock, so shutdown waits for that stop too.
+    let retire = {
+        let (shared, starting) = (shared.clone(), starting.clone());
+        Arc::new(move || -> BoxFuture<()> {
+            let (shared, starting) = (shared.clone(), starting.clone());
+            Box::pin(async move {
+                let _retiring = starting.lock().await;
+                let old = shared.tunnel.lock().unwrap().take();
+                if let Some(mut old) = old {
+                    (old.stop)().await;
+                }
+            })
+        })
+    };
+    tokio::spawn(monitor(
+        label,
+        deps,
+        shared,
+        service,
+        controller,
+        connect,
+        retire,
+        print_connection,
+        stop_all,
+    ));
     Ok(running)
 }
 
@@ -560,6 +584,7 @@ async fn monitor(
     service: Arc<dyn Service>,
     controller: Cancel,
     connect: Arc<dyn Fn() -> BoxFuture<Result<()>> + Send + Sync>,
+    retire: Arc<dyn Fn() -> BoxFuture<()> + Send + Sync>,
     print_connection: Arc<dyn Fn() -> bool + Send + Sync>,
     stop_all: Arc<dyn Fn(i32) -> BoxFuture<i32> + Send + Sync>,
 ) {
@@ -638,10 +663,7 @@ async fn monitor(
             paused = false;
             restarts.push(Instant::now());
             say!("Restarting the public tunnel. The public URL will change.");
-            let old = shared.tunnel.lock().unwrap().take();
-            if let Some(mut old) = old {
-                (old.stop)().await;
-            }
+            retire().await;
             let delay = deps.recovery_delay * 2u32.pow(restarts.len() as u32 - 1);
             tokio::select! {
                 () = tokio::time::sleep(delay) => {}
