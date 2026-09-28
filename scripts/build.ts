@@ -71,7 +71,6 @@ const routes: [route: string, file: string, type: string][] = [
     root + 'fixtures/wasm/walleterm_auth_target.wasm',
     'application/wasm',
   ],
-  ['/stellar-sdk.js', root + 'node_modules/@stellar/stellar-sdk/dist/stellar-sdk.min.js', 'text/javascript'],
 ];
 for (const name of readdirSync(outdir).sort())
   if (/^(chunk|jsQR)-[a-z0-9]+\.js$/i.test(name)) routes.push([`/${name}`, outdir + name, 'text/javascript']);
