@@ -49,7 +49,8 @@ Choose **Connect Walleterm**, enter the tunnel URL and code, then select a dedic
 Review the permission for the displayed wallets before selection.
 Create and review a supported transaction. Choose **Sign**, then approve 1Password on the Mac if it asks.
 Submit separately from the demo. Verify the original hash on testnet.
-The sell-offer action needs a suitable trustline. The bridge cannot create a trustline.
+The sell-offer action needs an authorized trustline to `USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`.
+The bridge cannot sign `changeTrust`. Create the trustline with the direct `walleterm` skill first.
 The demo uses Friendbot for new testnet accounts and selects an existing payment recipient.
 Inspect the displayed recipient and offer terms before approving the action.
 

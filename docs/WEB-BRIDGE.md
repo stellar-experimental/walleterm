@@ -62,6 +62,12 @@ Open the public demo URL or scan its QR code on your phone.
 6. Approve the 1Password prompt on the Mac if it appears.
 7. Submit the signed transaction from the demo.
 
+The offer action needs an authorized trustline to `USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`.
+This is the testnet USDC issuer in the Stellar documentation. A new Friendbot account has no trustline.
+The bridge cannot sign `changeTrust`. Create the trustline with direct signing instead.
+Build it with `stellar tx new change-trust --source-account G... --line USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 --network testnet --build-only`.
+Then follow the [direct V1 envelope steps](../.agents/skills/walleterm/references/classic-native.md#v1-transaction-envelope) to review, sign, and submit it.
+
 The connection code lets a website list your 1Password Ed25519 public keys and request signatures.
 The website approves its own requests. The bridge signs every valid request from a connected website.
 Use only dedicated testnet keys, and enter codes only into websites you trust.
