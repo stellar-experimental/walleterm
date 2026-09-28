@@ -54,6 +54,8 @@ interface ConnectUI {
   toggleMenu(): void;
   scan(): Promise<void>;
   update(): void;
+  setBusy(busy: boolean): void;
+  setWorking(working: boolean): void;
   connect(): Promise<void>;
   disconnect(): Promise<void>;
   refresh(): Promise<void>;
@@ -691,6 +693,45 @@ test('a failed automatic wallet lookup runs once, and Refresh retries it', async
     ['GRECOVERED'],
   );
 });
+
+for (const lock of ['setBusy', 'setWorking'] as const) {
+  test(`a wallet menu opened during ${lock}(true) keeps the automatic lookup for the next opening`, async () => {
+    const f = savedConnection();
+    const requests: string[] = [];
+    Object.assign(f.context, {
+      fetch: async (url: string) => {
+        requests.push(new URL(url).pathname);
+        return Response.json(
+          url.endsWith('/v1/signers')
+            ? { signers: [{ public_key: 'GRECOVERED', comment: 'First' }], grant_id: 'grant' }
+            : recoveredAccount,
+        );
+      },
+    });
+    let shown: MockSigner[] = [];
+    Object.assign(f.ui, {
+      rows: (_target: unknown, keys: MockSigner[]) => {
+        shown = keys;
+      },
+    });
+    await f.ui.restoreSession();
+    f.node('menu').hidden = true;
+    f.ui[lock](true);
+    f.ui.toggleMenu();
+    await settle();
+    assert.equal(f.node('menu').hidden, false);
+    assert.deepEqual(requests, ['/v1/account']);
+    f.ui.toggleMenu();
+    f.ui[lock](false);
+    f.ui.toggleMenu();
+    for (let i = 0; i < 50 && !shown.length; i++) await settle();
+    assert.deepEqual(requests, ['/v1/account', '/v1/signers']);
+    assert.deepEqual(
+      shown.map((key) => key.public_key),
+      ['GRECOVERED'],
+    );
+  });
+}
 
 test('the connection UI publishes the recovered account after a lost selection response', async () => {
   const f = fixture(() => {});
