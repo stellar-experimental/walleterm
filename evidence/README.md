@@ -62,6 +62,7 @@ It used the demo and the loopback page in `fixtures/kit/live/` with test-a and t
 The run signed 7 transactions and 2 authorization entries. The counter changed from 7 to 8.
 Four refused requests reached no signer, and a Kit disconnection revoked the session.
 The record lists two defects: withheld audit lines for delivered signatures, and an empty wallet menu after a reload.
+PR #27 fixes both defects.
 The run used the `OP_VAULT` filter because the unfiltered list included a non-test key.
 
 ## Tracked summaries and local records

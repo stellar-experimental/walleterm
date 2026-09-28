@@ -320,14 +320,14 @@
         { "hash": "2d8d1c01f0f7b85ceffcb34bbc2c47cfa8140be524ce50213cc68ddc5c8fe3e0", "trigger": "step 3e revoke", "reason": "The website connection was revoked." }
       ],
       "cause": "The switch, cancel, and revoke paths end a signed record as unknown and log it as withheld, even when the bridge already delivered its signature.",
-      "follow_up": "fix/sep43-live-findings"
+      "follow_up": "PR #27 (fix/sep43-live-findings)"
     },
     {
       "id": "header-menu-empty-after-restore",
       "area": "connection component (sdk/connect.ts)",
       "severity": "user experience",
       "observed": "After a reload restored the session, the header wallet menu showed only Copy, Refresh, and Disconnect. The wallet list appeared only after Refresh.",
-      "follow_up": "fix/sep43-live-findings"
+      "follow_up": "PR #27 (fix/sep43-live-findings)"
     },
     {
       "id": "unfiltered-wallet-list-included-non-test-key",

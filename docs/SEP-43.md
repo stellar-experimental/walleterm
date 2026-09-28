@@ -317,7 +317,7 @@ The coordinator ran these steps on testnet on 2026-09-28. All steps passed.
 [The live record](../evidence/sep43-live-2026-09-28.json) holds the hashes, ledgers, fees, and account states.
 The run signed 7 transactions and 2 authorization entries. Step 4 produced no signature.
 It found two defects. After a switch or a revoke, the terminal reported delivered signatures as withheld.
-After a reload, the header menu showed no wallets until Refresh.
+After a reload, the header menu showed no wallets until Refresh. PR #27 fixes both defects.
 
 ## Deviations from SEP-43
 
