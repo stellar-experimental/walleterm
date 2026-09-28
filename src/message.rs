@@ -21,3 +21,22 @@ pub fn inspect(text: &str) -> Result<[u8; 32]> {
     }
     Ok(digest(text.as_bytes()))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_limit_counts_utf8_bytes_and_refuses_empty_text() {
+        assert!(inspect(&"a".repeat(1024)).is_ok());
+        assert!(inspect(&"é".repeat(512)).is_ok());
+        for text in [String::new(), "a".repeat(1025), "é".repeat(513)] {
+            let e = inspect(&text).unwrap_err();
+            assert_eq!(
+                (e.code, e.message.as_str()),
+                ("invalid_request", "The message must contain 1 to 1024 UTF-8 bytes.")
+            );
+        }
+        assert_eq!(inspect("Hello, World!").unwrap(), digest(b"Hello, World!"));
+    }
+}
