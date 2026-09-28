@@ -2,7 +2,7 @@
 // rule 0 holds one External Ed25519 signer: the pre-existing dedicated 1Password key test-a. Deploys nothing.
 // Usage: WALLETERM_BINARY=/isolated/prefix/bin/walleterm bun --no-env-file tests/openzeppelin-auth-live.ts /path/to/public-test-keys.json
 // The account, verifier, and target come from live/contracts-state.json beside the metadata file.
-// The runner checks their code, rule, and signer with read-only RPC calls before any signing request.
+// The runner checks their code, rule, and signer with read-only RPC calls before each signing request.
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { spawn } from 'node:child_process';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
@@ -23,6 +23,7 @@ import {
 } from '@stellar/stellar-sdk';
 import type { Transaction } from '@stellar/stellar-sdk';
 import { createBridge } from '../bridge/server.ts';
+import { signDigest } from '../bridge/signer.ts';
 import { WalletermClient } from '../sdk/walleterm.ts';
 import {
   MAX_AUTH_LEDGER_WINDOW,
@@ -266,13 +267,14 @@ export function verifySignedEntry(d: OzDeployment, prepared: OzPrepared, signedX
 }
 
 export type AuthSigner = (input: AuthEntryInput, latestLedger: number) => Promise<string>;
-/** One signing request, only after the complete review passes. */
+/** One signing request, only after the live deployment and the complete request pass review. */
 export async function authorizeIncrement(
   server: OzRpc,
   d: OzDeployment,
   prepared: OzPrepared,
   sign: AuthSigner,
 ) {
+  await verifyDeployment(server, d);
   const latestLedger = (await server.getLatestLedger()).sequence;
   const review = reviewRequest(d, prepared, latestLedger);
   const signedXdr = await sign(structuredClone(prepared.input), latestLedger);
@@ -351,6 +353,28 @@ export async function rejectControl(server: OzRpc, d: OzDeployment, control: OzC
   return simulated.error;
 }
 
+/** Signature requests and submissions, counted at the signer and RPC boundaries. */
+export interface Usage {
+  signatures: number;
+  submissions: number;
+}
+/** Run each control. Measure signature requests and submissions around it. Both must stay zero. */
+export async function runControls(server: OzRpc, d: OzDeployment, signedXdr: string, usage: Usage) {
+  const results = [];
+  for (const control of negativeControls(d, signedXdr)) {
+    const before = { ...usage };
+    const error = await rejectControl(server, d, control);
+    const measured = {
+      signatures_requested: usage.signatures - before.signatures,
+      submitted: usage.submissions - before.submissions,
+    };
+    if (measured.signatures_requested || measured.submitted)
+      throw Error(`${control.id}: the control requested a signature or a submission.`);
+    results.push({ id: control.id, expect: control.expect, error, ...measured });
+  }
+  return results;
+}
+
 export async function verifyIncrement(server: OzRpc, d: OzDeployment, before: number) {
   const after = await readCount(server, d);
   if (after !== before + 1) throw Error('The confirmed counter differs from the reviewed increment.');
@@ -367,10 +391,11 @@ async function main() {
     throw Error('The dedicated test-a public key is missing.');
   const signer = StrKey.encodeEd25519PublicKey(Buffer.from(dedicated.raw_public_key_hex, 'hex'));
   const evidence = dirname(metadataFile);
-  const directory = new URL('../evidence/openzeppelin-auth-live/', import.meta.url);
+  // Journals live beside the metadata file, with the other live journals that the checks below read.
+  const directory = join(evidence, 'openzeppelin-auth-live');
   mkdirSync(directory, { recursive: true });
-  const events = new URL('events.jsonl', directory),
-    resultFile = new URL('summary.json', directory);
+  const events = join(directory, 'events.jsonl'),
+    resultFile = join(directory, 'summary.json');
   const lock = join(evidence, 'openzeppelin-auth-live.lock');
   for (const journal of ['live', 'contract-auth-live'])
     if (existsSync(join(evidence, journal, 'pending-submission.json')))
@@ -385,20 +410,33 @@ async function main() {
     appendFileSync(events, json(row) + '\n');
     console.log(json({ id, status, hash: details.hash, ledger: details.ledger, method: details.method }));
   }
+  // Count every 1Password request from the bridge and the CLI, and every RPC submission.
+  const usage: Usage = { signatures: 0, submissions: 0 };
   const guard = createSubmissionGuard({
-    rpc: server,
+    rpc: {
+      sendTransaction(transaction: Transaction) {
+        usage.submissions++;
+        return server.sendTransaction(transaction);
+      },
+      getTransaction: (hash: string) => server.getTransaction(hash),
+    },
     directory,
     networkPassphrase: Networks.TESTNET,
     record,
   });
-  const bridge = createBridge({ port: 0, log: () => {} });
-  const requests = { authorization: 0, envelope: 0 },
-    controls = { rejected_by_enforcing_simulation: 0, signatures_requested: 0, submitted: 0 };
+  const bridge = createBridge({
+    port: 0,
+    log: () => {},
+    sign: (...args) => {
+      usage.signatures++;
+      return signDigest(...args);
+    },
+  });
+  const controls = { rejected_by_enforcing_simulation: 0, signatures_requested: 0, submitted: 0 };
   let client: WalletermClient | undefined;
   // A signed entry stays usable until expiry if its outcome is unknown. Blocked records keep that ledger.
   let openAuthorization: number | undefined;
   const requested = (input: AuthEntryInput) => {
-    requests.authorization++;
     openAuthorization = addressCredentials(
       xdr.SorobanAuthorizationEntry.fromXDR(input.auth_entry_xdr, 'base64'),
     ).signatureExpirationLedger;
@@ -408,6 +446,8 @@ async function main() {
     guard.assertClear();
     record('cli-auth-request', 'requested', { input, latest_ledger: latestLedger });
     requested(input);
+    // One sign-auth process makes one 1Password request.
+    usage.signatures++;
     const signed = await new Promise<{
       ok: boolean;
       public_key: string;
@@ -456,7 +496,7 @@ async function main() {
   async function submit(d: OzDeployment, prepared: OzPrepared, transaction: Transaction, method: string) {
     guard.assertClear();
     const unsignedHash = hex(transaction.hash());
-    requests.envelope++;
+    await verifyDeployment(server, d);
     const signed = await client!.signTransaction(transaction.toXDR());
     const envelope = TransactionBuilder.fromXDR(signed.signedTxXdr, Networks.TESTNET);
     if (
@@ -533,16 +573,11 @@ async function main() {
         signed_auth_entry_xdr: authorized.signedXdr,
       });
       const transaction = await assembleIncrement(server, d, authorized.signedXdr);
-      for (const control of negativeControls(d, authorized.signedXdr)) {
-        const error = await rejectControl(server, d, control);
+      for (const { id, ...result } of await runControls(server, d, authorized.signedXdr, usage)) {
         controls.rejected_by_enforcing_simulation++;
-        record(control.id, 'passed', {
-          method,
-          expect: control.expect,
-          error,
-          submitted: false,
-          signatures_requested: 0,
-        });
+        controls.signatures_requested += result.signatures_requested;
+        controls.submitted += result.submitted;
+        record(id, 'passed', { method, ...result });
       }
       await submit(d, prepared, transaction, method);
     }
@@ -554,7 +589,8 @@ async function main() {
           network: 'testnet',
           signer,
           completed_at: new Date().toISOString(),
-          signature_requests: requests,
+          signature_requests: usage.signatures,
+          submissions: usage.submissions,
           negative_controls: controls,
           limits: [
             'One External Ed25519 signer on rule 0 of the pinned multisig example account.',
@@ -580,7 +616,8 @@ async function main() {
           status: 'blocked',
           network: 'testnet',
           signer,
-          signature_requests: requests,
+          signature_requests: usage.signatures,
+          submissions: usage.submissions,
           negative_controls: controls,
           records,
         },

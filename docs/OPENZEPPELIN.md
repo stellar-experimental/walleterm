@@ -506,7 +506,7 @@ This validation cannot stop a signature holder from constructing another artifac
 It uses the existing `oz_basic_a` account from the 2026-09-25 acceptance run. It deploys nothing.
 Rule 0 of that account holds one `External` Ed25519 signer: the dedicated key `walleterm-v2-test-a`.
 The runner reads the contract IDs from `live/contracts-state.json` beside the metadata file.
-Before any signing request, it checks the live code hashes, the rule count, and the complete rule 0.
+Before each signing request, it checks the live code hashes, the rule count, and the complete rule 0.
 It record-simulates one `ping` call on `auth_target_1` and builds the expected entry locally.
 Any difference stops the run before the signing request.
 
@@ -515,7 +515,8 @@ It recomputes each digest with the SDK preimage helper and the acceptance-suite 
 It rebuilds each returned `AuthPayload` independently and verifies the signature.
 Then it enforce-simulates, submits through the shared submission guard, and checks that the counter increased by one.
 
-Three negative controls reuse the signed entry. They request no signature, and the runner never submits them.
+Three negative controls reuse the signed entry. The runner never submits them.
+It counts 1Password requests and RPC submissions around each control. Both counts must stay zero.
 Enforcing simulation must reject each control with the listed error.
 
 | Control | Change | Required error |
@@ -533,8 +534,10 @@ WALLETERM_BINARY=/isolated/prefix/bin/walleterm \
   bun --no-env-file tests/openzeppelin-auth-live.ts /path/to/public-test-keys.json
 ```
 
-The runner writes `evidence/openzeppelin-auth-live/events.jsonl`, `summary.json`, and submission journals.
-It stops on an uncertain result and preserves the journals.
+The runner writes `openzeppelin-auth-live/` beside the metadata file.
+That directory holds `events.jsonl`, `summary.json`, and the submission journals.
+The runner stops on an uncertain result and preserves the journals.
+`tests/contract-auth-demo-live.ts` also writes its `contract-auth-live/` journal beside the metadata file.
 
 ## 13. `Delegated` C-address signers
 

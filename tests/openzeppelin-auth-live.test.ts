@@ -32,10 +32,11 @@ import {
   pingInvocation,
   prepareIncrement,
   rejectControl,
+  runControls,
   verifyDeployment,
   verifyIncrement,
 } from './openzeppelin-auth-live.ts';
-import type { AuthSigner, OzDeployment, OzPrepared, OzRpc } from './openzeppelin-auth-live.ts';
+import type { AuthSigner, OzDeployment, OzPrepared, OzRpc, Usage } from './openzeppelin-auth-live.ts';
 import type { ContractsState, Manifest } from './contracts.ts';
 
 // Isolated mock keys and a mocked RPC. This suite makes no network calls and requests no 1Password signatures.
@@ -501,6 +502,34 @@ test('simulation and request differences stop before any signing request', async
   }
 });
 
+test('a live rule or code change after preparation stops the signing request', async () => {
+  const changes: [string, (options: Options) => void, RegExp][] = [
+    ['second rule', (options) => (options.ruleCount = 2), /rule count/],
+    ['account upgrade', (options) => (options.wasm = { account: '00'.repeat(32) }), /account contract code/],
+    [
+      'rule expiry',
+      (options) =>
+        (options.rule = (d) => {
+          const rule = expectedRule(d);
+          if (rule.type !== 'scvMap' || !rule.map) throw Error('Expected a rule map.');
+          return xdr.ScVal.scvMap([
+            ...rule.map.slice(0, -1),
+            new xdr.ScMapEntry({ key: xdr.ScVal.scvSymbol('valid_until'), val: xdr.ScVal.scvU32(200) }),
+          ]);
+        }),
+      /rule differs/,
+    ],
+  ];
+  for (const [name, change, message] of changes) {
+    const options: Options = {};
+    const f = fixture(options);
+    const prepared = await prepareIncrement(f.server, f.d);
+    change(options);
+    await assert.rejects(authorizeIncrement(f.server, f.d, prepared, f.sign), message, name);
+    assert.equal(f.signed.length, 0, name);
+  }
+});
+
 test('returned artifacts must match the reviewed entry and the OpenZeppelin digest', async () => {
   const f = fixture();
   const prepared = await prepareIncrement(f.server, f.d);
@@ -602,6 +631,42 @@ test('negative controls change one element, request no signature, and require th
   const other = fixture({ enforce: () => simulationError('HostError: Error(Budget, ExceededLimit)') });
   for (const control of controls)
     await assert.rejects(rejectControl(other.server, other.d, control), /did not reject/);
+});
+
+test('controls measure zero signature requests and submissions at the boundaries', async () => {
+  const f = fixture();
+  const usage: Usage = { signatures: 0, submissions: 0 };
+  const sign: AuthSigner = async (input, latestLedger) => {
+    usage.signatures++;
+    return f.sign(input, latestLedger);
+  };
+  const { signedXdr } = await authorizeIncrement(f.server, f.d, await prepareIncrement(f.server, f.d), sign);
+  assert.deepEqual(usage, { signatures: 1, submissions: 0 });
+  const results = await runControls(f.server, f.d, signedXdr, usage);
+  assert.deepEqual(
+    results.map((result) => [result.id, result.signatures_requested, result.submitted]),
+    [
+      ['missing-authorization', 0, 0],
+      ['wrong-context-rule-id', 0, 0],
+      ['changed-invocation', 0, 0],
+    ],
+  );
+  assert.ok(results.every((result) => result.error.includes(result.expect)));
+  assert.deepEqual(usage, { signatures: 1, submissions: 0 });
+  // A control path that reaches a signer or a submission fails, even when simulation rejects the control.
+  for (const leak of ['signatures', 'submissions'] as const) {
+    const leaking: OzRpc = {
+      ...f.server,
+      simulateTransaction: async (...args) => {
+        usage[leak]++;
+        return f.server.simulateTransaction(...args);
+      },
+    };
+    await assert.rejects(
+      runControls(leaking, f.d, signedXdr, usage),
+      /requested a signature or a submission/,
+    );
+  }
 });
 
 test('assembly keeps the signed entry, enforces resources, and limits the fee', async () => {
