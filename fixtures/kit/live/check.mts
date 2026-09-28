@@ -29,7 +29,7 @@ bridge.setPublicOrigin(origin);
 try {
   const requests: BridgeRequest[] = [];
   const wallet = new Walleterm({
-    sessionStorageKey: null,
+    storageKey: null,
     page: null,
     fetch: (input, init) => {
       const url = input instanceof Request ? input.url : String(input);

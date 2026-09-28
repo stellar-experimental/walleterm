@@ -44,7 +44,7 @@ let dialogs = 0;
 try {
   const wallet = new Walleterm({
     walletScope: 'available',
-    sessionStorageKey: null,
+    storageKey: null,
     page: null,
     pollInterval: 5,
     fetch: (url, options) => {

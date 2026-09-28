@@ -175,7 +175,7 @@ function observe(f: ReturnType<typeof fixture>) {
     onBusyChange: (value: boolean) => callbacks.push(['busy', value]),
   });
   Object.assign(f.context, {
-    sessionStorage: {
+    localStorage: {
       setItem: (key: string, value: string) => writes.push(['set', key, value]),
       removeItem: (key: string) => writes.push(['remove', key]),
     },
@@ -190,7 +190,7 @@ function savedConnection() {
   const token = 's'.repeat(43);
   storage.set(key, JSON.stringify({ version: 3, url: 'https://bridge.example', token }));
   Object.assign(f.context, {
-    sessionStorage: {
+    localStorage: {
       getItem: (name: string) => storage.get(name) ?? null,
       setItem: (name: string, value: string) => storage.set(name, value),
       removeItem: (name: string) => storage.delete(name),
@@ -235,7 +235,13 @@ test('reload checks the saved session before publishing the wallet and uses the 
   assert.deepEqual(requests, ['https://bridge.example/v1/account']);
   assert.equal(f.node('url').value, 'https://bridge.example');
   assert.equal(f.node('code').value, '');
-  assert.deepEqual(Object.keys(JSON.parse(f.storage.get(f.key)!)).sort(), ['token', 'url', 'version']);
+  // The confirmed revision tells other tabs about a later wallet change. Nothing else joins the credentials.
+  assert.deepEqual(JSON.parse(f.storage.get(f.key)!), {
+    version: 3,
+    url: 'https://bridge.example',
+    token: f.token,
+    revision: 7,
+  });
 });
 
 test('reload keeps an offline session and recovers it on the next health check without replaying requests', async () => {
@@ -305,7 +311,7 @@ test('invalid saved details never send credentials, and unavailable storage does
   let calls = 0;
   Object.assign(f.context, {
     fetch: () => calls++,
-    sessionStorage: {
+    localStorage: {
       getItem() {
         throw Error('Storage disabled');
       },
@@ -1241,7 +1247,7 @@ for (const callback of ['state', 'connection']) {
       onBusyChange: (value: boolean) => busy.push(value),
     });
     Object.assign(f.context, {
-      sessionStorage: {
+      localStorage: {
         setItem: () => writesAfterDestroy.push(f.ui.destroyed),
         removeItem: () => writesAfterDestroy.push(f.ui.destroyed),
       },
@@ -1374,6 +1380,40 @@ test('the header follows wallet changes made outside the component', () => {
   assert.deepEqual(
     changes.map((change) => change.account?.address ?? null),
     ['GOUT', null, 'GIGNORED', null],
+  );
+});
+
+test('a new session from another tab replaces the wallet list, and the menu loads its grant', async () => {
+  const f = fixture(() => {});
+  const listed: string[] = [];
+  const session = (token: string) => ({
+    token,
+    url: 'https://bridge.example',
+    account: { address: 'GSAME', networkPassphrase: Networks.TESTNET },
+    async listWallets() {
+      listed.push(token);
+      return [{ public_key: 'GSAME' }, { public_key: `G${token.toUpperCase()}` }];
+    },
+  });
+  const first = session('first');
+  Object.assign(f.ui, { onChange() {}, client: first, account: { ...first.account }, listed: first });
+  Object.assign(f.ui, { wallets: [{ public_key: 'GSAME' }, { public_key: 'GFIRST' }] });
+  Object.assign(f.ui.wallet, { client: first });
+  f.ui.walletChanged();
+  assert.equal(f.ui.wallets.length, 2);
+  // The address can stay the same. The new grant can still list other wallets.
+  const next = session('next');
+  Object.assign(f.ui.wallet, { client: next });
+  f.ui.walletChanged();
+  assert.equal(f.ui.client, next);
+  assert.equal(f.ui.wallets.length, 0);
+  f.node('menu').hidden = true;
+  f.ui.toggleMenu();
+  for (let i = 0; i < 50 && !f.ui.wallets.length; i++) await settle();
+  assert.deepEqual(listed, ['next']);
+  assert.deepEqual(
+    f.ui.wallets.map((key) => key.public_key),
+    ['GSAME', 'GNEXT'],
   );
 });
 

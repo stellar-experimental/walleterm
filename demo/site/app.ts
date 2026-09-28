@@ -118,7 +118,7 @@ let busy = false,
   journalBlocked = false,
   actionPhase = '',
   actionProgress = '';
-// The connection component saves its session per tab and checks it after reload.
+// The connection component shares its session with the site's other tabs. It checks the session after a reload.
 const connection = new WalletermConnect($('wallet-connection'), {
   onBusyChange: () => render(),
   onStateChange: () => render(),

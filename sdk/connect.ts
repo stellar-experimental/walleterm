@@ -251,6 +251,8 @@ export class WalletermConnect {
       return;
     }
     if (client === this.client && this.account?.address === client.account.address) return;
+    // Another tab can pair a new session. Its grant can list other wallets, so the menu loads them again.
+    if (client !== this.client) this.wallets = [];
     this.client = client;
     this.account = { ...client.account };
     this.setState('connected');
@@ -281,7 +283,7 @@ export class WalletermConnect {
     this.update();
     this.onStateChange?.(state);
   }
-  // The wallet saves the session per tab. Reload recovery checks the bridge before publishing an address.
+  // The website's tabs share the saved session. Recovery checks the bridge before publishing an address.
   async restoreSession() {
     if (this.client || this.working || this.destroyed) return;
     this.wallet.restore();

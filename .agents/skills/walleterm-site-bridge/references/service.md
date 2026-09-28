@@ -120,8 +120,8 @@ Use the SDK instead of duplicating its session, revision, request-ID, and cancel
 
 ## Preserve unknown results
 
-The wallet saves its bridge URL and session token in `sessionStorage` under `walleterm:session`.
-`sessionStorageKey: null` keeps them in memory only. A reload checks `/v1/account` before it publishes an address.
+The wallet saves its bridge URL and session token in `localStorage` under `walleterm:session`. All tabs of the website share them.
+`storageKey: null` keeps them in memory only. A reload or a new tab checks `/v1/account` before it publishes an address.
 Recovery never repeats signing or submission. Disconnect and 401 responses clear the saved session.
 Network failures retain the saved session. Expired sessions require a new connection code.
 Restarting the bridge ends sessions and requests. It never retries signing.

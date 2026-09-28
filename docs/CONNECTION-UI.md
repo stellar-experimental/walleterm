@@ -57,11 +57,13 @@ Closing the dialog resolves `getAddress()` with error `-4`.
 Without a mounted component, `getAddress()` loads a dialog-only component. Load `connect.css` on that page too.
 The component also follows changes made through the wallet, such as `wallet.disconnect()` or session expiry.
 
-The wallet saves the bridge URL and session token in `sessionStorage` for the current tab.
-The key is `walleterm:session`. `new Walleterm({ sessionStorageKey: null })` keeps credentials in memory only.
+The wallet saves the bridge URL and session token in `localStorage`. All tabs of the website share them.
+The key is `walleterm:session`. `new Walleterm({ storageKey: null })` keeps credentials in memory only.
+The component follows a pairing, a wallet change, or a disconnection in another tab.
+A new session from another tab can grant other wallets. The menu then loads the wallet list again.
 It never saves the one-use connection code or a private key.
-The website's scripts can read this token. Use Walleterm only on a trusted website.
-Reload checks `/v1/account` before publishing the wallet or enabling transaction actions.
+Every page of the website can read this token. Use Walleterm only on a trusted website.
+A reload or a new tab checks `/v1/account` before publishing the wallet or enabling transaction actions.
 The bridge supplies the current account, wallet scope, and selection revision.
 Recovery does not request wallet discovery, sign a transaction, or submit a transaction.
 The wallet menu loads the wallet list once when it first opens after recovery. Unlock 1Password if it asks.

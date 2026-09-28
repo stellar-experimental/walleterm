@@ -117,9 +117,10 @@ The default wallet scope is `selected`: one wallet for each connection.
 The header component uses that scope and explains the grant before selection.
 See [the connection UI](CONNECTION-UI.md). `wallet.onChange(listener)` reports each switch and disconnection.
 
-The wallet saves its bridge URL and session token in `sessionStorage` for the current tab.
-A reload checks the session before it publishes an address. An expired session requires a new code.
-`sessionStorageKey: null` keeps the session in memory only. Recovery never repeats signing or submission.
+The wallet saves its bridge URL and session token in `localStorage`. All tabs of the website share the session.
+A pairing, a wallet change, or a disconnection in one tab reaches the other open tabs.
+A reload or a new tab checks the session before it publishes an address. An expired session requires a new code.
+`storageKey: null` keeps the session in memory only. Recovery never repeats signing or submission.
 The SDK retries network errors and 5xx responses on the same connection. An abort or leaving the page cancels the bridge request.
 After a failure, build a new transaction. `error.requestState` reports the bridge state when one exists.
 `requestState: 'unknown'` means that signing started and no verified result arrived.

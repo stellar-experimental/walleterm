@@ -83,7 +83,7 @@ These methods belong to the Walleterm SDK. Failures throw a `WalletermError` wit
 
 | Member | Purpose |
 | --- | --- |
-| `new Walleterm({ walletScope, sessionStorageKey, ui })` | `walletScope` is `selected` (default) or `available`. |
+| `new Walleterm({ walletScope, storageKey, ui })` | `walletScope` is `selected` (default) or `available`. `storageKey` names the shared `localStorage` entry. |
 | `address`, `url`, `walletScope` | Read-only state. The SDK contract client reads `address`. |
 | `connect({ url, code, selectWallet, signal })` | Pairs a tunnel. A failure keeps the current session. |
 | `listWallets()`, `selectWallet(publicKey)` | Discovery and switching. |
@@ -184,6 +184,7 @@ Kit v2.7.0 defines `ModuleInterface.onChange`, but the Kit core never calls it.
 Only the Scopuly module implements it. The Kit updates its address through `authModal()` and `fetchAddress()`.
 So `WalletermModule.onChange(callback)` reports each switch with `{ address, network, networkPassphrase }`.
 A disconnection or an expired session reports an empty address with a `-3` error.
+The hook also reports these changes from other tabs of the website. See [Sessions](#sessions).
 A Kit website connects the hook once. It reads the event and acts only while Walleterm is the selected Kit wallet:
 
 ```ts
@@ -209,11 +210,37 @@ Change events run after the switch settles. The Kit check found that an earlier 
 
 ### Sessions
 
-The SDK saves `{ version: 3, url, token }` in `sessionStorage` under `walleterm:session`, per tab.
+The SDK saves `{ version: 3, url, token, revision }` in `localStorage` under `walleterm:session`.
+All tabs of one website share this session. A new tab uses it without a new code.
+`revision` only tells other tabs that the wallet changed. Each tab reads the account from the bridge.
 After pairing, the wallet owns the session. Destroying `WalletermConnect` does not revoke it.
-`sessionStorageKey: null` keeps the session in memory only.
-A reload checks `GET /v1/account` before it publishes an address.
-A 401 removes the saved session. A network failure keeps it.
+`storageKey: null` keeps the session in memory only. Each tab then needs its own pairing.
+A reload or a new tab checks `GET /v1/account` before it publishes an address.
+A 401 removes the saved session only when this tab still holds it. A network failure keeps it.
+The token stays in the browser after its tabs close. The bridge still ends it after one hour or at a tunnel restart.
+
+A `storage` event tells each open tab about a change in another tab:
+
+| Change in another tab | Result in this tab |
+| --- | --- |
+| Pairing | The tab uses the new session. It publishes the address after `GET /v1/account` confirms it. |
+| Wallet change | The tab reads `GET /v1/account` and publishes the new address. A change away and back updates the revision only. |
+| Disconnection, a 401, or `localStorage.clear()` | The tab discards the session locally and publishes a disconnection. It sends no second revocation. |
+
+A tab can act before it handles an event, for example when the event arrives late.
+Each tab records the saved token that it last read or wrote. It changes or removes only that saved session.
+When the saved state differs, the tab follows it. It uses a newer session, or it discards its copy of a removed session.
+A pairing in the tab replaces any saved session. Storage that cannot be read proves nothing, so the tab then keeps its state.
+So an old session's 401 or late confirmation never removes, overwrites, or saves again a session that another tab changed.
+After a 401, `getAddress()` reads the newer saved session before it opens pairing.
+A signing request with an old selection revision fails with `-3 walleterm:conflict`, and the bridge signs nothing.
+The tab then reads `GET /v1/account`, so its next request uses the current wallet.
+
+`onChange` reports confirmed addresses and ended sessions only.
+An account that waits for confirmation publishes nothing. An example is the account after a failed wallet change.
+So a failed change or another tab's pairing never makes the Kit hook revoke the session.
+After a restore, `onChange` always reports the first confirmed state, even a disconnection.
+The bridge treats all tabs as one client. A wallet change cancels or withholds the requests of every tab.
 
 ## 4. Network
 
@@ -271,6 +298,16 @@ StellarWalletsKit.init({ modules: [walletermModule, ...others], network: Network
 new WalletermConnect(header, { wallet }); // Optional header for switching.
 ```
 
+Kit v2.7.0 saves its active address and selected wallet in `localStorage`. It reads them once, when the page loads.
+The Kit has no `storage` listener. An open tab keeps its Kit address until the page changes it.
+The shared Walleterm session gives a new tab both the Kit address and a usable session.
+The guarded hook keeps open tabs in agreement. Each tab's `Walleterm` follows the other tabs and reports each change.
+The hook then updates or clears the Kit in that tab.
+`WalletermModule.onChange()` also confirms a restored session once.
+A session that ended while no tab was open then clears the restored Kit address.
+Another call can find the ended session before the hook connects. The hook then receives that disconnection once.
+Without a saved session, the module reports nothing. The Kit keeps a wallet that the website selected.
+
 The module ships here only. Upstream registration would reach future Kit releases, not deployed websites.
 It would not remove the tunnel or make Walleterm safe for mainnet.
 
@@ -284,10 +321,14 @@ Run it from the repository root:
 bun install --cwd fixtures/kit --frozen-lockfile --ignore-scripts
 bunx tsc --noEmit -p fixtures/kit/tsconfig.json
 bun fixtures/kit/check.mts
+bun fixtures/kit/tabs.mts
 ```
 
-CI does not run this check yet. The Kit tree adds about 500 MB to the fixture directory only.
+`tabs.mts` runs each tab in a worker with its own Kit state and relays storage events between them.
+It checks a new tab, signing there, a wallet change, a Kit disconnection, and a session that ended while closed.
+CI does not run these checks yet. The Kit tree adds about 500 MB to the fixture directory only.
 `bridge/kit.test.ts` covers the module in CI without the Kit.
+`bridge/tabs.test.ts` covers the shared session in CI with the real bridge and separate tab contexts.
 
 ## 8. Verification
 
@@ -357,7 +398,7 @@ Options:
 | Q3 V1 preimages | Reject. |
 | Q4 OpenZeppelin | Native `signAuthorization` extension and the CLI. |
 | Q5 Switching | Keep both scopes in the native SDK. Report switches through `onChange`. |
-| Q6 Sessions | `sessionStorage` by default. |
+| Q6 Sessions | `localStorage` by default, shared by all tabs of the website. It replaced `sessionStorage` on 2026-09-28, so a Kit website agrees across tabs. |
 | Q7 Submission | Return `-3`. |
 | Q8 Transactions | No operation filters. Structural invariants only. |
 | Q9 Kit module | This repository only. |
