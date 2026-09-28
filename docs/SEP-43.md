@@ -301,12 +301,23 @@ An independent reviewer checks the signing path before acceptance. Check these p
 - No path reports `-4` or `denied` after signing started.
 - The SDK verifies each result before it returns it.
 
+`fixtures/kit/live/` serves a loopback acceptance page with the real Kit, `WalletermModule`, and the guarded hook.
+It exposes `window.acceptance` for steps 3–5. `bun fixtures/kit/live/check.mts` checks it offline with mock keys.
+Start it with `bun fixtures/kit/live/serve.mts` after the Kit fixture install.
+
 Live acceptance needs fresh approval and dedicated testnet keys:
 
 1. Demo: pair, sign and submit a payment, switch wallets, and sign again.
 2. Demo: increment the fixture counter through `signAuthEntry`, then `signTransaction`.
 3. Kit fixture page with a real 1Password key: `authModal`, `signTransaction`, `signAuthEntries`, switch, and `disconnect`.
 4. Zero signature requests for PUBLIC, a V1 preimage, `signMessage`, and `submit: true`.
+5. A `changeTrust` transaction, which the removed operation allowlist refused.
+
+The coordinator ran these steps on testnet on 2026-09-28. All steps passed.
+[The live record](../evidence/sep43-live-2026-09-28.json) holds the hashes, ledgers, fees, and account states.
+The run signed 7 transactions and 2 authorization entries. Step 4 produced no signature.
+It found two defects. After a switch or a revoke, the terminal reported delivered signatures as withheld.
+After a reload, the header menu showed no wallets until Refresh. PR #27 fixes both defects.
 
 ## Deviations from SEP-43
 
