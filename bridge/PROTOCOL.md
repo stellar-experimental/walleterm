@@ -173,6 +173,8 @@ The SDK checks the complete returned artifact locally. It does not independently
 ## State and cancellation
 
 The bridge keeps sessions and requests in memory. A restart ends all of them.
+The browser SDK shares one session token among the tabs of a website. The bridge treats them as one client.
+A wallet change, a disconnection, or an expiry applies to every tab. Each tab generates random request IDs.
 The bridge never retries a signing request. The terminal prints a line for each produced or withheld signature.
 A signature is withheld only when the bridge never sent it to the website.
 A signed transaction applies at most once, because its sequence number and five-minute expiry limit it.

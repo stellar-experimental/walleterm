@@ -50,6 +50,7 @@ function unverifiedResult(caught: unknown) {
 interface ClientOptions {
   fetch?: Fetch;
   pollInterval?: number;
+  /** The window. The SDK listens to its `pagehide` and `storage` events. `null` disables both. */
   page?: Pick<EventTarget, 'addEventListener' | 'removeEventListener'> | null;
 }
 type Artifact =
@@ -572,8 +573,8 @@ export interface AccessInterface {
 }
 export interface WalletermOptions extends ClientOptions {
   walletScope?: WalletScope;
-  /** Per-tab reload recovery. `null` keeps credentials in memory only. */
-  sessionStorageKey?: string | null;
+  /** The `localStorage` key that the website's tabs share. `null` keeps credentials in memory only. */
+  storageKey?: string | null;
   ui?: AccessInterface | null;
 }
 async function settle<T extends Record<string, string>>(
@@ -604,27 +605,32 @@ async function defaultInterface(wallet: Walleterm): Promise<AccessInterface> {
  */
 export class Walleterm {
   readonly walletScope: WalletScope;
-  readonly sessionStorageKey: string | null;
+  readonly storageKey: string | null;
   readonly clientOptions: ClientOptions;
   ui: AccessInterface | null;
   client: WalletermClient | null = null;
   #listeners = new Set<(change: AddressChange) => void>();
-  #published: string | null = null;
+  // `undefined` means that listeners have no state yet. The next confirmed state is then a change.
+  #published: string | null | undefined = null;
   #restored = false;
   #queued = false;
+  #adopting = 0;
   #access?: Promise<string>;
   constructor({
     walletScope = 'selected',
-    sessionStorageKey = 'walleterm:session',
+    storageKey = 'walleterm:session',
     ui = null,
     ...clientOptions
   }: WalletermOptions = {}) {
     if (!['selected', 'available'].includes(walletScope))
       throw walletermError('invalid_request', 'The wallet scope is invalid.');
     this.walletScope = walletScope;
-    this.sessionStorageKey = sessionStorageKey;
+    this.storageKey = storageKey;
     this.ui = ui;
     this.clientOptions = clientOptions;
+    // The website's tabs share one session. Another tab's change arrives as a storage event.
+    const page = clientOptions.page === undefined ? globalThis : clientOptions.page;
+    if (storageKey) page?.addEventListener?.('storage', (event) => this.#follow(event as StorageEvent));
   }
   /** The selected G-address, or an empty string. The Stellar SDK contract client reads this property. */
   get address(): string {
@@ -639,6 +645,8 @@ export class Walleterm {
     return () => void this.#listeners.delete(listener);
   }
   #publish() {
+    // Report a confirmed address or an ended session. An account that awaits confirmation is not a change.
+    if (this.client?.token && !this.client.account?.address) return;
     const address = this.address || null;
     if (address === this.#published) return;
     this.#published = address;
@@ -651,11 +659,12 @@ export class Walleterm {
   }
   #storage(): Storage | null {
     try {
-      return this.sessionStorageKey ? globalThis.sessionStorage : null;
+      return this.storageKey ? globalThis.localStorage : null;
     } catch {
       return null;
     }
   }
+  // `revision` only tells other tabs that the wallet changed. They read the selection from the bridge.
   #save() {
     const storage = this.#storage();
     if (!storage) return;
@@ -663,12 +672,39 @@ export class Walleterm {
       const client = this.client;
       if (client?.token && client.account?.address)
         storage.setItem(
-          this.sessionStorageKey!,
-          JSON.stringify({ version: 3, url: client.url, token: client.token }),
+          this.storageKey!,
+          JSON.stringify({ version: 3, url: client.url, token: client.token, revision: client.revision }),
         );
-      else if (!client?.token) storage.removeItem(this.sessionStorageKey!);
+      else if (!client?.token) storage.removeItem(this.storageKey!);
     } catch {
       /* Unavailable storage leaves the connection in memory. */
+    }
+  }
+  /** A client for the saved session, without an account. An invalid value is removed. */
+  #load(storage: Storage) {
+    try {
+      const saved = storage.getItem(this.storageKey!);
+      if (!saved) return null;
+      const value = JSON.parse(saved);
+      if (
+        value?.version !== 3 ||
+        typeof value.url !== 'string' ||
+        typeof value.token !== 'string' ||
+        !/^[A-Za-z0-9_-]{43}$/.test(value.token)
+      )
+        throw Error('The saved connection is invalid.');
+      const client = new WalletermClient(value.url, this.clientOptions);
+      client.token = value.token;
+      client.walletScope = this.walletScope;
+      client.revision = null;
+      return { client, revision: value.revision };
+    } catch {
+      try {
+        storage.removeItem(this.storageKey!);
+      } catch {
+        /* Storage can fail. */
+      }
+      return null;
     }
   }
   #use(client: WalletermClient | null) {
@@ -689,34 +725,39 @@ export class Walleterm {
     this.#save();
     this.#publish();
   }
-  /** Load a saved session once. The bridge, not storage, supplies its scope and revision. */
+  /** Load a saved session once. The bridge, not storage, supplies its account, scope, and revision. */
   restore() {
     if (this.#restored) return;
     this.#restored = true;
     const storage = this.#storage();
     if (!storage || this.client) return;
-    try {
-      const saved = storage.getItem(this.sessionStorageKey!);
-      if (!saved) return;
-      const value = JSON.parse(saved);
-      if (
-        value?.version !== 3 ||
-        typeof value.url !== 'string' ||
-        typeof value.token !== 'string' ||
-        !/^[A-Za-z0-9_-]{43}$/.test(value.token)
-      )
-        throw Error('The saved connection is invalid.');
-      const client = new WalletermClient(value.url, this.clientOptions);
-      client.token = value.token;
-      client.walletScope = this.walletScope;
-      client.revision = null;
-      this.#use(client);
-    } catch {
-      try {
-        storage.removeItem(this.sessionStorageKey!);
-      } catch {
-        /* Storage can fail. */
+    const saved = this.#load(storage);
+    if (!saved) return;
+    this.#use(saved.client);
+    // A Kit can show the saved address already. Report the confirmed state, even a disconnection.
+    this.#published = undefined;
+  }
+  // Follow another tab. It paired a new session, changed the wallet, or ended the session.
+  #follow(event: StorageEvent) {
+    // A pairing in this tab writes the next session. Other tabs then follow it.
+    if (this.#adopting || (event.key !== null && event.key !== this.storageKey)) return;
+    const storage = this.#storage();
+    if (!storage) return;
+    this.#restored = true;
+    const saved = this.#load(storage),
+      client = this.client;
+    if (!saved) {
+      if (client) this.forgetConnection();
+    } else if (client?.token === saved.client.token && client.url === saved.client.url) {
+      if (!client.account?.address || client.revision !== saved.revision) client.getAccount().catch(() => {});
+    } else {
+      // The other tab revoked or discarded the previous session. Confirm the new one before publishing it.
+      if (client) {
+        client.onAccountChange = undefined;
+        client.forgetConnection();
       }
+      this.#use(saved.client);
+      saved.client.getAccount().catch(() => {});
     }
   }
   /** Use a newly paired session. The previous session is revoked, or discarded when revocation fails. */
@@ -728,11 +769,15 @@ export class Walleterm {
     let previousRevoked = true;
     if (previous && previous !== next) {
       previous.onAccountChange = undefined;
+      // Other tabs can report the end of the previous session meanwhile. That report is not a disconnection here.
+      this.#adopting++;
       try {
         await previous.disconnect();
       } catch {
         previous.forgetConnection();
         previousRevoked = false;
+      } finally {
+        this.#adopting--;
       }
       // Revoking the previous session can take a while. A canceled pairing then keeps no session.
       if (signal?.aborted) {

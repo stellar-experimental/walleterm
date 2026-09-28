@@ -75,6 +75,7 @@ export class WalletermModule {
    * The Kit core does not call this hook. Connect it once, read the event, and act only while Walleterm is the
    * Kit's selected wallet. Both Kit calls use the selected module. See docs/SEP-43.md for the guarded hook.
    * A switch updates the Kit address. A disconnection or an expired session clears it without opening a dialog.
+   * Changes in other tabs of the website arrive here too.
    */
   onChange(callback: (event: KitChange) => void) {
     this.wallet.onChange(({ address, network, networkPassphrase }: AddressChange) =>
@@ -85,6 +86,10 @@ export class WalletermModule {
         ...(address ? {} : { error: { code: -3, message: 'Walleterm disconnected. Connect again.' } }),
       }),
     );
+    // The Kit restores its address on load. Confirm the saved session, so the event reports its current state.
+    this.wallet.restore();
+    if (this.wallet.client?.token && !this.wallet.client.account?.address)
+      void this.wallet.getAddress({ skipRequestAccess: true });
   }
   async disconnect() {
     try {
