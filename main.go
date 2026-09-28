@@ -24,8 +24,10 @@ import (
 	"unicode/utf8"
 )
 
+// Release builds set the version with -ldflags "-X main.version=...".
+var version = "dev"
+
 const (
-	version       = "0.1.0"
 	maxFrame      = 1 << 20
 	maxIdentities = 1024
 	maxInput      = 4096

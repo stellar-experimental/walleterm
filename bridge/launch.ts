@@ -182,17 +182,17 @@ export async function publicReady(
   );
 }
 
+// A compiled bridge runs its own tunnel-child mode. A source checkout runs main.ts with Bun.
 function startTunnel(_command: string, args: string[], options: SpawnOptions) {
+  const main = import.meta.url.startsWith('file:///$bunfs/')
+    ? []
+    : [fileURLToPath(new URL('./main.ts', import.meta.url))];
   // The supervisor leads a new process group. Cloudflared inherits it.
-  const child = spawn(
-    process.execPath,
-    [fileURLToPath(new URL('./tunnel-child.ts', import.meta.url)), ...args],
-    {
-      ...options,
-      detached: true,
-      stdio: ['pipe', 'pipe', 'pipe'],
-    },
-  );
+  const child = spawn(process.execPath, [...main, 'tunnel-child', ...args], {
+    ...options,
+    detached: true,
+    stdio: ['pipe', 'pipe', 'pipe'],
+  });
   // A supervisor killed before cleanup leaves cloudflared in its group. Stop that group once, at supervisor exit.
   // macOS does not reuse a group ID while the group has a member, and it assigns new PIDs in sequence.
   const group = child.pid;

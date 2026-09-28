@@ -49,3 +49,4 @@ coverage.out
 
 /dist/
 /fixtures/kit/node_modules/
+/release/

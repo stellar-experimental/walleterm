@@ -65,9 +65,9 @@ test(
   async () => {
     const directory = mkdtempSync(join(tmpdir(), 'walleterm-parent-crash-'));
     mockCloudflared(directory);
-    const supervisor = fileURLToPath(new URL('./tunnel-child.ts', import.meta.url));
+    const supervisor = fileURLToPath(new URL('./main.ts', import.meta.url));
     // These spawn options match `startTunnel` in launch.ts.
-    const script = `import {spawn} from 'node:child_process'; const child=spawn(process.execPath,[${JSON.stringify(supervisor)}],{detached:true,stdio:['pipe','pipe','pipe']}); child.stdout.pipe(process.stdout); child.stderr.pipe(process.stderr); setInterval(()=>{},1000);`;
+    const script = `import {spawn} from 'node:child_process'; const child=spawn(process.execPath,[${JSON.stringify(supervisor)},'tunnel-child'],{detached:true,stdio:['pipe','pipe','pipe']}); child.stdout.pipe(process.stdout); child.stderr.pipe(process.stderr); setInterval(()=>{},1000);`;
     const parent = spawn(process.execPath, ['--input-type=module', '-e', script], {
       cwd: directory,
       env: { ...process.env, PATH: `${directory}:${process.env.PATH}` },

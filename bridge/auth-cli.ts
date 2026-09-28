@@ -57,7 +57,8 @@ export async function signAuthRequest(input: AuthCLIInput, sign: typeof signDige
     verified: true,
   };
 }
-if (import.meta.main) {
+// The Go command passes its own resolved path. Only that binary may sign.
+export async function runAuthCLI(command: string) {
   const shutdown = new AbortController();
   const signal = AbortSignal.any([shutdown.signal, AbortSignal.timeout(120000)]);
   const interrupt = () => shutdown.abort(Error('The authorization request stopped.'));
@@ -101,7 +102,7 @@ if (import.meta.main) {
     });
     const result = await signAuthRequest(
       input,
-      (publicKey, digest, options) => signDigest(publicKey, digest, { ...options, command: process.argv[2] }),
+      (publicKey, digest, options) => signDigest(publicKey, digest, { ...options, command }),
       signal,
     );
     process.stdout.write(JSON.stringify(result) + '\n');

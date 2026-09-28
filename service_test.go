@@ -35,16 +35,3 @@ func TestSeparatedHelp(t *testing.T) {
 		}
 	}
 }
-
-func TestBunVersion(t *testing.T) {
-	for _, version := range []string{"1.4.2", "1.4.3", "1.5.0", "2.0.0", "v1.4.2"} {
-		if !supportedBunVersion(version) {
-			t.Fatalf("rejected %s", version)
-		}
-	}
-	for _, version := range []string{"", "1", "1.4", "1.4.1", "1.3.99", "0.9.0", "1.4.2-canary", "2.bad.0"} {
-		if supportedBunVersion(version) {
-			t.Fatalf("accepted %s", version)
-		}
-	}
-}

@@ -1,16 +1,16 @@
 # Tunnel service and browser SDK
 
 This reference matches bridge protocol version 3 in Walleterm source on 2026-09-28.
-The project uses Bun 1.4.2 or later and Stellar SDK 17.1.0.
+The bridge binary includes its own Bun runtime and Stellar SDK 17.1.0.
 Check `walleterm --help` for the installed command interface.
 Installing this skill does not install the binary, service assets, or dependencies.
 Start the service on the Mac that hosts 1Password. A cloud execution environment cannot use its local SSH socket.
 
 ## Start the service
 
-The tunnel needs macOS, the enabled 1Password SSH agent, Bun, cloudflared, and installed Walleterm service assets.
-The demo needs Bun, cloudflared, and installed website assets.
-Run `make install` from the Walleterm source checkout when those assets need installation or an update.
+The tunnel needs macOS, the enabled 1Password SSH agent, cloudflared, and the installed `walleterm-bridge` binary.
+The demo needs cloudflared and the same binary.
+The Homebrew cask installs both. A source checkout installs both with `make install`.
 Do not rebuild the service merely to install or edit these skills.
 
 ```sh
