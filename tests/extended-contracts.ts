@@ -26,6 +26,7 @@ import {
   ozSignerOf,
   signersVec,
   ozAuthDigest,
+  payloadOf,
   countContexts,
   contractFn,
   ozAuthorizer,
@@ -191,10 +192,15 @@ export const gMultiAuthorizer = (
 ) => ({
   address,
   label: `G-multi:${keys.map((k) => k.name).join('+')}`,
-  async signatureScVal(payload: Buffer, _entry?: xdr.SorobanAuthorizationEntry, meta: EntryMeta = {}) {
+  async signatureScVal(
+    preimage: xdr.HashIdPreimage,
+    _entry?: xdr.SorobanAuthorizationEntry,
+    meta: EntryMeta = {},
+  ) {
+    // Each co-signer signs the same preimage. A duplicate copies a signature; it never signs twice.
     const sigs = [];
     for (const key of keys)
-      sigs.push({ rawKey: key.rawPublicKey, signature: await ctx.signDigest(key, payload) });
+      sigs.push({ rawKey: key.rawPublicKey, signature: await ctx.signPreimage(key, preimage) });
     if (duplicate) sigs.push(sigs[0]);
     sigs.sort((p, q) => Buffer.compare(Buffer.from(p.rawKey), Buffer.from(q.rawKey)));
     if (reverse) sigs.reverse();
@@ -203,7 +209,7 @@ export const gMultiAuthorizer = (
       signers: keys.map((k) => k.name),
       order: reverse ? 'reversed' : 'sorted',
       duplicate,
-      digest: Buffer.from(payload).toString('hex'),
+      digest: payloadOf(preimage).toString('hex'),
     });
     return accountSignature(ctx.sdk, sigs);
   },
@@ -583,9 +589,13 @@ export const ozDelegatedAuthorizer = (
 ) => ({
   address: account,
   label: `oz-delegated:${delegate.name}`,
-  async signatureScVal(payload: Buffer, entry: xdr.SorobanAuthorizationEntry, meta: EntryMeta = {}) {
+  async signatureScVal(
+    preimage: xdr.HashIdPreimage,
+    entry: xdr.SorobanAuthorizationEntry,
+    meta: EntryMeta = {},
+  ) {
     const ids = Array<number>(countContexts(entry.rootInvocation)).fill(0);
-    const digest = ozAuthDigest(ctx.sdk, payload, digestIds ?? ids);
+    const digest = ozAuthDigest(ctx.sdk, payloadOf(preimage), digestIds ?? ids);
     Object.assign(meta, {
       scheme: 'oz-delegated',
       rule_ids: ids,
@@ -651,14 +661,11 @@ export const delegateEntryFor =
     };
     const signed = await sdk.authorizeEntry(
       entry,
-      async (_p, payload) => {
+      async (preimage, payload) => {
         extra.payload = Buffer.from(payload).toString('hex');
         return {
           signatureScVal: accountSignature(sdk, [
-            {
-              rawKey: delegate.rawPublicKey,
-              signature: await ctx.signDigest(delegate, Buffer.from(payload)),
-            },
+            { rawKey: delegate.rawPublicKey, signature: await ctx.signPreimage(delegate, preimage) },
           ]),
           address: delegate.publicKey,
         };
@@ -1079,7 +1086,10 @@ async function selfTest() {
     sdk,
     networkPassphrase: sdk.Networks.TESTNET,
     keys: { a: key, b: key2, c: key3 },
-    signDigest: async (k, d) => Buffer.from((k === key ? g : g2).sign(d)),
+    signPreimage: async (k, preimage) => Buffer.from((k === key ? g : g2).sign(payloadOf(preimage))),
+    signEntry: async () => {
+      throw new Error('The extended self-test signs no entry shape.');
+    },
   };
   // Native forms of the ScVals under test.
   type AccountSignatures = { public_key: Uint8Array; signature: Uint8Array }[];
@@ -1115,10 +1125,23 @@ async function selfTest() {
     'ContextRuleType encoding',
   );
   // G multisig signatures are sorted by public key and verify over the payload.
-  const payload = Buffer.alloc(32, 9);
-  const sorted = signaturesOf(
-    await gMultiAuthorizer(ctx, key.publicKey, [key, key2]).signatureScVal(payload),
+  const sample = sdk.buildAuthorizationEntryPreimage(
+    new sdk.xdr.SorobanAuthorizationEntry({
+      credentials: sdk.xdr.SorobanCredentials.sorobanCredentialsAddressV2(
+        new sdk.xdr.SorobanAddressCredentials({
+          address: new sdk.Address(g.publicKey()).toScAddress(),
+          nonce: 4n,
+          signatureExpirationLedger: 0,
+          signature: sdk.xdr.ScVal.scvVoid(),
+        }),
+      ),
+      rootInvocation: contractFn(sdk, verifier, 'ping', [addr(sdk, verifier), u32(sdk, 1)]),
+    }),
+    100,
+    sdk.Networks.TESTNET,
   );
+  const payload = payloadOf(sample);
+  const sorted = signaturesOf(await gMultiAuthorizer(ctx, key.publicKey, [key, key2]).signatureScVal(sample));
   assert(
     sorted.length === 2 &&
       Buffer.compare(Buffer.from(sorted[0].public_key), Buffer.from(sorted[1].public_key)) < 0,
@@ -1133,14 +1156,14 @@ async function selfTest() {
       'multisig signature verifies',
     );
   const reversed = signaturesOf(
-    await gMultiAuthorizer(ctx, key.publicKey, [key, key2], { reverse: true }).signatureScVal(payload),
+    await gMultiAuthorizer(ctx, key.publicKey, [key, key2], { reverse: true }).signatureScVal(sample),
   );
   assert(
     Buffer.compare(Buffer.from(reversed[0].public_key), Buffer.from(reversed[1].public_key)) > 0,
     'reversed order produced',
   );
   const dup = signaturesOf(
-    await gMultiAuthorizer(ctx, key.publicKey, [key2, key], { duplicate: true }).signatureScVal(payload),
+    await gMultiAuthorizer(ctx, key.publicKey, [key2, key], { duplicate: true }).signatureScVal(sample),
   );
   assert(
     dup.length === 3 && new Set(dup.map((s) => Buffer.from(s.public_key).toString('hex'))).size === 2,
@@ -1162,9 +1185,9 @@ async function selfTest() {
   assert(pre.type === 'envelopeTypeSorobanAuthorizationWithAddress', 'AddressV2 preimage');
   const delegateSigned = await sdk.authorizeEntry(
     delegateEntry,
-    async (_p, pl) => ({
+    async (preimage) => ({
       signatureScVal: accountSignature(sdk, [
-        { rawKey: key.rawPublicKey, signature: await ctx.signDigest(key, Buffer.from(pl)) },
+        { rawKey: key.rawPublicKey, signature: await ctx.signPreimage(key, preimage) },
       ]),
       address: key.publicKey,
     }),
@@ -1199,12 +1222,8 @@ async function selfTest() {
   const meta: EntryMeta = { address: verifier };
   const ozSigned = await sdk.authorizeEntry(
     cloneEntry(sdk, ozEntry),
-    async (_p, pl) => ({
-      signatureScVal: await ozDelegatedAuthorizer(ctx, verifier, key).signatureScVal(
-        Buffer.from(pl),
-        ozEntry,
-        meta,
-      ),
+    async (preimage) => ({
+      signatureScVal: await ozDelegatedAuthorizer(ctx, verifier, key).signatureScVal(preimage, ozEntry, meta),
       address: verifier,
     }),
     100,

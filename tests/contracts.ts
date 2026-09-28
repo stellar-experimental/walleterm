@@ -3,11 +3,11 @@ import { requestError } from '../sdk/errors.ts';
 // Exports runContracts(ctx). ctx comes from tests/live-utils.ts.
 // `bun tests/contracts.ts` runs the offline self-test: no network, no agent.
 //
-// Signing rules (docs/OPENZEPPELIN.md):
-// - G-account entry: signature over the host payload, ScVal Vec[Map{public_key, signature}].
-// - walleterm_simple_account: signature over the host payload, ScVal Bytes(64).
-// - OpenZeppelin account: signature over sha256(payload || XDR(Vec<u32> rule ids)),
-//   ScVal Map{context_rule_ids, signers}. Never the raw host payload.
+// Signing rules (docs/OPENZEPPELIN.md). Walleterm computes every digest from the artifact:
+// - G-account entry: the preimage shape signs the host payload, ScVal Vec[Map{public_key, signature}].
+// - walleterm_simple_account: the preimage shape signs the host payload, ScVal Bytes(64).
+// - OpenZeppelin account: the entry shape with openzeppelin-ed25519 signs sha256(payload || XDR(Vec<u32> rule ids)),
+//   ScVal Map{context_rule_ids, signers}. Never the raw host payload, except in the naive negative case.
 // - Every signing row declares its expected entries. invoke checks each recorded entry against them
 //   before any mutation or signing request. Source-only operations check their recorded entries too.
 import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
@@ -16,6 +16,7 @@ import { pathToFileURL } from 'node:url';
 import type { Transaction, rpc, xdr } from '@stellar/stellar-sdk';
 import type { Details, KeyName, LiveContext, Sdk, SigningContext, TestKey } from './types.ts';
 import type { RequestError } from '../sdk/errors.ts';
+import { inspectAuthEntry } from '../sdk/authorization.ts';
 
 export const OZ_COMMIT = 'a5bd8cbd3d0bb8efbd5cf5e2edf9734f87e47640';
 const WASM_DIR = new URL('../fixtures/wasm/', import.meta.url);
@@ -59,7 +60,11 @@ export interface EntryMeta {
 export interface Authorizer {
   address: string;
   label: string;
-  signatureScVal(payload: Buffer, entry: xdr.SorobanAuthorizationEntry, meta?: EntryMeta): Promise<xdr.ScVal>;
+  signatureScVal(
+    preimage: xdr.HashIdPreimage,
+    entry: xdr.SorobanAuthorizationEntry,
+    meta?: EntryMeta,
+  ): Promise<xdr.ScVal>;
 }
 export interface OzSignature {
   verifier: string;
@@ -111,6 +116,8 @@ export const ruleIdsXdr = (sdk: Sdk, ids: number[]) =>
   Buffer.from(sdk.xdr.ScVal.scvVec(ids.map((id) => u32(sdk, id))).toXdr());
 export const ozAuthDigest = (sdk: Sdk, payload: Uint8Array, ids: number[]) =>
   sha256(Buffer.concat([Buffer.from(payload), ruleIdsXdr(sdk, ids)]));
+/** The host payload: SHA-256 of the preimage. */
+export const payloadOf = (preimage: xdr.HashIdPreimage) => sha256(preimage.toXDR());
 export const ozSigner = (sdk: Sdk, verifier: string, rawKey: Uint8Array) =>
   sdk.xdr.ScVal.scvVec([sym(sdk, 'External'), addr(sdk, verifier), bytes(sdk, rawKey)]);
 export const sortSigners = <T extends { verifier: string; rawKey: Uint8Array }>(
@@ -167,15 +174,20 @@ export const contractFn = (
     subInvocations,
   });
 
-// ---------- authorizers: { address, label, signatureScVal(payload, entry) } ----------
+// ---------- authorizers: { address, label, signatureScVal(preimage, entry) } ----------
 export const gAuthorizer = (ctx: SigningContext, key: TestKey, { duplicate = false } = {}) => ({
   address: key.publicKey,
   label: `G:${key.name}`,
-  async signatureScVal(payload: Buffer, _entry?: xdr.SorobanAuthorizationEntry, meta: EntryMeta = {}) {
-    const one = { rawKey: key.rawPublicKey, signature: await ctx.signDigest(key, payload) };
+  async signatureScVal(
+    preimage: xdr.HashIdPreimage,
+    _entry?: xdr.SorobanAuthorizationEntry,
+    meta: EntryMeta = {},
+  ) {
+    // A duplicate signs once. The harness copies the signature.
+    const one = { rawKey: key.rawPublicKey, signature: await ctx.signPreimage(key, preimage) };
     Object.assign(meta, {
       scheme: 'g-account',
-      digest: Buffer.from(payload).toString('hex'),
+      digest: payloadOf(preimage).toString('hex'),
       signers: [key.name],
       duplicate,
     });
@@ -185,13 +197,17 @@ export const gAuthorizer = (ctx: SigningContext, key: TestKey, { duplicate = fal
 export const simpleAuthorizer = (ctx: SigningContext, contractId: string, key: TestKey) => ({
   address: contractId,
   label: `simple:${key.name}`,
-  async signatureScVal(payload: Buffer, _entry?: xdr.SorobanAuthorizationEntry, meta: EntryMeta = {}) {
+  async signatureScVal(
+    preimage: xdr.HashIdPreimage,
+    _entry?: xdr.SorobanAuthorizationEntry,
+    meta: EntryMeta = {},
+  ) {
     Object.assign(meta, {
       scheme: 'simple-raw-payload',
-      digest: Buffer.from(payload).toString('hex'),
+      digest: payloadOf(preimage).toString('hex'),
       signers: [key.name],
     });
-    return bytes(ctx.sdk, await ctx.signDigest(key, payload));
+    return bytes(ctx.sdk, await ctx.signPreimage(key, preimage));
   },
 });
 export interface OzAuthorizerOptions {
@@ -210,17 +226,35 @@ export const ozAuthorizer = (
 ) => ({
   address: contractId,
   label: `oz:${keys.map((k) => k.name).join('+')}`,
-  async signatureScVal(payload: Buffer, entry: xdr.SorobanAuthorizationEntry, meta: EntryMeta = {}) {
-    const ids = ruleIds ?? Array<number>(countContexts(entry.rootInvocation)).fill(ruleId);
-    const digest = naive ? Buffer.from(payload) : ozAuthDigest(ctx.sdk, payload, ids);
+  async signatureScVal(
+    preimage: xdr.HashIdPreimage,
+    entry: xdr.SorobanAuthorizationEntry,
+    meta: EntryMeta = {},
+  ) {
+    const contexts = countContexts(entry.rootInvocation);
+    const ids = ruleIds ?? Array<number>(contexts).fill(ruleId);
+    // Walleterm signs one rule ID per context. A mismatched list goes only into the payload, for its negative case.
+    const signedIds = ids.length === contexts ? ids : Array<number>(contexts).fill(ruleId);
+    const digest = naive ? payloadOf(preimage) : ozAuthDigest(ctx.sdk, payloadOf(preimage), signedIds);
+    const adapter = { type: 'openzeppelin-ed25519' as const, verifier, context_rule_ids: signedIds };
     let sigs: OzSignature[] = [];
-    for (const key of keys)
-      sigs.push({ verifier, rawKey: key.rawPublicKey, signature: await ctx.signDigest(key, digest) });
+    for (const key of keys) {
+      // The naive negative case signs the raw host payload: the preimage shape.
+      if (naive) {
+        sigs.push({ verifier, rawKey: key.rawPublicKey, signature: await ctx.signPreimage(key, preimage) });
+        continue;
+      }
+      const signed = await ctx.signEntry(key, preimage, adapter);
+      if (!Buffer.from(signed.digest).equals(digest)) throw new Error('The OpenZeppelin digest differs');
+      sigs.push({ verifier, rawKey: key.rawPublicKey, signature: signed.signature });
+    }
+    // A duplicate copies the first signature. It never signs twice.
     if (duplicate) sigs.push(sigs[0]);
     if (unsorted) sigs = sortSigners(ctx.sdk, sigs).reverse();
     Object.assign(meta, {
       scheme: naive ? 'raw-host-payload' : 'oz-auth-digest',
       rule_ids: ids,
+      ...(signedIds === ids ? {} : { signed_rule_ids: signedIds }),
       digest: digest.toString('hex'),
       signers: keys.map((k) => k.name),
       duplicate,
@@ -549,9 +583,9 @@ export async function invoke(
       mutate?.beforeSign?.(entry);
       const signed = await sdk.authorizeEntry(
         entry,
-        async (_preimage, payload) => {
+        async (preimage, payload) => {
           meta.payload = Buffer.from(payload).toString('hex');
-          return { signatureScVal: await signer.signatureScVal(Buffer.from(payload), entry, meta), address };
+          return { signatureScVal: await signer.signatureScVal(preimage, entry, meta), address };
         },
         validUntil,
         signPassphrase ?? networkPassphrase,
@@ -1435,9 +1469,36 @@ async function selfTest() {
   const key = { name: 'mock', publicKey: kp.publicKey(), rawPublicKey: kp.rawPublicKey() };
   const ctx: SigningContext = {
     sdk,
-    signDigest: async (k, digest) => {
-      assert(k === key && digest.length === 32, 'signDigest args');
-      return Buffer.from(kp.sign(digest));
+    signPreimage: async (k, preimage) => {
+      assert(k === key, 'signPreimage key');
+      return Buffer.from(kp.sign(payloadOf(preimage)));
+    },
+    // The SDK module computes the adapter digest, independently of ozAuthDigest.
+    signEntry: async (k, preimage, adapter) => {
+      assert(k === key && preimage.type === 'envelopeTypeSorobanAuthorizationWithAddress', 'signEntry args');
+      const value = preimage.sorobanAuthorizationWithAddress;
+      const entry = new sdk.xdr.SorobanAuthorizationEntry({
+        credentials: sdk.xdr.SorobanCredentials.sorobanCredentialsAddressV2(
+          new sdk.xdr.SorobanAddressCredentials({
+            address: value.address,
+            nonce: value.nonce,
+            signatureExpirationLedger: value.signatureExpirationLedger,
+            signature: sdk.xdr.ScVal.scvVoid(),
+          }),
+        ),
+        rootInvocation: value.invocation,
+      });
+      const { digest } = inspectAuthEntry(
+        {
+          auth_entry_xdr: entry.toXDR('base64'),
+          network_passphrase: sdk.Networks.TESTNET,
+          public_key: key.publicKey,
+          address: sdk.Address.fromScAddress(value.address).toString(),
+          adapter,
+        },
+        key.publicKey,
+      );
+      return { digest, signature: Buffer.from(kp.sign(Buffer.from(digest))) };
     },
   };
   const target = sdk.Keypair.random().publicKey();
@@ -1457,17 +1518,16 @@ async function selfTest() {
       ),
       rootInvocation: tree,
     });
-  const payloadOf = (entry: xdr.SorobanAuthorizationEntry, exp: number) =>
-    Buffer.from(sdk.hash(sdk.buildAuthorizationEntryPreimage(entry, exp, sdk.Networks.TESTNET).toXdr()));
+  const preimageFor = (entry: xdr.SorobanAuthorizationEntry, exp: number) =>
+    sdk.buildAuthorizationEntryPreimage(entry, exp, sdk.Networks.TESTNET);
+  const payloadFor = (entry: xdr.SorobanAuthorizationEntry, exp: number) =>
+    payloadOf(preimageFor(entry, exp));
 
   const ozEntry = entryFor(verifier);
   const ozSigned = await sdk.authorizeEntry(
     cloneEntry(sdk, ozEntry),
-    async (_p, payload) => ({
-      signatureScVal: await ozAuthorizer(ctx, verifier, verifier, [key]).signatureScVal(
-        Buffer.from(payload),
-        ozEntry,
-      ),
+    async (preimage) => ({
+      signatureScVal: await ozAuthorizer(ctx, verifier, verifier, [key]).signatureScVal(preimage, ozEntry),
       address: verifier,
     }),
     500,
@@ -1482,17 +1542,17 @@ async function selfTest() {
   assert(firstSignature, 'OZ AuthPayload has a signer');
   const ozSig = Buffer.from(firstSignature);
   assert(
-    kp.verify(ozAuthDigest(sdk, payloadOf(ozEntry, 500), [0, 0]), ozSig),
+    kp.verify(ozAuthDigest(sdk, payloadFor(ozEntry, 500), [0, 0]), ozSig),
     'OZ signature over auth digest',
   );
-  assert(!kp.verify(payloadOf(ozEntry, 500), ozSig), 'OZ signature is not over the raw payload');
+  assert(!kp.verify(payloadFor(ozEntry, 500), ozSig), 'OZ signature is not over the raw payload');
   assert(requireAddressCredentials(ozSigned).signatureExpirationLedger === 500, 'expiration applied');
 
   const gEntry = entryFor(key.publicKey);
   const gSigned = await sdk.authorizeEntry(
     cloneEntry(sdk, gEntry),
-    async (_p, payload) => ({
-      signatureScVal: await gAuthorizer(ctx, key).signatureScVal(Buffer.from(payload)),
+    async (preimage) => ({
+      signatureScVal: await gAuthorizer(ctx, key).signatureScVal(preimage),
       address: key.publicKey,
     }),
     500,
@@ -1503,8 +1563,8 @@ async function selfTest() {
 
   const simpleSigned = await sdk.authorizeEntry(
     cloneEntry(sdk, ozEntry),
-    async (_p, payload) => ({
-      signatureScVal: await simpleAuthorizer(ctx, verifier, key).signatureScVal(Buffer.from(payload)),
+    async (preimage) => ({
+      signatureScVal: await simpleAuthorizer(ctx, verifier, key).signatureScVal(preimage),
       address: verifier,
     }),
     500,
@@ -1512,7 +1572,7 @@ async function selfTest() {
   );
   assert(
     kp.verify(
-      payloadOf(ozEntry, 500),
+      payloadFor(ozEntry, 500),
       Buffer.from(sdk.scValToNative(requireAddressCredentials(simpleSigned).signature)),
     ),
     'simple account signature over raw payload',
@@ -1527,7 +1587,7 @@ async function selfTest() {
       mutated.toXdr('base64') !== gSigned.toXdr('base64'),
     'clone mutation is independent',
   );
-  const dup = await gAuthorizer(ctx, key, { duplicate: true }).signatureScVal(Buffer.alloc(32));
+  const dup = await gAuthorizer(ctx, key, { duplicate: true }).signatureScVal(preimageFor(gEntry, 500));
   const dupNative: unknown[] = sdk.scValToNative(dup);
   assert(dupNative.length === 2, 'duplicate G signature vector');
   const two = [

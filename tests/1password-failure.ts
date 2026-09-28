@@ -1,5 +1,6 @@
 // Parent-operated live lifecycle probe. Uses only dedicated test key A.
 // Arguments: evidence label, optional delay before SIGINT (milliseconds).
+// It signs one SEP-53 message: no network, no transaction, and no authorization.
 import { spawn } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHash, createPublicKey, verify } from 'node:crypto';
@@ -15,7 +16,9 @@ const first = metadata.keys[0];
 if (!first) throw new Error('The public test key file lists no keys');
 const raw = Buffer.from(first.raw_public_key_hex, 'hex');
 const key = StrKey.encodeEd25519PublicKey(raw);
-const digest = createHash('sha256').update(`walleterm lifecycle test: ${label}`).digest();
+const message = `walleterm lifecycle test: ${label}`;
+// SEP-53: walleterm signs SHA-256 of the prefix and the message bytes.
+const digest = createHash('sha256').update(`Stellar Signed Message:\n${message}`).digest();
 const file = new URL(`../evidence/live/1password-${label}.json`, import.meta.url);
 mkdirSync(new URL('../evidence/live/', import.meta.url), { recursive: true });
 const started = Date.now();
@@ -23,6 +26,7 @@ interface ProbeResult {
   label: string;
   started_at: string;
   public_key: string;
+  message: string;
   digest: string;
   network_calls: number;
   child_pid?: number;
@@ -38,12 +42,14 @@ interface ProbeResult {
 }
 interface SignOutput {
   ok: boolean;
+  digest: string;
   signature: string;
 }
 const result: ProbeResult = {
   label,
   started_at: new Date(started).toISOString(),
   public_key: key,
+  message,
   digest: digest.toString('hex'),
   network_calls: 0,
 };
@@ -83,7 +89,9 @@ child.on('close', (code, signal) => {
         format: 'der',
         type: 'spki',
       });
-      result.signature_verified = verify(null, digest, publicKey, Buffer.from(response.signature, 'hex'));
+      result.signature_verified =
+        response.digest === digest.toString('hex') &&
+        verify(null, digest, publicKey, Buffer.from(response.signature, 'hex'));
     }
   } catch {
     /* Interrupted processes can return no JSON. */
@@ -91,4 +99,4 @@ child.on('close', (code, signal) => {
   writeFileSync(file, JSON.stringify(result, null, 2) + '\n');
   console.log(JSON.stringify(result));
 });
-child.stdin.end(JSON.stringify({ public_key: key, digest: digest.toString('hex') }));
+child.stdin.end(JSON.stringify({ public_key: key, message }));

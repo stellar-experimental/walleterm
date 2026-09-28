@@ -5,8 +5,8 @@ import { requestError } from '../sdk/errors.ts';
 // Fixtures: fixtures/cap85 (soroban-sdk 28 manager, target v1/v2, SDK 28 aware account;
 // soroban-sdk 27 legacy context-reading account). Baseline SDK 27 instances from
 // evidence/live/contracts-state.json are read only: oz_basic_a, simple_account_b, ed25519_verifier.
-// Every submission goes through one local path: record simulation, entry signing through ctx.signDigest
-// with the preimage recorded first, enforce simulation, envelope signature, send. Testnet only.
+// Every submission goes through one local path: record simulation, entry signing through ctx.signPreimage
+// or ctx.signEntry with the preimage recorded first, enforce simulation, envelope signature, send. Testnet only.
 // No signer configuration is changed. Deployed contracts are throwaway, so nothing is restored.
 import { readFileSync, writeFileSync, openSync, fsyncSync, closeSync, renameSync, existsSync } from 'node:fs';
 import { randomBytes, createHash } from 'node:crypto';
@@ -20,6 +20,7 @@ import {
   simpleAuthorizer,
   ozAuthorizer,
   accountSignature,
+  payloadOf,
 } from './contracts.ts';
 import type { Account, Transaction, rpc, xdr } from '@stellar/stellar-sdk';
 import type { RequestError } from '../sdk/errors.ts';
@@ -179,7 +180,8 @@ export type Cap85Context = Pick<
   | 'sdk'
   | 'networkPassphrase'
   | 'keys'
-  | 'signDigest'
+  | 'signPreimage'
+  | 'signEntry'
   | 'sign'
   | 'send'
   | 'record'
@@ -498,7 +500,7 @@ async function invokeOperation(
           payload: meta.payload,
           authorized_executable: meta.authorized_executable,
         });
-        return { signatureScVal: await signer.signatureScVal(Buffer.from(payload), entry, meta), address };
+        return { signatureScVal: await signer.signatureScVal(preimage, entry, meta), address };
       },
       expiration,
       networkPassphrase,
@@ -934,10 +936,10 @@ async function x01(ctx: Cap85Context, state: Cap85State, manifest: Cap85Manifest
   const cForB: Authorizer = {
     address: keys.b.publicKey,
     label: `G:${keys.b.name} signed by ${keys.c.name}`,
-    async signatureScVal(payload, _entry, meta = {}) {
-      Object.assign(meta, { scheme: 'g-account', digest: hex(payload), signers: [keys.c.name] });
+    async signatureScVal(preimage, _entry, meta = {}) {
+      Object.assign(meta, { scheme: 'g-account', digest: hex(payloadOf(preimage)), signers: [keys.c.name] });
       return accountSignature(sdk, [
-        { rawKey: keys.c.rawPublicKey, signature: await ctx.signDigest(keys.c, payload) },
+        { rawKey: keys.c.rawPublicKey, signature: await ctx.signPreimage(keys.c, preimage) },
       ]);
     },
   };
@@ -1439,7 +1441,8 @@ async function selfTest() {
     sdk,
     networkPassphrase: sdk.Networks.TESTNET,
     keys: { a: key, b: key, c: key },
-    signDigest: async (_k, d) => Buffer.from(g.sign(d)),
+    signPreimage: async (_k, preimage) => Buffer.from(g.sign(payloadOf(preimage))),
+    signEntry: offline('entry signing'),
     record: (id, status, d) => records.push({ id, status, ...d }),
     rpc: offlineRpc,
     sign: offline('envelope signing'),
@@ -1526,7 +1529,7 @@ async function selfTest() {
       meta.preimage_xdr = preimage.toXdr('base64');
       meta.payload = hex(payload);
       ctx.record('self.preimage', 'prepared', { payload: meta.payload });
-      return { signatureScVal: await signer.signatureScVal(Buffer.from(payload), entry, meta), address: C };
+      return { signatureScVal: await signer.signatureScVal(preimage, entry, meta), address: C };
     },
     100,
     sdk.Networks.TESTNET,
@@ -1661,9 +1664,9 @@ async function selfTest() {
     enforce: rpc.Api.SimulateTransactionResponse,
   ): Cap85Context => ({
     ...ctx,
-    signDigest: async (_k, d) => {
+    signPreimage: async (_k, preimage) => {
       signCalls += 1;
-      return Buffer.from(g.sign(d));
+      return Buffer.from(g.sign(payloadOf(preimage)));
     },
     rpc: {
       ...offlineRpc,

@@ -195,7 +195,8 @@ async function restartX06(saved: Adopt[], marker?: Marker, status = 'SUCCESS') {
     assertClear() {
       calls.push('assert-clear');
     },
-    signDigest: reached('signDigest'),
+    signPreimage: reached('signPreimage'),
+    signEntry: reached('signEntry'),
     sign: reached('sign'),
     send: reached('send'),
     fund: reached('fund'),

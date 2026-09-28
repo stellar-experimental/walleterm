@@ -8,7 +8,7 @@ import type { LiveContext } from './types.ts';
 
 export type CliPipelineContext = Pick<
   LiveContext,
-  'sdk' | 'networkPassphrase' | 'keys' | 'signDigest' | 'record'
+  'sdk' | 'networkPassphrase' | 'keys' | 'sign' | 'record'
 > & { rpc: { getTransaction(hash: string): Promise<RpcStatus> } };
 
 interface CliPipelineOptions {
@@ -55,30 +55,19 @@ export async function runCliPipeline(
   const tx = ctx.sdk.TransactionBuilder.fromXDR(unsigned, ctx.networkPassphrase);
   const digest = stellar(['tx', 'hash', '--network', 'testnet'], unsigned);
   assert.equal(digest, Buffer.from(tx.hash()).toString('hex'));
-  // Stellar CLI JSON for a V1 envelope. Only the signature list changes here.
-  const decoded: { tx?: { signatures: { hint: string; signature: string }[] } } = JSON.parse(
-    stellar(['tx', 'decode'], unsigned),
-  );
-  assert.ok(decoded.tx?.signatures);
   writeFileSync(
     join(
       resolve(directory instanceof URL ? fileURLToPath(directory) : directory),
       'cli-pipeline-unsigned.json',
     ),
-    JSON.stringify({ network: 'testnet', unsigned_xdr: unsigned, decoded, digest }, null, 2) + '\n',
+    JSON.stringify({ network: 'testnet', unsigned_xdr: unsigned, digest }, null, 2) + '\n',
   );
   guard.assertClear();
-  const signature = await ctx.signDigest(ctx.keys.a, Buffer.from(digest, 'hex'));
-  assert.ok(decoded.tx);
-  decoded.tx.signatures.push({
-    hint: Buffer.from(ctx.keys.a.rawPublicKey).subarray(-4).toString('hex'),
-    signature: Buffer.from(signature).toString('hex'),
-  });
-  const signed = stellar(['tx', 'encode'], JSON.stringify(decoded));
+  // One `walleterm sign` call with the transaction shape returns the signed envelope.
+  const signedTx = await ctx.sign(tx, ctx.keys.a);
+  const signed = signedTx.toXDR();
   assert.equal(stellar(['tx', 'hash', '--network', 'testnet'], signed), digest);
-  const signedTx = ctx.sdk.TransactionBuilder.fromXDR(signed, ctx.networkPassphrase);
-  assert.equal(Buffer.from(signedTx.hash()).toString('hex'), digest);
-  assert.equal(signedTx.toXDR(), signed);
+  assert.equal(signedTx.signatures.length, 1);
   const outcome = await guard.send(signedTx, 'CLI01');
   ctx.record('CLI01', 'passed', {
     hash: outcome.hash,
@@ -86,7 +75,7 @@ export async function runCliPipeline(
     signed_xdr: signed,
     cli_output: outcome.sent.cli_output,
     assertion:
-      'Stellar CLI built, hashed, decoded, encoded, and submitted; walleterm signed through 1Password.',
+      'Stellar CLI built, hashed, and submitted; walleterm signed the transaction through 1Password.',
   });
   return outcome;
 }
