@@ -134,14 +134,14 @@ export function mascot(options: Mascot = {}): string {
     strokes.push(inkStroke(wobblePolyline([b[0], b[1]], hand, random), hand, random));
     strokes.push(inkStroke(wobblePolyline([b[1], b[2]], hand, random), hand, random));
   }
+  // Soft ink edges come from a faint stroke around each ink shape, not from an SVG blur.
+  // Safari draws filters at 1x and scales them up, which blurs the whole mascot on Retina screens.
   const soft = options.soften ?? 0.1;
-  const filter = soft > 0 ? ` filter="url(#ink-soft-${hand.seed})"` : '';
-  if (soft > 0) {
-    out.unshift(
-      `<defs><filter id="ink-soft-${hand.seed}" x="-5%" y="-5%" width="110%" height="110%"><feGaussianBlur stdDeviation="${(hand.width * soft).toFixed(2)}"/></filter></defs>`,
-    );
-  }
-  if (strokes.length) out.push(`<path d="${strokes.join('')}" fill="${ink}"${filter}/>`);
+  const halo = (color: string, width: number) =>
+    soft > 0
+      ? ` stroke="${color}" stroke-opacity="0.3" stroke-width="${(width * soft * 1.5).toFixed(2)}" stroke-linejoin="round"`
+      : '';
+  if (strokes.length) out.push(`<path d="${strokes.join('')}" fill="${ink}"${halo(ink, hand.width)}/>`);
 
   const legPaths: string[] = [];
   const weight = options.legWeight ?? 1;
@@ -185,7 +185,7 @@ export function mascot(options: Mascot = {}): string {
       ),
     );
   }
-  if (legPaths.length) out.push(`<path d="${legPaths.join('')}" fill="${legInk}"${filter}/>`);
+  if (legPaths.length) out.push(`<path d="${legPaths.join('')}" fill="${legInk}"${halo(legInk, hand.width * weight)}/>`);
   out.push(`<path d="${blob([eye.c[0] * widen, eye.c[1]], eye.r, random)}" fill="${colors.ink}"/>`);
   return out.join('\n');
 }
