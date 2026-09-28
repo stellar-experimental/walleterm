@@ -1342,3 +1342,266 @@ async fn shutdown_waits_for_a_website_lookup_to_finish_its_cleanup() {
     assert_eq!(f.controls.listing_cleanups.load(Ordering::SeqCst), 1, "close returned before cleanup ended");
     assert_ne!(lookup.await.unwrap(), 200);
 }
+
+// SEP-53 message requests. The website approves by sending, as for every kind. The optional review hook applies.
+
+/// The public SEP-53 test key: a mock key, never funded or used live. The tests use its published signatures only.
+const SEP53_KEY: &str = "GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L";
+const WITHOUT_BINDING: &str = "no network, site, or expiry binding";
+
+fn message_request(f: &Fixture, id: &str, text: &str) -> Value {
+    json!({
+        "id": id,
+        "kind": "message",
+        "message": text,
+        "network_passphrase": TESTNET,
+        "address": f.public_key,
+    })
+}
+
+/// Send exact body bytes to `/v1/requests` with the session credentials.
+async fn post_body(f: &Fixture, site: &Site, body: &[u8]) -> Response {
+    let head = format!(
+        "POST /v1/requests HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\nOrigin: {}\r\nAuthorization: Bearer {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+        f.port,
+        site.origin,
+        site.token.as_deref().unwrap(),
+        body.len()
+    );
+    raw(f.port, &[head.as_bytes(), body].concat()).await
+}
+
+fn message_hash(text: &str) -> String {
+    walleterm::util::hex(&walleterm::message::digest(text.as_bytes()))
+}
+
+#[tokio::test]
+async fn a_message_signs_without_review_and_prints_one_escaped_line() {
+    use base64::Engine as _;
+    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let a = f.connect(SITE).await;
+    // NUL, a newline, and bidirectional controls reach the terminal only as escapes.
+    let text = "example.com asks\n\u{0}\u{202e}gpj.exe\u{2066} é";
+    let texts = [text.to_owned(), "a".repeat(1024), "é".repeat(512)];
+    for (i, text) in texts.iter().enumerate() {
+        let id = format!("message-{i}");
+        let r = f.post("/v1/requests", message_request(&f, &id, text), &a).await;
+        assert_eq!(r.status, 201, "{id}: {}", r.body);
+        assert_eq!(
+            (r.body["kind"].clone(), r.body["hash"].clone()),
+            (json!("message"), json!(message_hash(text)))
+        );
+        let done = f.result(&a, &id).await;
+        assert_eq!(done.body["state"], "signed", "{id}: {}", done.body);
+        assert_eq!(done.body["signer_address"], json!(f.public_key));
+        assert!(done.body.get("signed_auth_entry").is_none(), "{}", done.body);
+        let raw = base64::engine::general_purpose::STANDARD
+            .decode(done.body["signed_message"].as_str().unwrap())
+            .unwrap();
+        let signature = ed25519_dalek::Signature::from_slice(&raw).unwrap();
+        let digest = walleterm::message::digest(text.as_bytes());
+        assert!(f.key.verifying_key().verify_strict(&digest, &signature).is_ok(), "{id}");
+    }
+    let (key, hash) = (&f.public_key, message_hash(text));
+    let logs = f.controls.logs();
+    assert_eq!(
+        logs[..2],
+        [
+            format!(
+                "Message request from {SITE} for {key} (34 bytes, digest {hash}, {WITHOUT_BINDING}): \"example.com asks\\n\\x00\\u202egpj.exe\\u2066 é\"\n"
+            ),
+            format!("Signed {hash} (signer {key}, SEP-53 message) for {SITE}.\n"),
+        ]
+    );
+    assert!(logs[2].starts_with(&format!("Message request from {SITE} for {key} (1024 bytes, digest ")));
+    assert_eq!(logs.len(), 6, "{logs:?}");
+    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 0);
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 3);
+    f.close().await;
+}
+
+#[tokio::test]
+async fn the_bridge_returns_the_sep53_vector_signatures_in_base64() {
+    use base64::Engine as _;
+    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    *f.controls.signers.lock().unwrap() = Ok(vec![signer(SEP53_KEY, "SEP-53 test key")]);
+    let a = f.open(SITE, "selected").await;
+    assert_eq!(f.post("/v1/select", json!({"public_key": SEP53_KEY}), &a).await.status, 200);
+    for (i, (text, digest, signature)) in [
+        (
+            "Hello, World!",
+            "d52eb59c06bb510d065997ff93077068eed0a486c20215b5e02e1ab0d2ebea5f",
+            "7cee5d6d885752104c85eea421dfdcb95abf01f1271d11c4bec3fcbd7874dccd6e2e98b97b8eb23b643cac4073bb77de5d07b0710139180ae9f3cbba78f2ba04",
+        ),
+        (
+            "こんにちは、世界！",
+            "7bde4f792e336ed43df42ad66a92b44cb1bc60708e8bee63494c289dee161682",
+            "083536eb95ecf32dce59b07fe7a1fd8cf814b2ce46f40d2a16e4ea1f6cecd980e04e6fbef9d21f98011c785a81edb85f3776a6e7d942b435eb0adc07da4d4604",
+        ),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        // The mock signer answers with the published signature. The bridge verifies it before delivery.
+        *f.controls.sign_result.lock().unwrap() = Some(signature.to_owned());
+        let id = format!("vector-{i}");
+        let mut request = json!({"id": id, "kind": "message", "message": text, "network_passphrase": TESTNET});
+        request["address"] = json!(SEP53_KEY);
+        let r = f.post("/v1/requests", request, &a).await;
+        assert_eq!((r.status, r.body["hash"].clone()), (201, json!(digest)), "{}", r.body);
+        let done = f.result(&a, &id).await;
+        let expected = base64::engine::general_purpose::STANDARD
+            .encode(walleterm::util::lower_hex::<64>(signature).unwrap());
+        assert_eq!(done.body["signed_message"], json!(expected), "{}", done.body);
+        assert_eq!(done.body["signer_address"], json!(SEP53_KEY));
+    }
+    f.close().await;
+}
+
+#[tokio::test]
+async fn message_review_denial_and_cancellation_never_deliver_a_signature() {
+    let f = Fixture::new(Options::default()).await;
+    let a = f.connect(SITE).await;
+    let text = "Sign in to example.com. Nonce: 5f1c.";
+    f.post("/v1/requests", message_request(&f, "denied", text), &a).await;
+    f.post("/v1/requests", message_request(&f, "queued", text), &a).await;
+    until(|| f.controls.reviews.load(Ordering::SeqCst) == 1).await;
+    let canceled = f.post("/v1/requests/queued/cancel", json!({}), &a).await;
+    assert_eq!(
+        (canceled.body["state"].clone(), canceled.body["error"]["code"].clone()),
+        (json!("denied"), json!(-4))
+    );
+    let reviewed = f.controls.decide(false).await;
+    assert_eq!(reviewed.origin, SITE);
+    assert_eq!(
+        reviewed.details,
+        json!({"kind": "message", "hash": message_hash(text), "public_key": f.public_key, "bytes": text.len(), "message": text})
+    );
+    let r = f.result(&a, "denied").await;
+    assert_eq!(
+        r.body["error"],
+        json!({"code": -4, "message": "The review denied this request.", "ext": ["walleterm:rejected"], "requestState": "denied"})
+    );
+    // A cancellation during signing withholds the signature.
+    let release = f.controls.hold_signing();
+    f.post("/v1/requests", message_request(&f, "signing", text), &a).await;
+    f.controls.decide(true).await;
+    until(|| f.controls.signs.load(Ordering::SeqCst) == 1).await;
+    f.post("/v1/requests/signing/cancel", json!({}), &a).await;
+    let _ = release.send(());
+    let r = f.result(&a, "signing").await;
+    assert_eq!(r.body["state"], "unknown");
+    assert!(r.body.get("signed_message").is_none(), "{}", r.body);
+    assert_eq!(r.body["error"]["ext"], json!(["walleterm:result_unknown"]));
+    let withheld = format!(
+        "Signature withheld or stopped for {} (signer {}, SEP-53 message): ",
+        message_hash(text),
+        f.public_key
+    );
+    assert!(f.controls.logs().iter().any(|l| l.starts_with(&withheld)), "{:?}", f.controls.logs());
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
+    f.close().await;
+}
+
+#[tokio::test]
+async fn bad_message_requests_never_reach_review_or_signing() {
+    let f = Fixture::new(Options::default()).await;
+    let a = f.connect(SITE).await;
+    let limit = "The message must contain 1 to 1024 UTF-8 bytes.";
+    let fields = "The signing request fields are invalid.";
+    let with = |id: &str, name: &str, value: Value| {
+        let mut request = message_request(&f, id, "text");
+        match value {
+            Value::Null => {
+                request.as_object_mut().unwrap().remove(name);
+            }
+            value => request[name] = value,
+        }
+        request
+    };
+    let cases = [
+        (with("empty", "message", json!("")), "invalid_request", limit),
+        (with("long", "message", json!("a".repeat(1025))), "invalid_request", limit),
+        // 513 characters are 1026 UTF-8 bytes.
+        (with("multibyte", "message", json!("é".repeat(513))), "invalid_request", limit),
+        (with("number", "message", json!(7)), "invalid_request", fields),
+        (with("missing", "message", Value::Null), "invalid_request", fields),
+        (with("extra", "xdr", json!("AAAA")), "invalid_request", fields),
+        (
+            with("mainnet", "network_passphrase", json!("Public Global Stellar Network ; September 2015")),
+            "network_unsupported",
+            "Walleterm signs only on Stellar testnet.",
+        ),
+        (
+            with("other", "address", json!(address(&mock_key(9)))),
+            "address_mismatch",
+            "The requested account differs from the selected account.",
+        ),
+    ];
+    for (request, reason, message) in cases {
+        let r = f.post("/v1/requests", request.clone(), &a).await;
+        assert_eq!(r.status, 400, "{}: {}", request["id"], r.body);
+        assert_eq!(
+            r.body["error"],
+            json!({"code": -3, "message": message, "ext": [format!("walleterm:{reason}")]}),
+            "{}",
+            request["id"]
+        );
+    }
+    // A lone surrogate escape and an invalid UTF-8 byte fail before any field is read. Neither becomes U+FFFD.
+    let body = |message: &[u8]| {
+        [
+            format!(r#"{{"id":"raw","kind":"message","network_passphrase":"{TESTNET}","address":"{}","message":""#, f.public_key).as_bytes(),
+            message,
+            b"\"}",
+        ]
+        .concat()
+    };
+    for (message, error) in [
+        (&br"a\ud800b"[..], "Send one JSON object."),
+        (&b"a\xffb"[..], "The request body must be valid UTF-8."),
+    ] {
+        let r = post_body(&f, &a, &body(message)).await;
+        assert_eq!(r.status, 400, "{}", r.body);
+        assert_eq!(
+            r.body["error"],
+            json!({"code": -3, "message": error, "ext": ["walleterm:invalid_request"]})
+        );
+    }
+    assert_eq!(post_body(&f, &a, &body(b"a\xc3\xa9b")).await.status, 201);
+    f.controls.decide(false).await;
+    assert_eq!(f.result(&a, "raw").await.body["state"], "denied");
+    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 1);
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+    assert_eq!(f.controls.logs().len(), 1, "{:?}", f.controls.logs());
+    f.close().await;
+}
+
+#[tokio::test]
+async fn a_message_request_id_binds_its_text() {
+    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let a = f.connect(SITE).await;
+    let request = message_request(&f, "same", "first text");
+    assert_eq!(f.post("/v1/requests", request.clone(), &a).await.status, 201);
+    let done = f.result(&a, "same").await;
+    assert_eq!(done.body["state"], "signed");
+    // An identical retry returns the same request and signs nothing new.
+    let again = f.post("/v1/requests", request.clone(), &a).await;
+    assert_eq!(
+        (again.status, again.body["signed_message"].clone()),
+        (200, done.body["signed_message"].clone())
+    );
+    for (name, value) in [("message", json!("first text!")), ("kind", json!("transaction"))] {
+        let mut changed = request.clone();
+        changed[name] = value;
+        let r = f.post("/v1/requests", changed, &a).await;
+        assert_eq!(r.status, if name == "message" { 409 } else { 400 }, "{name}: {}", r.body);
+    }
+    let changed = f.post("/v1/requests", message_request(&f, "same", "first text!"), &a).await;
+    assert_eq!(changed.body["error"]["ext"], json!(["walleterm:conflict"]));
+    assert_eq!(changed.body["error"]["message"], "This request ID already identifies a different request.");
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
+    let lines = f.controls.logs().iter().filter(|l| l.starts_with("Message request ")).count();
+    assert_eq!(lines, 1);
+    f.close().await;
+}
