@@ -77,7 +77,9 @@ Use the median of the references. A parity recreation may match the color of its
 
 The generator writes every wobble into the path coordinates. The same seed always gives the same file.
 SVG displacement filters measure in absolute units, so the same filter looks different at each size ([Here Dragons Abound, 2020](https://heredragonsabound.blogspot.com/2020/02/creating-pencil-effect-in-svg.html)).
-The only filter is a slight blur for softness. It sits inside the mascot's scaled group, so it scales with the drawing.
+There are no filters. Safari draws SVG filters at 1x and scales them up, so a blur filter looks blurry on Retina screens.
+Three faint strokes around each ink shape give the soft edge instead. Each is a `<use>` of the ink path, so the path data appears once.
+The core ink is thinner by the ink those strokes add, so a line keeps the same total darkness, as it did with the blur.
 Rough.js and xkcd-style jitter make sketchy, doubled lines. This style needs one confident stroke, so the generator uses a single stroke with low roughness.
 The ink body follows perfect-freehand's method: a centerline, a width at each point, and midpoint quadratic smoothing.
 Lines place a point every 1.25 line widths, at most 120 per line. Lines 10 units wide or more use whole-unit coordinates.
