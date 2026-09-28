@@ -16,6 +16,10 @@ if [ ! -d "$SRC/.git" ]; then
   git init -q "$SRC"
   git -C "$SRC" remote add origin "$OZ_REPO"
 fi
+if ! git -C "$SRC" diff --quiet -- || ! git -C "$SRC" diff --cached --quiet --; then
+  echo "OpenZeppelin checkout has tracked changes. Preserve them before building fixtures." >&2
+  exit 1
+fi
 if [ "$(git -C "$SRC" rev-parse HEAD 2>/dev/null || true)" != "$OZ_COMMIT" ]; then
   git -C "$SRC" fetch -q --depth 1 origin "$OZ_COMMIT"
   git -C "$SRC" checkout -q --detach FETCH_HEAD

@@ -405,7 +405,7 @@ function render() {
         signer: pending.address,
         recipient: pending.recipient,
         hash: pending.hash,
-        ...(pending.state === 'review' ? { transaction: describe(pending.xdr) } : {}),
+        ...(['review', 'signed'].includes(pending.state) ? { transaction: describe(pending.xdr) } : {}),
         result: pending.result,
       },
       null,
@@ -680,6 +680,17 @@ $('cancel-request').onclick = () => {
 };
 async function confirmed(result: TransactionResult) {
   if (!pending) throw Error('The transaction record is missing.');
+  if (
+    !result ||
+    typeof result !== 'object' ||
+    Array.isArray(result) ||
+    typeof result.hash !== 'string' ||
+    result.hash !== pending.hash ||
+    typeof result.successful !== 'boolean' ||
+    !Number.isSafeInteger(result.ledger) ||
+    result.ledger <= 0
+  )
+    throw Error('Horizon did not confirm the original transaction. Check its original hash.');
   pending.result = { hash: result.hash, ledger: result.ledger, successful: result.successful };
   pending.state = result.successful ? 'submitted' : 'failed';
   save();
@@ -689,13 +700,19 @@ async function confirmed(result: TransactionResult) {
       : 'The original transaction failed on testnet.',
   );
   if (result.successful && pending.kind === 'offer') {
-    const decoded = xdr.TransactionResult.fromXDR(result.result_xdr, 'base64');
-    const operation = decoded.result.type === 'txSuccess' ? decoded.result.results[0] : undefined;
-    const inner = operation?.type === 'opInner' ? operation.tr : undefined;
-    const offerResult = inner?.type === 'manageSellOffer' ? inner.manageSellOfferResult : undefined;
-    const offer = offerResult?.type === 'manageSellOfferSuccess' ? offerResult.success.offer : undefined;
-    if (offer?.type !== 'manageOfferCreated')
-      status('The offer transaction succeeded without a resting offer. It can have traded immediately.');
+    try {
+      if (typeof result.result_xdr !== 'string' || !result.result_xdr)
+        throw Error('The offer result is missing.');
+      const decoded = xdr.TransactionResult.fromXDR(result.result_xdr, 'base64');
+      const operation = decoded.result.type === 'txSuccess' ? decoded.result.results[0] : undefined;
+      const inner = operation?.type === 'opInner' ? operation.tr : undefined;
+      const offerResult = inner?.type === 'manageSellOffer' ? inner.manageSellOfferResult : undefined;
+      const offer = offerResult?.type === 'manageSellOfferSuccess' ? offerResult.success.offer : undefined;
+      if (offer?.type !== 'manageOfferCreated')
+        status('The offer transaction succeeded without a resting offer. It can have traded immediately.');
+    } catch {
+      status('The original transaction succeeded on testnet. Offer details are unavailable.');
+    }
   }
 }
 $('submit').onclick = () =>

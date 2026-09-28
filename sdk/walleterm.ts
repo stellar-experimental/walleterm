@@ -354,7 +354,7 @@ export class WalletermClient {
         notify({ state: result.state, expiresAt: result.expires_at });
       }
       signal.throwIfAborted();
-      if (this.token !== token || this.generation !== generation)
+      if (this.token !== token || this.generation !== generation || this.revision !== revision)
         throw Error('The wallet selection changed. Build a new transaction.');
     } catch (caught) {
       const error = requestError(caught);

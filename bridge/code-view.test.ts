@@ -1,6 +1,7 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import { createConnection } from 'node:net';
 import { createDemoSite } from '../demo/server.ts';
 import vm from 'node:vm';
 import { browserScript, listeningPort } from './test/support.ts';
@@ -149,6 +150,35 @@ test('disclosures highlight on demand and preserve unchanged DOM and scroll', as
   disclosure.dispatch('toggle');
   await turn();
   assert.equal(code.textContent, '{"value": 2}');
+});
+
+test('demo rejects a malformed request target and keeps serving sessions', async () => {
+  const app = createDemoSite({ port: 0 });
+  await app.listen();
+  try {
+    const port = listeningPort(app.server);
+    const response = await new Promise<string>((resolve, reject) => {
+      const socket = createConnection({ host: '127.0.0.1', port });
+      let response = '';
+      socket.setEncoding('utf8');
+      socket.setTimeout(2000, () => socket.destroy(Error('The demo response timed out.')));
+      socket.on('connect', () =>
+        socket.write(`GET //%25 HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nConnection: close\r\n\r\n`),
+      );
+      socket.on('data', (chunk) => (response += chunk));
+      socket.on('error', reject);
+      socket.on('close', () => resolve(response));
+    });
+    assert.match(response, /^HTTP\/1\.1 400 /);
+    const origin = `http://127.0.0.1:${port}`;
+    const forbidden = await fetch(`${origin}/api/session`, { headers: { Host: 'unlisted.invalid' } });
+    assert.equal(forbidden.status, 403);
+    const session = await fetch(`${origin}/api/session`);
+    assert.equal(session.status, 200);
+    assert.deepEqual(await session.json(), { service: 'walleterm-demo' });
+  } finally {
+    await app.close();
+  }
 });
 
 test('demo serves the exact bundled assets under the existing strict CSP', async () => {

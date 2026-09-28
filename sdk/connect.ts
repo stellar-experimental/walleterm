@@ -183,17 +183,18 @@ export class WalletermConnect {
     this.$('refresh').onclick = () => this.refresh();
     this.$('disconnect').onclick = () => this.disconnect();
     this.$('copy').onclick = async () => {
-      if (!this.account || this.copying) return;
+      if (this.destroyed || !this.account || this.copying) return;
       this.copying = true;
       try {
         await navigator.clipboard.writeText(this.account.address!);
+        if (this.destroyed) return;
         this.message('Address copied.', true);
         this.$('copy-label').textContent = 'Copied ✓';
         await new Promise((resolve) => setTimeout(resolve, 1500));
       } catch {
         this.message('Copy the address from the button text.', true);
       } finally {
-        this.$('copy-label').textContent = 'Copy address';
+        if (!this.destroyed) this.$('copy-label').textContent = 'Copy address';
         this.copying = false;
       }
     };
@@ -206,6 +207,10 @@ export class WalletermConnect {
   }
   destroy() {
     this.destroyed = true;
+    this.scanning?.abort();
+    this.scanning = null;
+    this.connection?.abort();
+    this.connection = null;
     clearInterval(this.healthTimer);
     for (const event of ['online', 'pageshow', 'focus']) globalThis.removeEventListener(event, this.wake);
     document.removeEventListener('visibilitychange', this.wake);
@@ -213,13 +218,13 @@ export class WalletermConnect {
     document.removeEventListener('keydown', this.keyboard);
   }
   setState(state: ConnectionState) {
-    if (this.state === state) return;
+    if (this.destroyed || this.state === state) return;
     this.state = state;
     this.update();
     this.onStateChange?.(state);
   }
   saveSession() {
-    if (!this.sessionStorageKey) return;
+    if (this.destroyed || !this.sessionStorageKey) return;
     try {
       if (this.client?.token)
         globalThis.sessionStorage.setItem(
@@ -293,7 +298,7 @@ export class WalletermConnect {
       this.account = account;
       this.saveSession();
       this.setState('connected');
-      if (changed) this.onChange({ client, account: { ...account } });
+      if (!this.destroyed && changed) this.onChange({ client, account: { ...account } });
     } catch (errorValue) {
       if (
         this.destroyed ||
@@ -312,6 +317,7 @@ export class WalletermConnect {
     }
   }
   message(text: string, menu = false) {
+    if (this.destroyed) return;
     this.$(menu ? 'menu-status' : 'status').textContent = text;
   }
   loading(node: HTMLElement, active: boolean) {
@@ -321,6 +327,7 @@ export class WalletermConnect {
   setWorking(working: boolean) {
     const changed = this.working !== working;
     this.working = working;
+    if (this.destroyed) return;
     this.update();
     if (changed) this.onBusyChange?.(working);
   }
@@ -343,18 +350,21 @@ export class WalletermConnect {
     this.update();
   }
   sync() {
+    if (this.destroyed) return;
     if (this.client && !this.client.token) {
       this.client = null;
       this.saveSession();
       this.account = null;
       this.wallets = [];
       this.setState('expired');
+      if (this.destroyed) return;
       this.hideMenu();
       this.update();
       this.onChange({ client: null, account: null });
     }
   }
   update() {
+    if (this.destroyed) return;
     const labels: Record<string, string> = {
       connecting: 'Connecting…',
       restoring: 'Reconnecting…',
@@ -428,11 +438,13 @@ export class WalletermConnect {
     if (this.client) this.$('tunnel').textContent = new URL(this.client.url).host;
   }
   hideMenu() {
+    if (this.destroyed) return;
     this.$('menu').hidden = true;
     this.trigger.setAttribute('aria-expanded', 'false');
     this.loading(this.trigger, this.working && !this.dialog.open);
   }
   toggleMenu() {
+    if (this.destroyed) return;
     if (!this.$('menu').hidden) return this.hideMenu();
     this.$('menu').hidden = false;
     this.trigger.setAttribute('aria-expanded', 'true');
@@ -473,14 +485,14 @@ export class WalletermConnect {
     this.rows(this.$('wallets'), this.wallets, (key) => this.changeWallet(key), this.account?.address);
   }
   async refresh() {
-    if (!this.client || this.busy || this.working || this.refreshing) return;
+    if (this.destroyed || !this.client || this.busy || this.working || this.refreshing) return;
     const client = this.client;
     this.refreshing = true;
     this.update();
     this.message('Refreshing wallets. Unlock 1Password if it asks.', true);
     try {
       const keys = await client.listWallets();
-      if (client !== this.client) return;
+      if (this.destroyed || client !== this.client) return;
       this.wallets = keys;
       this.renderWallets();
       this.message(
@@ -491,7 +503,7 @@ export class WalletermConnect {
       );
     } catch (errorValue) {
       const error = requestError(errorValue);
-      if (client === this.client) {
+      if (!this.destroyed && client === this.client) {
         this.message(error.message, true);
         this.sync();
       }
@@ -502,6 +514,7 @@ export class WalletermConnect {
   }
   async changeWallet(key: Signer) {
     if (
+      this.destroyed ||
       !this.client ||
       this.busy ||
       this.working ||
@@ -515,15 +528,16 @@ export class WalletermConnect {
     this.setWorking(true);
     this.message('Changing the active wallet. Unlock 1Password if it asks.', true);
     try {
+      if (this.destroyed) return;
       const account = await client.selectWallet(key.public_key);
-      if (client !== this.client) return;
+      if (this.destroyed || client !== this.client) return;
       this.account = account;
       this.onChange({ client, account: { ...account } });
       this.message('The active wallet changed.', true);
     } catch (errorValue) {
       const error = requestError(errorValue);
       // A lost response can hide a successful change. Publish only the recovered account.
-      if (client === this.client) {
+      if (!this.destroyed && client === this.client) {
         this.account = client.account?.address ? { ...client.account } : null;
         this.onChange({ client: this.account ? client : null, account: this.account });
         this.message(error.message, true);
@@ -537,7 +551,7 @@ export class WalletermConnect {
     }
   }
   open() {
-    if (this.busy || this.working) return;
+    if (this.destroyed || this.busy || this.working) return;
     this.hideMenu();
     this.$('form').hidden = false;
     this.$('picker').hidden = true;
@@ -556,18 +570,20 @@ export class WalletermConnect {
     this.$('scan').focus({ preventScroll: true });
   }
   close() {
+    if (this.destroyed) return;
     if (this.connection) this.phase = 'canceling';
     this.connection?.abort(Error('Connection canceled. Use the current code from your tunnel terminal.'));
     this.scanning?.abort();
     this.scanning = null;
     this.$('status').classList.remove('wt-loading');
     this.dialog.close();
+    if (this.destroyed) return;
     this.trigger.setAttribute('aria-expanded', 'false');
     this.update();
     this.trigger.focus();
   }
   async scan() {
-    if (this.scanning || this.working || this.busy) return;
+    if (this.destroyed || this.scanning || this.working || this.busy) return;
     const controller = new AbortController();
     this.scanning = controller;
     this.$('form').hidden = true;
@@ -576,7 +592,8 @@ export class WalletermConnect {
     this.update();
     this.$('status').classList.add('wt-loading');
     const ready = () => {
-      if (this.scanning === controller) this.message('Camera is ready. Point it at the tunnel QR code.');
+      if (!this.destroyed && this.scanning === controller)
+        this.message('Camera is ready. Point it at the tunnel QR code.');
     };
     this.$('camera').addEventListener('playing', ready);
     let scanned = false;
@@ -584,19 +601,20 @@ export class WalletermConnect {
     try {
       const connection = await scanConnection(this.$('camera'), { signal: controller.signal });
       controller.signal.throwIfAborted();
+      if (this.destroyed) return;
       this.$('url').value = connection.url;
       this.$('code').value = connection.code;
       scanned = true;
       this.message('Connection details are ready. Select Continue.');
     } catch (errorValue) {
       const error = requestError(errorValue);
-      if (this.scanning === controller)
+      if (!this.destroyed && this.scanning === controller)
         this.message(
           controller.signal.aborted ? '' : `${error.message} Enter the connection details instead.`,
         );
     } finally {
       this.$('camera').removeEventListener('playing', ready);
-      if (this.scanning === controller) {
+      if (!this.destroyed && this.scanning === controller) {
         this.scanning = null;
         this.$('scanner').hidden = true;
         this.$('form').hidden = false;
@@ -607,6 +625,8 @@ export class WalletermConnect {
     }
   }
   chooseWallet(client: WalletermClient, keys: Signer[], signal: AbortSignal): Promise<string> {
+    signal.throwIfAborted();
+    if (this.destroyed) return Promise.reject(Error('The connection component was destroyed.'));
     this.$('form').hidden = true;
     this.$('picker').hidden = false;
     this.element.querySelector('#wt-title')!.textContent = 'Choose a wallet';
@@ -620,10 +640,11 @@ export class WalletermConnect {
       };
       signal.addEventListener('abort', stop, { once: true });
       const draw = (values: Signer[]) => {
+        if (this.destroyed || signal.aborted) return;
         this.phase = 'choosing';
         this.nextWallets = values;
         this.rows(this.$('choices'), values, (key) => {
-          if (signal.aborted || this.phase !== 'choosing') return;
+          if (this.destroyed || signal.aborted || this.phase !== 'choosing') return;
           this.phase = 'selecting';
           this.selectingKey = key.public_key;
           this.update();
@@ -642,16 +663,16 @@ export class WalletermConnect {
         this.$('choices').querySelector('button')?.focus();
       };
       this.$('retry-wallets').onclick = async () => {
-        if (signal.aborted || this.phase !== 'choosing') return;
+        if (this.destroyed || signal.aborted || this.phase !== 'choosing') return;
         this.phase = 'loading-wallets';
         this.update();
         this.message('Finding wallets. Unlock 1Password if it asks.');
         try {
           const values = await client.listWallets({ signal });
-          if (!signal.aborted) draw(values);
+          if (!this.destroyed && !signal.aborted) draw(values);
         } catch (errorValue) {
           const error = requestError(errorValue);
-          if (!signal.aborted) {
+          if (!this.destroyed && !signal.aborted) {
             this.phase = 'choosing';
             this.update();
             this.message(error.message);
@@ -663,27 +684,31 @@ export class WalletermConnect {
     });
   }
   async connect() {
-    if (this.working || this.busy || this.scanning || !this.validDetails()) return;
+    if (this.destroyed || this.working || this.busy || this.scanning || !this.validDetails()) return;
     this.phase = 'connecting';
-    this.setWorking(true);
     const controller = new AbortController();
     this.connection = controller;
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(300000)]);
+    this.setWorking(true);
     let next: WalletermClient | undefined;
     this.message('Connecting and finding wallets. Unlock 1Password if it asks.');
     try {
+      signal.throwIfAborted();
       next = new WalletermClient(this.$('url').value.trim().replace(/\/$/, ''));
       const account = await next.connect({
         code: this.$('code').value.trim(),
         walletScope: 'available',
         signal,
         selectWallet: (keys, { signal }) => {
+          signal.throwIfAborted();
+          if (this.destroyed) throw Error('The connection component was destroyed.');
           this.$('code').value = '';
           this.nextWallets = keys;
           return this.chooseWallet(next!, keys, signal);
         },
       });
       signal.throwIfAborted();
+      if (this.destroyed) throw Error('The connection component was destroyed.');
       // A failed replacement leaves the current connection usable.
       this.notice = '';
       try {
@@ -696,17 +721,21 @@ export class WalletermConnect {
           'The previous tunnel did not confirm disconnection. Its session can remain active until expiry.';
       }
       signal.throwIfAborted();
+      if (this.destroyed) throw Error('The connection component was destroyed.');
       this.client = next;
       this.saveSession();
       this.account = account;
       this.setState('connected');
+      if (this.destroyed) throw Error('The connection component was destroyed.');
       this.wallets = this.nextWallets || [];
       this.connection = null;
       this.close();
+      if (this.destroyed) throw Error('The connection component was destroyed.');
       this.onChange({ client: next, account: { ...account } });
     } catch (errorValue) {
       const error = requestError(errorValue);
       await next?.disconnect().catch(() => {});
+      if (this.destroyed) return;
       this.$('form').hidden = false;
       this.$('picker').hidden = true;
       this.message(error.message);
@@ -716,26 +745,30 @@ export class WalletermConnect {
       this.phase = '';
       this.selectingKey = null;
       this.setWorking(false);
-      if (!this.dialog.open) this.trigger.focus();
+      if (!this.destroyed && !this.dialog.open) this.trigger.focus();
     }
   }
   async disconnect() {
-    if (this.busy || this.working || !this.client) return;
+    if (this.destroyed || this.busy || this.working || !this.client) return;
     this.phase = 'disconnecting';
     this.setWorking(true);
     this.message('Disconnecting this website.', true);
     try {
+      if (this.destroyed) return;
       this.notice = '';
       try {
         await this.client.disconnect();
       } catch {
+        if (this.destroyed) return;
         this.client.forgetConnection();
         this.notice = 'Disconnected here. The tunnel did not confirm session revocation.';
       }
+      if (this.destroyed) return;
       this.client = null;
       this.saveSession();
       this.account = null;
       this.setState('disconnected');
+      if (this.destroyed) return;
       this.wallets = [];
       this.hideMenu();
       this.onChange({ client: null, account: null });
@@ -746,7 +779,7 @@ export class WalletermConnect {
     } finally {
       this.phase = '';
       this.setWorking(false);
-      this.trigger.focus();
+      if (!this.destroyed) this.trigger.focus();
     }
   }
 }

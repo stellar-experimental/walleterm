@@ -452,6 +452,90 @@ test('checkpoint fails closed on corruption, binding change, and interrupted sub
   assert.equal(readFileSync(file, 'utf8'), '{');
 });
 
+test('interrupted rows label saved checks separately from the current protocol without repeating work', async () => {
+  const files = ['cap71_delegate.wasm', 'cap71_raw_account.wasm', 'cap71_target.wasm'];
+  const binding = {
+    network: sdk.Networks.TESTNET,
+    keys: (['a', 'b', 'c'] as const).map((name) => keys[name].publicKey),
+    artifacts: Object.fromEntries(
+      files.map((file) => [
+        file,
+        digest(
+          readFileSync(new URL(`../fixtures/cap71/target/wasm32v1-none/release/${file}`, import.meta.url)),
+        ).toString('hex'),
+      ]),
+    ),
+  };
+  const dir = mkdtempSync(join(tmpdir(), 'cap71-reuse-'));
+  onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
+  for (const currentProtocol of [28, 29]) {
+    const ctx = context();
+    const file = join(dir, `${currentProtocol}.json`);
+    ctx.cap71Checkpoint = file;
+    ctx.rows = ['CAP71-01'];
+    const state = loadCheckpoint(file, binding);
+    for (const wasm of files) state.steps[`CAP71-upload-${wasm}`] = { protocol: 28 };
+    for (const [index, name] of ['target', 'any', 'both', 'weighted', 'chain', 'raw1', 'raw2'].entries()) {
+      state.salts[name] = Buffer.alloc(32, index + 30).toString('hex');
+      state.steps[`CAP71-deploy-${name}`] = {
+        protocol: 28,
+        retval_xdr: new sdk.Address(contract(index + 10)).toScVal().toXdr('base64'),
+      };
+    }
+    state.checks['CAP71-direct-a'] = { protocol: 28, outcome: 'submitted', state_before: 0, state_after: 1 };
+    state.checks['CAP71-direct-c'] = { protocol: 27, outcome: 'submitted', state_before: 1, state_after: 2 };
+    state.done['CAP71-02'] = { protocol: 27, historical: true };
+    saveCheckpoint(file, state);
+    const blockedCalls: string[] = [];
+    const deny = (name: string) => async (): Promise<never> => {
+      blockedCalls.push(name);
+      throw new Error(`Must not call ${name}`);
+    };
+    let versionCalls = 0;
+    ctx.rpc = {
+      async getVersionInfo() {
+        versionCalls++;
+        return { protocolVersion: currentProtocol };
+      },
+      getAccount: deny('getAccount'),
+      simulateTransaction: deny('simulateTransaction'),
+    };
+    ctx.signDigest = deny('signDigest');
+    ctx.sign = deny('sign');
+    ctx.send = deny('send');
+    const result = await runCap71(ctx);
+    const row = ctx.events.find((event) => event.id === 'CAP71-01');
+    assert.ok(row);
+    assert.equal(row.status, 'passed');
+    assert.equal(row.protocol, currentProtocol);
+    assert.equal(row.current_environment_protocol, currentProtocol);
+    assert.equal(row.reused_evidence, true);
+    assert.deepEqual(row.reused_checks, [
+      { label: 'CAP71-direct-a', original_protocol: 28 },
+      { label: 'CAP71-direct-c', original_protocol: 27 },
+    ]);
+    assert.deepEqual(row.checks, { a: state.checks['CAP71-direct-a'], c: state.checks['CAP71-direct-c'] });
+    const saved = loadCheckpoint(file, binding);
+    assert.deepEqual(saved.done['CAP71-01'], result.done['CAP71-01']);
+    for (const field of ['binding', 'salts', 'steps', 'checks'] as const)
+      assert.deepEqual(saved[field], state[field]);
+    assert.deepEqual(saved.done['CAP71-02'], state.done['CAP71-02']);
+    ctx.events.length = 0;
+    await runCap71(ctx);
+    assert.deepEqual(
+      ctx.events.find((event) => event.id === 'CAP71-01'),
+      {
+        id: 'CAP71-01',
+        status: 'passed_previous_run',
+        ...saved.done['CAP71-01'],
+        reused_evidence: true,
+      },
+    );
+    assert.equal(versionCalls, 2);
+    assert.deepEqual(blockedCalls, []);
+  }
+});
+
 test('setup performs enforce simulation and stops before any envelope signing on failure', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'cap71-enforce-'));
   onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
@@ -640,6 +724,8 @@ describe('mocked CAP71 run', () => {
     assert.equal(sends, 12);
     assert(result.done['CAP71-01']);
     assert.equal(Object.values(result.checks).length, 2);
+    assert.equal(result.done['CAP71-01'].reused_evidence, undefined);
+    assert.equal(result.done['CAP71-01'].reused_checks, undefined);
     assert.equal(result.inflight, undefined);
     await runCap71(ctx);
     assert.equal(sends, 12, 'Restart must not sign or send a confirmed step again');
