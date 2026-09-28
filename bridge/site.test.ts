@@ -260,6 +260,29 @@ test('unknown custom authorization survives clearing until its ledger expiry pas
   f.setLedger(161);
   await f.click('clear');
   assert.equal(f.run('pending'), null);
+  assert.match(f.el('status').textContent, /stopped request was cleared/);
+});
+
+test('discard and clear replace the review instruction with the actual outcome', async () => {
+  const discarded = contractPage();
+  discarded.run("pending.state='review'; save(); render()");
+  assert.equal(discarded.el('clear').textContent, 'Discard');
+  await discarded.click('clear');
+  assert.equal(discarded.run('pending'), null);
+  assert.equal(discarded.stored(), null);
+  assert.equal(discarded.el('status').textContent, 'The transaction was discarded. Choose another action.');
+  assert.deepEqual(discarded.signatures(), { authSignatures: 0, envelopes: 0 });
+
+  const signed = contractPage();
+  await signed.promise('requestSignature()');
+  await signed.promise("pending.state='waiting'; requestSignature()");
+  assert.equal(signed.run('pending.state'), 'signed');
+  await signed.click('clear');
+  assert.equal(signed.run('pending'), null);
+  assert.equal(
+    signed.el('status').textContent,
+    'The signed transaction was cleared without submission. Choose another action.',
+  );
 });
 
 test('unverified authorization responses keep the reviewed entry and its expiry protected', async () => {
@@ -653,6 +676,10 @@ test('a reload preserves an open signing request until the user clears it', asyn
   await f.click('clear');
   assert.equal(f.run('pending'), null);
   assert.equal(stored, null);
+  assert.equal(
+    f.el('status').textContent,
+    'The stopped request was cleared. Decline any 1Password prompt that appears.',
+  );
 });
 test('an unreadable journal blocks new transaction actions', async () => {
   for (const stored of ['{broken', JSON.stringify({ state: 'unknown', kind: 'note' })]) {

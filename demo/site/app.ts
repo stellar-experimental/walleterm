@@ -600,7 +600,9 @@ async function build(kind: Action) {
       trustline.is_authorized === false ||
       Number(trustline.limit) - Number(trustline.balance) - Number(trustline.buying_liabilities || '0') < 1
     )
-      throw Error('This account needs an authorized testnet USDC trustline with free capacity.');
+      throw Error(
+        `This account needs an authorized USDC trustline to ${ISSUER} with free capacity. Create it with direct signing; this demo cannot.`,
+      );
     operation = Operation.manageSellOffer({
       selling: Asset.native(),
       buying: new Asset('USDC', ISSUER),
@@ -984,10 +986,18 @@ $('clear').onclick = () =>
       );
       return;
     }
+    const cleared = pending.state;
     pending = null;
     save();
     selectedAction = null;
     closeReview();
+    status(
+      cleared === 'review'
+        ? 'The transaction was discarded. Choose another action.'
+        : cleared === 'signed'
+          ? 'The signed transaction was cleared without submission. Choose another action.'
+          : 'The stopped request was cleared. Decline any 1Password prompt that appears.',
+    );
   }, 'clearing');
 try {
   pending = readJournal();
