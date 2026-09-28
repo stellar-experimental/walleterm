@@ -6,7 +6,7 @@ These files freeze the behavior of the accepted Go signer and TypeScript sidecar
 | File | Producer | Cases | SHA-256 |
 | --- | --- | --- | --- |
 | `vectors.json` | `sdk/authorization.ts`, `sdk/preimage.ts`, `bridge/authorization.ts`, `bridge/transaction.ts`; JS SDK 17.1.0 on Bun 1.4.2 | 99 | `5cacc734b910b20ea4f0e9822af7138260853c57df2700f096079bda247ca799` |
-| `cli.json` | `main.go` `run()` against scripted mock agents; Go 1.27.1 | 57 | `1c8bb6d80bf8158a5f88cb3ce9fc5f023037497cc41f1d30c131786ec67dd14a` |
+| `cli.json` | `main.go` `run()` against scripted mock agents; Go 1.27.1 | 58 | `1c8bb6d80bf8158a5f88cb3ce9fc5f023037497cc41f1d30c131786ec67dd14a` |
 | `sign-auth.json` | `bridge/auth-cli.ts` through `bridge/main.ts sign-auth`, with a fake `walleterm sign` | 26 | `6383b913b38d0a2035d03863e2dc8aa68987a0efacc90ea51bbe5ec163024ce7` |
 | `dotenv.json` | `dotenv.ts`: Bun 1.4.2 `node:util.parseEnv`, the legacy tunnel's `.env` parser | 2106 | `42ab2525d78d06f31cb4b10b048b1abcb29cff78b2848c1e9ace590c33addee8` |
 
