@@ -1,7 +1,7 @@
-import { Networks } from '@stellar/stellar-sdk';
+import { Keypair, Networks } from '@stellar/stellar-sdk';
 import { inspectTransactionRequest, verifyTransactionSignature } from './transaction.js';
 import { inspectAuthEntry, verifyAuthEntrySignature } from './authorization.js';
-import { inspectAuthPreimage, verifyPreimageSignature } from './preimage.js';
+import { base64, inspectAuthPreimage, verifyPreimageSignature } from './preimage.js';
 import type { AuthAdapter, AuthSignOptions } from './authorization.js';
 export * from './authorization.js';
 export * from './preimage.js';
@@ -42,6 +42,22 @@ export type {
 function unverifiedResult(caught: unknown) {
   return Object.assign(requestError(caught), { requestState: 'unknown' as const, canceled: false });
 }
+/** SEP-53 text: well-formed, 1 to 1024 UTF-8 bytes. `TextEncoder` would turn a lone surrogate into U+FFFD. */
+function inspectMessage(message: string) {
+  if (typeof message !== 'string' || !message.isWellFormed())
+    throw walletermError('invalid_request', 'The message must be well-formed text.');
+  const bytes = new TextEncoder().encode(message).length;
+  if (bytes < 1 || bytes > 1024)
+    throw walletermError('invalid_request', 'The message must contain 1 to 1024 UTF-8 bytes.');
+}
+/** Decode one canonical Base64 Ed25519 signature and verify it over the SEP-53 digest of the text. */
+function verifyMessageSignature(message: string, publicKey: string, signature: string) {
+  const invalid = () => walletermError('invalid_request', 'The message signature failed verification.');
+  if (typeof signature !== 'string' || !/^[A-Za-z0-9+/]{86}==$/.test(signature)) throw invalid();
+  const raw = Uint8Array.from(atob(signature), (c) => c.charCodeAt(0));
+  if (base64(raw) !== signature || !Keypair.fromPublicKey(publicKey).verifyMessage(message, raw))
+    throw invalid();
+}
 interface ClientOptions {
   fetch?: Fetch;
   pollInterval?: number;
@@ -51,11 +67,13 @@ interface ClientOptions {
 type Artifact =
   | { kind: 'transaction'; xdr: string }
   | { kind: 'auth_entry'; preimage_xdr: string }
-  | { kind: 'authorization'; auth_entry_xdr: string; auth_address: string; adapter: AuthAdapter };
+  | { kind: 'authorization'; auth_entry_xdr: string; auth_address: string; adapter: AuthAdapter }
+  | { kind: 'message'; message: string };
 const resultField = {
   transaction: 'signed_tx_xdr',
   auth_entry: 'signed_auth_entry',
   authorization: 'signed_auth_entry_xdr',
+  message: 'signed_message',
 } as const;
 
 /** One bridge session. Failures throw. `Walleterm` wraps it with the SEP-43 surface. */
@@ -374,6 +392,24 @@ export class WalletermClient {
     }
     return { signedAuthEntry: signed, signerAddress: address };
   }
+  /**
+   * SEP-43 and SEP-53: sign the text of a message. Returns the Base64 64-byte signature.
+   * The signature binds no network, site, nonce, or expiry unless the text names them.
+   */
+  async signMessage(message: string, options: SignOptions = {}) {
+    inspectMessage(message);
+    const { address, networkPassphrase } = this.signer(options);
+    const signed = await this.signArtifact(
+      { kind: 'message', message },
+      { ...options, address, networkPassphrase },
+    );
+    try {
+      verifyMessageSignature(message, address, signed);
+    } catch (error) {
+      throw unverifiedResult(error);
+    }
+    return { signedMessage: signed, signerAddress: address };
+  }
   /** Walleterm extension: sign a complete AddressV2 entry through an adapter. */
   async signAuthorization(authEntryXdr: string, options: AuthSignOptions) {
     const { address: signer, networkPassphrase } = this.signer({
@@ -586,7 +622,8 @@ async function settle<T extends Record<string, string>>(
 }
 const emptyAddress = { address: '' },
   emptyTransaction = { signedTxXdr: '', signerAddress: '' },
-  emptyAuthEntry = { signedAuthEntry: '', signerAddress: '' };
+  emptyAuthEntry = { signedAuthEntry: '', signerAddress: '' },
+  emptyMessage = { signedMessage: '', signerAddress: '' };
 async function defaultInterface(wallet: Walleterm): Promise<AccessInterface> {
   if (typeof document === 'undefined')
     throw walletermError('not_connected', 'Walleterm needs a page with a document to connect.');
@@ -901,9 +938,11 @@ export class Walleterm {
   signAuthEntry(authEntry: string, options: SignRequestOptions = {}) {
     return settle(emptyAuthEntry, async () => (await this.#ready(options)).signAuthEntry(authEntry, options));
   }
-  signMessage(_message: string, _options: SignRequestOptions = {}) {
-    return settle({ signedMessage: '', signerAddress: '' }, async () => {
-      throw walletermError('unsupported', 'Walleterm does not sign messages yet. See docs/SEP-43.md.');
+  signMessage(message: string, options: SignRequestOptions = {}) {
+    return settle(emptyMessage, async () => {
+      // Refuse bad text before the session check, which can send a request.
+      inspectMessage(message);
+      return (await this.#ready(options)).signMessage(message, options);
     });
   }
   getNetwork() {
