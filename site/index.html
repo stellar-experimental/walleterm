@@ -187,6 +187,7 @@ svg { display: block; }
 .boundaries dl > div:last-child { padding-bottom: 0; }
 .boundaries dt { font-size: 20px; line-height: 1.4; font-weight: 500; }
 .boundaries dd { font-size: 17px; line-height: 1.6; }
+.boundaries code { font-size: 0.95em; }
 .boundaries .art { max-width: 420px; padding-top: 24px; }
 
 /* Install and footer */
@@ -394,12 +395,12 @@ svg { display: block; }
           <dd class="muted">The signer sees a digest, not an amount or a destination. Inspect the transaction before you sign it.</dd>
         </div>
         <div>
-          <dt>Websites stay on testnet</dt>
-          <dd class="muted">The website bridge accepts testnet transactions only. Use dedicated keys, not a shared SSH key.</dd>
+          <dt>Websites see public keys only</dt>
+          <dd class="muted">A connected website sees your Ed25519 public keys, never a private key. Set <code>OP_VAULT</code> to list one vault. Connect only websites you trust.</dd>
         </div>
         <div>
-          <dt>macOS and Ed25519 today</dt>
-          <dd class="muted">walleterm needs the 1Password desktop app on a Mac. Passkey support is a separate, future task.</dd>
+          <dt>Uses the 1Password you have</dt>
+          <dd class="muted">walleterm uses the SSH agent in the 1Password desktop app on your Mac. Your vaults and settings do not change.</dd>
         </div>
       </dl>
     </div>
@@ -410,14 +411,13 @@ svg { display: block; }
       <div class="heading">
         <p class="eyebrow">Websites</p>
         <h2 class="title" id="websites-title">A website can ask, too.</h2>
-        <p class="lede">Run <code>walleterm tunnel</code>. A testnet website connects with a QR code or an eight-digit code. Then it can request signatures from the key you pick.</p>
+        <p class="lede">Run <code>walleterm tunnel</code>. A website connects with a QR code or an eight-digit code. Then it can request signatures from the key you pick.</p>
       </div>
       <div class="code-object">
         <p class="digits" aria-label="Example connection code: 4821 0937">4821 0937</p>
         <ul>
           <li>Works once</li>
           <li>Expires in five minutes</li>
-          <li>Testnet only</li>
         </ul>
       </div>
     </div>
