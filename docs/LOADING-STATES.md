@@ -109,16 +109,19 @@ The public page reported no browser errors.
 
 ## Changed files
 
-- `sdk/connect.js`
+This list names the files of 2026-09-26. Later work replaced the `.js` and `.mjs` files.
+Parentheses name the current file.
+
+- `sdk/connect.js` (now `sdk/connect.ts`)
 - `sdk/connect.css`
-- `demo/site/app.js`
+- `demo/site/app.js` (now `demo/site/app.ts`)
 - `demo/site/index.html`
 - `demo/site/style.css`
-- `demo/site/activity.js`
+- `demo/site/activity.js` (now `demo/site/activity.ts`)
 - `demo/site/activity.css`
-- `bridge/connect.test.mjs`
-- `bridge/site.test.mjs`
-- `bridge/activity.test.mjs`
+- `bridge/connect.test.mjs` (now `tests/browser/connect.test.ts`)
+- `bridge/site.test.mjs` (now `tests/browser/site.test.ts`)
+- `bridge/activity.test.mjs` (now `tests/browser/activity.test.ts`)
 - `docs/LOADING-STATES.md`
 
 ## Instant action feedback

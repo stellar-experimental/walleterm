@@ -1,6 +1,7 @@
 # Vault filter validation
 
 Checked on 2026-09-26.
+Later work replaced the Go signer and the Node.js bridge that these checks covered. Walleterm is now one Rust binary.
 
 `OP_VAULT` filters website wallets through `walleterm tunnel`.
 Local `walleterm list` and `walleterm sign` do not use this filter.

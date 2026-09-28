@@ -52,6 +52,9 @@ An offer can trade before cancellation. The server must inspect the offer effect
 
 ## Run
 
+These historical commands name files that later work removed or replaced.
+Commit `1e96658` removed `poc/server.test.mjs` with the `web` command. `tests/submission.test.ts` replaces `tests/submission.test.mjs`.
+
 Install dependencies and check the local flow:
 
 ```sh

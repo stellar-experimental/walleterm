@@ -26,4 +26,5 @@ The later Chrome run found that offer preparation ignored an existing offer on t
 The server now blocks new offers when Horizon lists any existing offer. A live Chrome retry showed that block.
 
 The removed `poc/server.test.mjs` local tests and [live acceptance](../evidence/mobile-poc/live-acceptance.json) are separate evidence.
+Commit `1e96658` removed that test file with the `web` command. It has no current successor.
 The iPhone test used Wi-Fi through iPhone Mirroring. It did not prove cellular-only operation.

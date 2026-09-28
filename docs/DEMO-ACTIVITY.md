@@ -47,11 +47,14 @@ These Mobbin references informed the layout:
 
 ## Validation — 2026-09-26
 
+This record and [Changed files](#changed-files) name the files of 2026-09-26.
+Later work replaced the `.js` and `.mjs` files. Parentheses name the current file.
+
 - `npm test`: 179 Node tests and three contract self-tests passed.
 - Eight activity tests cover redaction, request preservation, polling, history restoration, storage failure, and response decoding failure.
 - Existing tests cover wallet switching, signing cancellation, unknown results, and transaction recovery.
 - Installer tests confirm that both activity assets reach the installed release.
-- Local browser checks used `bridge/browser-fixture.mjs` with isolated mock keys.
+- Local browser checks used `bridge/browser-fixture.mjs` (now `tests/browser/fixture.ts`) with isolated mock keys.
 - Mock Horizon responses covered account loading, signing, submission, and confirmation.
 - Browser checks confirmed hash search, signature copying, JSON export, and history after clearing and reloading.
 - Expanded events stayed open when new activity arrived.
@@ -78,12 +81,12 @@ The SDK files and `requestSignature` function match commit `bcb250c`.
 
 ## Changed files
 
-- `demo/site/activity.js`
+- `demo/site/activity.js` (now `demo/site/activity.ts`)
 - `demo/site/activity.css`
-- `demo/site/app.js`
+- `demo/site/app.js` (now `demo/site/app.ts`)
 - `demo/site/index.html`
-- `demo/server.mjs`
-- `bridge/activity.test.mjs`
-- `scripts/install.mjs`
-- `scripts/install.test.mjs`
+- `demo/server.mjs` (now `src/demo.rs`)
+- `bridge/activity.test.mjs` (now `tests/browser/activity.test.ts`)
+- `scripts/install.mjs` (now `tools/src/install.rs`)
+- `scripts/install.test.mjs` (now `tools/tests/install.rs`)
 - `docs/DEMO-ACTIVITY.md`
