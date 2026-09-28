@@ -26,19 +26,25 @@ fn license_files(dir: &Path) -> Vec<PathBuf> {
     files
 }
 
-fn section(title: &str, license: &str, dir: &Path) -> Result<String> {
-    let files = license_files(dir);
-    let texts: Vec<String> =
-        files.iter().filter_map(|f| std::fs::read_to_string(f).ok()).map(|t| t.trim().to_owned()).collect();
+/// One package: its heading and its license texts, or its license identifier when it ships no text.
+type Section = (String, Vec<String>);
+
+fn section(title: &str, license: &str, dir: &Path) -> Result<Section> {
+    let texts: Vec<String> = license_files(dir)
+        .iter()
+        .filter_map(|f| std::fs::read_to_string(f).ok())
+        .map(|t| t.trim().to_owned())
+        .filter(|t| !t.is_empty())
+        .collect();
     if texts.is_empty() && license.is_empty() {
         return Err(format!("{title} has no license text or license identifier."));
     }
-    let body = if texts.is_empty() { format!("License: {license}") } else { texts.join("\n\n") };
-    Ok(format!("== {title} ({license}) ==\n\n{body}"))
+    let texts = if texts.is_empty() { vec![format!("License: {license}")] } else { texts };
+    Ok((format!("{title} ({license})"), texts))
 }
 
 /// Rust crates that the `walleterm` binary links: normal dependencies for Apple silicon, from the lockfile.
-fn rust_sections(root: &Path) -> Result<Vec<(String, String)>> {
+fn rust_sections(root: &Path) -> Result<Vec<(String, Section)>> {
     let text = run(
         "cargo",
         &["metadata", "--format-version", "1", "--locked", "--filter-platform", "aarch64-apple-darwin"],
@@ -91,7 +97,7 @@ fn rust_sections(root: &Path) -> Result<Vec<(String, String)>> {
 }
 
 /// Browser packages that the embedded site bundles: `dependencies` and their dependencies, plus the syntax tokenizers.
-fn browser_sections(root: &Path) -> Result<Vec<(String, String)>> {
+fn browser_sections(root: &Path) -> Result<Vec<(String, Section)>> {
     let app: Value =
         serde_json::from_str(&std::fs::read_to_string(root.join("package.json")).map_err(|e| e.to_string())?)
             .map_err(|e| e.to_string())?;
@@ -140,10 +146,26 @@ pub fn notices(root: &Path) -> Result<String> {
         "walleterm includes the following third-party software.".to_owned(),
         format!("== demo syntax highlighter (demo/site/vendor) ==\n\n{}", syntax.trim()),
     ];
-    let mut all: Vec<(String, String)> = rust_sections(root)?;
+    let mut all: Vec<(String, Section)> = rust_sections(root)?;
     all.extend(browser_sections(root)?);
     all.sort();
     all.dedup_by(|a, b| a.0 == b.0);
-    parts.extend(all.into_iter().map(|(_, s)| s));
+    // Each distinct license text appears once, after the heading of every package that ships it.
+    // Texts that differ only in whitespace count as the same text.
+    let key = |text: &str| text.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut grouped: Vec<(Vec<String>, String, String)> = Vec::new();
+    for (_, (heading, texts)) in all {
+        for text in texts {
+            let normal = key(&text);
+            match grouped.iter_mut().find(|(_, k, _)| *k == normal) {
+                Some((headings, _, _)) => headings.push(heading.clone()),
+                None => grouped.push((vec![heading.clone()], normal, text)),
+            }
+        }
+    }
+    parts.extend(grouped.into_iter().map(|(headings, _, text)| {
+        let headings: Vec<String> = headings.iter().map(|h| format!("== {h} ==")).collect();
+        format!("{}\n\n{text}", headings.join("\n"))
+    }));
     Ok(parts.join("\n\n") + "\n")
 }
