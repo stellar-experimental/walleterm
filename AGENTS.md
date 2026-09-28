@@ -8,7 +8,7 @@ Target macOS first. Permit human approval through 1Password.
 - Keep private keys inside 1Password. Never export, print, log, cache, or read private key fields.
 - Generate production signer keys inside 1Password. Do not generate them externally and then import them.
 - Local unit tests may use isolated mock keys. Never import these keys or use them for live signing.
-- Use Ed25519 first. Add passkeys only after a separate feasibility check.
+- Use Ed25519. Passkeys and CAP-72 contract signers are not planned and are out of scope.
 - Use the official Stellar CLI for transaction construction, network access, and submission where practical.
 - Use Stellar Raven MCP for Stellar research and contract discovery.
 - Research with `parallel-cli` and primary sources. Record source versions and evidence.

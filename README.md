@@ -123,7 +123,7 @@ The fixed socket avoids accidental use of another SSH agent.
 It does not provide cryptographic proof of 1Password origin or protection against a compromised local user.
 Use dedicated wallet keys. A shared SSH key can authorize other systems with the same key.
 
-The runtime supports Ed25519. Passkeys remain a separate future task.
+The runtime supports Ed25519. Passkeys are not planned and are out of scope.
 Contract accounts require their exact authorization digest and signature structure.
 
 ## Tests

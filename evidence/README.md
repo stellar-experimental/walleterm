@@ -11,7 +11,7 @@ The acceptance runs used Stellar testnet on 2026-09-25.
 | Native CAP-71 delegation | CAP71-01 through CAP71-12 passed |
 | CAP-85 external executables | X01-X06 passed; X07 recorded observations |
 | Approval failures | Observed denial, cancellation, and locked-app connection closure returned no signature |
-| Passkeys | Not implemented |
+| Passkeys | Not planned; out of scope |
 
 [The acceptance summary](acceptance-summary.json) records all suites and their limits.
 [The protocol summary](protocol-acceptance.json) records the 38 CAP-71/CAP-85 transaction hashes and ledgers.

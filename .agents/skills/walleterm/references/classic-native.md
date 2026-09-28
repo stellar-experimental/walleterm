@@ -58,5 +58,5 @@ Do not sign an auth entry for the transaction source as if it were a separate no
 The host requires ordered public keys for multisig auth; see [`account_contract.rs`](https://github.com/stellar/rs-soroban-env/blob/v27.0.0/soroban-env-host/src/builtin_contracts/account_contract.rs).
 
 For `address_with_delegates`, read [CAP-71 delegation](delegation.md).
-CAP-72 contract signers and other C-account schemas need separate checks.
+Other C-account schemas need separate checks. CAP-72 contract signers are not planned and are out of scope.
 The [acceptance snapshot](acceptance.md) lists live coverage for each variant.

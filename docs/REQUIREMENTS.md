@@ -7,7 +7,7 @@
 - Target macOS first.
 - Permit 1Password approval prompts, including Touch ID.
 - Keep private keys within 1Password throughout generation, storage, and signing.
-- Prefer Ed25519. Treat passkeys as optional work after feasibility review.
+- Use Ed25519. Passkeys are not planned and are out of scope.
 - Support classic G-account transactions and Soroban authorization for G-accounts and C-accounts.
 - Test OpenZeppelin accounts and the multisig smart account example.
 - Test complex multisig and multiple accounts on Stellar testnet.

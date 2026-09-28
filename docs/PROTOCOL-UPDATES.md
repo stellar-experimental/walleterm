@@ -41,7 +41,7 @@ The production signing interface remains one selected public key and one 32-byte
 - [CAP-85: external executable references](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0085.md)
 - [Protocol 28 guide](https://stellar.org/blog/developers/adapter-protocol-28-upgrade-guide)
 
-CAP-72 remains a draft. Passkeys remain outside this work.
+CAP-72 remains a draft. Passkeys and CAP-72 are not planned and are out of scope.
 Neither item blocks these Ed25519 compatibility tests.
 
 ## Completed acceptance
@@ -89,5 +89,5 @@ The local skill links resolve to the maintained project source. Its structure an
 Raw reviews, account snapshots, installation checks, and skill usage artifacts remain local under `evidence/`.
 The protocol summary lists their paths. Git excludes these machine-specific records.
 
-Passkeys, CAP-72, and OpenZeppelin `Delegated` C-address adapters remain outside these claims.
+OpenZeppelin `Delegated` C-address adapters remain outside these claims. Passkeys and CAP-72 are not planned.
 Native CAP-71 C-address delegation passed with the dedicated fixtures.
