@@ -1,0 +1,51 @@
+{
+  "baseline": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "frozen_source": "/private/tmp/walleterm-audit-40d6cca9db73",
+  "files": [
+    {
+      "file": "AGENTS.md",
+      "sha256": "66833c1fbb09772e2d4277c2145e75d888c443ced440388f9e2c038a2981d0aa",
+      "matches_baseline": true
+    },
+    {
+      "file": "README.md",
+      "sha256": "db7debfe710adf212d989f0e78a1f740e2a32f4bcecd6236e03d3029bf110344",
+      "matches_baseline": true
+    },
+    {
+      "file": "docs/PLAN.md",
+      "sha256": "ee9dd013bf13e63e5de20dbd94399d1435e75de9962a4303c3e9178b3e4f6be6",
+      "matches_baseline": true
+    },
+    {
+      "file": "docs/INTERFACE.md",
+      "sha256": "05df4a7a812778a343fb006a62831d6c070cd6de1682bf594ce15a7a7d28ccb4",
+      "matches_baseline": true
+    },
+    {
+      "file": "docs/LIVE-TESTS.md",
+      "sha256": "fd746ebef4cfa70dd841d7fb882c6c01bc5ba98d5ee0e24f89443489ba770f8c",
+      "matches_baseline": true
+    },
+    {
+      "file": "tests/submission.ts",
+      "sha256": "863cdd2fca94988bc1d5acaca36fe4853c5cfc105d322ec7e96384f60731750b",
+      "matches_baseline": true
+    },
+    {
+      "file": "tests/submission.test.ts",
+      "sha256": "e1dab0bb99c3ab602d6f179bacfda2654395149417b8154792df2e9b5068193e",
+      "matches_baseline": true
+    },
+    {
+      "file": "tests/live-utils.ts",
+      "sha256": "71a3938d6e9268f7e7b2e88ff9ac32d85b7ddba93a97e03d88fec36d855506c9",
+      "matches_baseline": true
+    },
+    {
+      "file": "sdk/errors.ts",
+      "sha256": "cd4b5fc5a37e671bc59b5670dbd96d59a3dcbf63986ba9436e7dbdd3a86523fe",
+      "matches_baseline": true
+    }
+  ]
+}

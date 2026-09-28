@@ -1,0 +1,11 @@
+{
+  "report": "/Users/kalepail/Desktop/walleterm-v2/audit/2026-09-26/reports/concerns/c20-platform-claims-astra.md",
+  "report_lines": 74,
+  "source_references_checked": 17,
+  "source_reference_status": "passed",
+  "evidence_path_status": "passed",
+  "check_status": "passed",
+  "confirmed_defects": 0,
+  "new_research_usd": 0,
+  "new_jev_usd": 0
+}

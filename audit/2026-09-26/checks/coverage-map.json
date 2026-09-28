@@ -1,0 +1,614 @@
+{
+  "meaning": "Assigned source coverage. Independent reports record completed review evidence. Binary artifacts receive hash checks, not source review.",
+  "files": {
+    ".agents/skills/walleterm-site-bridge/SKILL.md": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm-site-bridge/agents/openai.yaml": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm-site-bridge/references/interception.md": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm-site-bridge/references/legacy-freighter.md": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm-site-bridge/references/message-signing.md": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm-site-bridge/references/service.md": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm-site-bridge/scripts/classic-attach.py": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm-site-bridge/scripts/legacy-freighter.ts": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm-site-bridge/scripts/verify-signature.ts": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm/SKILL.md": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm/references/acceptance.md": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm/references/classic-native.md": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm/references/contract-code.md": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm/references/delegation.md": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm/references/fee-bump.md": [
+      "08-product"
+    ],
+    ".agents/skills/walleterm/references/openzeppelin.md": [
+      "08-product"
+    ],
+    ".github/workflows/test.yml": [
+      "08-product"
+    ],
+    ".gitignore": [
+      "08-product"
+    ],
+    ".prettierignore": [
+      "08-product"
+    ],
+    ".prettierrc.json": [
+      "08-product"
+    ],
+    "AGENTS.md": [
+      "08-product"
+    ],
+    "Makefile": [
+      "08-product"
+    ],
+    "README.md": [
+      "08-product"
+    ],
+    "bridge/PROTOCOL.md": [
+      "02-bridge"
+    ],
+    "bridge/activity.test.ts": [
+      "05-demo"
+    ],
+    "bridge/browser-fixture.ts": [
+      "05-demo"
+    ],
+    "bridge/code-view.test.ts": [
+      "05-demo"
+    ],
+    "bridge/connect.test.ts": [
+      "04-sdk"
+    ],
+    "bridge/entry.ts": [
+      "03-runtime"
+    ],
+    "bridge/launch.test.ts": [
+      "03-runtime"
+    ],
+    "bridge/launch.ts": [
+      "03-runtime"
+    ],
+    "bridge/runtime.test.ts": [
+      "03-runtime"
+    ],
+    "bridge/runtime.ts": [
+      "03-runtime"
+    ],
+    "bridge/scan.test.ts": [
+      "04-sdk"
+    ],
+    "bridge/sdk.test.ts": [
+      "04-sdk"
+    ],
+    "bridge/server.test.ts": [
+      "02-bridge"
+    ],
+    "bridge/server.ts": [
+      "02-bridge"
+    ],
+    "bridge/signer.test.ts": [
+      "02-bridge"
+    ],
+    "bridge/signer.ts": [
+      "02-bridge"
+    ],
+    "bridge/site.test.ts": [
+      "05-demo"
+    ],
+    "bridge/test/support.ts": [
+      "02-bridge"
+    ],
+    "bridge/transaction.ts": [
+      "02-bridge"
+    ],
+    "bridge/tunnel-child.test.ts": [
+      "03-runtime"
+    ],
+    "bridge/tunnel-child.ts": [
+      "03-runtime"
+    ],
+    "bridge/vault.test.ts": [
+      "02-bridge"
+    ],
+    "bun.lock": [
+      "08-product"
+    ],
+    "bunfig.toml": [
+      "08-product"
+    ],
+    "demo/entry.ts": [
+      "05-demo",
+      "03-runtime"
+    ],
+    "demo/server.ts": [
+      "05-demo",
+      "03-runtime"
+    ],
+    "demo/site/activity.css": [
+      "05-demo"
+    ],
+    "demo/site/activity.ts": [
+      "05-demo"
+    ],
+    "demo/site/app.ts": [
+      "05-demo"
+    ],
+    "demo/site/code-view.css": [
+      "05-demo"
+    ],
+    "demo/site/code-view.ts": [
+      "05-demo"
+    ],
+    "demo/site/index.html": [
+      "05-demo"
+    ],
+    "demo/site/style.css": [
+      "05-demo"
+    ],
+    "demo/site/syntax.ts": [
+      "05-demo"
+    ],
+    "demo/site/vendor/syntax.LICENSE": [
+      "05-demo"
+    ],
+    "docs/BUN-MIGRATION.md": [
+      "08-product"
+    ],
+    "docs/CODE-DISPLAYS.md": [
+      "08-product"
+    ],
+    "docs/CONNECTION-LIFECYCLE.md": [
+      "08-product",
+      "04-sdk"
+    ],
+    "docs/CONNECTION-UI.md": [
+      "08-product",
+      "04-sdk"
+    ],
+    "docs/DEMO-ACTIONS.md": [
+      "08-product",
+      "05-demo"
+    ],
+    "docs/DEMO-ACTIVITY.md": [
+      "08-product",
+      "05-demo"
+    ],
+    "docs/FOLLOWUP.md": [
+      "08-product"
+    ],
+    "docs/INTERFACE.md": [
+      "08-product",
+      "01-signer"
+    ],
+    "docs/LIVE-TESTS.md": [
+      "08-product",
+      "07-verification"
+    ],
+    "docs/LOADING-STATES.md": [
+      "08-product"
+    ],
+    "docs/MOBILE-WEB-POC.md": [
+      "08-product"
+    ],
+    "docs/MOBILE-WEB-RESEARCH.md": [
+      "08-product"
+    ],
+    "docs/OPENZEPPELIN.md": [
+      "08-product",
+      "06-contracts"
+    ],
+    "docs/PLAN.md": [
+      "08-product"
+    ],
+    "docs/PROTOCOL-UPDATES.md": [
+      "08-product",
+      "06-contracts"
+    ],
+    "docs/REQUIREMENTS.md": [
+      "08-product"
+    ],
+    "docs/SKILLS-AUDIT.md": [
+      "08-product"
+    ],
+    "docs/SKILLS-INDEPENDENT-REVIEW.md": [
+      "08-product"
+    ],
+    "docs/STELLAR-CLI.md": [
+      "08-product",
+      "01-signer"
+    ],
+    "docs/TEST-MATRIX.md": [
+      "08-product",
+      "07-verification"
+    ],
+    "docs/VAULT-DISCOVERY.md": [
+      "08-product"
+    ],
+    "docs/VAULT-FILTER-VALIDATION.md": [
+      "08-product"
+    ],
+    "docs/WALLET-SWITCH-VALIDATION.md": [
+      "08-product"
+    ],
+    "docs/WEB-BRIDGE.md": [
+      "08-product"
+    ],
+    "docs/screenshots/code-display/connection-mobile.png": [
+      "08-product"
+    ],
+    "docs/screenshots/code-display/desktop.png": [
+      "08-product"
+    ],
+    "docs/screenshots/code-display/mobile-small-scrolled.png": [
+      "08-product"
+    ],
+    "docs/screenshots/code-display/mobile.png": [
+      "08-product"
+    ],
+    "docs/screenshots/code-display/next-action-desktop.png": [
+      "08-product"
+    ],
+    "docs/screenshots/code-display/next-action-mobile.png": [
+      "08-product"
+    ],
+    "docs/screenshots/code-display/tablet.png": [
+      "08-product"
+    ],
+    "docs/screenshots/code-display/transaction-desktop.png": [
+      "08-product"
+    ],
+    "docs/screenshots/code-display/transaction-mobile.png": [
+      "08-product"
+    ],
+    "docs/screenshots/code-display/transaction-tablet.png": [
+      "08-product"
+    ],
+    "evidence/README.md": [
+      "07-verification"
+    ],
+    "evidence/acceptance-summary.json": [
+      "07-verification"
+    ],
+    "evidence/browser-qa-2026-09-25/report.md": [
+      "07-verification"
+    ],
+    "evidence/confidential-token-2026-09-26.json": [
+      "07-verification"
+    ],
+    "evidence/mobile-poc/README.md": [
+      "07-verification"
+    ],
+    "evidence/mobile-poc/browser-acceptance.json": [
+      "07-verification"
+    ],
+    "evidence/mobile-poc/live-acceptance.json": [
+      "07-verification"
+    ],
+    "evidence/mobile-poc/managed-cli-acceptance.json": [
+      "07-verification"
+    ],
+    "evidence/mobile-poc/picker-tunnel-hardening.json": [
+      "07-verification"
+    ],
+    "evidence/mobile-poc/preflight.json": [
+      "07-verification"
+    ],
+    "evidence/protocol-acceptance.json": [
+      "07-verification"
+    ],
+    "evidence/sdf-demo-bridge-2026-09-25.json": [
+      "07-verification"
+    ],
+    "evidence/stellarterm-testnet-2026-09-25.json": [
+      "07-verification"
+    ],
+    "evidence/tunnel-testnet-2026-09-25.json": [
+      "07-verification"
+    ],
+    "fixtures/README.md": [
+      "06-contracts"
+    ],
+    "fixtures/build.sh": [
+      "06-contracts"
+    ],
+    "fixtures/cap71/.gitignore": [
+      "06-contracts"
+    ],
+    "fixtures/cap71/Cargo.lock": [
+      "06-contracts"
+    ],
+    "fixtures/cap71/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/cap71/README.md": [
+      "06-contracts"
+    ],
+    "fixtures/cap71/delegate/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/cap71/delegate/src/lib.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap71/delegate/src/test.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap71/manifest.json": [
+      "06-contracts"
+    ],
+    "fixtures/cap71/protected/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/cap71/protected/src/lib.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap71/raw-account/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/cap71/raw-account/src/lib.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/README.md": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/build.sh": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts-sdk27/Cargo.lock": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts-sdk27/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts-sdk27/legacy-account/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts-sdk27/legacy-account/src/lib.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts-sdk27/legacy-account/src/test.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/Cargo.lock": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/account/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/account/src/lib.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/account/src/test.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/manager/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/manager/src/lib.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/manager/src/test.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/target-v1/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/target-v1/src/lib.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/target-v1/src/test.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/target-v2/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/target-v2/src/lib.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/contracts/target-v2/src/test.rs": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/manifest.ts": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/wasm/cap85_account.wasm": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/wasm/cap85_legacy_account.wasm": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/wasm/cap85_manager.wasm": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/wasm/cap85_target_v1.wasm": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/wasm/cap85_target_v2.wasm": [
+      "06-contracts"
+    ],
+    "fixtures/cap85/wasm/manifest.json": [
+      "06-contracts"
+    ],
+    "fixtures/contracts/Cargo.lock": [
+      "06-contracts"
+    ],
+    "fixtures/contracts/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/contracts/auth-target/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/contracts/auth-target/src/lib.rs": [
+      "06-contracts"
+    ],
+    "fixtures/contracts/auth-target/src/test.rs": [
+      "06-contracts"
+    ],
+    "fixtures/contracts/simple-account/Cargo.toml": [
+      "06-contracts"
+    ],
+    "fixtures/contracts/simple-account/src/lib.rs": [
+      "06-contracts"
+    ],
+    "fixtures/contracts/simple-account/src/test.rs": [
+      "06-contracts"
+    ],
+    "fixtures/manifest.ts": [
+      "06-contracts"
+    ],
+    "fixtures/wasm/manifest.json": [
+      "06-contracts"
+    ],
+    "fixtures/wasm/multisig_account_example.wasm": [
+      "06-contracts"
+    ],
+    "fixtures/wasm/multisig_ed25519_verifier_example.wasm": [
+      "06-contracts"
+    ],
+    "fixtures/wasm/multisig_threshold_policy_example.wasm": [
+      "06-contracts"
+    ],
+    "fixtures/wasm/multisig_weighted_threshold_policy_example.wasm": [
+      "06-contracts"
+    ],
+    "fixtures/wasm/walleterm_auth_target.wasm": [
+      "06-contracts"
+    ],
+    "fixtures/wasm/walleterm_simple_account.wasm": [
+      "06-contracts"
+    ],
+    "go.mod": [
+      "08-product"
+    ],
+    "main.go": [
+      "01-signer"
+    ],
+    "main_test.go": [
+      "01-signer"
+    ],
+    "package.json": [
+      "08-product"
+    ],
+    "scripts/build.ts": [
+      "08-product"
+    ],
+    "scripts/install.test.ts": [
+      "08-product"
+    ],
+    "scripts/install.ts": [
+      "08-product"
+    ],
+    "scripts/syntax.test.ts": [
+      "08-product"
+    ],
+    "sdk/connect.css": [
+      "04-sdk"
+    ],
+    "sdk/connect.ts": [
+      "04-sdk"
+    ],
+    "sdk/errors.ts": [
+      "04-sdk"
+    ],
+    "sdk/scan.ts": [
+      "04-sdk"
+    ],
+    "sdk/types.ts": [
+      "04-sdk"
+    ],
+    "sdk/walleterm.ts": [
+      "04-sdk"
+    ],
+    "service.go": [
+      "03-runtime"
+    ],
+    "service_test.go": [
+      "03-runtime"
+    ],
+    "tests/1password-failure.ts": [
+      "07-verification"
+    ],
+    "tests/cap71.test.ts": [
+      "06-contracts"
+    ],
+    "tests/cap71.ts": [
+      "06-contracts"
+    ],
+    "tests/cap85.test.ts": [
+      "06-contracts"
+    ],
+    "tests/cap85.ts": [
+      "06-contracts"
+    ],
+    "tests/checkpoint.test.ts": [
+      "07-verification"
+    ],
+    "tests/classic.ts": [
+      "07-verification"
+    ],
+    "tests/cli-pipeline.ts": [
+      "07-verification"
+    ],
+    "tests/contracts.ts": [
+      "06-contracts"
+    ],
+    "tests/extended-contracts.ts": [
+      "06-contracts"
+    ],
+    "tests/live-utils.ts": [
+      "07-verification"
+    ],
+    "tests/live.ts": [
+      "07-verification"
+    ],
+    "tests/simulations.ts": [
+      "07-verification"
+    ],
+    "tests/site-bridge.test.ts": [
+      "07-verification"
+    ],
+    "tests/submission.test.ts": [
+      "07-verification"
+    ],
+    "tests/submission.ts": [
+      "07-verification"
+    ],
+    "tests/types.ts": [
+      "07-verification"
+    ],
+    "tsconfig.json": [
+      "08-product"
+    ],
+    "tsconfig.sdk.json": [
+      "08-product"
+    ]
+  }
+}

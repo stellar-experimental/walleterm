@@ -1,0 +1,52 @@
+import { onTestFinished, test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { WalletermConnect } from '/private/tmp/walleterm-audit-40d6cca9db73/sdk/connect.ts';
+
+test('reproduces camera capture remaining active after component destruction', async () => {
+  const playing = Promise.withResolvers<void>();
+  let stopped = 0;
+  const events = new EventTarget();
+  const camera = {
+    srcObject: null,
+    addEventListener() {}, removeEventListener() {},
+    play() { playing.resolve(); return new Promise<void>(() => {}); },
+  };
+  const globals = {
+    isSecureContext: true,
+    navigator: { mediaDevices: { getUserMedia: async () => ({ getTracks: () => [{ stop() { stopped++; } }] }) } },
+    document: { removeEventListener() {} },
+    addEventListener: events.addEventListener.bind(events),
+    removeEventListener: events.removeEventListener.bind(events),
+  };
+  for (const [name, value] of Object.entries(globals)) {
+    const original = Object.getOwnPropertyDescriptor(globalThis, name);
+    Object.defineProperty(globalThis, name, { value, configurable: true });
+    onTestFinished(() => original ? Object.defineProperty(globalThis, name, original) : Reflect.deleteProperty(globalThis, name));
+  }
+  const nodes = new Map<string, any>();
+  nodes.set('camera', camera);
+  const node = (name: string) => {
+    if (!nodes.has(name)) nodes.set(name, { hidden: false, value: '', focus() {}, classList: { add() {}, remove() {} } });
+    return nodes.get(name);
+  };
+  // Use the real component scan and destruction methods, with inert DOM display methods.
+  const ui: WalletermConnect = Object.create(WalletermConnect.prototype);
+  Object.assign(ui, { scanning: null, working: false, busy: false, destroyed: false, $: node, update() {}, message() {}, dialog: { open: false } });
+  const scanning = ui.scan();
+  try {
+    await playing.promise;
+    assert.ok(camera.srcObject);
+    ui.destroy();
+    await new Promise(resolve => setTimeout(resolve, 10));
+    assert.equal(ui.destroyed, true);
+    assert.equal(ui.scanning?.signal.aborted, false);
+    assert.equal(stopped, 0);
+    assert.ok(camera.srcObject);
+    console.log(JSON.stringify({ destroyed: ui.destroyed, scanAborted: ui.scanning?.signal.aborted, stoppedTracks: stopped, cameraAttached: !!camera.srcObject }));
+  } finally {
+    ui.scanning?.abort();
+    await scanning;
+  }
+  assert.ok(stopped > 0);
+  assert.equal(camera.srcObject, null);
+});

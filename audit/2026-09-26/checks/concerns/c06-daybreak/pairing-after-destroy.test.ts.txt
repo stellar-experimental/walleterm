@@ -1,0 +1,147 @@
+import { onTestFinished, test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { WalletermConnect } from '/private/tmp/walleterm-audit-40d6cca9db73/sdk/connect.ts';
+
+test('reproduces a late pairing commit and old-session revocation after destroy', async () => {
+  const originalFetch = Object.getOwnPropertyDescriptor(globalThis, 'fetch');
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalRemove = Object.getOwnPropertyDescriptor(globalThis, 'removeEventListener');
+  const selectStarted = Promise.withResolvers<AbortSignal>();
+  const selectResponse = Promise.withResolvers<Response>();
+
+  Object.defineProperty(globalThis, 'fetch', {
+    configurable: true,
+    value: async (input: string | URL | Request, options: RequestInit = {}) => {
+      const path = new URL(typeof input === 'string' ? input : input.url).pathname;
+      if (path === '/v1/connect')
+        return Response.json({ token: 'n'.repeat(43), wallet_scope: 'available' });
+      if (path === '/v1/signers')
+        return Response.json({ signers: [{ public_key: 'GNEW' }], grant_id: 'grant' });
+      if (path === '/v1/select') {
+        assert.ok(options.signal);
+        selectStarted.resolve(options.signal);
+        return selectResponse.promise;
+      }
+      throw Error(`Unexpected request: ${path}`);
+    },
+  });
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: { removeEventListener() {} },
+  });
+  Object.defineProperty(globalThis, 'removeEventListener', {
+    configurable: true,
+    value() {},
+  });
+  onTestFinished(() => {
+    for (const [name, descriptor] of [
+      ['fetch', originalFetch],
+      ['document', originalDocument],
+      ['removeEventListener', originalRemove],
+    ] as const) {
+      if (descriptor) Object.defineProperty(globalThis, name, descriptor);
+      else Reflect.deleteProperty(globalThis, name);
+    }
+  });
+
+  const nodes = new Map<string, any>();
+  const node = (name: string) => {
+    if (!nodes.has(name))
+      nodes.set(name, {
+        hidden: false,
+        value: '',
+        focus() {},
+        classList: { add() {}, remove() {}, toggle() {} },
+      });
+    return nodes.get(name);
+  };
+  node('url').value = 'https://new.example';
+  node('code').value = '12345678';
+
+  let oldDisconnects = 0;
+  let sessionWrites = 0;
+  const changes: unknown[] = [];
+  const oldClient = {
+    token: 'old-session',
+    url: 'https://old.example',
+    async disconnect() {
+      oldDisconnects++;
+    },
+  };
+  const ui: WalletermConnect = Object.create(WalletermConnect.prototype);
+  Object.assign(ui, {
+    destroyed: false,
+    healthTimer: undefined,
+    wake() {},
+    outside() {},
+    keyboard() {},
+    client: oldClient,
+    account: { address: 'GOLD', networkPassphrase: 'testnet' },
+    wallets: [],
+    nextWallets: [],
+    busy: false,
+    working: false,
+    scanning: null,
+    connection: null,
+    phase: '',
+    selectingKey: null,
+    notice: '',
+    state: 'connected',
+    dialog: { open: false },
+    trigger: { focus() {} },
+    $: node,
+    update() {},
+    message() {},
+    setWorking(value: boolean) {
+      this.working = value;
+    },
+    setState(value: string) {
+      this.state = value;
+    },
+    saveSession() {
+      sessionWrites++;
+    },
+    close() {},
+    chooseWallet: async () => 'GNEW',
+    onChange(value: unknown) {
+      changes.push(value);
+    },
+  });
+
+  const pairing = ui.connect();
+  const selectSignal = await selectStarted.promise;
+  const ownedSignal = ui.connection!.signal;
+  ui.destroy();
+  const oldDisconnectsImmediatelyAfterDestroy = oldDisconnects;
+
+  assert.equal(ownedSignal.aborted, false);
+  assert.equal(selectSignal.aborted, false);
+  assert.equal(oldDisconnectsImmediatelyAfterDestroy, 0);
+
+  selectResponse.resolve(
+    Response.json({
+      public_key: 'GNEW',
+      network_passphrase: 'testnet',
+      selection_revision: 1,
+    }),
+  );
+  await pairing;
+
+  assert.equal(oldDisconnects, 1);
+  assert.equal(ui.account?.address, 'GNEW');
+  assert.equal(ui.client?.url, 'https://new.example');
+  assert.equal(sessionWrites, 1);
+  assert.equal(changes.length, 1);
+  console.log(
+    JSON.stringify({
+      destroyed: ui.destroyed,
+      ownedSignalAborted: ownedSignal.aborted,
+      selectSignalAborted: selectSignal.aborted,
+      oldDisconnectsImmediatelyAfterDestroy,
+      oldDisconnectsAfterLateCommit: oldDisconnects,
+      sessionWrites,
+      callbacks: changes.length,
+      lateAccount: ui.account?.address,
+    }),
+  );
+});

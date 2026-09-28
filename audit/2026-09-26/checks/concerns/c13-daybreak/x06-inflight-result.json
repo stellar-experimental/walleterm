@@ -1,0 +1,57 @@
+{
+  "status": "passed",
+  "concern_confirmed": true,
+  "frozen_source_sha256": "1bebefc34f0532eef91e7854cc70320f43cb0899a915a8c56237a691a9da1a45",
+  "control": {
+    "mode": "control",
+    "operations": 1,
+    "transaction_queries": 0,
+    "checkpoint_writes": 2,
+    "final_step_cached": true,
+    "inflight_retained": false,
+    "x06_returned": true,
+    "records": [
+      {
+        "id": "X06.adopt-ref",
+        "outcome": "passed_previous_run"
+      }
+    ]
+  },
+  "saved_success": {
+    "mode": "saved-success",
+    "error": "Error: X06: adopt_ref did not move the contract onto the v2 reference",
+    "operations": 0,
+    "transaction_queries": 0,
+    "checkpoint_writes": 0,
+    "final_step_cached": true,
+    "inflight_retained": false,
+    "x06_returned": false,
+    "records": [
+      {
+        "id": "X06.adopt-ref",
+        "outcome": "passed_previous_run"
+      }
+    ]
+  },
+  "reconciled_success": {
+    "mode": "inflight-success",
+    "error": "Error: X06: adopt_ref did not move the contract onto the v2 reference",
+    "operations": 0,
+    "transaction_queries": 1,
+    "checkpoint_writes": 1,
+    "final_step_cached": true,
+    "inflight_retained": false,
+    "x06_returned": false,
+    "records": [
+      {
+        "id": "X06.adopt-wasm",
+        "outcome": "reconciled"
+      },
+      {
+        "id": "X06.adopt-ref",
+        "outcome": "passed_previous_run"
+      }
+    ]
+  },
+  "limits": "Exact frozen reconciliation, stepper, and X06 bodies. All external effects use isolated mocks."
+}

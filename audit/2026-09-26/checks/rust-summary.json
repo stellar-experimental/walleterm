@@ -1,0 +1,30 @@
+[
+  {
+    "log": "rust-cap85.txt",
+    "passed": 13,
+    "failed": 0,
+    "ignored": 0,
+    "suites": 4
+  },
+  {
+    "log": "rust-base.txt",
+    "passed": 8,
+    "failed": 0,
+    "ignored": 0,
+    "suites": 2
+  },
+  {
+    "log": "rust-legacy27.txt",
+    "passed": 1,
+    "failed": 0,
+    "ignored": 0,
+    "suites": 1
+  },
+  {
+    "log": "rust-cap71.txt",
+    "passed": 8,
+    "failed": 0,
+    "ignored": 0,
+    "suites": 3
+  }
+]

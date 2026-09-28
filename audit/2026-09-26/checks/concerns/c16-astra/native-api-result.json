@@ -1,0 +1,25 @@
+{
+  "checks": [
+    {
+      "target": "regular file",
+      "operation": "fsync",
+      "result": "accepted"
+    },
+    {
+      "target": "regular file",
+      "operation": "F_FULLFSYNC",
+      "result": "accepted"
+    },
+    {
+      "target": "directory",
+      "operation": "fsync",
+      "result": "accepted"
+    },
+    {
+      "target": "directory",
+      "operation": "F_FULLFSYNC",
+      "result": "accepted"
+    }
+  ],
+  "persistence_claim": "none; operation support only"
+}

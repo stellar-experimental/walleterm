@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import { closeSync, fsyncSync, mkdtempSync, openSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+// This probe checks API acceptance and immediate visibility, not crash durability.
+const root = mkdtempSync('/private/tmp/walleterm-c16-astra-');
+const file = join(root, 'mock-gate.json');
+const checks: object[] = [];
+try {
+  const fileFd = openSync(file, 'wx', 0o600);
+  try {
+    writeFileSync(fileFd, '{"mock":true}\n');
+    fsyncSync(fileFd);
+    checks.push({ operation: 'Bun fsyncSync(new regular file)', result: 'passed' });
+  } finally { closeSync(fileFd); }
+  assert.equal(readFileSync(file, 'utf8'), '{"mock":true}\n');
+  const directoryFd = openSync(root, 'r');
+  try {
+    for (const stage of ['after creation', 'after deletion']) {
+      if (stage === 'after deletion') unlinkSync(file);
+      try {
+        fsyncSync(directoryFd);
+        checks.push({ operation: `Bun fsyncSync(directory) ${stage}`, result: 'accepted' });
+      } catch (error) {
+        checks.push({ operation: `Bun fsyncSync(directory) ${stage}`, result: 'rejected', error: String(error) });
+      }
+    }
+  } finally { closeSync(directoryFd); }
+  console.log(JSON.stringify({ bun: Bun.version, platform: process.platform, root, checks,
+    persistence_claim: 'none; no reboot, process crash, power loss, or hardware fault was induced' }, null, 2));
+} finally { rmSync(root, { recursive: true, force: true }); }

@@ -1,0 +1,44 @@
+Send asset to destination account
+
+Usage: stellar tx new payment [OPTIONS] --source-account <SOURCE_ACCOUNT> --destination <DESTINATION> --amount <AMOUNT>
+
+Options:
+      --destination <DESTINATION>  Account to send to, e.g. `GBX...`
+      --asset <ASSET>              Asset to send, default native, e.i. XLM [default: native]
+      --amount <AMOUNT>            Amount of the aforementioned asset to send, in stroops. 1 stroop = 0.0000001 of the asset (e.g. 1 XLM = `10_000_000` stroops)
+  -h, --help                       Print help
+
+RPC Options:
+      --rpc-url <RPC_URL>
+          RPC server endpoint [env: STELLAR_RPC_URL=]
+      --rpc-header <RPC_HEADERS>
+          RPC Header(s) to include in requests to the RPC provider, example: "X-API-Key: abc123". Multiple headers can be added by passing the option multiple times [env: STELLAR_RPC_HEADERS]
+      --network-passphrase <NETWORK_PASSPHRASE>
+          Network passphrase to sign the transaction sent to the rpc server [env: STELLAR_NETWORK_PASSPHRASE=]
+  -n, --network <NETWORK>
+          Name of network to use from config [env: STELLAR_NETWORK=local]
+
+Transaction Options:
+  -s, --source-account <SOURCE_ACCOUNT>
+          Account that where transaction originates from. Alias `source`. Can be an identity (--source alice), a public key (--source GDKW...), a muxed account (--source MDA…), a secret key (--source SC36…), or a seed phrase (--source "kite urban…"). If `--build-only` was NOT provided, this key will also be used to sign the final transaction. In that case, trying to sign with public key will fail [env: STELLAR_ACCOUNT=default] [alias: --source]
+      --fee <FEE>
+          ⚠️ Deprecated, use `--inclusion-fee`. Fee amount for transaction, in stroops. 1 stroop = 0.0000001 xlm [env: STELLAR_FEE=]
+      --inclusion-fee <INCLUSION_FEE>
+          Maximum fee amount for transaction inclusion, in stroops. 1 stroop = 0.0000001 xlm. Defaults to 100 if no arg, env, or config value is provided [env: STELLAR_INCLUSION_FEE=]
+      --build-only
+          Build the transaction and only write the base64 xdr to stdout
+
+Global Options:
+  -f, --filter-logs <FILTER_LOGS>  Filter logs output. To turn on `stellar_cli::log::footprint=debug` or off `=off`. Can also use env var `RUST_LOG`
+  -q, --quiet                      Do not write logs to stderr including `INFO`
+  -v, --verbose                    Log DEBUG events
+      --very-verbose               Log DEBUG and TRACE events [alias: --vv]
+      --config-dir <CONFIG_DIR>    Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+      --no-cache                   Do not cache your simulations and transactions [env: STELLAR_NO_CACHE=]
+
+Signing Options:
+      --sign-with-key <SIGN_WITH_KEY>  Sign with a local key or key saved in OS secure storage. Can be an identity (--sign-with-key alice), a secret key (--sign-with-key SC36…), or a seed phrase (--sign-with-key "kite urban…"). If using seed phrase, `--hd-path` defaults to the `0` path [env: STELLAR_SIGN_WITH_KEY]
+      --hd-path <HD_PATH>              If using a seed phrase to sign, sets which hierarchical deterministic path to use, e.g. `m/44'/148'/{hd_path}`. Example: `--hd-path 1`. Default: `0`
+      --sign-with-lab                  Sign with https://lab.stellar.org [env: STELLAR_SIGN_WITH_LAB=]
+      --sign-with-ledger               Sign with a ledger wallet [env: STELLAR_SIGN_WITH_LEDGER=]
+      --auto-sign                      Sign without prompting for approval. Only applies to signatures that require user approval, like non-root Soroban auth entries

@@ -1,0 +1,38 @@
+[
+  {
+    "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "argv": [
+      "bun",
+      "--version"
+    ],
+    "command": "bun --version",
+    "exit_code": 0,
+    "log": "version.log"
+  },
+  {
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "argv": [
+      "bun",
+      "test",
+      "audit/2026-09-26/checks/05-demo-astra/adversarial.test.ts",
+      "-t",
+      "malformed success JSON|different confirmed hash|malformed JSON and tx_bad_seq|normal reload submits"
+    ],
+    "command": "bun test audit/2026-09-26/checks/05-demo-astra/adversarial.test.ts -t 'malformed success JSON|different confirmed hash|malformed JSON and tx_bad_seq|normal reload submits'",
+    "exit_code": 0,
+    "log": "reproductions.log"
+  },
+  {
+    "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "argv": [
+      "bun",
+      "test",
+      "bridge/site.test.ts",
+      "-t",
+      "unknown submission remains protected after reload|another tab cannot overwrite an unknown submission|unknown submission expires only"
+    ],
+    "command": "bun test bridge/site.test.ts -t 'unknown submission remains protected after reload|another tab cannot overwrite an unknown submission|unknown submission expires only'",
+    "exit_code": 0,
+    "log": "recovery.log"
+  }
+]

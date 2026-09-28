@@ -1,0 +1,20 @@
+bun test v1.4.2 (744846f84)
+
+audit/2026-09-26/checks/05-demo-astra/adversarial.test.ts:
+(pass) counterevidence: fresh signing rejects changed bytes, wrong keys, and extra signatures [10.91ms]
+(pass) finding: restored signed journal submits another valid envelope without checking its original hash [1.55ms]
+(pass) finding: restored unsigned envelope remains signed and can be submitted [1.08ms]
+(pass) finding: malformed success JSON resolves an unknown submission as failed [0.99ms]
+(pass) finding: a different confirmed hash unlocks the original unknown transaction [0.82ms]
+(pass) finding: the normal signed review removes the decoded operation before submission [1.62ms]
+(pass) counterevidence: storage failure before submission sends no bytes and preserves the signed journal [0.79ms]
+(pass) counterevidence: storage failure after POST leaves a durable submitting journal and no repeat POST [0.78ms]
+(pass) counterevidence: malformed JSON and tx_bad_seq remain unknown; a structured rejection finishes [3.76ms]
+(pass) counterevidence: IndexedDB write failure preserves in-memory history and network response [11.60ms]
+(pass) counterevidence: unavailable Web Locks and unreadable journal prevent submission [0.77ms]
+(pass) counterevidence: normal reload submits the exact verified envelope and confirms its original hash [1.47ms]
+(pass) counterevidence: a quota error saving waiting state prevents signing [0.74ms]
+
+ 13 pass
+ 0 fail
+Ran 13 tests across 1 file. [120.00ms]

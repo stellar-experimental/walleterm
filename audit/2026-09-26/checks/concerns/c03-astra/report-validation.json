@@ -1,0 +1,22 @@
+{
+  "status": "passed",
+  "report_lines": 101,
+  "prose_line_limit": "passed",
+  "evidence_files": 8,
+  "targeted_tests": {
+    "passed": 2,
+    "failed": 0,
+    "filtered": 43
+  },
+  "new_research_usd": 0,
+  "new_jev_usd": 0,
+  "preserved_source_hash": "matched",
+  "final_snapshot": {
+    "revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+    "snapshot": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "tracked_files": 199,
+    "hash_mismatches": [],
+    "baseline_tree_matches_manifest": true
+  },
+  "report_sha256": "78e80d722d274789fd669d3f0aec26f9d1613acc3d73f7f3e50305d1dce2dc85"
+}

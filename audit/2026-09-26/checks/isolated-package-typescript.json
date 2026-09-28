@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "command": [
+    "bun",
+    "run",
+    "typecheck"
+  ],
+  "cwd": "/private/tmp/walleterm-audit-final-bva3p82d",
+  "exit_code": 0,
+  "seconds": 0.2,
+  "source_baseline": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "tracked_source_hashes_verified": 199,
+  "audit_package_copied": true,
+  "production_changes": false,
+  "checkout_typecheck": "failed on concurrent ignored Pagebook capture files",
+  "checkout_errors": 174,
+  "outside_baseline_paths": [
+    "evidence/pagebook-2026-09-26/source/client/rpc.ts",
+    "evidence/pagebook-2026-09-26/source/engine/prepare.ts",
+    "evidence/pagebook-2026-09-26/source/engine/submit.ts",
+    "evidence/pagebook-2026-09-26/source/wallet/classic.ts",
+    "evidence/pagebook-2026-09-26/source/wallet/orders.ts",
+    "evidence/pagebook-2026-09-26/source/wallet/pane.ts",
+    "evidence/pagebook-2026-09-26/source/wallet/ticket.ts"
+  ],
+  "all_outside_paths_ignored": true,
+  "outside_path_sha256": {
+    "evidence/pagebook-2026-09-26/source/client/rpc.ts": "b062d6e05ac256ff5da716517dacdf11fc7febd8d992d1763f701591743fbc68",
+    "evidence/pagebook-2026-09-26/source/engine/prepare.ts": "84b8b6e0909bdf72ef0e69250513c20a47e3e81dce05dfc3ea350ca64ef58f9c",
+    "evidence/pagebook-2026-09-26/source/engine/submit.ts": "7d124c3231e0edf3d2310f953065021246137eb1339ec3a2d23b40cd77da6f41",
+    "evidence/pagebook-2026-09-26/source/wallet/classic.ts": "74d54839d02501ca9dcb735e280c8e9764413cc24208c1e139d14c4287b17995",
+    "evidence/pagebook-2026-09-26/source/wallet/orders.ts": "4ddd1e98c2a26889dfc4e27980a83666fdcf9591183943771da685ef6a06187b",
+    "evidence/pagebook-2026-09-26/source/wallet/pane.ts": "af1ad4cb3799962732e7ac319bc43a20006a8aebe47052e94cf23742d7ca4e65",
+    "evidence/pagebook-2026-09-26/source/wallet/ticket.ts": "c99ed2780323abdef1c4d5a4ab991b9a788c839cda73efa9a18c335f7ba7c206"
+  },
+  "interpretation": "The frozen source plus audit package typechecks. The current checkout result remains failed and was not replaced."
+}

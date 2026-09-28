@@ -1,0 +1,30 @@
+bun test v1.4.2 (744846f84)
+
+audit/2026-09-26/checks/05-demo-astra/adversarial.test.ts:
+(pass) counterevidence: fresh signing rejects changed bytes, wrong keys, and extra signatures [10.56ms]
+(pass) finding: restored signed journal submits another valid envelope without checking its original hash [1.45ms]
+(pass) finding: restored unsigned envelope remains signed and can be submitted [0.83ms]
+(pass) finding: malformed success JSON resolves an unknown submission as failed [0.88ms]
+(pass) finding: a different confirmed hash unlocks the original unknown transaction [0.74ms]
+(pass) finding: the normal signed review removes the decoded operation before submission [1.55ms]
+(pass) counterevidence: storage failure before submission sends no bytes and preserves the signed journal [0.70ms]
+(pass) counterevidence: storage failure after POST leaves a durable submitting journal and no repeat POST [0.66ms]
+(pass) counterevidence: malformed JSON and tx_bad_seq remain unknown; a structured rejection finishes [3.80ms]
+(pass) counterevidence: IndexedDB write failure preserves in-memory history and network response [10.78ms]
+(pass) counterevidence: unavailable Web Locks and unreadable journal prevent submission [1.12ms]
+(pass) counterevidence: normal reload submits the exact verified envelope and confirms its original hash [0.79ms]
+(pass) counterevidence: a quota error saving waiting state prevents signing [0.72ms]
+
+audit/2026-09-26/checks/04-sdk-astra/remote-switch.test.ts:
+{"scenario":"A-B","liveRevision":2,"serverState":"unknown","staleSignatureReturned":true,"signatureCalls":1}
+(pass) reproduces a delayed signature after a remote A-B switch [16.38ms]
+{"scenario":"A-B-A","liveRevision":3,"serverState":"unknown","staleSignatureReturned":true,"signatureCalls":1}
+(pass) reproduces a delayed signature after a remote A-B-A switch [10.13ms]
+
+audit/2026-09-26/checks/04-sdk-astra/destroy-scan.test.ts:
+{"destroyed":true,"scanAborted":false,"stoppedTracks":0,"cameraAttached":true}
+(pass) reproduces camera capture remaining active after component destruction [15.51ms]
+
+ 16 pass
+ 0 fail
+Ran 16 tests across 3 files. [232.00ms]

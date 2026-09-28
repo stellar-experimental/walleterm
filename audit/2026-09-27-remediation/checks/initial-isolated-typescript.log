@@ -1,0 +1,3 @@
+bridge/connect.test.ts(1064,12): error TS2339: Property 'open' does not exist on type '{ close(): void; }'.
+$ tsc --noEmit
+error: script "typecheck" exited with code 1

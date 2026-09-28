@@ -1,0 +1,47 @@
+bun test v1.4.2 (744846f84)
+
+bridge/sdk.test.ts:
+(pass) wallet discovery can refresh without replacing the selected account [0.61ms]
+(pass) discovery and selection permit slow vault lookup but keep a bounded deadline [0.25ms]
+(pass) the caller can cancel discovery and selection before their long deadline [0.09ms]
+(pass) an empty wallet picker can refresh discovery within its current connection [0.32ms]
+(pass) signing retries preserve the request ID and report network recovery [5.10ms]
+(pass) an unreachable bridge bounds cancellation and preserves signing uncertainty [10.46ms]
+(pass) failed remote disconnection retains credentials until an explicit local discard [0.21ms]
+
+bridge/scan.test.ts:
+(pass) the QR decoder reads the tunnel payload and retains leading zeroes [14.82ms]
+(pass) camera scan returns the connection and stops all camera tracks [8.13ms]
+(pass) canceling before camera permission resolves stops the late stream [0.96ms]
+(pass) canceling an unanswered camera request settles before permission responds [1.92ms]
+(pass) canceling an unanswered video start stops the camera [2.04ms]
+(pass) canceling during decoder loading ends the scan before camera access [0.66ms]
+(pass) leaving the page before camera permission resolves stops the late stream [0.65ms]
+
+bridge/connect.test.ts:
+(pass) reload checks the saved session before publishing the wallet and uses the live selection revision [2.44ms]
+(pass) reload keeps an offline session and recovers it on the next health check without replaying requests [1.20ms]
+(pass) reload removes a revoked or expired session and does not exchange the old connection code [0.84ms]
+(pass) invalid saved details never send credentials, and unavailable storage does not break the UI [0.75ms]
+(pass) explicit disconnect clears saved credentials even when remote revocation fails [0.89ms]
+(pass) health checks retain credentials through a network failure and recover the connection [0.69ms]
+(pass) an expired session removes the account and requires a new code [0.65ms]
+(pass) health checks do not overlap or overwrite a newer connection [0.58ms]
+(pass) manual replacement connects to a new tunnel when the previous tunnel cannot revoke its session [0.78ms]
+(pass) manual disconnection discards an unreachable session locally and reports unconfirmed revocation [0.72ms]
+(pass) opening the connection dialog focuses Scan and leaves camera access to an explicit action [0.79ms]
+(pass) camera denial keeps manual entry available without input focus [1.12ms]
+(pass) a successful scan fills the details and focuses Continue [0.75ms]
+(pass) an old canceled scan cannot hide the camera after immediate reopening [0.80ms]
+(pass) changing a wallet uses the current client and does not open the scanner [0.69ms]
+(pass) opening the wallet menu renders known wallets without another lookup [0.55ms]
+(pass) the connection UI publishes the recovered account after a lost selection response [0.62ms]
+(pass) Continue requires an allowed origin and exactly eight digits [1.49ms]
+(pass) a connection disables its inputs and prevents duplicate requests until failure settles [0.80ms]
+(pass) wallet selection locks immediately and accepts only the first click [0.87ms]
+(pass) wallet refresh prevents overlapping discovery and blocks selection until it settles [0.79ms]
+(pass) retrying empty wallet discovery locks the retry button and restores it after failure [0.79ms]
+
+ 36 pass
+ 0 fail
+Ran 36 tests across 3 files. [97.00ms]

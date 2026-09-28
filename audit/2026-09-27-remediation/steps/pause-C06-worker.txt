@@ -1,0 +1,180 @@
+• Ran git diff -- sdk/connect.ts; sed -n '366,405p' bridge/connect.test.ts
+  └ diff --git a/sdk/connect.ts b/sdk/connect.ts
+    index 459a44f..cc63ae6 100644
+    --- a/sdk/connect.ts
+    +333 lines (ctrl+t to view transcript)
+
+• Explored
+  └ Read walleterm.ts, connect.ts
+
+• Edited sdk/connect.ts (+8 -2)
+    299        this.setState('connected');
+    300 -      if (changed) this.onChange({ client, account: { ...account } });
+    300 +      if (!this.destroyed && changed) this.onChange({ client, account: { ...accou
+         nt } });
+    301      } catch (errorValue) {
+        ⋮
+    358        this.setState('expired');
+    359 +      if (this.destroyed) return;
+    360        this.hideMenu();
+        ⋮
+    439    hideMenu() {
+    440 +    if (this.destroyed) return;
+    441      this.$('menu').hidden = true;
+        ⋮
+    445    toggleMenu() {
+    446 +    if (this.destroyed) return;
+    447      if (!this.$('menu').hidden) return this.hideMenu();
+        ⋮
+    529      try {
+    530 +      if (this.destroyed) return;
+    531        const account = await client.selectWallet(key.public_key);
+        ⋮
+    753      try {
+    754 +      if (this.destroyed) return;
+    755        this.notice = '';
+        ⋮
+    767        this.setState('disconnected');
+    768 +      if (this.destroyed) return;
+    769        this.wallets = [];
+        ⋮
+    778        this.setWorking(false);
+    773 -      this.trigger.focus();
+    779 +      if (!this.destroyed) this.trigger.focus();
+    780      }
+
+• Edited sdk/connect.ts (+3 -2)
+    185      this.$('copy').onclick = async () => {
+    186 -      if (!this.account || this.copying) return;
+    186 +      if (this.destroyed || !this.account || this.copying) return;
+    187        this.copying = true;
+        ⋮
+    189          await navigator.clipboard.writeText(this.account.address!);
+    190 +        if (this.destroyed) return;
+    191          this.message('Address copied.', true);
+        ⋮
+    196        } finally {
+    196 -        this.$('copy-label').textContent = 'Copy address';
+    197 +        if (!this.destroyed) this.$('copy-label').textContent = 'Copy address';
+    198          this.copying = false;
+
+• Edited bridge/connect.test.ts (+25 -2)
+      1 -import { test } from 'bun:test';
+      1 +import { onTestFinished, test } from 'bun:test';
+      2  import assert from 'node:assert/strict';
+        ⋮
+      4  import { browserScript } from './test/support.ts';
+      5 +import { scanConnection } from '../sdk/scan.ts';
+      6
+        ⋮
+     12    textContent?: string;
+     13 +  srcObject?: MediaProvider | null;
+     14    onclick?: () => unknown;
+        ⋮
+     36  interface ConnectUI {
+     37 +  destroy(): void;
+     38 +  destroyed: boolean;
+     39 +  scanning: AbortController | null;
+     40 +  connection: AbortController | null;
+     41    sessionStorageKey?: string;
+        ⋮
+     91    };
+     86 -  const context = vm.createContext({ scanConnection, WalletermClient, AbortContro
+         ller, AbortSignal, URL });
+     92 +  const events = new EventTarget();
+     93 +  const context = vm.createContext({
+     94 +    scanConnection,
+     95 +    WalletermClient,
+     96 +    AbortController,
+     97 +    AbortSignal,
+     98 +    URL,
+     99 +    clearInterval,
+    100 +    document: events,
+    101 +    addEventListener: events.addEventListener.bind(events),
+    102 +    removeEventListener: events.removeEventListener.bind(events),
+    103 +  });
+    104    // Errors must come from the page realm, as in the browser.
+        ⋮
+    110    Object.assign(ui, {
+    111 +    destroyed: false,
+    112 +    scanning: null,
+    113 +    connection: null,
+    114      client: null,
+        ⋮
+    118      onBusyChange() {},
+    119 +    wake() {},
+    120 +    outside() {},
+    121 +    keyboard() {},
+    122      $: node,
+
+• Model interrupted to submit steer instructions.
+
+
+› The user needs to leave and requested a safe pause. Stop expanding C06 now. Finish only
+  the focused tests needed for the edits already made, then return a checkpoint. Clearly
+  state implemented or partial, exact tests, remaining work, and limits. Do not start
+  research, another concern, broad verification, or independent review. Preserve all
+  existing edits. The coordinator will save the checkpoint and stop this worker.
+
+
+• I will stop expanding C06. I will finish the focused tests for the current edits, then
+  return a checkpoint.
+
+• Ran git diff --stat -- sdk/connect.ts bridge/connect.test.ts; tail -45 sdk/connect.ts;
+  │ tail -25 bridge/connect.test.ts
+  └  bridge/connect.test.ts | 27 +++++++++++++++--
+     sdk/connect.ts         | 79 +++++++++++++++++++++++++++++++++++---------------
+     2 files changed, 80 insertions(+), 26 deletions(-)
+    +70 lines (ctrl+t to view transcript)
+
+• Model interrupted to submit steer instructions.
+
+
+› For this pause checkpoint, make no further source or test edits. Run only the existing
+  bridge/connect.test.ts and bridge/scan.test.ts tests, plus formatting for the two
+  edited files. Return partial with any unfinished regression coverage. We will complete
+  and review C06 after the user resumes.
+
+
+• I will preserve the current edits. I will run only the two named test files and
+  formatting checks.
+
+• Ran bun test bridge/connect.test.ts bridge/scan.test.ts
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/scan.test.ts:
+    +35 lines (ctrl+t to view transcript)
+
+• Ran bunx --no-install prettier --check sdk/connect.ts bridge/connect.test.ts
+  └ Checking formatting...
+    All matched files use Prettier code style!
+
+• Partial. The correction remains clear, narrow, and worthwhile. The current edits need
+  focused regression coverage before acceptance.
+
+  Changed files:
+
+  • sdk/connect.ts: Aborts owned controllers and guards work after destruction.
+  • bridge/connect.test.ts: Adds test setup support. Adds no regression cases yet.
+
+  Exact checks:
+
+  • bun test bridge/connect.test.ts bridge/scan.test.ts — 29 passed, 0 failed.
+  • bunx --no-install prettier --check sdk/connect.ts bridge/connect.test.ts — passed.
+
+  Remaining work: Test destruction during camera permission, pairing, and replacement.
+  Verify absent late callbacks and storage writes. Verify established clients remain
+  usable.
+
+  Existing tests cover scanner cancellation, but they do not establish correct component
+  destruction. Independent review and combined verification remain unfinished.
+
+  All edits remain preserved. No live operations, research, commits, deployment, or broad
+  verification ran.
+
+  9:01 AM
+
+
+› Ask Codex to do anything
+
+  GPT-6-Sol high · ~/Desktop/walleterm-v2 · Assess C06 remedi…  ⚠ 2 warnings · f2 to view

@@ -1,0 +1,26 @@
+{
+  "command": [
+    "go",
+    "test",
+    "-count=1",
+    "-race",
+    "-run",
+    "^(TestListAndSignWithOfflineMock|TestListAndSignOutputFailure|TestDiagnosticFailurePreventsSigning|TestAgentReadDeadlineReturnsTimeout|TestInputReadDeadlineReturnsTimeout)$",
+    "-timeout=20s",
+    "-v",
+    "main.go",
+    "service.go",
+    "main_test.go"
+  ],
+  "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+  "env": {
+    "GOCACHE": "/private/tmp/wt-c01-astra-tq39rlh7/cache",
+    "GOTMPDIR": "/private/tmp/wt-c01-astra-tq39rlh7/tmp",
+    "TMPDIR": "/private/tmp/wt-c01-astra-tq39rlh7/tmp",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "GOTOOLCHAIN": "local"
+  },
+  "exit": 1,
+  "log": "targeted-sandbox.log"
+}

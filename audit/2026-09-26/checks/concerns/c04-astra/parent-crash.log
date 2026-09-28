@@ -1,0 +1,8 @@
+bun test v1.4.2 (744846f84)
+
+bridge/tunnel-child.test.ts:
+(pass) a hard parent crash stops the tunnel supervisor and its stubborn child [1390.45ms]
+
+ 1 pass
+ 0 fail
+Ran 1 test across 1 file. [1400.00ms]

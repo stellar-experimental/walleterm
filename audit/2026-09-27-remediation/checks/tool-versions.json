@@ -1,0 +1,7 @@
+{
+  "bun": "1.4.2",
+  "go": "go version go1.27.1 darwin/arm64",
+  "stellar": "stellar 28.0.0 (300aaf69ab100536678bdb641428b06f06b318ea)\nstellar-xdr 28.0.0 (d0f1330e43c3a2c0c616da30698b24140d4eea72)\nxdr (9c9c145953e80990d6ff1ae3a6a973a0ce6d0694)",
+  "parallel_cli": "parallel-cli, version 0.9.3",
+  "stellar_sdk": "17.1.0"
+}

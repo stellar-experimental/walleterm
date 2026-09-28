@@ -1,0 +1,31 @@
+{
+  "status": "passed",
+  "revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "verified_tracked_files": 199,
+  "targeted_checks": 7,
+  "stderr_bytes": 0,
+  "report_lines": 98,
+  "report_sha256": "e0bed426d87921a35c5578f002b1b7692864eb75407d5f54412d8274021ac10e",
+  "preserved_primary_sources": [
+    {
+      "file": "cap-0071-01.md",
+      "url": "https://raw.githubusercontent.com/stellar/stellar-protocol/master/core/cap-0071-01.md",
+      "accessed_at": "2026-09-27T01:42:38.104133+00:00",
+      "exit_code": 0,
+      "bytes": 18356,
+      "sha256": "3c44b25c3a8bc7040e1f92a7e905647cb95847cd7b15e8738751b488970611ea"
+    },
+    {
+      "file": "cap-0085.md",
+      "url": "https://raw.githubusercontent.com/stellar/stellar-protocol/master/core/cap-0085.md",
+      "accessed_at": "2026-09-27T01:42:38.863907+00:00",
+      "exit_code": 0,
+      "bytes": 22817,
+      "sha256": "6514cbd4b0b95fd080954e9413b5f75617ba80364188ef18f1a422b9209fbbb7"
+    }
+  ],
+  "new_research_cost_usd": 0,
+  "jev_cost_usd": 0,
+  "live_signing": "not_run",
+  "testnet_transactions": "not_run"
+}

@@ -1,0 +1,98 @@
+import { test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { createBridge } from '/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts';
+
+test('C03: repeated shared locks accept forged Origins and preserve existing sessions', async () => {
+  let clock = Date.now();
+  let rotations = 0;
+  let signerCalls = 0;
+  let discoveryCalls = 0;
+  const bridge = createBridge({
+    port: 0,
+    now: () => clock,
+    log: () => {},
+    listSigners: async () => { discoveryCalls++; return []; },
+    sign: async () => { signerCalls++; throw Error('Signing is outside this check.'); },
+  });
+  bridge.onPairingChanged(() => { rotations++; });
+  const transcript: Array<Record<string, unknown>> = [];
+  try {
+    await bridge.listen();
+    const address = bridge.server.address();
+    assert.ok(address && typeof address !== 'string');
+    const base = `http://127.0.0.1:${address.port}`;
+    bridge.setPublicOrigin(base);
+    const existingOrigin = 'https://existing.example';
+    const victimOrigin = 'https://victim.example';
+    const attackerOrigin = 'https://attacker.example';
+
+    async function connect(site: string, code: string) {
+      return fetch(`${base}/v1/connect`, {
+        method: 'POST',
+        headers: { Origin: site, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+    }
+    async function statusOf(response: Response) {
+      await response.text();
+      return response.status;
+    }
+    const existing = await connect(existingOrigin, bridge.pairing.code);
+    assert.equal(existing.status, 201);
+    const session = await existing.json();
+    assert.equal(typeof session.token, 'string');
+    const rotationsAfterConnect = rotations;
+
+    const preflight = await fetch(`${base}/v1/connect`, {
+      method: 'OPTIONS',
+      headers: {
+        Origin: attackerOrigin,
+        'Access-Control-Request-Method': 'POST',
+        'Access-Control-Request-Headers': 'content-type',
+      },
+    });
+    assert.equal(preflight.headers.get('Access-Control-Allow-Origin'), attackerOrigin);
+    assert.equal(await statusOf(preflight), 204);
+    transcript.push({ check: 'browser_preflight', status: 204, reflected_origin: attackerOrigin });
+
+    async function existingSessionStatus() {
+      return statusOf(await fetch(`${base}/v1/account`, {
+        headers: { Origin: existingOrigin, Authorization: `Bearer ${session.token}` },
+      }));
+    }
+
+    for (let cycle = 0; cycle < 2; cycle++) {
+      const sites = cycle === 0
+        ? Array(5).fill(attackerOrigin)
+        : [victimOrigin, ...Array.from({ length: 4 }, (_, i) => `https://forged-${i}.example`)];
+      const failures: number[] = [];
+      for (const site of sites) {
+        // Nine digits always fail; no production code or credential is needed.
+        failures.push(await statusOf(await connect(site, '000000000')));
+      }
+      assert.deepEqual(failures, [403, 403, 403, 403, 403]);
+      assert.equal(rotations, rotationsAfterConnect + cycle + 1);
+      const correctCodeStatus = await statusOf(await connect(victimOrigin, bridge.pairing.code));
+      assert.equal(correctCodeStatus, 429);
+      const authenticatedStatus = await existingSessionStatus();
+      assert.equal(authenticatedStatus, 200);
+      clock += 59999;
+      const lateStatus = await statusOf(await connect(victimOrigin, bridge.pairing.code));
+      assert.equal(lateStatus, 429);
+      clock += 1;
+      transcript.push({
+        cycle: cycle + 1, supplied_origins: sites, failures,
+        correct_code_status: correctCodeStatus, existing_session_status: authenticatedStatus,
+        status_at_59999_ms: lateStatus,
+      });
+    }
+    assert.equal(await statusOf(await connect(victimOrigin, bridge.pairing.code)), 201);
+    assert.equal(await existingSessionStatus(), 200);
+    assert.equal(discoveryCalls, 0);
+    assert.equal(signerCalls, 0);
+    transcript.push({ check: 'recovery_after_second_minute', status: 201, discoveryCalls, signerCalls });
+    console.log(JSON.stringify({ result: 'passed', transcript }, null, 2));
+  } finally {
+    await bridge.close();
+  }
+});

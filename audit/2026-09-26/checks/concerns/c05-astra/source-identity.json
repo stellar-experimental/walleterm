@@ -1,0 +1,41 @@
+{
+  "revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "snapshot": "/private/tmp/walleterm-audit-40d6cca9db73",
+  "files": [
+    {
+      "path": "sdk/walleterm.ts",
+      "sha256": "1324ca12b747cf5c9504da4132e6ac601d92a839def31e4ae4f91e00c693441e",
+      "matches_revision": true
+    },
+    {
+      "path": "sdk/connect.ts",
+      "sha256": "79800841062a3ba8c5610400000385d14fbb90c3c5e8808e7ce5d7d611c1aae5",
+      "matches_revision": true
+    },
+    {
+      "path": "bridge/server.ts",
+      "sha256": "7c1e45190fc5c81b8e98782e1f6692783ea616dcd821e1fc2c6add735295f186",
+      "matches_revision": true
+    },
+    {
+      "path": "bridge/transaction.ts",
+      "sha256": "9c92c2cee9f8fe984d7786f9bac644832e4a78c6e7a9ca1bfc485a3f269dc6b8",
+      "matches_revision": true
+    },
+    {
+      "path": "bridge/PROTOCOL.md",
+      "sha256": "487ef95414d8666f6b41618d888fc6d27f853cb90cf1a0d9fd8335fb9fb955f5",
+      "matches_revision": true
+    },
+    {
+      "path": "demo/site/app.ts",
+      "sha256": "7b59656b9b06900054620024d52ac55a1e5789136741c0dae528ab4573b79218",
+      "matches_revision": true
+    },
+    {
+      "path": "bridge/server.test.ts",
+      "sha256": "c806ad7f75f23f2cbe73661942fdd4ac6737f6494ba7207234436923ce48ab0d",
+      "matches_revision": true
+    }
+  ]
+}

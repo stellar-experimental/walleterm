@@ -1,0 +1,42 @@
+{
+  "concern": "C03",
+  "revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "snapshot": "/private/tmp/walleterm-audit-40d6cca9db73",
+  "source_hashes": {
+    "bridge/server.ts": "7c1e45190fc5c81b8e98782e1f6692783ea616dcd821e1fc2c6add735295f186",
+    "bridge/PROTOCOL.md": "487ef95414d8666f6b41618d888fc6d27f853cb90cf1a0d9fd8335fb9fb955f5",
+    "manifest_match": true
+  },
+  "checks": [
+    {
+      "command": "bun test audit/2026-09-26/checks/concerns/c03-daybreak/origin-forgery.test.ts",
+      "environment": "sandbox",
+      "result": "failed",
+      "reason": "The sandbox rejected the loopback listener with EADDRINUSE."
+    },
+    {
+      "command": "bun test audit/2026-09-26/checks/concerns/c03-daybreak/origin-forgery.test.ts",
+      "environment": "permitted loopback",
+      "result": "passed",
+      "passed": 1,
+      "failed": 0,
+      "expectations": 13
+    },
+    {
+      "command": "bun test bridge/server.test.ts --test-name-pattern 'short codes expire, rotate once, and pause for one minute after five incorrect attempts'",
+      "working_directory": "/private/tmp/walleterm-audit-40d6cca9db73",
+      "environment": "permitted loopback",
+      "result": "passed",
+      "passed": 1,
+      "failed": 0,
+      "filtered": 43
+    },
+    {
+      "command": "shasum -a 256 /private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts /private/tmp/walleterm-audit-40d6cca9db73/bridge/PROTOCOL.md",
+      "result": "passed",
+      "manifest_match": true
+    }
+  ],
+  "new_research_cost_usd": 0,
+  "new_jev_cost_usd": 0
+}

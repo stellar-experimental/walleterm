@@ -1,0 +1,133 @@
+{
+  "checked_utc": "2026-09-27T03:19:11.900612+00:00",
+  "revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "snapshot": "/private/tmp/walleterm-audit-40d6cca9db73",
+  "tree_command": [
+    "git",
+    "-C",
+    "/Users/kalepail/Desktop/walleterm-v2",
+    "ls-tree",
+    "-r",
+    "--name-only",
+    "40d6cca9db732a0db16d154c80d4a153bf33c6b7"
+  ],
+  "manifest_files_matched": 199,
+  "scoped_git_matches": [
+    {
+      "file": "AGENTS.md",
+      "sha256": "66833c1fbb09772e2d4277c2145e75d888c443ced440388f9e2c038a2981d0aa",
+      "git_command": [
+        "git",
+        "-C",
+        "/Users/kalepail/Desktop/walleterm-v2",
+        "show",
+        "40d6cca9db732a0db16d154c80d4a153bf33c6b7:AGENTS.md"
+      ]
+    },
+    {
+      "file": "README.md",
+      "sha256": "db7debfe710adf212d989f0e78a1f740e2a32f4bcecd6236e03d3029bf110344",
+      "git_command": [
+        "git",
+        "-C",
+        "/Users/kalepail/Desktop/walleterm-v2",
+        "show",
+        "40d6cca9db732a0db16d154c80d4a153bf33c6b7:README.md"
+      ]
+    },
+    {
+      "file": "docs/PLAN.md",
+      "sha256": "ee9dd013bf13e63e5de20dbd94399d1435e75de9962a4303c3e9178b3e4f6be6",
+      "git_command": [
+        "git",
+        "-C",
+        "/Users/kalepail/Desktop/walleterm-v2",
+        "show",
+        "40d6cca9db732a0db16d154c80d4a153bf33c6b7:docs/PLAN.md"
+      ]
+    },
+    {
+      "file": "docs/INTERFACE.md",
+      "sha256": "05df4a7a812778a343fb006a62831d6c070cd6de1682bf594ce15a7a7d28ccb4",
+      "git_command": [
+        "git",
+        "-C",
+        "/Users/kalepail/Desktop/walleterm-v2",
+        "show",
+        "40d6cca9db732a0db16d154c80d4a153bf33c6b7:docs/INTERFACE.md"
+      ]
+    },
+    {
+      "file": "main.go",
+      "sha256": "43f4fe2e97c5e5837e34b7d8f4b38792fc277851fbec15da5cf1d5006c15c1da",
+      "git_command": [
+        "git",
+        "-C",
+        "/Users/kalepail/Desktop/walleterm-v2",
+        "show",
+        "40d6cca9db732a0db16d154c80d4a153bf33c6b7:main.go"
+      ]
+    },
+    {
+      "file": "main_test.go",
+      "sha256": "02847410813957a5714606f9b5a1e18cd7496969b8828d9271f985485d6db500",
+      "git_command": [
+        "git",
+        "-C",
+        "/Users/kalepail/Desktop/walleterm-v2",
+        "show",
+        "40d6cca9db732a0db16d154c80d4a153bf33c6b7:main_test.go"
+      ]
+    },
+    {
+      "file": "service.go",
+      "sha256": "d457358c1a1b5d91d2792297573971605794cd7996513f90dc7f16b9df9d4220",
+      "git_command": [
+        "git",
+        "-C",
+        "/Users/kalepail/Desktop/walleterm-v2",
+        "show",
+        "40d6cca9db732a0db16d154c80d4a153bf33c6b7:service.go"
+      ]
+    },
+    {
+      "file": "go.mod",
+      "sha256": "4556f821907e1963288caca334fc2f73011709312e28f35b8be8cef8be741511",
+      "git_command": [
+        "git",
+        "-C",
+        "/Users/kalepail/Desktop/walleterm-v2",
+        "show",
+        "40d6cca9db732a0db16d154c80d4a153bf33c6b7:go.mod"
+      ]
+    },
+    {
+      "file": "bridge/signer.ts",
+      "sha256": "e9aed92adf2c111973f89826405d0bdad1f8e59a60bf7b9ee643c0942b322622",
+      "git_command": [
+        "git",
+        "-C",
+        "/Users/kalepail/Desktop/walleterm-v2",
+        "show",
+        "40d6cca9db732a0db16d154c80d4a153bf33c6b7:bridge/signer.ts"
+      ]
+    },
+    {
+      "file": "bridge/runtime.ts",
+      "sha256": "ae3aa2e7dfd76afe03e66fe15bbc75500697673fb4d49eb5a49e0194c40b5690",
+      "git_command": [
+        "git",
+        "-C",
+        "/Users/kalepail/Desktop/walleterm-v2",
+        "show",
+        "40d6cca9db732a0db16d154c80d4a153bf33c6b7:bridge/runtime.ts"
+      ]
+    }
+  ],
+  "preserved_evidence_sha256": {
+    "checks/01-signer-astra/audit_test.go": "73ecda33748b033bb23077450f6ca24ce59d9b5aeeab0077e248303474800e9d",
+    "checks/01-signer-astra/audit-output-deadline.log": "f71d334e50118e1ee084383b934fcaa22f2653ce7c984ff18d3d9c37e2bf29a1",
+    "checks/01-signer-astra/audit-output-deadline.exit": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061"
+  },
+  "outcome": "passed"
+}

@@ -1,0 +1,63 @@
+{
+  "jev": {
+    "initial": {
+      "cost_usd": 0.008729397,
+      "hedged_requests": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "provider_requests": {},
+      "provider_wait_ms": 0,
+      "rate_limited_requests": 0,
+      "requests": 3
+    },
+    "permitted": {
+      "cost_usd": 0.017824644,
+      "hedged_requests": 0,
+      "input_tokens": 417539,
+      "output_tokens": 24404,
+      "provider_requests": {
+        "cloudflare": 91,
+        "typesafe": 206
+      },
+      "provider_wait_ms": 0,
+      "rate_limited_requests": 0,
+      "requests": 297
+    },
+    "total_visible_usd": 0.026554041,
+    "allocation_usd": 1,
+    "status": "partial",
+    "degraded": true,
+    "not_shown": {
+      "duplicate_urls": 0,
+      "selected_beyond_limit": 0,
+      "uncertain": 30
+    }
+  },
+  "parallel_cli": {
+    "usage": [
+      {
+        "name": "sku_search",
+        "count": 1
+      }
+    ],
+    "price_usd": null
+  },
+  "parallel_mcp": {
+    "usage": [
+      {
+        "name": "sku_search",
+        "count": 1
+      }
+    ],
+    "price_usd": null
+  },
+  "perplexity_mcp": {
+    "calls": 1,
+    "price_usd": null
+  },
+  "stellar_raven_mcp": {
+    "price_usd": null
+  },
+  "total_allocation_usd": 10,
+  "followup_allocation_needed": false
+}

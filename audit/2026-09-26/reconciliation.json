@@ -1,0 +1,302 @@
+[
+  {
+    "id": "C01",
+    "status": "confirmed",
+    "severity": "low",
+    "priority": "Clarify the signer interface; no runtime change is required.",
+    "confidence": "high; preserved 122-second real-pipe reproduction and focused controls agree",
+    "scope": "Direct callers with blocked output pipes and no outer process timeout. The bridge drains both streams and has its own timeout.",
+    "decision": "Both models confirm that the full-operation deadline wording exceeds implemented output behavior. The reproduction blocks before signing and sends zero signing requests. Normal consumers that drain streams do not reproduce it.",
+    "mitigation": "Limit the documented deadline to supported input and agent I/O. State that callers drain both output streams and enforce an outer timeout when bounded completion is required. Missing output can follow signing; preserve the ban on automatic signing retries.",
+    "reports": [
+      "reports/concerns/c01-signer-deadline-astra.md",
+      "reports/concerns/c01-signer-deadline-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C02",
+    "status": "confirmed",
+    "severity": "low",
+    "priority": "Add a local request parsing guard during demo maintenance.",
+    "confidence": "high for loopback process exit; public reachability unverified",
+    "scope": "The demo listener receives a malformed request target with an accepted Host value. Signing bridge processes are separate.",
+    "decision": "Both models reproduce Bun 1.4.2 process exit from uncaught URL parsing. The test uses real loopback handling, not a public tunnel. A same-user process already has authority to stop the demo.",
+    "mitigation": "Catch URL parsing errors and return HTTP 400. Verify the same process still answers /api/session. Keep the existing Host restriction. No restart manager or parsing framework is needed.",
+    "reports": [
+      "reports/concerns/c02-demo-url-astra.md",
+      "reports/concerns/c02-demo-url-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C03",
+    "status": "accepted_limit",
+    "severity": "none",
+    "priority": "Keep the existing protection; no runtime fix is required.",
+    "confidence": "high; distinct-Origin, repeated-lock, and session-continuity checks agree",
+    "scope": "New pairings can pause when an actor knows the active bridge URL. Existing sessions remain usable.",
+    "decision": "Both focused reviewers classify the shared five-failure lock as a documented availability tradeoff. It caps guesses against one secret. Per-Origin limits cannot stop clients that forge or rotate Origin headers.",
+    "mitigation": "Retain the global guess ceiling, code rotation, and one-minute pause. An optional sentence can clarify the process-wide effect. Stronger availability would require a separate trusted admission design, not a per-Origin counter.",
+    "reports": [
+      "reports/concerns/c03-pairing-limit-astra.md",
+      "reports/concerns/c03-pairing-limit-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C04",
+    "status": "accepted_limit",
+    "severity": "none",
+    "priority": "No runtime change for the accepted main-parent crash guarantee.",
+    "confidence": "high for the mock ownership gap; real cloudflared persistence is unverified",
+    "scope": "An independently killed supervisor with a surviving grandchild. Current main-parent crash and normal termination controls pass.",
+    "decision": "Both focused reports retain a conditional, low-priority reliability observation. Neither finds a breach of the documented main-parent crash promise. The coordinator treats this as an accepted fault-model limit, not a confirmed production defect.",
+    "mitigation": "Optionally clarify that main-parent crash cleanup requires a live supervisor. Keep the existing regression. Add isolated process-group ownership only if supervisor-crash tolerance becomes a requirement; avoid unsafe PID-only cleanup.",
+    "reports": [
+      "reports/concerns/c04-supervisor-child-astra.md",
+      "reports/concerns/c04-supervisor-child-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C05",
+    "status": "confirmed",
+    "severity": "medium",
+    "priority": "P2; fix before broader SDK integration.",
+    "confidence": "high for behavior; frequency unmeasured",
+    "scope": "Shared available-wallet sessions with a delayed signed response after observed revision change.",
+    "decision": "Both focused models reproduce stale success. Grants and original transaction identity remain valid. No automatic SDK submission or unauthorized signing is shown.",
+    "mitigation": "Compare current and captured selection revisions in the existing final success guard. Preserve cancellation uncertainty. No new protocol or generation coupling is required.",
+    "reports": [
+      "reports/concerns/c05-remote-revision-astra.md",
+      "reports/concerns/c05-remote-revision-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C06",
+    "status": "confirmed",
+    "severity": "low",
+    "priority": "Fix before external SPA integration depends on destroy().",
+    "confidence": "high",
+    "scope": "External SPA teardown during an explicitly initiated scan or pairing. The static demo does not destroy the component.",
+    "decision": "Both models confirm active controllers and late pairing commits. Both reject Medium severity. No signing, submission, permission bypass, or frame upload occurs.",
+    "mitigation": "Abort owned pending controllers and guard late commits. Keep established shared clients usable.",
+    "reports": [
+      "reports/concerns/c06-component-destroy-astra.md",
+      "reports/concerns/c06-component-destroy-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C07",
+    "status": "optional_hardening",
+    "severity": "none",
+    "priority": "Do not treat this as a demonstrated defect in the shipped bridge path.",
+    "confidence": "high for mocked branch behavior; standard-deployment trigger unproven",
+    "scope": "An accessible HTTP 401 followed by JSON or body-read failure. The bridge generates JSON errors and configures no second authentication proxy.",
+    "decision": "Both focused models classify this as conditional resilience work. The component becomes expired, not connected; credentials and account data can remain locally. Server authorization still rejects the token. No applicable intermediary producer was demonstrated.",
+    "mitigation": "An optional small cleanup moves the existing matching-token 401 handling before JSON parsing. Preserve stale-response isolation, status diagnostics, and ordinary network-failure behavior. No proxy parser, new setting, or release block is justified.",
+    "reports": [
+      "reports/concerns/c07-unreadable-401-astra.md",
+      "reports/concerns/c07-unreadable-401-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C08",
+    "status": "conditional",
+    "severity": "low",
+    "priority": "Add a small response guard during demo recovery maintenance.",
+    "confidence": "high for behavior; provider fault occurrence unverified",
+    "scope": "Malformed or mismatched HTTP success data from the fixed official testnet Horizon endpoint.",
+    "decision": "Both models confirm false terminal transitions and original-hash contract failure. Astra rates Low; Daybreak gives Medium correctness priority. Fixed HTTPS, testnet scope, and required user actions limit practical severity.",
+    "mitigation": "Validate matching hash, boolean successful, and positive safe-integer ledger before mutation. Preserve unresolved state on rejection. Use the same small guard for POST and GET. Keep optional offer-result decoding separate from the validated terminal result.",
+    "reports": [
+      "reports/concerns/c08-confirmation-binding-astra.md",
+      "reports/concerns/c08-confirmation-binding-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C09",
+    "status": "conditional",
+    "severity": "low",
+    "priority": "Optional recovery hardening during demo maintenance; no security release block.",
+    "confidence": "high for injected inconsistent records; ordinary occurrence not demonstrated",
+    "scope": "Structurally valid but inconsistent restored demo records. Valid-envelope substitution requires an existing signature.",
+    "decision": "Both models find no ordinary writer that mixes envelopes. Injected storage can mislabel verification or track a different hash after POST. Same-origin code already has stronger authority; validation adds no independent security boundary.",
+    "mitigation": "Reuse fresh signature and hash checks in readJournal for signed, submitting, and unknown records. Bind both bodies to the saved hash and saved signer. Preserve invalid storage, block transaction actions, and keep Disconnect available. Do not invalidate old records solely because the current wallet changed.",
+    "reports": [
+      "reports/concerns/c09-restored-journal-astra.md",
+      "reports/concerns/c09-restored-journal-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C10",
+    "status": "confirmed",
+    "severity": "low",
+    "priority": "Restore decoded details before demo submission.",
+    "confidence": "high; normal signing and reload paths reproduce it",
+    "scope": "All four demo actions after signing. The initial pre-sign review and cryptographic checks remain present.",
+    "decision": "Both models confirm the missing second review without an attacker or fault. No changed bytes or unauthorized action is shown. They differ only on whether the existing unsigned body or signed body should supply the restored display.",
+    "mitigation": "Keep decoded details visible in signed state using the existing decoder. The smallest normal-path change retains the verified original body. Prefer the actual signed body when combining this work with C09 integrity validation; decoding alone is not signature verification.",
+    "reports": [
+      "reports/concerns/c10-signed-review-astra.md",
+      "reports/concerns/c10-signed-review-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C11",
+    "status": "conditional",
+    "severity": "low",
+    "priority": "Validate recorded authorization trees before the next affected live harness run.",
+    "confidence": "high for signature disclosure under an altered mock response",
+    "scope": "Base and extended testnet fixture harnesses using dedicated keys and a fixed official RPC.",
+    "decision": "Both models confirm signing before tree validation. Enforcement rejection cannot revoke the disclosed signature. Astra rates Low; Daybreak gives Medium priority. No compromised provider or on-ledger misuse was observed. The RPC supplies the ledger used for expiration.",
+    "mitigation": "Validate every expected tree and credential before any signer callback. Use row-specific expected trees and preserve nested, delegated, replay, and intentional negative cases. No signer or general policy framework change is needed.",
+    "reports": [
+      "reports/concerns/c11-rpc-authorization-astra.md",
+      "reports/concerns/c11-rpc-authorization-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C12",
+    "status": "confirmed",
+    "severity": "low",
+    "priority": "Reject modified cached source before the next fixture rebuild.",
+    "confidence": "high for attribution logic; historical clean-source provenance remains unproven",
+    "scope": "Local OpenZeppelin fixture builds from a cache with unchanged HEAD and modified tracked files.",
+    "decision": "Both models confirm a misleading pinned-commit label. The reproduction uses real Git state and a compiler stub. Current artifacts match all recorded hashes; no current source substitution was established.",
+    "mitigation": "Reject staged and unstaged tracked changes before compilation and preserve developer files. A fresh isolated checkout is an alternative. Broader untracked-input checks can extend coverage but are not necessary to prove the demonstrated fix.",
+    "reports": [
+      "reports/concerns/c12-oz-provenance-astra.md",
+      "reports/concerns/c12-oz-provenance-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C13",
+    "status": "confirmed",
+    "severity": "low",
+    "priority": "Correct phase recovery before relying on resumed X06 evidence.",
+    "confidence": "high for saved-success and reconciled-success paths",
+    "scope": "CAP-85 X06 restart after the final executable change or a failed final read. Production signer and browser services are unaffected.",
+    "decision": "Both models reproduce a safe halt at an obsolete intermediate-state assertion. No repeated X06 operation or false row pass occurs. Final state is correct but the row cannot finish.",
+    "mitigation": "Persist the initial and validated intermediate observations in the existing checkpoint before advancing. Reuse them after confirmed final success, skip obsolete intermediate live assertions, and always validate current final state. Label missing old observations explicitly.",
+    "reports": [
+      "reports/concerns/c13-x06-recovery-astra.md",
+      "reports/concerns/c13-x06-recovery-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C14",
+    "status": "confirmed",
+    "severity": "low",
+    "priority": "Fix before the next explicit CLI01 live run.",
+    "confidence": "high for the missing gate; occurrence not observed live",
+    "scope": "Dedicated testnet acceptance script; amount 100 stroops, 0.0000100 XLM. No meaningful financial loss claim.",
+    "decision": "Both focused reviewers confirm the recovery invariant failure. Astra reduced practical severity after the coordinator verified CLI units. Daybreak prioritizes the fix before CLI01 use.",
+    "mitigation": "Wrap actual CLI submission in the existing durable guard through a small adapter. Reconcile only the saved hash.",
+    "reports": [
+      "reports/concerns/c14-cli-submission-astra.md",
+      "reports/concerns/c14-cli-submission-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C15",
+    "status": "confirmed",
+    "severity": "low",
+    "priority": "Correct the two stale connection-guide instructions.",
+    "confidence": "high; incomplete and complete distribution controls agree",
+    "scope": "Website integrators who copy only dist/sdk according to docs/CONNECTION-UI.md. Installed demo and complete package layouts work.",
+    "decision": "Both models confirm missing shared module imports. Fresh builds and recursive asset checks support the same conclusion. README and the service skill already describe the correct complete distribution.",
+    "mitigation": "Serve the complete dist tree with its generated layout. Copy sdk/connect.css separately. Remove the obsolete separate jsqr.js requirement. Do not change bundling, package exports, or installation.",
+    "reports": [
+      "reports/concerns/c15-sdk-distribution-astra.md",
+      "reports/concerns/c15-sdk-distribution-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C16",
+    "status": "unsupported",
+    "severity": "none",
+    "priority": "No runtime change justified.",
+    "confidence": "high for the documented process-restart scope",
+    "scope": "An unproven operating-system crash or power-loss limitation, outside the documented process-restart promise.",
+    "decision": "Both models reject the original APFS defect claim. API capability checks do not prove crash persistence. Restoring a deleted gate would fail closed.",
+    "mitigation": "Optionally clarify the process-restart boundary. Define and test a stronger fault model before adding persistence code.",
+    "reports": [
+      "reports/concerns/c16-directory-durability-astra.md",
+      "reports/concerns/c16-directory-durability-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C17",
+    "status": "confirmed",
+    "severity": "low",
+    "priority": "Clarify CAP-71 reused-check output before treating resumed rows as fresh acceptance.",
+    "confidence": "high for the CAP-71 labeling path; no live protocol incompatibility demonstrated",
+    "scope": "An incomplete CAP-71 row resumes from cached checks under a later protocol. Completed rows correctly retain historical labels.",
+    "decision": "Both models and the coordinator reproduce a new passed wrapper with the current protocol, older nested checks, and no reuse marker. Retain this narrow evidence-label defect. Daybreak also challenges CAP-85 top-level status; its explicit reused_steps markers provide counterevidence. Missing general version identity remains an optional provenance improvement.",
+    "mitigation": "Add explicit reused-check metadata and separate the original protocol from the current environment. Existing completion status can remain when the metadata clearly labels historical checks. Preserve deployments and unresolved submissions. Add a full assertion-identity scheme only if exact revision-specific acceptance becomes a requirement.",
+    "reports": [
+      "reports/concerns/c17-checkpoint-versions-astra.md",
+      "reports/concerns/c17-checkpoint-versions-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C18",
+    "status": "accepted_limit",
+    "severity": "none",
+    "priority": "Keep historical acceptance limits explicit; no live rerun is required to complete this audit.",
+    "confidence": "high for source wording and historical provenance",
+    "scope": "Historical live records precede the frozen revision. Current offline checks do not establish new live 1Password or testnet acceptance.",
+    "decision": "Both models found no exact false fresh-acceptance claim. README current tunnel wording is ambiguous alone, but linked dates, revisions, and migration notes disclose the limits.",
+    "mitigation": "Optionally date the README sentence during documentation maintenance. Preserve historical records. Record a small tested-revision manifest only during a separately authorized future live run. Keep signer metadata and signed envelopes local.",
+    "reports": [
+      "reports/concerns/c18-historical-evidence-astra.md",
+      "reports/concerns/c18-historical-evidence-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C19",
+    "status": "unsupported",
+    "severity": "none",
+    "priority": "Close the rejected snapshot claim; no source change is required.",
+    "confidence": "high; both reviewers verified Git ownership and locked SDK implementations",
+    "scope": "CAP-85 native fixture builds delete ignored generated diagnostics after passing tests.",
+    "decision": "Both models confirm zero tracked snapshots among all 199 baseline files. SDK 28.0.0 and locked 27.0.6 write snapshots without comparing older files. Direct test assertions remain active. No weakened signer or contract check was demonstrated.",
+    "mitigation": "Retain the current build behavior. Committing snapshots would introduce a new differential-review policy, which this concern does not justify.",
+    "reports": [
+      "reports/concerns/c19-fixture-snapshots-astra.md",
+      "reports/concerns/c19-fixture-snapshots-daybreak.md"
+    ],
+    "overall_review": "complete"
+  },
+  {
+    "id": "C20",
+    "status": "accepted_limit",
+    "severity": "none",
+    "priority": "Optionally state the tested platform; do not add an unsupported product floor.",
+    "confidence": "high for documented promises; Intel and older macOS execution remain unverified",
+    "scope": "Readers using Intel or older macOS releases lack a tested-platform statement. Both Darwin architectures compile, but only arm64 ran.",
+    "decision": "Both reviewers reject a false compatibility promise or demonstrated supported-platform failure. The documentation targets macOS without promising every release or Intel execution. Version-specific Bun requirements do not establish a complete Walleterm support floor.",
+    "mitigation": "Optionally record macOS 26.7 arm64, Go 1.27.1, and Bun 1.4.2 as the tested environment. Label Intel compilation separately from runtime coverage. Add runtime evidence only before making a broader support promise.",
+    "reports": [
+      "reports/concerns/c20-platform-claims-astra.md",
+      "reports/concerns/c20-platform-claims-daybreak.md"
+    ],
+    "overall_review": "complete"
+  }
+]

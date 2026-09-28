@@ -1,0 +1,134 @@
+// C17 only. This check uses a synthetic checkpoint and blocks all live calls.
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+
+const root = '/private/tmp/walleterm-audit-40d6cca9db73';
+const audit = '/Users/kalepail/Desktop/walleterm-v2/audit/2026-09-26';
+const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
+const manifest = JSON.parse(readFileSync(join(audit, 'manifest.json'), 'utf8'));
+const source = 'tests/cap71.ts';
+assert.equal(manifest.revision, '40d6cca9db732a0db16d154c80d4a153bf33c6b7');
+assert.equal(sha256(readFileSync(join(root, source))), manifest.file_sha256[source]);
+
+const sdk = await import(join(root, 'node_modules/@stellar/stellar-sdk/lib/esm/index.js'));
+const cap71 = await import(join(root, source));
+const directory = mkdtempSync('/private/tmp/c17-daybreak-');
+const checkpoint = join(directory, 'cap71.json');
+const wasmDirectory = join(root, 'fixtures/cap71/target/wasm32v1-none/release');
+const wasmNames = ['cap71_delegate.wasm', 'cap71_raw_account.wasm', 'cap71_target.wasm'];
+const keys = Object.fromEntries(
+  ['a', 'b', 'c'].map((name, index) => {
+    const rawPublicKey = Buffer.alloc(32, index + 1);
+    return [name, { name, rawPublicKey, publicKey: sdk.StrKey.encodeEd25519PublicKey(rawPublicKey) }];
+  }),
+);
+const binding = {
+  network: sdk.Networks.TESTNET,
+  keys: Object.values(keys).map((key: any) => key.publicKey),
+  artifacts: Object.fromEntries(
+    wasmNames.map((file) => [file, sha256(readFileSync(join(wasmDirectory, file)))]),
+  ),
+};
+const events: any[] = [];
+const blockedCalls: string[] = [];
+const deny = (name: string): never => {
+  blockedCalls.push(name);
+  throw new Error(`blocked live call: ${name}`);
+};
+
+try {
+  const state = cap71.loadCheckpoint(checkpoint, binding);
+  for (const file of wasmNames) state.steps[`CAP71-upload-${file}`] = { protocol: 28 };
+  const contracts: Record<string, string> = {};
+  for (const [index, name] of ['target', 'any', 'both', 'weighted', 'chain', 'raw1', 'raw2'].entries()) {
+    const address = sdk.StrKey.encodeContract(Buffer.alloc(32, index + 10));
+    contracts[name] = address;
+    state.salts[name] = Buffer.alloc(32, index + 30).toString('hex');
+    state.steps[`CAP71-deploy-${name}`] = {
+      protocol: 28,
+      retval_xdr: new sdk.Address(address).toScVal().toXdr('base64'),
+    };
+  }
+  state.checks['CAP71-direct-a'] = {
+    protocol: 28,
+    outcome: 'submitted',
+    state_before: 0,
+    state_after: 1,
+  };
+  state.checks['CAP71-direct-c'] = {
+    protocol: 28,
+    outcome: 'submitted',
+    state_before: 1,
+    state_after: 2,
+  };
+  assert.equal(state.done['CAP71-01'], undefined);
+  cap71.saveCheckpoint(checkpoint, state);
+
+  await cap71.runCap71({
+    sdk,
+    keys,
+    networkPassphrase: sdk.Networks.TESTNET,
+    rows: ['CAP71-01'],
+    cap71Checkpoint: checkpoint,
+    assertClear() {},
+    record(id: string, status: string, details: any = {}) {
+      events.push({ id, status, ...details });
+    },
+    signDigest: async () => deny('signDigest'),
+    sign: async () => deny('sign'),
+    send: async () => deny('send'),
+    rpc: {
+      getVersionInfo: async () => ({ protocolVersion: 29 }),
+      getAccount: async () => deny('rpc.getAccount'),
+      simulateTransaction: async () => deny('rpc.simulateTransaction'),
+    },
+  });
+
+  const row = events.findLast((event) => event.id === 'CAP71-01');
+  assert(row);
+  assert.equal(row.status, 'passed');
+  assert.equal(row.protocol, 29);
+  assert.equal(row.checks.a.protocol, 28);
+  assert.equal(row.checks.c.protocol, 28);
+  assert.equal(row.reused_evidence, undefined);
+  assert.equal(events.some((event) => event.status === 'passed_previous_run'), false);
+  assert.deepEqual(blockedCalls, []);
+
+  const saved = cap71.loadCheckpoint(checkpoint, binding);
+  assert.equal(saved.done['CAP71-01'].protocol, 29);
+  assert.equal(saved.done['CAP71-01'].checks.a.protocol, 28);
+  assert.equal(saved.done['CAP71-01'].checks.c.protocol, 28);
+
+  console.log(
+    JSON.stringify(
+      {
+        status: 'passed_reproduction',
+        revision: manifest.revision,
+        source_sha256: manifest.file_sha256[source],
+        scenario: 'protocol-28 checks, incomplete row, protocol-29 resume',
+        emitted: {
+          status: row.status,
+          row_protocol: row.protocol,
+          check_protocols: { a: row.checks.a.protocol, c: row.checks.c.protocol },
+          reused_evidence_present: Object.hasOwn(row, 'reused_evidence'),
+          passed_previous_run_events: events.filter((event) => event.status === 'passed_previous_run').length,
+        },
+        saved_done: {
+          protocol: saved.done['CAP71-01'].protocol,
+          check_protocols: {
+            a: saved.done['CAP71-01'].checks.a.protocol,
+            c: saved.done['CAP71-01'].checks.c.protocol,
+          },
+        },
+        blocked_live_calls_reached: blockedCalls,
+        limits: 'Synthetic state and hypothetical protocol 29; no network, signing, or submission.',
+      },
+      null,
+      2,
+    ),
+  );
+} finally {
+  rmSync(directory, { recursive: true, force: true });
+}

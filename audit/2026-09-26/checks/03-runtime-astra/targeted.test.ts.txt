@@ -1,0 +1,99 @@
+import { test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, writeFileSync, readFileSync, statSync, rmSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { connect } from 'node:net';
+import { launchService } from '/private/tmp/walleterm-audit-40d6cca9db73/bridge/launch.ts';
+import { stopChild } from '/private/tmp/walleterm-audit-40d6cca9db73/bridge/runtime.ts';
+import { createBridge } from '/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts';
+import { createDemoSite } from '/private/tmp/walleterm-audit-40d6cca9db73/demo/server.ts';
+
+const alive = (pid: number) => {
+  try { process.kill(pid, 0); return true; }
+  catch (e: any) { if (e.code === 'ESRCH') return false; throw e; }
+};
+
+test('real supervisor preserves private config, filters environment, and isolates two services', async () => {
+  const scratch = mkdtempSync('/private/tmp/walleterm-runtime-audit-');
+  const output: string[] = [];
+  const services: any[] = [];
+  const records: any[] = [];
+  writeFileSync(join(scratch, 'cloudflared'), '#!/bin/sh\nprintf \'%s\\n\' "${TUNNEL_TOKEN-unset}" "${AUDIT_SECRET-unset}" > sentinels.txt\necho https://audit-only.trycloudflare.com\nwhile :; do read -r item || sleep 1; done\n', { mode: 0o700 });
+  // This mock file contains only public sentinel values.
+  writeFileSync(join(scratch, '.env'), 'AUDIT_SECRET=dotenv-sentinel\nTUNNEL_TOKEN=dotenv-token\n');
+  const env = { PATH: `${scratch}:/usr/bin:/bin`, HOME: scratch, TMPDIR: '/private/tmp', LANG: 'C', AUDIT_SECRET: 'shell-sentinel', TUNNEL_TOKEN: 'shell-token' };
+  try {
+    for (let i = 0; i < 2; i++) {
+      const service = { service: 'audit-only', closed: false, async listen() {}, async close() { this.closed = true; }, setPublicOrigin() {} };
+      const running = await launchService({ port: 11000 + i, label: 'Audit mock' }, {
+        create: () => service, environment: env, ready: async () => {},
+        probe: async () => ({ status: 200, service: 'audit-only' }), output: { write: (s) => output.push(s) },
+      });
+      services.push(running);
+      const directory = String(running.child!.spawnargs.length && running.child!.spawnargs[running.child!.spawnargs.indexOf('--config') + 1]).replace(/\/config.yml$/, '');
+      const record = JSON.parse(readFileSync(join(directory, 'child.json'), 'utf8'));
+      records.push({ ...record, directory });
+      assert.equal(statSync(directory).mode & 0o777, 0o700);
+      assert.equal(statSync(join(directory, 'config.yml')).mode & 0o777, 0o600);
+      assert.equal(statSync(join(directory, 'child.json')).mode & 0o777, 0o600);
+      assert.equal(readFileSync(join(directory, 'config.yml'), 'utf8'), '{}\n');
+      assert.equal(readFileSync(join(directory, 'sentinels.txt'), 'utf8'), 'unset\nunset\n');
+    }
+    assert.notEqual(records[0].directory, records[1].directory);
+    await services[0].stop(0);
+    assert.equal(alive(records[0].supervisor_pid), false);
+    assert.equal(alive(records[0].cloudflared_pid), false);
+    assert.equal(existsSync(records[0].directory), false);
+    assert.equal(alive(records[1].supervisor_pid), true);
+    assert.equal(alive(records[1].cloudflared_pid), true);
+    assert.equal(services[1].demo.closed, false);
+    console.log(JSON.stringify({ check: 'supervisor-isolation', private_modes: ['0700', '0600', '0600'], sentinel_values: ['unset', 'unset'], stopped_only_owned_processes: true }));
+  } finally {
+    for (const service of services) await service.stop(0);
+    for (const record of records) {
+      for (const pid of [record.supervisor_pid, record.cloudflared_pid]) if (alive(pid)) process.kill(pid, 'SIGKILL');
+    }
+    rmSync(scratch, { recursive: true, force: true });
+  }
+}, { timeout: 10000 });
+
+test('actual bridge and demo bind loopback and close independently without signer calls', async () => {
+  let signerCalls = 0;
+  const bridge = createBridge({ port: 0, listSigners: async () => { signerCalls++; throw Error('Forbidden mock call'); }, sign: async () => { signerCalls++; throw Error('Forbidden mock call'); } });
+  const demo = createDemoSite({ port: 0 });
+  try {
+    await bridge.listen(); await demo.listen();
+    const b: any = bridge.server.address(), d: any = demo.server.address();
+    assert.equal(b.address, '127.0.0.1'); assert.equal(d.address, '127.0.0.1');
+    assert.equal((await fetch(`http://127.0.0.1:${b.port}/api/session`)).status, 200);
+    assert.equal((await fetch(`http://127.0.0.1:${d.port}/api/session`)).status, 200);
+    await demo.close();
+    assert.equal((await fetch(`http://127.0.0.1:${b.port}/api/session`)).status, 200);
+    assert.equal(signerCalls, 0);
+    console.log(JSON.stringify({ check: 'loopback-services', addresses: [b.address, d.address], signer_calls: signerCalls }));
+  } finally { await demo.close(); await bridge.close(); }
+});
+
+test('malformed demo request does not terminate its process', async () => {
+  const script = "import {createDemoSite} from '/private/tmp/walleterm-audit-40d6cca9db73/demo/server.ts'; const site=createDemoSite({port:0}); site.setPublicOrigin('https://audit-only.trycloudflare.com'); await site.listen(); console.log(site.server.address().port);";
+  const child = spawn(process.execPath, ['--no-env-file', '-e', script], { stdio: ['ignore', 'pipe', 'pipe'] });
+  let errors = '';
+  child.stderr.on('data', b => errors += b.toString());
+  try {
+    const [data] = await once(child.stdout, 'data');
+    const port = Number(String(data).trim());
+    let response = '';
+    await new Promise<void>((resolve, reject) => {
+      const socket = connect(port, '127.0.0.1', () => socket.end(`GET //%25 HTTP/1.1\r\nHost: audit-only.trycloudflare.com\r\nConnection: close\r\n\r\n`));
+      socket.on('data', b => response += b.toString());
+      socket.on('error', reject); socket.on('close', resolve);
+    });
+    await delay(100);
+    console.log(JSON.stringify({ check: 'malformed-demo-target', child_exit: child.exitCode, response_head: response.split('\r\n')[0], stderr: errors }));
+    assert.equal(child.exitCode, null);
+    assert.equal((await fetch(`http://127.0.0.1:${port}/api/session`)).status, 200);
+  } finally { await stopChild(child, 500); }
+}, { timeout: 6000 });

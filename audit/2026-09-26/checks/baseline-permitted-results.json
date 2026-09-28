@@ -1,0 +1,27 @@
+[
+  {
+    "command": [
+      "go",
+      "test",
+      "-race",
+      "./..."
+    ],
+    "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "exit_code": 0,
+    "seconds": 1.63,
+    "log": "baseline-permitted-1.txt",
+    "reason": "Sandbox blocked local mock sockets in the first run."
+  },
+  {
+    "command": [
+      "bun",
+      "run",
+      "test"
+    ],
+    "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "exit_code": 0,
+    "seconds": 25.0,
+    "log": "baseline-permitted-2.txt",
+    "reason": "Sandbox blocked local mock sockets in the first run."
+  }
+]

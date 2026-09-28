@@ -1,0 +1,148 @@
+{
+  "revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "manifest_tree_paths": 199,
+  "verified_files": [
+    {
+      "path": "AGENTS.md",
+      "sha256": "66833c1fbb09772e2d4277c2145e75d888c443ced440388f9e2c038a2981d0aa"
+    },
+    {
+      "path": "README.md",
+      "sha256": "db7debfe710adf212d989f0e78a1f740e2a32f4bcecd6236e03d3029bf110344"
+    },
+    {
+      "path": "docs/PLAN.md",
+      "sha256": "ee9dd013bf13e63e5de20dbd94399d1435e75de9962a4303c3e9178b3e4f6be6"
+    },
+    {
+      "path": "docs/INTERFACE.md",
+      "sha256": "05df4a7a812778a343fb006a62831d6c070cd6de1682bf594ce15a7a7d28ccb4"
+    },
+    {
+      "path": "docs/BUN-MIGRATION.md",
+      "sha256": "3416a6d4b34e27cbf4942171942a5e37aaf7822d85e6e760479ab5ef3dd983ea"
+    },
+    {
+      "path": "docs/VAULT-FILTER-VALIDATION.md",
+      "sha256": "919e771ae9789db7d0b73851d16d9ea007c9b2d0aca8a081f197b98b721fa143"
+    },
+    {
+      "path": "docs/WALLET-SWITCH-VALIDATION.md",
+      "sha256": "e649de2a0a2dfab95fc17abed3f6c4ad1f990ef6aecb49f8858e85416250c045"
+    },
+    {
+      "path": "evidence/README.md",
+      "sha256": "02b21b6f82f2ca419aa3309b7d0725b272171641fdf5176f316bec09df33ae74"
+    },
+    {
+      "path": "evidence/mobile-poc/README.md",
+      "sha256": "fcd0feaf75b85a601cf54e1bea08c40c6343351f660f5ba26c76c48495cc82f7"
+    },
+    {
+      "path": "evidence/browser-qa-2026-09-25/report.md",
+      "sha256": "93e363faa0794d5258145136ee9aabee8ab82cfefd3e842a8c121b28a2d078cf"
+    },
+    {
+      "path": "evidence/acceptance-summary.json",
+      "sha256": "ff274b714d5362cc9cb7b7cb4c90824be9aa40c89ef70c7f12ab516149e2fd4c"
+    },
+    {
+      "path": "evidence/confidential-token-2026-09-26.json",
+      "sha256": "19df4292b95d55ad32cae57d8710cb2c847f9130381ce923ed24f30487d9af9d"
+    },
+    {
+      "path": "evidence/mobile-poc/browser-acceptance.json",
+      "sha256": "af2c2116758f39e8485794ae91abde236239613d10f35160c82c73f711fd3e97"
+    },
+    {
+      "path": "evidence/mobile-poc/live-acceptance.json",
+      "sha256": "c1572c7882a37de05b47f6bb5e991e617f8b43f23bc19da0b5eb2e9d77e4eece"
+    },
+    {
+      "path": "evidence/mobile-poc/managed-cli-acceptance.json",
+      "sha256": "c91a81c146b85722393674d416e07937a8bdf03f2e63c5325a41d7e83ef083d4"
+    },
+    {
+      "path": "evidence/mobile-poc/picker-tunnel-hardening.json",
+      "sha256": "16514b6eae69472ba6480295003ed48139e61909e33c02275769131ed393f2eb"
+    },
+    {
+      "path": "evidence/mobile-poc/preflight.json",
+      "sha256": "04bb029c7b066b1f16a0ead5d051d47aa685ad8c4ec73508104633faf2a770b6"
+    },
+    {
+      "path": "evidence/protocol-acceptance.json",
+      "sha256": "88d8b2075a586271ed543f485c86a68bd6cc99e35d59e9b415f7760027899101"
+    },
+    {
+      "path": "evidence/sdf-demo-bridge-2026-09-25.json",
+      "sha256": "838b88cac58bc71f56ab0903b6693f2ebedec8463bbacbb336824b9c8fdc344a"
+    },
+    {
+      "path": "evidence/stellarterm-testnet-2026-09-25.json",
+      "sha256": "aa258e3e6fd8e0bda120a38e4b69224ce7e16e536e6dc757ed24c15fe59da6ae"
+    },
+    {
+      "path": "evidence/tunnel-testnet-2026-09-25.json",
+      "sha256": "0ddc4fc71639a39eb1844c850e45425568d6c8fbbac19493b566bc06f02a8954"
+    }
+  ],
+  "missing_local_references": [
+    {
+      "path": "evidence/1password-lifecycle.json",
+      "in_baseline_tree": false
+    },
+    {
+      "path": "evidence/usability/FINAL.md",
+      "in_baseline_tree": false
+    },
+    {
+      "path": "evidence/protocol-installation.json",
+      "in_baseline_tree": false
+    },
+    {
+      "path": "evidence/protocol-after.json",
+      "in_baseline_tree": false
+    },
+    {
+      "path": "evidence/review-cap71.md",
+      "in_baseline_tree": false
+    },
+    {
+      "path": "evidence/review-cap85.md",
+      "in_baseline_tree": false
+    },
+    {
+      "path": "evidence/cap85-review-resolution.json",
+      "in_baseline_tree": false
+    },
+    {
+      "path": "evidence/review-protocol-skill.md",
+      "in_baseline_tree": false
+    },
+    {
+      "path": "evidence/protocol-skill-forward/validation.json",
+      "in_baseline_tree": false
+    }
+  ],
+  "tunnel_record_date": "2026-09-25 (America/New_York); ledger times are UTC",
+  "historical_tunnel_revisions": [
+    {
+      "recorded_revision": "3bf7810",
+      "full_revision": "3bf7810772fc3314261c8dd0f445ade6d150b192",
+      "baseline_ancestor": true
+    },
+    {
+      "recorded_revision": "a9b2982",
+      "full_revision": "a9b2982e003aa4955f9e8da1c5f5ca741e049e21",
+      "baseline_ancestor": true
+    }
+  ],
+  "evidence_reproduction_matches_preserved_result": true,
+  "new_research_cost_usd": 0,
+  "new_jev_cost_usd": 0,
+  "live_signing": "not_run",
+  "testnet_submission": "not_run",
+  "receipt_reconciliation": "not_run",
+  "ignored_local_records_read": false
+}

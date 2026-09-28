@@ -1,0 +1,71 @@
+{
+  "concern": "C07",
+  "revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "model": "gpt-daybreak-blue-latest",
+  "effort": "xhigh",
+  "checks": [
+    {
+      "command": [
+        "bun",
+        "test",
+        "audit/2026-09-26/checks/04-sdk-daybreak/sdk-regressions.test.ts",
+        "-t",
+        "an unreadable 401 clears the active connection"
+      ],
+      "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+      "outcome": "failed_expected",
+      "exit_code": 1,
+      "summary": "The synthetic non-JSON 401 left client.token equal to session."
+    },
+    {
+      "command": [
+        "bun",
+        "test",
+        "bridge/server.test.ts",
+        "-t",
+        "SDK uses the code and wallet picker, signs, and reconnects after revocation"
+      ],
+      "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+      "outcome": "blocked",
+      "exit_code": 1,
+      "summary": "The sandbox blocked the isolated loopback listener with EADDRINUSE."
+    },
+    {
+      "command": [
+        "bun",
+        "test",
+        "bridge/server.test.ts",
+        "-t",
+        "SDK uses the code and wallet picker, signs, and reconnects after revocation"
+      ],
+      "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+      "outcome": "passed",
+      "exit_code": 0,
+      "summary": "The permitted loopback rerun passed one test with 43 tests filtered out."
+    },
+    {
+      "command": [
+        "bun",
+        "test",
+        "bridge/connect.test.ts",
+        "-t",
+        "reload removes a revoked or expired session and does not exchange the old connection code"
+      ],
+      "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+      "outcome": "passed",
+      "exit_code": 0,
+      "summary": "The JSON 401 restoration path removed the client, account, and saved session."
+    }
+  ],
+  "research": {
+    "external_calls": 0,
+    "known_cost_usd": 0,
+    "jev_cost_usd": 0,
+    "unknown_provider_charges": false
+  },
+  "live_checks": {
+    "one_password": "not_run",
+    "testnet": "not_run",
+    "public_tunnel": "not_run"
+  }
+}

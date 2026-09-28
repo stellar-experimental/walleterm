@@ -1,0 +1,119 @@
+--- a/sdk/walleterm.ts
++++ b/sdk/walleterm.ts
+@@ -354,7 +354,7 @@
+         notify({ state: result.state, expiresAt: result.expires_at });
+       }
+       signal.throwIfAborted();
+-      if (this.token !== token || this.generation !== generation)
++      if (this.token !== token || this.generation !== generation || this.revision !== revision)
+         throw Error('The wallet selection changed. Build a new transaction.');
+     } catch (caught) {
+       const error = requestError(caught);
+--- a/bridge/server.test.ts
++++ b/bridge/server.test.ts
+@@ -601,6 +601,105 @@
+   assert.equal(f.calls(), 1);
+ });
+ 
++for (const change of ['unchanged', 'A-B', 'A-B-A'] as const) {
++  test(`SDK checks an observed remote wallet revision before delayed success: ${change}`, async () => {
++    const f = await fixture({ listSigners: async () => both, review: undefined });
++    const sent: { path: string; body?: string; token: string | null }[] = [];
++    const release = Promise.withResolvers<void>();
++    onTestFinished(() => release.resolve());
++    let delivered: { id: string; signed_xdr: string } | undefined;
++    const client = f.client('https://adapter.example', {
++      page: null,
++      fetch: async (url, options) => {
++        const path = new URL(requestUrl(url)).pathname;
++        sent.push({
++          path,
++          body: options?.body === undefined ? undefined : String(options.body),
++          token: new Headers(options?.headers).get('Authorization'),
++        });
++        const response = await adapter(url, options);
++        if (path.startsWith('/v1/requests')) {
++          const result = await response.clone().json();
++          if (result.state === 'signed') {
++            delivered = result;
++            await release.promise;
++          }
++        }
++        return response;
++      },
++    });
++    await client.connect({
++      code: f.bridge.pairing.code,
++      walletScope: 'available',
++      selectWallet: async (keys) => keys[0].public_key,
++    });
++    const second = f.client('https://adapter.example', { page: null });
++    second.token = client.token;
++    second.walletScope = 'available';
++    await second.getAddress();
++    const token = client.token,
++      generation = client.generation,
++      original = input();
++    sent.length = 0;
++    const signing = client.signTransaction(original.transaction_xdr);
++    const outcome =
++      change === 'unchanged'
++        ? signing
++        : assert.rejects(signing, (value) => {
++            const error = requestError(value);
++            assert.match(error.message, /wallet selection changed/);
++            assert.equal(error.canceled, true);
++            assert.equal(error.requestState, 'unknown');
++            return true;
++          });
++    const signed = await until(() => delivered);
++    const transaction = TransactionBuilder.fromXDR(signed.signed_xdr, Networks.TESTNET);
++    assert.deepEqual(
++      transaction.hash(),
++      TransactionBuilder.fromXDR(original.transaction_xdr, Networks.TESTNET).hash(),
++    );
++    assert.ok(key.verify(transaction.hash(), transaction.signatures[0].signature.toBytes()));
++    if (change !== 'unchanged') await second.selectWallet(other.publicKey());
++    if (change === 'A-B-A') await second.selectWallet(publicKey);
++    assert.equal((await client.getAddress()).address, change === 'A-B' ? other.publicKey() : publicKey);
++    assert.equal(client.revision, change === 'unchanged' ? 1 : change === 'A-B' ? 2 : 3);
++    assert.equal(client.generation, generation);
++    assert.equal(client.token, token);
++    const record = await second.request(`/v1/requests/${signed.id}`);
++    assert.equal(record.state, change === 'unchanged' ? 'signed' : 'unknown');
++    if (change !== 'unchanged') assert.equal(record.signed_xdr, undefined);
++    release.resolve();
++    const result = await outcome;
++    if (change === 'unchanged') {
++      assert.ok(result);
++      assert.deepEqual(result, { signedTxXdr: signed.signed_xdr, signerAddress: publicKey });
++    }
++    const creates = sent.filter(({ path }) => path === '/v1/requests');
++    assert.equal(creates.length, 1);
++    assert.deepEqual(JSON.parse(creates[0].body ?? ''), {
++      ...original,
++      id: signed.id,
++      selection_revision: 1,
++    });
++    const cancellations = sent.filter(({ path }) => path.endsWith('/cancel'));
++    assert.equal(cancellations.length, change === 'unchanged' ? 0 : 1);
++    for (const request of sent) {
++      assert.ok(
++        [
++          '/v1/requests',
++          `/v1/requests/${signed.id}`,
++          `/v1/requests/${signed.id}/cancel`,
++          '/v1/account',
++        ].includes(request.path),
++        `Unexpected request: ${request.path}`,
++      );
++      assert.equal(request.token, `Bearer ${token}`);
++    }
++    assert.equal(f.calls(), 1);
++    assert.equal(client.signings.size, 0);
++  });
++}
++
+ test('scoped signing fails closed after a key is removed or discovery fails', async () => {
+   let keys = both,
+     broken = false;

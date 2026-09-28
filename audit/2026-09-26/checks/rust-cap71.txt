@@ -1,0 +1,31 @@
+   Compiling soroban-sdk v27.0.2
+   Compiling cap71-raw-account v0.1.0 (/private/tmp/walleterm-audit-40d6cca9db73/fixtures/cap71/raw-account)
+   Compiling cap71-target v0.1.0 (/private/tmp/walleterm-audit-40d6cca9db73/fixtures/cap71/protected)
+   Compiling cap71-delegate v0.1.0 (/private/tmp/walleterm-audit-40d6cca9db73/fixtures/cap71/delegate)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 3.06s
+     Running unittests src/lib.rs (/private/tmp/walleterm-audit-rust-target/debug/deps/cap71_delegate-d033901e8486c588)
+
+running 8 tests
+test test::nested_delegates_verify_shared_root_payload ... ok
+test test::host_rejects_duplicate_and_unordered_delegates ... ok
+test test::address_v2_rejects_same_key_cross_account_replay ... ok
+test test::empty_unknown_and_underweight_have_distinct_reasons ... ok
+test test::constructor_rejects_invalid_policies ... ok
+test test::threshold_and_all_supplied_signatures_are_enforced ... ok
+test test::host_rejects_expired_and_consumed_nonce_with_distinct_reasons ... ok
+test test::native_g_and_c_to_c_to_g_verify_real_ed25519_signatures ... ok
+
+test result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s
+
+     Running unittests src/lib.rs (/private/tmp/walleterm-audit-rust-target/debug/deps/cap71_raw_account-c358fb93fdb6f617)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+     Running unittests src/lib.rs (/private/tmp/walleterm-audit-rust-target/debug/deps/cap71_target-857f2829103942ee)
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+

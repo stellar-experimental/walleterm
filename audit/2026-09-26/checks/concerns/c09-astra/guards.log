@@ -1,0 +1,14 @@
+bun test v1.4.2 (744846f84)
+
+bridge/site.test.ts:
+(pass) wallet changes preserve the original transaction journal and signer [3.21ms]
+(pass) an unreadable journal blocks new transaction actions [1.31ms]
+(pass) a damaged journal still permits disconnect without changing storage [0.60ms]
+(pass) another tab cannot overwrite an unknown submission [0.82ms]
+(pass) an unknown submission expires only after a ledger closes past its time bound [5.86ms]
+(pass) a saved review with invalid XDR blocks actions without breaking the page [0.54ms]
+
+ 6 pass
+ 18 filtered out
+ 0 fail
+Ran 6 tests across 1 file. [21.00ms]

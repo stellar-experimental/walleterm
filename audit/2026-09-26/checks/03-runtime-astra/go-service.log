@@ -1,0 +1,8 @@
+=== RUN   TestServiceOptions
+--- PASS: TestServiceOptions (0.00s)
+=== RUN   TestSeparatedHelp
+--- PASS: TestSeparatedHelp (0.00s)
+=== RUN   TestBunVersion
+--- PASS: TestBunVersion (0.00s)
+PASS
+ok  	walleterm	1.247s

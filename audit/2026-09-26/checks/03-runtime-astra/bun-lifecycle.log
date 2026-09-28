@@ -1,0 +1,30 @@
+bun test v1.4.2 (744846f84)
+
+bridge/tunnel-child.test.ts:
+(pass) a hard parent crash stops the tunnel supervisor and its stubborn child [1202.49ms]
+
+bridge/launch.test.ts:
+(pass) healthy checks stay silent after a minute and keep monitoring public access [12.47ms]
+(pass) public health failures recover without replacing a healthy tunnel process [8.54ms]
+(pass) a stopped tunnel gets a new URL without restarting the local service [5.62ms]
+(pass) six failed public health checks replace an unreachable tunnel [16.83ms]
+(pass) recovery pauses after three replacement attempts and preserves the local service [27.49ms]
+(pass) a paused replacement prints its new URL once when a later public probe succeeds [24.43ms]
+(pass) paused recovery resumes after the oldest restart leaves the ten-minute window [24.48ms]
+(pass) shutdown during recovery cannot create another tunnel [14.28ms]
+(pass) a split cloudflared URL selects only the tunnel origin [0.14ms]
+(pass) the service owns its listener and an isolated tunnel, and prints the pairing code [22.71ms]
+(pass) a narrow terminal prints the connection fields without a broken QR code [1.08ms]
+(pass) a public readiness failure closes the listener and tunnel [0.53ms]
+(pass) a public HTML error rejects the probe without an uncaught callback error [0.53ms]
+(pass) cancellation during listener startup cannot start a tunnel or report readiness [0.11ms]
+(pass) cancellation during public readiness cannot report readiness [0.33ms]
+(pass) an exit immediately after the tunnel URL closes the listener [0.31ms]
+(pass) readiness requires the exact service name [351.13ms]
+
+bridge/runtime.test.ts:
+(pass) a stopped child exits even when it ignores SIGTERM [115.63ms]
+
+ 19 pass
+ 0 fail
+Ran 19 tests across 3 files. [1.86s]

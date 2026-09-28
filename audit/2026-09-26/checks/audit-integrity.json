@@ -1,0 +1,29 @@
+{
+  "baseline": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "current_head": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "head_matches": true,
+  "tracked_files": 199,
+  "source_drift": {
+    "snapshot": [],
+    "checkout": [
+      ".agents/skills/walleterm-site-bridge/references/interception.md"
+    ]
+  },
+  "missing_document_links": [],
+  "report_count": 58,
+  "audit_bytes": 12357844,
+  "jev_reported_or_reserved_usd": 0.430850701,
+  "reviewed_checkout_delta": [
+    ".agents/skills/walleterm-site-bridge/references/interception.md"
+  ],
+  "unreviewed_checkout_delta": [],
+  "new_tracked_source_files": [],
+  "source_archive_errors": [],
+  "research_archive_errors": [],
+  "focused_reviews_complete": 40,
+  "focused_reviews_expected": 40,
+  "final_errors": [],
+  "final_package_limits": [
+    "The checkout TypeScript check failed on concurrent ignored Pagebook captures. The exact frozen source plus audit package passed an isolated TypeScript check. The original checkout failure remains recorded."
+  ]
+}
