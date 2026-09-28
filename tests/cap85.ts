@@ -247,7 +247,8 @@ export function describeExecutable(sdk: Sdk, exe: xdr.ContractExecutable): Execu
   return { type: exe.type };
 }
 // Expected authorization root for one local operation: the same function and arguments, no subtree.
-// Every operation in this suite is a direct call or a direct contract creation, so any other root is malformed.
+// Every operation in this suite is a direct call, a CreateContractV2 creation, or an upload.
+// Any other root is malformed, and any other host function fails here.
 export function expectedInvocation(sdk: Sdk, func: xdr.HostFunction) {
   const F = sdk.xdr.SorobanAuthorizedFunction;
   let fn: xdr.SorobanAuthorizedFunction;
@@ -255,12 +256,14 @@ export function expectedInvocation(sdk: Sdk, func: xdr.HostFunction) {
     fn = F.sorobanAuthorizedFunctionTypeContractFn(func.invokeContract);
   else if (func.type === 'hostFunctionTypeCreateContractV2')
     fn = F.sorobanAuthorizedFunctionTypeCreateContractV2HostFn(func.createContractV2);
-  else if (func.type === 'hostFunctionTypeCreateContract')
-    fn = F.sorobanAuthorizedFunctionTypeCreateContractHostFn(func.createContract);
-  else return null; // upload: no authorization entry is expected at all
+  else if (func.type === 'hostFunctionTypeUploadContractWasm')
+    return null; // no authorization entry at all
+  else throw new Error(`Unsupported host function ${func.type}`);
   return new sdk.xdr.SorobanAuthorizedInvocation({ function: fn, subInvocations: [] });
 }
 // Validates a recorded entry against the local operation before anything is signed.
+// An address entry must be unsigned AddressV2 credentials for an address with an authorizer.
+// A source-account entry authorizes key A through its envelope signature; its root must still match.
 export function verifyAuthEntry(
   sdk: Sdk,
   entry: xdr.SorobanAuthorizationEntry,
@@ -277,21 +280,21 @@ export function verifyAuthEntry(
     );
   if (root.toXdr('base64') !== expected.toXdr('base64'))
     throw new Error(`${label}: recorded auth root differs from the local operation`);
-  if (addressCredentials(entry)) {
-    const address = entryAddress(sdk, entry);
-    if (!allowedAddresses.includes(address))
-      throw new Error(`${label}: recorded auth entry is for unexpected address ${address}`);
-  }
+  const { credentials } = entry;
+  if (credentials.type === 'sorobanCredentialsSourceAccount') return;
+  if (credentials.type !== 'sorobanCredentialsAddressV2')
+    throw new Error(`${label}: recorded auth entry uses ${credentials.type}, not AddressV2 credentials`);
+  if (credentials.addressV2.signature.type !== 'scvVoid')
+    throw new Error(`${label}: recorded auth entry already holds a signature`);
+  const address = sdk.Address.fromScAddress(credentials.addressV2.address).toString();
+  if (!allowedAddresses.includes(address))
+    throw new Error(`${label}: recorded auth entry is for unexpected address ${address}`);
 }
 export function authorizedExecutable(sdk: Sdk, entry: xdr.SorobanAuthorizationEntry) {
   const fn = entry.rootInvocation.function;
-  const args =
-    fn.type === 'sorobanAuthorizedFunctionTypeCreateContractV2HostFn'
-      ? fn.createContractV2HostFn
-      : fn.type === 'sorobanAuthorizedFunctionTypeCreateContractHostFn'
-        ? fn.createContractHostFn
-        : undefined;
-  return args ? describeExecutable(sdk, args.executable) : undefined;
+  return fn.type === 'sorobanAuthorizedFunctionTypeCreateContractV2HostFn'
+    ? describeExecutable(sdk, fn.createContractV2HostFn.executable)
+    : undefined;
 }
 
 // ---------- local transaction path ----------
@@ -449,10 +452,11 @@ async function invokeOperation(
   if (sdk.rpc.Api.isSimulationError(recorded))
     throw new Error(`${label}: record simulation failed: ${recorded.error}`);
   const expiration = recorded.latestLedger + EXPIRY_LEDGERS;
-  // Invariant: every recorded root must equal the local operation, with an empty subtree and an expected address,
-  // before any signing request is made.
+  // Invariant: every recorded root must equal the local operation, with an empty subtree. Every address entry
+  // must be unsigned AddressV2 credentials for an address with an authorizer. All entries pass before any
+  // signing request is made.
   const expected = expectedInvocation(sdk, func);
-  const allowed = [...authorizers.map((a) => a.address), ctx.keys.a.publicKey];
+  const allowed = authorizers.map((a) => a.address);
   const recordedAuth = normalizeAuth(sdk, recorded.result?.auth);
   for (const raw of recordedAuth) verifyAuthEntry(sdk, raw, expected, allowed, label);
   const entries: EntryMeta[] = [];
@@ -646,12 +650,14 @@ export function loadState(
     done: {},
     steps: {},
   };
+  if (!state.contracts || !state.wasm || !state.done || !state.steps)
+    throw new Error('cap85 checkpoint lacks contracts, wasm, done, or steps; review evidence before reuse');
   const binding = bindingFor(ctx, base, manifest);
   const populated =
-    Object.keys(state.contracts ?? {}).length ||
-    Object.keys(state.wasm ?? {}).length ||
-    Object.keys(state.done ?? {}).length ||
-    Object.keys(state.steps ?? {}).length ||
+    Object.keys(state.contracts).length ||
+    Object.keys(state.wasm).length ||
+    Object.keys(state.done).length ||
+    Object.keys(state.steps).length ||
     state.inflight;
   if (state.binding) {
     if (JSON.stringify(state.binding) !== JSON.stringify(binding))
@@ -661,10 +667,6 @@ export function loadState(
   } else if (populated)
     throw new Error('cap85 checkpoint has no binding but holds state; review evidence before reuse');
   state.binding = binding;
-  state.steps ??= {};
-  state.wasm ??= {};
-  state.contracts ??= {};
-  state.done ??= {};
   for (const [f, w] of Object.entries(state.wasm))
     if (manifest.artifacts[f]?.sha256 !== w?.hash)
       throw new Error(`cap85 checkpoint upload ${f} has no verified WASM`);
@@ -1692,11 +1694,45 @@ async function selfTest() {
     subInvocations: [],
   });
   const state: Cap85State = { ...fresh, steps: {} };
+  const credentialsOf = (address: string, signature: xdr.ScVal = sdk.xdr.ScVal.scvVoid()) =>
+    new sdk.xdr.SorobanAddressCredentials({
+      address: new sdk.Address(address).toScAddress(),
+      nonce: 1n,
+      signatureExpirationLedger: 0,
+      signature,
+    });
+  const withCredentials = (credentials: xdr.SorobanCredentials) =>
+    new sdk.xdr.SorobanAuthorizationEntry({ credentials, rootInvocation: goodRoot });
+  const v1 = withCredentials(
+    sdk.xdr.SorobanCredentials.sorobanCredentialsAddress(credentialsOf(key.publicKey)),
+  );
+  const delegated = withCredentials(
+    sdk.xdr.SorobanCredentials.sorobanCredentialsAddressWithDelegates(
+      new sdk.xdr.SorobanAddressCredentialsWithDelegates({
+        addressCredentials: credentialsOf(key.publicKey),
+        delegates: [],
+      }),
+    ),
+  );
+  const presigned = withCredentials(
+    sdk.xdr.SorobanCredentials.sorobanCredentialsAddressV2(
+      credentialsOf(key.publicKey, sdk.xdr.ScVal.scvBytes(Buffer.alloc(64))),
+    ),
+  );
   const malformed: [string, xdr.SorobanAuthorizationEntry[], RegExp][] = [
     ['subtree', [entryFor(key.publicKey, withSubtree)], /sub-invocations/],
     ['different args', [entryFor(key.publicKey, wrongFn)], /differs from the local operation/],
     ['unexpected address', [entryFor(other, goodRoot)], /unexpected address/],
     ['entry on upload', [entryFor(key.publicKey, goodRoot)], /needs none/],
+    ['V1 credentials', [v1], /uses sorobanCredentialsAddress, not AddressV2/],
+    ['delegated credentials', [delegated], /uses sorobanCredentialsAddressWithDelegates, not AddressV2/],
+    ['existing signature', [presigned], /already holds a signature/],
+    ['V1 after a valid entry', [entryFor(key.publicKey, goodRoot), v1], /not AddressV2/],
+    [
+      'unexpected address after a valid entry',
+      [entryFor(key.publicKey, goodRoot), entryFor(other, goodRoot)],
+      /unexpected address/,
+    ],
   ];
   for (const [name, entries, re] of malformed) {
     signCalls = 0;
@@ -1716,6 +1752,27 @@ async function selfTest() {
     );
     assert(signCalls === 0, `malformed RPC ${name}: no signing request was made`);
   }
+  // Key A signs the envelope, but an address entry for key A still needs an authorizer before any signature.
+  signCalls = 0;
+  const otherKey = {
+    name: 'other',
+    publicKey: other,
+    rawPublicKey: sdk.StrKey.decodeEd25519PublicKey(other),
+  };
+  const keyA = stub(
+    [entryFor(other, goodRoot), entryFor(key.publicKey, goodRoot)],
+    errorResponse('never reached'),
+  );
+  await rejects(
+    invokeOperation(keyA, state, {
+      operation: localOp,
+      authorizers: [gAuthorizer(keyA, otherKey)],
+      label: 'malformed-key-a-without-authorizer',
+    }),
+    /unexpected address/,
+    'key A address entry without an authorizer rejected',
+  );
+  assert(signCalls === 0, 'key A address entry without an authorizer: no signing request was made');
   signCalls = 0;
   const good = stub([entryFor(key.publicKey, goodRoot)], errorResponse('HostError: Error(Contract, #2)'));
   const ok = await invokeOperation(good, state, {

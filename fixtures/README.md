@@ -101,8 +101,7 @@ expect `Error(Auth, InvalidAction)`.
 
 ## Extended coverage
 
-`node tests/live.mjs extended` passed E01-E03 on testnet before the Bun migration.
-The same runner is now `bun tests/live.ts extended`.
+`bun tests/live.ts extended` runs E01-E03. These rows passed on testnet on 2026-09-25.
 These rows cover native G multisig, OpenZeppelin delegated G signers, and contract-specific rules.
 They also cover threshold updates, rule removal, and nested delegated calls.
 The extended runner keeps a separate checkpoint and labels reused evidence `passed_previous_run`.

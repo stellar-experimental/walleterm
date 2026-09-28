@@ -668,7 +668,7 @@ export function checkCheckpoint(state: ContractsState, manifest: Manifest, ctx: 
   if (state.binding && JSON.stringify(state.binding) !== JSON.stringify(binding))
     throw new Error('Checkpoint network or public keys changed');
   if (!state.binding && Object.keys(state.contracts).length)
-    throw new Error('Legacy checkpoint requires explicit network/key binding after evidence review');
+    throw new Error('Checkpoint holds contracts without a network/key binding; review evidence before reuse');
   state.binding = binding;
   for (const contract of Object.values(state.contracts)) {
     if (!state.wasm[contract.wasm] || !manifest.artifacts[contract.wasm])

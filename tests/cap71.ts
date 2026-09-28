@@ -140,9 +140,7 @@ export function replaceAddress(sdk: Sdk, entry: xdr.SorobanAuthorizationEntry, a
         delegates: current.addressWithDelegates.delegates,
       }),
     );
-  } else if (current.type === 'sorobanCredentialsAddress')
-    credentials = sdk.xdr.SorobanCredentials.sorobanCredentialsAddress(next);
-  else if (current.type === 'sorobanCredentialsAddressV2')
+  } else if (current.type === 'sorobanCredentialsAddressV2')
     credentials = sdk.xdr.SorobanCredentials.sorobanCredentialsAddressV2(next);
   else throw new TypeError(`Cannot replace the address of ${current.type} credentials.`);
   return new sdk.xdr.SorobanAuthorizationEntry({ rootInvocation: entry.rootInvocation, credentials });
