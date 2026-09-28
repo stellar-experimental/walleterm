@@ -2,7 +2,7 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { WalletermClient } from '../../sdk/walleterm.ts';
-import { requestSignal, requestUrl } from '../../bridge/test/support.ts';
+import { requestSignal, requestUrl } from './support.ts';
 
 test('caller cancellation still stops SDK vault discovery immediately', async () => {
   const controller = new AbortController();

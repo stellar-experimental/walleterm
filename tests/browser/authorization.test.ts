@@ -8,9 +8,8 @@ import {
   parseAuthEntry,
   setAuthEntryExpiration,
   verifyAuthEntrySignature,
-} from '../sdk/authorization.ts';
-import type { AuthAdapter, AuthEntryInput } from '../sdk/authorization.ts';
-import { parseAuthJSON, signAuthRequest } from './auth-cli.ts';
+} from '../../sdk/authorization.ts';
+import type { AuthAdapter, AuthEntryInput } from '../../sdk/authorization.ts';
 
 const key = Keypair.random(),
   other = Keypair.random(); // Offline mock keys only.
@@ -233,34 +232,4 @@ test('OZ adds its custom digest and binds context rule IDs', () => {
   ).toThrow('verification');
   const changed = { ...oz, adapter: { ...oz.adapter, context_rule_ids: [0, 5] } };
   expect(() => verifyAuthEntrySignature(changed, signed(oz), 100)).toThrow();
-});
-test('CLI validates strict JSON before signing and checks cancellation', async () => {
-  const request = { ...input(), latest_ledger: 100 },
-    text = JSON.stringify(request);
-  expect(parseAuthJSON(text)).toEqual(request);
-  for (const bad of [
-    '',
-    '{}{}',
-    '[]',
-    text.replace('"latest_ledger":100', '"latest_ledger":100,"latest_ledger":100'),
-    text.replace('"type":"account"', '"type":"account","type":"account"'),
-    JSON.stringify({ ...request, digest: '00' }),
-    ' '.repeat(49153),
-  ])
-    expect(() => parseAuthJSON(bad)).toThrow();
-  let calls = 0;
-  const sign = async (_key: string, digest: string) => {
-    calls++;
-    return Buffer.from(key.sign(Buffer.from(digest, 'hex'))).toString('hex');
-  };
-  const result = await signAuthRequest(parseAuthJSON(text), sign, new AbortController().signal);
-  expect(result.verified).toBe(true);
-  expect(verifyAuthEntrySignature(request, result.signed_auth_entry_xdr, 100)).toBe(true);
-  const stop = new AbortController();
-  stop.abort();
-  await expect(signAuthRequest(request, sign, stop.signal)).rejects.toThrow();
-  await expect(
-    signAuthRequest({ ...request, latest_ledger: 160 }, sign, new AbortController().signal),
-  ).rejects.toThrow();
-  expect(calls).toBe(1);
 });

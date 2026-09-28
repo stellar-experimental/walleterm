@@ -1,8 +1,8 @@
 import { Account, Keypair, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
 import { jest, onTestFinished, spyOn, test } from 'bun:test';
 import assert from 'node:assert/strict';
-import { WalletermClient } from '../sdk/walleterm.ts';
-import { requestSignal, requestUrl } from './test/support.ts';
+import { WalletermClient } from '../../sdk/walleterm.ts';
+import { requestSignal, requestUrl } from './support.ts';
 
 const mockKey = Keypair.random(); // Offline mock key only.
 const mockTransaction = new TransactionBuilder(new Account(mockKey.publicKey(), '1'), {

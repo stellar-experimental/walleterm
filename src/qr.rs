@@ -67,4 +67,22 @@ mod tests {
         assert!(narrow.starts_with("This QR code needs ") && !narrow.contains('\x1b'));
         assert_eq!(for_terminal("x", None), terminal("x"));
     }
+
+    /// `tests/browser/scan.test.ts` decodes this terminal code with the SDK scanner's jsQR decoder.
+    /// Set WALLETERM_WRITE_QR_FIXTURE=1 to rewrite it after a deliberate renderer change.
+    #[test]
+    fn the_browser_scanner_fixture_is_the_terminal_code() {
+        let pairing = serde_json::json!({
+            "walleterm": 3,
+            "url": "https://bridge.example",
+            "code": "00123456",
+            "expires_at": "2099-01-01T00:00:00.000Z",
+        });
+        let fixture = format!("{pairing}\n{}", terminal(&pairing.to_string()));
+        let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/browser/pairing-qr.txt");
+        if std::env::var_os("WALLETERM_WRITE_QR_FIXTURE").is_some() {
+            std::fs::write(path, &fixture).unwrap();
+        }
+        assert_eq!(std::fs::read_to_string(path).unwrap(), fixture);
+    }
 }

@@ -1,10 +1,10 @@
 import { onTestFinished, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
-import { browserScript } from './test/support.ts';
-import { scanConnection } from '../sdk/scan.ts';
+import { browserScript } from './support.ts';
+import { scanConnection } from '../../sdk/scan.ts';
 import { Networks } from '@stellar/stellar-sdk';
-import type { Walleterm, WalletermClient } from '../sdk/walleterm.ts';
+import type { Walleterm, WalletermClient } from '../../sdk/walleterm.ts';
 
 // The connection UI reads and writes only these node members.
 interface MockNode {
@@ -109,11 +109,11 @@ function fixture(scanConnection: ScanMock, WalletermClient?: unknown) {
     removeEventListener: events.removeEventListener.bind(events),
   });
   // Errors must come from the page realm, as in the browser.
-  vm.runInContext(browserScript(new URL('../sdk/errors.ts', import.meta.url)), context);
-  vm.runInContext(browserScript(new URL('../sdk/walleterm.ts', import.meta.url)), context);
+  vm.runInContext(browserScript(new URL('../../sdk/errors.ts', import.meta.url)), context);
+  vm.runInContext(browserScript(new URL('../../sdk/walleterm.ts', import.meta.url)), context);
   // A mock replaces the session class for the component and the shared wallet.
   if (WalletermClient) vm.runInContext('WalletermClient = mockClient', context);
-  vm.runInContext(browserScript(new URL('../sdk/connect.ts', import.meta.url)), context);
+  vm.runInContext(browserScript(new URL('../../sdk/connect.ts', import.meta.url)), context);
   const ui: ConnectUI = vm.runInContext('Object.create(WalletermConnect.prototype)', context);
   const wallet: Walleterm = vm.runInContext("new Walleterm({ walletScope: 'available' })", context);
   Object.assign(ui, {

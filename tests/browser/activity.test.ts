@@ -1,7 +1,7 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
-import { ActivityHistory, safeData } from '../demo/site/activity.ts';
-import type { ActivityEvent } from '../demo/site/activity.ts';
+import { ActivityHistory, safeData } from '../../demo/site/activity.ts';
+import type { ActivityEvent } from '../../demo/site/activity.ts';
 type Data = ActivityEvent['data'];
 const memory = () => {
   const events: ActivityEvent[] = [];

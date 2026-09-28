@@ -1,13 +1,13 @@
-// The real SDK against the Rust bridge (tests/browser/host.ts). Ported from the SDK tests in bridge/server.test.ts.
+// The real SDK against the Rust bridge (tests/browser/host.ts). Ported from the SDK tests in the legacy bridge/server.test.ts.
 import { onTestFinished, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';
 import { Account, Keypair, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
 import { WalletermClient } from '../../sdk/walleterm.ts';
 import { requestError } from '../../sdk/errors.ts';
-import { requestUrl } from '../../bridge/test/support.ts';
+import { requestUrl } from './support.ts';
 import { createHost } from './host.ts';
-import type { Falsy } from '../../bridge/test/support.ts';
+import type { Falsy } from './support.ts';
 import type { HostOptions, ReviewRequest } from './host.ts';
 import type { Fetch, RequestState, Signer, SignalOptions } from '../../sdk/types.ts';
 

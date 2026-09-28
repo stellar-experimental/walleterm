@@ -2,17 +2,17 @@ import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { browserScript } from './test/support.ts';
+import { browserScript } from './support.ts';
 import * as sdk from '@stellar/stellar-sdk';
-import { createAuthEntry } from '../sdk/authorization.ts';
+import { createAuthEntry } from '../../sdk/authorization.ts';
 import {
   authorizationExpiry,
   deployment,
   hex,
   signDemoAuthorization,
   validateContractReview,
-} from '../demo/site/contracts.ts';
-import type { ContractReview } from '../demo/site/contracts.ts';
+} from '../../demo/site/contracts.ts';
+import type { ContractReview } from '../../demo/site/contracts.ts';
 
 // The page reads and writes only these element members.
 interface MockElement {
@@ -99,7 +99,7 @@ function contextFor(html: string, extras: Record<string, unknown> = {}) {
     ...extras,
   });
   // Errors must come from the page realm. A test-realm requestError fails its instanceof check and drops fields.
-  vm.runInContext(browserScript(new URL('../sdk/errors.ts', import.meta.url)), context);
+  vm.runInContext(browserScript(new URL('../../sdk/errors.ts', import.meta.url)), context);
   const run = (code: string): unknown => vm.runInContext(code, context);
   const el = (id: string) => {
     const node = elements.get(id);
@@ -113,7 +113,7 @@ function contextFor(html: string, extras: Record<string, unknown> = {}) {
   };
   return { context, elements, el, click, run, promise: (code: string) => Promise.resolve(run(code)) };
 }
-const app = () => browserScript(new URL('../demo/site/app.ts', import.meta.url));
+const app = () => browserScript(new URL('../../demo/site/app.ts', import.meta.url));
 const ok = (data: unknown) => ({ ok: true, json: async () => data });
 
 function contractPage() {
@@ -161,7 +161,7 @@ function contractPage() {
     authSignatures = 0,
     envelopes = 0,
     ledger = 100;
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: sdk,
     contractHex: hex,
     validateContractReview,
@@ -462,7 +462,7 @@ for (const kind of ['note', 'payment', 'offer', 'cancel_offer'] as const) {
         return ok({ hash, ledger: 1, successful: false });
       },
     };
-    const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8');
+    const html = readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8');
     const source = app();
     const f = contextFor(html, extras);
     f.run(source);
@@ -507,7 +507,7 @@ test('signing shows retry progress and stops at the server expiry after the page
   let now = Date.now(),
     tick: (() => void) | undefined,
     cleared = false;
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     Date: class extends Date {
       static override now() {
         return now;
@@ -556,7 +556,7 @@ test('signing shows retry progress and stops at the server expiry after the page
 test('wallet changes preserve the original transaction journal and signer', () => {
   for (const state of ['signed', 'unknown', 'signing_unknown']) {
     let stored: string | null | undefined;
-    const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
       StellarSdk: reviewSdk,
       localStorage: {
         getItem: () => null,
@@ -579,7 +579,7 @@ test('wallet changes preserve the original transaction journal and signer', () =
 });
 
 test('an unknown signing outcome remains distinct from a confirmed cancellation', async () => {
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: {
       Networks: { TESTNET: 'testnet' },
       TransactionBuilder: {
@@ -604,7 +604,7 @@ test('an unknown signing outcome remains distinct from a confirmed cancellation'
   assert.equal(f.run('pending.state'), 'canceled');
 });
 test('demo denial and expiry finish the request; unknown submission remains protected after reload', async () => {
-  const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8');
   const source = app();
   let stored: string | null | undefined;
   const f = contextFor(html, {
@@ -663,7 +663,7 @@ test('a reload preserves an open signing request until the user clears it', asyn
     state: 'waiting',
     xdr: 'mock',
   });
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: { Networks: { TESTNET: 'testnet' } },
     WalletermClient: class {},
     localStorage: {
@@ -691,7 +691,7 @@ test('a reload preserves an open signing request until the user clears it', asyn
 });
 test('an unreadable journal blocks new transaction actions', async () => {
   for (const stored of ['{broken', JSON.stringify({ state: 'unknown', kind: 'note' })]) {
-    const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
       StellarSdk: {},
       WalletermClient: class {},
       localStorage: {
@@ -715,7 +715,7 @@ test('an unreadable journal blocks new transaction actions', async () => {
 test('a damaged journal still permits disconnect without changing storage', async () => {
   const stored = '{broken';
   let disconnected = false;
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: {},
     WalletermClient: class {},
     localStorage: {
@@ -749,7 +749,7 @@ test('another tab cannot overwrite an unknown submission', async () => {
       stored = null;
     },
   };
-  const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8');
+  const html = readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8');
   const source = app();
   const first = contextFor(html, { StellarSdk: {}, WalletermClient: class {}, localStorage });
   const second = contextFor(html, { StellarSdk: {}, WalletermClient: class {}, localStorage });
@@ -767,7 +767,7 @@ test('another tab cannot overwrite an unknown submission', async () => {
 
 test('demo selects an existing recent testnet account without recipient input', async () => {
   const calls: string[] = [];
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: {
       StrKey: {
         isValidEd25519PublicKey: (value: string) => ['GSOURCE', 'GREMOVED', 'GRECIPIENT'].includes(value),
@@ -802,7 +802,7 @@ test('demo selects an existing recent testnet account without recipient input', 
 });
 
 test('recipient lookup reports failure without choosing an unchecked account', async () => {
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: { StrKey: { isValidEd25519PublicKey: () => true } },
     WalletermClient: class {},
     localStorage: { getItem: () => null },
@@ -819,7 +819,7 @@ test('recipient lookup reports failure without choosing an unchecked account', a
 test('demo funds a missing testnet account once with Friendbot', async () => {
   const calls: string[] = [];
   let funded = false;
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: {},
     WalletermClient: class {},
     localStorage: { getItem: () => null },
@@ -846,7 +846,7 @@ test('demo funds a missing testnet account once with Friendbot', async () => {
 
 test('demo reports a Friendbot failure and does not hide Horizon errors', async () => {
   const run = async (responses: unknown[]) => {
-    const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
       StellarSdk: {},
       WalletermClient: class {},
       localStorage: { getItem: () => null },
@@ -872,7 +872,7 @@ test('an unknown submission expires only after a ledger closes past its time bou
   const order: string[] = [];
   const make = (closed: number) => {
     let stored: string | null = null;
-    return contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    return contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
       StellarSdk: {
         Networks: { TESTNET: 'testnet' },
         TransactionBuilder: { fromXDR: () => ({ sequence: '11', timeBounds: { maxTime: String(maxTime) } }) },
@@ -914,7 +914,7 @@ test('an unknown submission expires only after a ledger closes past its time bou
 });
 
 test('a storage failure before signing leaves the demo usable', async () => {
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: {
       Networks: { TESTNET: 'testnet' },
       Account: class {},
@@ -966,7 +966,7 @@ test('cancel removes the newest open offer from Horizon', async () => {
     selling?: unknown;
   }
   let built: OfferOptions | undefined;
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: {
       Networks: { TESTNET: 'testnet' },
       Account: class {},
@@ -1057,7 +1057,7 @@ test('a built transaction waits for Sign before it is signed', async () => {
       this.value = null;
     },
   };
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: {
       Networks: { TESTNET: 'testnet' },
       Account: class {},
@@ -1128,7 +1128,7 @@ test('a saved review with invalid XDR blocks actions without breaking the page',
     hash: 'h',
     xdr: 'broken',
   });
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: {
       Networks: { TESTNET: 'testnet' },
       TransactionBuilder: {
@@ -1148,7 +1148,7 @@ test('a saved review with invalid XDR blocks actions without breaking the page',
 
 test('the action modal opens before account lookup and keeps preparation errors visible', async () => {
   let fail: ((error: unknown) => void) | undefined;
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: {},
     localStorage: { getItem: () => null },
     fetch: () =>
@@ -1175,7 +1175,7 @@ test('the action modal opens before account lookup and keeps preparation errors 
 });
 
 test('connection work disables demo actions and signing without changing the journal', () => {
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: reviewSdk,
     localStorage: { getItem: () => null },
   });
@@ -1191,7 +1191,7 @@ test('connection work disables demo actions and signing without changing the jou
 });
 
 test('only an active request shows progress; stopped signing cannot be canceled again', () => {
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: {},
     localStorage: { getItem: () => null },
   });
@@ -1255,7 +1255,7 @@ async function completedFixture(state = 'submitted') {
       signs++;
     },
   };
-  const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
     StellarSdk: sdk,
     crypto: globalThis.crypto,
     localStorage: store,
@@ -1418,7 +1418,7 @@ async function confirmationFixture(
       return ok(response(hash));
     },
   };
-  const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'),
+  const html = readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'),
     source = app();
   const load = () => {
     const f = contextFor(html, extras);

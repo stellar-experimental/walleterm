@@ -1,4 +1,5 @@
-//! `OP_VAULT` discovery through a fake 1Password CLI. Ported from bridge/vault.test.ts and bridge/signer.test.ts.
+//! `OP_VAULT` discovery through a fake 1Password CLI. Ported from bridge/vault.test.ts and
+//! bridge/signer.test.ts in the legacy TypeScript tests at 52a7fc3.
 //! The fake CLI and its keys exist only inside each test directory.
 
 use std::ffi::OsStr;

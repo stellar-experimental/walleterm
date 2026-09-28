@@ -12,9 +12,9 @@ import {
   hash,
   xdr,
 } from '@stellar/stellar-sdk';
-import { WalletermClient } from '../sdk/walleterm.ts';
-import { attachAuthSignature, createAuthEntry, inspectAuthEntry } from '../sdk/authorization.ts';
-import type { SignOptions } from '../sdk/types.ts';
+import { WalletermClient } from '../../sdk/walleterm.ts';
+import { attachAuthSignature, createAuthEntry, inspectAuthEntry } from '../../sdk/authorization.ts';
+import type { SignOptions } from '../../sdk/types.ts';
 
 const key = Keypair.random(),
   other = Keypair.random(); // Offline mock keys only.

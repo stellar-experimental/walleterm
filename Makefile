@@ -55,8 +55,6 @@ install-skill:
 
 test:
 	bun run build
-	go test ./...
-	go vet ./...
 	cargo fmt --all --check
 	cargo clippy --workspace --all-targets --locked -- -D warnings
 	cargo test --workspace --locked

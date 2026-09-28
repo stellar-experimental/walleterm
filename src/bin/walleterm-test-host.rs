@@ -131,6 +131,22 @@ fn deps(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
     }
 }
 
+/// With WALLETERM_TEST_HOST_PRODUCTION, the live harnesses get the production signer, `OP_VAULT` discovery,
+/// and ledger, as `walleterm tunnel` wires them, on loopback without a tunnel. Log lines still reach the harness.
+fn dependencies(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
+    if std::env::var_os("WALLETERM_TEST_HOST_PRODUCTION").is_none() {
+        return deps(rpc, offset);
+    }
+    let socket = walleterm::platform::agent_socket().expect("the 1Password SSH agent socket");
+    let directory = std::env::current_dir().expect("a working directory");
+    let vault =
+        walleterm::config::load_vault(&directory, std::env::var("OP_VAULT").ok()).expect("a readable .env");
+    let client = walleterm::ledger::https_client().expect("an HTTPS client");
+    let mut production = walleterm::bridge::production(socket, vault.vault, client);
+    production.log = Box::new(|line| send(&json!({ "log": line })));
+    production
+}
+
 fn main() {
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("a runtime");
     runtime.block_on(async {
@@ -138,7 +154,7 @@ fn main() {
         let offset = Arc::new(AtomicI64::new(0));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("a loopback port");
         let port = listener.local_addr().unwrap().port();
-        let bridge = Bridge::new(deps(&rpc, offset.clone()), port);
+        let bridge = Bridge::new(dependencies(&rpc, offset.clone()), port);
         bridge.set_public_origin(&format!("http://127.0.0.1:{port}")).unwrap();
         bridge.on_pairing_changed(Box::new(|| send(&json!({ "pairing_changed": true }))));
         let stop = Cancel::new();

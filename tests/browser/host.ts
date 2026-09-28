@@ -21,6 +21,11 @@ export interface HostOptions {
   log?: (line: string) => unknown;
   /** Also serve the embedded demo website. Its origin is `demoOrigin`. */
   demo?: boolean;
+  /**
+   * Live harnesses only: the real 1Password signer, `OP_VAULT` discovery, and testnet ledger, as `walleterm
+   * tunnel` wires them, on loopback. The mock dependencies above are ignored. Never use it in offline tests.
+   */
+  production?: boolean;
 }
 export interface ReviewRequest {
   origin: string;
@@ -58,11 +63,14 @@ function errorCode(error: unknown): { code: string; message: string } {
 export async function createHost(options: HostOptions = {}): Promise<Host> {
   const child = spawn(binary, [], {
     stdio: ['pipe', 'pipe', 'inherit'],
-    env: {
-      PATH: process.env.PATH ?? '',
-      ...(options.review ? { WALLETERM_TEST_HOST_REVIEW: '1' } : {}),
-      ...(options.demo ? { WALLETERM_TEST_HOST_DEMO: '1' } : {}),
-    },
+    // Offline hosts get only PATH. The production host needs the shell's 1Password CLI environment and OP_VAULT.
+    env: options.production
+      ? { ...process.env, WALLETERM_TEST_HOST_PRODUCTION: '1' }
+      : {
+          PATH: process.env.PATH ?? '',
+          ...(options.review ? { WALLETERM_TEST_HOST_REVIEW: '1' } : {}),
+          ...(options.demo ? { WALLETERM_TEST_HOST_DEMO: '1' } : {}),
+        },
   });
   const lines = createInterface({ input: child.stdout });
   const replies = new Map<number, (value: unknown) => void>();

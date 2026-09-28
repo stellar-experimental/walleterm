@@ -1,11 +1,9 @@
+// The code view in a small DOM model. tests/browser/demo.test.ts and tests/demo.rs cover the served files.
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { createConnection } from 'node:net';
-import { createDemoSite } from '../demo/server.ts';
 import vm from 'node:vm';
-import { browserScript, listeningPort } from './test/support.ts';
-import { tokenize } from '../demo/site/syntax.ts';
+import { browserScript } from './support.ts';
+import { tokenize } from '../../demo/site/syntax.ts';
 
 class Node {
   children: (Node | string)[] = [];
@@ -64,7 +62,7 @@ const context = vm.createContext({
   },
 });
 const { createCodeView, highlightCode, MAX_HIGHLIGHT_LENGTH }: CodeViewModule = vm.runInContext(
-  browserScript(new URL('../demo/site/code-view.ts', import.meta.url)) +
+  browserScript(new URL('../../demo/site/code-view.ts', import.meta.url)) +
     '\nsyntax = Promise.resolve(syntaxModule); ({ createCodeView, highlightCode, MAX_HIGHLIGHT_LENGTH });',
   context,
 );
@@ -150,76 +148,4 @@ test('disclosures highlight on demand and preserve unchanged DOM and scroll', as
   disclosure.dispatch('toggle');
   await turn();
   assert.equal(code.textContent, '{"value": 2}');
-});
-
-test('demo rejects a malformed request target and keeps serving sessions', async () => {
-  const app = createDemoSite({ port: 0 });
-  await app.listen();
-  try {
-    const port = listeningPort(app.server);
-    const response = await new Promise<string>((resolve, reject) => {
-      const socket = createConnection({ host: '127.0.0.1', port });
-      let response = '';
-      socket.setEncoding('utf8');
-      socket.setTimeout(2000, () => socket.destroy(Error('The demo response timed out.')));
-      socket.on('connect', () =>
-        socket.write(`GET //%25 HTTP/1.1\r\nHost: 127.0.0.1:${port}\r\nConnection: close\r\n\r\n`),
-      );
-      socket.on('data', (chunk) => (response += chunk));
-      socket.on('error', reject);
-      socket.on('close', () => resolve(response));
-    });
-    assert.match(response, /^HTTP\/1\.1 400 /);
-    const origin = `http://127.0.0.1:${port}`;
-    const forbidden = await fetch(`${origin}/api/session`, { headers: { Host: 'unlisted.invalid' } });
-    assert.equal(forbidden.status, 403);
-    const session = await fetch(`${origin}/api/session`);
-    assert.equal(session.status, 200);
-    assert.deepEqual(await session.json(), { service: 'walleterm-demo' });
-  } finally {
-    await app.close();
-  }
-});
-
-test('demo serves the exact bundled assets under the existing strict CSP', async () => {
-  const app = createDemoSite({ port: 0 });
-  await app.listen();
-  try {
-    const origin = `http://127.0.0.1:${listeningPort(app.server)}`;
-    const visited = new Set<string>();
-    async function checkModule(path: string) {
-      if (visited.has(path)) return;
-      visited.add(path);
-      const response = await fetch(origin + path);
-      assert.equal(response.status, 200, path);
-      const source = await response.text();
-      for (const dependency of new Bun.Transpiler({ loader: 'js' }).scanImports(source)) {
-        if (dependency.path.endsWith('.js'))
-          await checkModule(new URL(dependency.path, origin + path).pathname);
-      }
-    }
-    for (const path of ['/app.js', '/activity.js', '/code-view.js', '/sdk/connect.js'])
-      await checkModule(path);
-    for (const path of ['code-view.js', 'code-view.css', 'syntax.js', 'vendor/syntax.LICENSE']) {
-      const response = await fetch(`http://127.0.0.1:${listeningPort(app.server)}/${path}`);
-      assert.equal(response.status, 200);
-      assert.equal(
-        await response.text(),
-        await readFile(
-          new URL(
-            path === 'code-view.js'
-              ? '../dist/demo/site/code-view.js'
-              : path === 'syntax.js'
-                ? '../dist/demo/site/syntax.js'
-                : `../demo/site/${path}`,
-            import.meta.url,
-          ),
-          'utf8',
-        ),
-      );
-      assert.match(response.headers.get('content-security-policy') ?? '', /script-src 'self';/);
-    }
-  } finally {
-    await app.close();
-  }
 });

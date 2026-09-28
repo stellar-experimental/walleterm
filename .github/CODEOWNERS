@@ -11,5 +11,4 @@
 /build.rs @kalepail
 /deny.toml @kalepail
 /rust-toolchain.toml @kalepail
-/scripts/bridge.entitlements.plist @kalepail
 /.github/ @kalepail

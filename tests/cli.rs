@@ -1,5 +1,5 @@
 //! The native CLI against frozen transcripts of the Go signer (`fixtures/parity/cli.json`) and the
-//! TS `sign-auth` sidecar (`fixtures/parity/sign-auth.json`), through a real Unix socket mock agent.
+//! legacy TS `sign-auth` command (`fixtures/parity/sign-auth.json`), through a real Unix socket mock agent.
 //! Mock seeds only. Nothing here opens the real 1Password socket.
 
 use std::io::{self, Read, Write};

@@ -1,5 +1,5 @@
 //! Bridge protocol version 3 against mock dependencies over real loopback HTTP.
-//! Ported from bridge/server.test.ts. Isolated mock keys only.
+//! Ported from bridge/server.test.ts in the legacy TypeScript tests at 52a7fc3. Isolated mock keys only.
 
 mod support;
 

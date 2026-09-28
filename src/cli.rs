@@ -357,7 +357,7 @@ fn list_or_sign(command: &str, human: bool, io: &mut Io) -> i32 {
 const AUTH_FIELDS: [&str; 6] =
     ["auth_entry_xdr", "public_key", "network_passphrase", "address", "adapter", "latest_ledger"];
 
-/// The `sign-auth` request with the TS sidecar's messages and order of checks.
+/// The `sign-auth` request with the legacy TS command's messages and order of checks.
 pub fn parse_auth_input(bytes: &[u8]) -> Result<Map<String, Value>> {
     if bytes.len() > MAX_AUTH_INPUT {
         return Err(invalid("The authorization request is too large."));
@@ -416,7 +416,7 @@ fn sign_auth(io: &mut Io) -> i32 {
     if write_output(io.diagnostic, &notice) != 0 {
         return fail(io.out, &Error::new("output_error", "The signing notice could not be written."));
     }
-    // The agent's own failure codes collapse into signing_failed, as the sidecar reported them.
+    // The agent's own failure codes collapse into signing_failed, as the legacy TS command reported them.
     let signed = sign_digest(io, &checked.key, &checked.digest).map_err(|e| match e.code {
         "timeout" | "unsupported_platform" => e,
         _ => Error::new("signing_failed", e.message),

@@ -1,21 +1,28 @@
 import { onTestFinished, test } from 'bun:test';
 import assert from 'node:assert/strict';
-import QRCode from 'qrcode';
+import { readFileSync } from 'node:fs';
 import jsQR from 'jsqr';
-import { parseConnection, scanConnection } from '../sdk/scan.ts';
-const pairing = () => ({
-  walleterm: 3,
-  url: 'https://bridge.example',
-  code: '00123456',
-  expires_at: new Date(Date.now() + 300000).toISOString(),
-});
+import { parseConnection, scanConnection } from '../../sdk/scan.ts';
+
+// The tunnel's own terminal QR code, written by src/qr.rs tests. Line 1 is its payload.
+const [payload, ...rows] = readFileSync(new URL('./pairing-qr.txt', import.meta.url), 'utf8').split('\n');
+const pairing = () =>
+  JSON.parse(payload) as { walleterm: number; url: string; code: string; expires_at: string };
 function pixels(value: ReturnType<typeof pairing>) {
-  const qr = QRCode.create(JSON.stringify(value)),
-    size = (qr.modules.size + 8) * 5;
+  assert.equal(JSON.stringify(value), payload);
+  // Each character holds two modules: top and bottom half. Five pixels per module, four more quiet modules.
+  const lines = rows.filter(Boolean).map((line) => [...line.replace(/\x1b\[[0-9;]*m/g, '')]);
+  const width = lines[0].length,
+    height = lines.length * 2,
+    size = (Math.max(width, height) + 8) * 5;
   const data = new Uint8ClampedArray(size * size * 4).fill(255);
-  for (let y = 0; y < qr.modules.size; y++)
-    for (let x = 0; x < qr.modules.size; x++)
-      if (qr.modules.get(y, x)) {
+  const dark = (x: number, y: number) => {
+    const cell = lines[y >> 1][x];
+    return cell === '\u2588' || cell === (y % 2 ? '\u2584' : '\u2580');
+  };
+  for (let y = 0; y < height; y++)
+    for (let x = 0; x < width; x++)
+      if (dark(x, y)) {
         for (let a = 0; a < 5; a++)
           for (let b = 0; b < 5; b++) {
             const index = (((y + 4) * 5 + a) * size + (x + 4) * 5 + b) * 4;

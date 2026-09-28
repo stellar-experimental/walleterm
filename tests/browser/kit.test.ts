@@ -1,8 +1,8 @@
 import { afterEach, expect, test } from 'bun:test';
 import { Networks } from '@stellar/stellar-sdk';
-import { WALLETERM_ID, WalletermModule } from '../sdk/kit.ts';
-import { Walleterm } from '../sdk/walleterm.ts';
-import type { AddressChange } from '../sdk/walleterm.ts';
+import { WALLETERM_ID, WalletermModule } from '../../sdk/kit.ts';
+import { Walleterm } from '../../sdk/walleterm.ts';
+import type { AddressChange } from '../../sdk/walleterm.ts';
 
 // The pinned Kit 2.7.0 check lives in fixtures/kit/. These tests cover the module without the Kit.
 afterEach(() => {
