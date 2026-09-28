@@ -603,6 +603,7 @@ export async function runCap71(ctx: Cap71Context) {
     mutate?: (entry: xdr.SorobanAuthorizationEntry) => xdr.SorobanAuthorizationEntry;
     orderMutation?: { mode: OrderMode; nested?: boolean };
   }
+  const reusedChecks: { label: string; original_protocol: unknown }[] = [];
   async function call(
     label: string,
     who: string,
@@ -617,7 +618,10 @@ export async function runCap71(ctx: Cap71Context) {
     }: CallOptions = {},
   ): Promise<Details> {
     ctx.assertClear();
-    if (state.checks[label]) return state.checks[label];
+    if (state.checks[label]) {
+      reusedChecks.push({ label, original_protocol: state.checks[label].protocol ?? null });
+      return state.checks[label];
+    }
     let evidence = state.steps[label];
     if (!evidence) {
       const before = await count(c.target, who);
@@ -888,7 +892,20 @@ export async function runCap71(ctx: Cap71Context) {
     }
     try {
       ctx.assertClear();
-      const details = { protocol, contracts: c, checks: await run() };
+      reusedChecks.length = 0;
+      const checks = await run();
+      const details = {
+        protocol,
+        contracts: c,
+        checks,
+        ...(reusedChecks.length
+          ? {
+              reused_evidence: true,
+              reused_checks: [...reusedChecks],
+              current_environment_protocol: protocol,
+            }
+          : {}),
+      };
       state.done[id] = details;
       save();
       ctx.record(id, 'passed', details);
