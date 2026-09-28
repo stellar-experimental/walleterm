@@ -346,27 +346,28 @@ svg { display: block; }
         <li class="step">
           <span class="step-number" aria-hidden="true">02</span>
           <h3>1Password signs it</h3>
-          <p class="muted">walleterm asks 1Password to sign. Approve on your Mac if asked.</p>
+          <p class="muted">walleterm takes the transaction and asks 1Password to sign it. Approve on your Mac if asked.</p>
         </li>
         <li class="step">
           <span class="step-number" aria-hidden="true">03</span>
           <h3>walleterm checks the signature</h3>
-          <p class="muted">It checks the signature, then returns one JSON object to your agent.</p>
+          <p class="muted">It checks the signature, then returns the signed transaction to your agent.</p>
         </li>
       </ol>
 
       <div class="grid">
         <div class="caption">
           <h3>Made for agents to read</h3>
-          <p class="muted">Each command returns one JSON object. A failure returns a stable error code.</p>
+          <p class="muted">One sign command handles transactions, contract authorizations, and messages. Each command returns one JSON object. A failure returns a stable error code.</p>
           <p class="muted">Skills ship for Claude Code, Codex, OpenCode, and Grok. It also works as a Stellar CLI plugin: <code>stellar walleterm</code>.</p>
         </div>
-        <pre class="terminal span-2" aria-label="Example sign command and its output"><span class="prompt">$ </span>walleterm sign &lt; request.json
+        <pre class="terminal span-2" aria-label="Example sign command and its output"><span class="prompt">$ </span>walleterm sign &lt; payment.json
 {
   "ok": true,
   "public_key": "GDX4…Q7MA",
   "digest": "5f1c9e…a04b",
   "signature": "9ad07e…c211",
+  "signed_transaction_xdr": "…",
   "verified": true
 }</pre>
       </div>
@@ -410,7 +411,7 @@ svg { display: block; }
       <div class="heading">
         <p class="eyebrow">Websites</p>
         <h2 class="title" id="websites-title">A website can ask, too.</h2>
-        <p class="lede">Run <code>walleterm tunnel</code>. A website connects with a QR code or an eight-digit code. Then it can request signatures from the key you pick.</p>
+        <p class="lede">Run <code>walleterm tunnel</code>. A website connects with a QR code or an eight-digit code. Then it can ask the key you pick to sign transactions and messages.</p>
       </div>
       <div class="code-object">
         <p class="digits" aria-label="Example connection code: 4821 0937">4821 0937</p>
