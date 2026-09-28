@@ -53,3 +53,4 @@ coverage.out
 
 # Illustration build output. Parity recreations are test artifacts.
 /design/art/out/
+__pycache__/
