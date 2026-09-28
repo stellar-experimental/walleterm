@@ -50,3 +50,6 @@ coverage.out
 /dist/
 /fixtures/kit/node_modules/
 /release/
+
+# Illustration build output. Parity recreations are test artifacts.
+/design/art/out/
