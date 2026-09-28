@@ -1,3 +1,4 @@
+import { Networks } from '@stellar/stellar-sdk';
 import { Walleterm } from './walleterm.js';
 import type { AddressChange, Result } from './walleterm.js';
 
@@ -78,18 +79,24 @@ export class WalletermModule {
    * Changes in other tabs of the website arrive here too.
    */
   onChange(callback: (event: KitChange) => void) {
-    this.wallet.onChange(({ address, network, networkPassphrase }: AddressChange) =>
+    const report = ({ address, network, networkPassphrase }: AddressChange) =>
       callback({
         address: address ?? '',
         network,
         networkPassphrase,
         ...(address ? {} : { error: { code: -3, message: 'Walleterm disconnected. Connect again.' } }),
-      }),
-    );
+      });
+    this.wallet.onChange(report);
     // The Kit restores its address on load. Confirm the saved session, so the event reports its current state.
     this.wallet.restore();
-    if (this.wallet.client?.token && !this.wallet.client.account?.address)
-      void this.wallet.getAddress({ skipRequestAccess: true });
+    const client = this.wallet.client;
+    if (client?.token && !client.account?.address) void this.wallet.getAddress({ skipRequestAccess: true });
+    // Another call found first that the saved session ended. That report went out before this hook existed.
+    else if (client && !client.token)
+      queueMicrotask(() => {
+        if (this.wallet.client === client && !client.token)
+          report({ address: null, network: 'TESTNET', networkPassphrase: Networks.TESTNET });
+      });
   }
   async disconnect() {
     try {

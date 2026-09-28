@@ -34,45 +34,57 @@ async function website() {
   onTestFinished(() => bridge.close());
   const origin = `http://127.0.0.1:${listeningPort(bridge.server)}`;
   bridge.setPublicOrigin(origin);
-  // A test can hold revocation responses after the bridge revokes the session.
-  let held: Promise<void> | null = null;
+  // A test can hold revocation responses after the bridge revokes the session, or make revocation fail.
+  let held: Promise<void> | null = null,
+    unrevoked = false;
   const fetcher = async (url: string | URL | Request, init?: RequestInit) => {
     const path = new URL(String(url)).pathname;
     paths.push(path);
+    if (path === '/v1/disconnect' && unrevoked) throw TypeError('Failed to fetch');
     const headers = new Headers(init?.headers);
     headers.set('Origin', site);
     const response = await fetch(url, { ...init, headers });
     if (path === '/v1/disconnect' && held) await held;
     return response;
   };
-  // The origin's localStorage. A write fires a storage event in every other tab, one task later.
+  // The origin's localStorage. A write fires a storage event in every other tab, one task later or after its delay.
   const stored = new Map<string, string>();
-  const pages = new Set<EventTarget>();
+  const pages = new Map<EventTarget, number>();
+  function notify(page: EventTarget, key: string | null, oldValue: string | null, newValue: string | null) {
+    for (const [target, delay] of pages)
+      if (target !== page)
+        setTimeout(
+          () => target.dispatchEvent(Object.assign(new Event('storage'), { key, oldValue, newValue })),
+          delay,
+        );
+  }
   function write(page: EventTarget, name: string, value: string | null) {
     const oldValue = stored.get(name) ?? null;
     if (oldValue === value) return;
     if (value === null) stored.delete(name);
     else stored.set(name, value);
-    for (const target of pages)
-      if (target !== page)
-        setTimeout(() =>
-          target.dispatchEvent(Object.assign(new Event('storage'), { key: name, oldValue, newValue: value })),
-        );
+    notify(page, name, oldValue, value);
   }
-  function tab(options: { page?: boolean } = {}) {
+  // `page: false` models a tab that misses storage events. `delay` models a tab that receives them late.
+  function tab(options: { page?: boolean; delay?: number } = {}) {
     const page = new EventTarget();
-    if (options.page !== false) pages.add(page);
+    if (options.page !== false) pages.set(page, options.delay ?? 0);
+    const storage = {
+      getItem: (name: string) => stored.get(name) ?? null,
+      setItem: (name: string, value: string) => write(page, name, String(value)),
+      removeItem: (name: string) => write(page, name, null),
+      clear() {
+        stored.clear();
+        notify(page, null, null, null);
+      },
+    };
     const context = vm.createContext({
       ...authorization,
       ...preimage,
       ...transaction,
       Networks,
       fetch: fetcher,
-      localStorage: {
-        getItem: (name: string) => stored.get(name) ?? null,
-        setItem: (name: string, value: string) => write(page, name, String(value)),
-        removeItem: (name: string) => write(page, name, null),
-      },
+      localStorage: storage,
       addEventListener: page.addEventListener.bind(page),
       removeEventListener: page.removeEventListener.bind(page),
       AbortController,
@@ -92,7 +104,7 @@ async function website() {
     );
     const changes: (string | null)[] = [];
     wallet.onChange(({ address }) => changes.push(address));
-    return { wallet, changes };
+    return { wallet, changes, storage };
   }
   const pair = (wallet: Walleterm) =>
     wallet.connect({ url: origin, code: bridge.pairing.code, selectWallet: async () => key.publicKey() });
@@ -110,7 +122,22 @@ async function website() {
       release.resolve();
     };
   };
-  return { tab, pair, revoke, hold, stored, paths, signatures: () => signatures };
+  const refuseRevocation = (value: boolean) => void (unrevoked = value);
+  const live = async (token: string) =>
+    (await fetcher(`${origin}/v1/account`, { headers: { Authorization: `Bearer ${token}` } })).status === 200;
+  const savedToken = () => JSON.parse(stored.get(STORAGE) ?? 'null')?.token ?? null;
+  return {
+    tab,
+    pair,
+    revoke,
+    hold,
+    refuseRevocation,
+    live,
+    savedToken,
+    stored,
+    paths,
+    signatures: () => signatures,
+  };
 }
 
 function unsigned(source: string) {
@@ -258,4 +285,104 @@ test('a wallet change that fails reports no disconnection and recovers the accou
   expect(late.wallet.address).toBe(other.publicKey());
   expect(late.changes).toEqual([key.publicKey(), other.publicKey()]);
   expect(first.wallet.client!.token).toBeTruthy();
+});
+
+// A tab can act on its old session before it handles the storage event for a newer one.
+test('a tab that missed storage events follows the newer session after a 401 and removes nothing', async () => {
+  const f = await website();
+  const first = f.tab();
+  await f.pair(first.wallet);
+  const stale = f.tab({ page: false });
+  await stale.wallet.getAddress({ skipRequestAccess: true });
+  await f.pair(first.wallet);
+  const next = first.wallet.client!.token!;
+  // The old session was revoked. The stale tab's request fails closed.
+  expect((await stale.wallet.getAddress({ skipRequestAccess: true })).error?.ext).toEqual([
+    'walleterm:not_connected',
+  ]);
+  await until(() => stale.wallet.address === key.publicKey(), 'the stale tab to follow the new session');
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(stale.wallet.client!.token).toBe(next);
+  expect(f.savedToken()).toBe(next);
+  expect(first.wallet.client?.token).toBe(next);
+  expect(first.changes).toEqual([key.publicKey()]);
+  expect(stale.changes).toEqual([key.publicKey()]);
+  expect(await f.live(next)).toBe(true);
+});
+
+test('a tab that receives storage events late keeps the newer session after a 401', async () => {
+  const f = await website();
+  const first = f.tab();
+  await f.pair(first.wallet);
+  const late = f.tab({ delay: 50 });
+  await late.wallet.getAddress({ skipRequestAccess: true });
+  await f.pair(first.wallet);
+  const next = first.wallet.client!.token!;
+  expect((await late.wallet.getAddress({ skipRequestAccess: true })).error?.ext).toEqual([
+    'walleterm:not_connected',
+  ]);
+  // The late event then reports the session that the tab already follows.
+  await new Promise((resolve) => setTimeout(resolve, 120));
+  expect(f.savedToken()).toBe(next);
+  expect(first.wallet.client?.token).toBe(next);
+  expect(late.wallet.client?.token).toBe(next);
+  expect(late.wallet.address).toBe(key.publicKey());
+  expect(first.changes).toEqual([key.publicKey()]);
+  expect(late.changes).toEqual([key.publicKey()]);
+});
+
+test('a tab whose old session still answers does not overwrite the newer saved session', async () => {
+  const f = await website();
+  const first = f.tab();
+  await f.pair(first.wallet);
+  const stale = f.tab({ page: false });
+  await stale.wallet.getAddress({ skipRequestAccess: true });
+  const previous = first.wallet.client!.token!;
+  f.refuseRevocation(true);
+  expect((await f.pair(first.wallet)).previousRevoked).toBe(false);
+  f.refuseRevocation(false);
+  const next = first.wallet.client!.token!;
+  expect(await f.live(previous)).toBe(true);
+  // The stale tab confirms its old session. It must follow the saved session instead of writing its own.
+  await stale.wallet.getAddress({ skipRequestAccess: true });
+  await until(() => stale.wallet.client?.token === next, 'the stale tab to follow the new session');
+  expect(f.savedToken()).toBe(next);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  expect(first.wallet.client?.token).toBe(next);
+  expect(first.changes).toEqual([key.publicKey()]);
+});
+
+test('another tab clearing localStorage ends the session here without a revocation', async () => {
+  const f = await website();
+  const first = f.tab();
+  await f.pair(first.wallet);
+  const second = f.tab();
+  await second.wallet.getAddress({ skipRequestAccess: true });
+  const token = first.wallet.client!.token!;
+  // `localStorage.clear()` fires a storage event with a null key.
+  second.storage.clear();
+  await until(() => first.wallet.client === null, 'the first tab to forget the session');
+  expect(first.changes).toEqual([key.publicKey(), null]);
+  expect(f.paths.filter((path) => path === '/v1/disconnect')).toHaveLength(0);
+  expect(await f.live(token)).toBe(true);
+});
+
+test('a stale tab fails closed after another tab switches, then signs with the new wallet', async () => {
+  const f = await website();
+  const first = f.tab();
+  await f.pair(first.wallet);
+  const stale = f.tab({ page: false });
+  await stale.wallet.getAddress({ skipRequestAccess: true });
+  await first.wallet.selectWallet(other.publicKey());
+  const refused = await stale.wallet.signTransaction(unsigned(key.publicKey()));
+  expect(refused.error?.ext).toEqual(['walleterm:conflict']);
+  expect(refused.signedTxXdr).toBe('');
+  expect(f.signatures()).toBe(0);
+  // The 409 made the tab read the account. The next request uses the current wallet.
+  expect(stale.wallet.address).toBe(other.publicKey());
+  expect(stale.changes).toEqual([key.publicKey(), other.publicKey()]);
+  const signed = await stale.wallet.signTransaction(unsigned(other.publicKey()));
+  expect(signed.error).toBeUndefined();
+  expect(signed.signerAddress).toBe(other.publicKey());
+  expect(f.signatures()).toBe(1);
 });

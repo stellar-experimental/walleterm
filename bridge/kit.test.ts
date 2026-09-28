@@ -139,6 +139,47 @@ test('onChange confirms a restored session once, so a Kit restored on load match
   expect(events).toEqual([]);
 });
 
+test('a hook connected after the restored session ended still reports one disconnection', async () => {
+  const stored = new Map([
+    [
+      'walleterm:session',
+      JSON.stringify({ version: 3, url: 'https://bridge.example', token: 's'.repeat(43), revision: 2 }),
+    ],
+  ]);
+  Object.assign(globalThis, {
+    localStorage: {
+      getItem: (name: string) => stored.get(name) ?? null,
+      setItem: (name: string, value: string) => stored.set(name, value),
+      removeItem: (name: string) => stored.delete(name),
+    },
+  });
+  const paths: string[] = [];
+  const wallet = new Walleterm({
+    page: null,
+    fetch: async (url) => {
+      paths.push(new URL(String(url)).pathname);
+      return Response.json({ error: { code: -3, message: 'Expired' } }, { status: 401 });
+    },
+  });
+  // Another call, such as a header health check, finds first that the session ended.
+  expect((await wallet.getAddress({ skipRequestAccess: true })).error?.ext).toEqual([
+    'walleterm:not_connected',
+  ]);
+  expect(stored.has('walleterm:session')).toBe(false);
+  const events: unknown[] = [];
+  new WalletermModule({ wallet }).onChange((event) => events.push(event));
+  await new Promise((resolve) => setTimeout(resolve, 10));
+  expect(events).toEqual([
+    {
+      address: '',
+      network: 'TESTNET',
+      networkPassphrase: Networks.TESTNET,
+      error: { code: -3, message: 'Walleterm disconnected. Connect again.' },
+    },
+  ]);
+  expect(paths).toEqual(['/v1/account']);
+});
+
 test('disconnect never rejects and discards an unconfirmed session locally', async () => {
   const wallet = new Walleterm({ storageKey: null });
   let forgotten = 0;

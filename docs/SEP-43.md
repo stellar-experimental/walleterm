@@ -216,7 +216,7 @@ All tabs of one website share this session. A new tab uses it without a new code
 After pairing, the wallet owns the session. Destroying `WalletermConnect` does not revoke it.
 `storageKey: null` keeps the session in memory only. Each tab then needs its own pairing.
 A reload or a new tab checks `GET /v1/account` before it publishes an address.
-A 401 removes the saved session. A network failure keeps it.
+A 401 removes the saved session only when this tab still holds it. A network failure keeps it.
 The token stays in the browser after its tabs close. The bridge still ends it after one hour or at a tunnel restart.
 
 A `storage` event tells each open tab about a change in another tab:
@@ -225,7 +225,14 @@ A `storage` event tells each open tab about a change in another tab:
 | --- | --- |
 | Pairing | The tab uses the new session. It publishes the address after `GET /v1/account` confirms it. |
 | Wallet change | The tab reads `GET /v1/account` and publishes the new address. A change away and back updates the revision only. |
-| Disconnection, or a 401 | The tab discards the session locally and publishes a disconnection. It sends no second revocation. |
+| Disconnection, a 401, or `localStorage.clear()` | The tab discards the session locally and publishes a disconnection. It sends no second revocation. |
+
+A tab can act before it handles an event, for example when the event arrives late.
+Each tab records the saved token that it last read or wrote. It changes or removes only that saved session.
+When the saved token differs, the tab uses the saved session instead. A pairing in the tab replaces any saved session.
+So an old session's 401 or late confirmation never removes or overwrites a newer session.
+A signing request with an old selection revision fails with `-3 walleterm:conflict`, and the bridge signs nothing.
+The tab then reads `GET /v1/account`, so its next request uses the current wallet.
 
 `onChange` reports confirmed addresses and ended sessions only.
 An account that waits for confirmation publishes nothing. An example is the account after a failed wallet change.
@@ -296,6 +303,7 @@ The guarded hook keeps open tabs in agreement. Each tab's `Walleterm` follows th
 The hook then updates or clears the Kit in that tab.
 `WalletermModule.onChange()` also confirms a restored session once.
 A session that ended while no tab was open then clears the restored Kit address.
+Another call can find the ended session before the hook connects. The hook then receives that disconnection once.
 Without a saved session, the module reports nothing. The Kit keeps a wallet that the website selected.
 
 The module ships here only. Upstream registration would reach future Kit releases, not deployed websites.
