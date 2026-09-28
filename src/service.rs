@@ -171,20 +171,18 @@ fn run_tunnel(port: u16) -> i32 {
         if !output.write(&banner) {
             return 1;
         }
-        let (Some(socket), Ok(client)) = (crate::platform::agent_socket(), crate::ledger::https_client())
-        else {
+        let Some(socket) = crate::platform::agent_socket() else {
             println!("The signing bridge requires macOS and the 1Password SSH agent.");
             return 1;
         };
-        let probe_client = match crate::ledger::https_client() {
+        let probe_client = match crate::http::https_client() {
             Ok(client) => std::sync::Arc::new(client),
             Err(e) => {
                 println!("{}", e.message);
                 return 1;
             }
         };
-        let bridge =
-            crate::bridge::Bridge::new(crate::bridge::production(socket, setting.vault, client), port);
+        let bridge = crate::bridge::Bridge::new(crate::bridge::production(socket, setting.vault), port);
         let service = std::sync::Arc::new(BridgeService::new(bridge, port));
         run_launch("Walleterm tunnel", port, service, output, probe_client).await
     })
@@ -196,7 +194,7 @@ pub async fn run_launch(
     port: u16,
     service: std::sync::Arc<dyn crate::tunnel::Service>,
     output: std::sync::Arc<dyn crate::tunnel::Output>,
-    client: std::sync::Arc<crate::ledger::HttpsClient>,
+    client: std::sync::Arc<crate::http::HttpsClient>,
 ) -> i32 {
     let probe_client = client.clone();
     let probe: Box<crate::tunnel::ProbeFn> = Box::new(move |origin, cancel| {
@@ -266,7 +264,7 @@ pub fn run(command: &str, args: &[&str], out: &mut dyn Write) -> i32 {
 fn run_demo(port: u16) -> i32 {
     let Ok(runtime) = tokio::runtime::Builder::new_current_thread().enable_all().build() else { return 1 };
     runtime.block_on(async {
-        let client = match crate::ledger::https_client() {
+        let client = match crate::http::https_client() {
             Ok(client) => std::sync::Arc::new(client),
             Err(e) => {
                 println!("{}", e.message);

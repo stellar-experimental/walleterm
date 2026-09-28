@@ -857,7 +857,7 @@ where
     let work = async {
         let response = client.get(url).await.map_err(|_| unavailable("The public request failed."))?;
         let status = response.status().as_u16();
-        let body = crate::ledger::capped(response.into_body(), 4096)
+        let body = crate::http::capped(response.into_body(), 4096)
             .await
             .map_err(|_| unavailable("The response is too large."))?;
         let value: Value =

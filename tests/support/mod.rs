@@ -58,8 +58,6 @@ pub struct Controls {
     pub sign_gate: Arc<Mutex<Option<oneshot::Receiver<()>>>>,
     pub sign_result: Arc<Mutex<Option<String>>>,
     pub sign_cancels: Arc<Mutex<Vec<Cancel>>>,
-    pub ledger: Arc<Mutex<Result<u32, Error>>>,
-    pub ledger_calls: Arc<AtomicUsize>,
     pub decisions: Arc<Mutex<VecDeque<Decision>>>,
     pub reviews: Arc<AtomicUsize>,
     pub logs: Arc<Mutex<Vec<String>>>,
@@ -157,14 +155,6 @@ pub fn deps(controls: &Controls, options: &Options) -> Deps {
         },
     );
     let c = controls.clone();
-    let latest_ledger = Box::new(move |_cancel: Cancel| -> BoxFuture<walleterm::error::Result<u32>> {
-        let c = c.clone();
-        Box::pin(async move {
-            c.ledger_calls.fetch_add(1, Ordering::SeqCst);
-            c.ledger.lock().unwrap().clone()
-        })
-    });
-    let c = controls.clone();
     let review = options.review.then(|| {
         Box::new(move |request: ReviewRequest, cancel: Cancel| -> BoxFuture<walleterm::error::Result<bool>> {
             let c = c.clone();
@@ -184,7 +174,7 @@ pub fn deps(controls: &Controls, options: &Options) -> Deps {
     let log = Box::new(move |line: &str| c.logs.lock().unwrap().push(line.to_owned()));
     let c = controls.clone();
     let now = Box::new(move || c.now());
-    Deps { list_signers, sign, latest_ledger, review, log, now }
+    Deps { list_signers, sign, review, log, now }
 }
 
 pub struct Response {
@@ -251,8 +241,6 @@ impl Fixture {
             sign_gate: Arc::default(),
             sign_result: Arc::default(),
             sign_cancels: Arc::default(),
-            ledger: Arc::new(Mutex::new(Ok(1000))),
-            ledger_calls: Arc::default(),
             decisions: Arc::default(),
             reviews: Arc::default(),
             logs: Arc::default(),

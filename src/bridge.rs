@@ -1,6 +1,6 @@
 //! Bridge protocol version 3 (`docs/BRIDGE-PROTOCOL.md`): sessions, wallet grants, selection revisions,
 //! and one signing queue. State stays in memory under one mutex that no await ever holds.
-//! Stellar sequence numbers and the five-minute expiry keep a signature from applying twice.
+//! The shared core (`artifact.rs`) checks and finishes each artifact. This module adds only the website rules.
 
 use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
@@ -13,14 +13,14 @@ use serde_json::{Map, Value, json};
 use subtle::ConstantTimeEq;
 use tokio::sync::{Notify, OnceCell, mpsc};
 
-use crate::authorization::{
-    AuthEntryInput, address_credentials, attach_auth_signature, inspect_auth_entry, parse_auth_entry,
-};
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
+
+use crate::artifact::{self, Artifact, Signed};
 use crate::cancel::Cancel;
 use crate::error::{Error, Result};
-use crate::preimage::{attach_preimage_signature, inspect_auth_preimage};
-use crate::transaction::{TESTNET, attach_signature, inspect_transaction};
-use crate::util::{hex, iso_millis, random_below, token, uuid};
+use crate::transaction::{TESTNET, signer_role};
+use crate::util::{hex, iso_millis, lower_hex, random_below, token, uuid};
 
 pub type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
@@ -53,7 +53,6 @@ pub struct ReviewRequest {
 pub type ListFn = dyn Fn(Cancel) -> BoxFuture<Result<Vec<SignerInfo>>> + Send + Sync;
 /// Signs a public key's digest. Returns the raw signature as lowercase hexadecimal.
 pub type SignFn = dyn Fn(String, [u8; 32], Cancel) -> BoxFuture<Result<String>> + Send + Sync;
-pub type LedgerFn = dyn Fn(Cancel) -> BoxFuture<Result<u32>> + Send + Sync;
 pub type ReviewFn = dyn Fn(ReviewRequest, Cancel) -> BoxFuture<Result<bool>> + Send + Sync;
 type Listing = Arc<OnceCell<Result<Vec<SignerInfo>>>>;
 
@@ -62,7 +61,6 @@ pub struct Deps {
     pub list_signers: Box<ListFn>,
     /// The bridge verifies each returned signature independently.
     pub sign: Box<SignFn>,
-    pub latest_ledger: Box<LedgerFn>,
     /// The approval hook. `None` approves every structurally valid request.
     pub review: Option<Box<ReviewFn>>,
     pub log: Box<dyn Fn(&str) + Send + Sync>,
@@ -85,7 +83,7 @@ fn reason_info(reason: &str) -> Option<(i32, u16)> {
         "conflict" | "expired" => (-3, 409),
         "rate_limited" => (-3, 429),
         "rejected" => (-4, 409),
-        "bridge_unavailable" | "ledger_unavailable" => (-2, 503),
+        "bridge_unavailable" => (-2, 503),
         "result_unknown" => (-1, 502),
         "internal" => (-1, 500),
         _ => return None,
@@ -194,20 +192,13 @@ struct Session {
     offered: Option<Offer>,
 }
 
-#[derive(Clone)]
-enum Artifact {
-    Transaction(String),
-    Preimage(String),
-    Authorization { auth_entry_xdr: String, auth_address: String, adapter: Value },
-}
-
-impl Artifact {
-    fn kind(&self) -> &'static str {
-        match self {
-            Self::Transaction(_) => "transaction",
-            Self::Preimage(_) => "auth_entry",
-            Self::Authorization { .. } => "authorization",
-        }
+/// The protocol name of each request kind.
+fn kind(artifact: &Artifact) -> &'static str {
+    match artifact {
+        Artifact::Transaction(_) => "transaction",
+        Artifact::Preimage(_) => "auth_entry",
+        Artifact::Authorization { .. } => "authorization",
+        Artifact::Message(_) => "message",
     }
 }
 
@@ -630,7 +621,7 @@ impl Bridge {
         }
         let mut value = json!({
             "id": r.id,
-            "kind": r.artifact.kind(),
+            "kind": kind(&r.artifact),
             "state": r.state.as_str(),
             "hash": r.hash,
             "expires_at": iso_millis(r.expires as i64),
@@ -664,109 +655,23 @@ impl Bridge {
         result
     }
 
-    /// Any ledger lookup failure before signing is an external service error.
-    async fn trusted_ledger(&self, cancel: &Cancel) -> Result<u32> {
-        match (self.deps.latest_ledger)(cancel.clone()).await {
-            Ok(ledger) => Ok(ledger),
-            Err(_) if cancel.is_cancelled() => Err(cancel.reason()),
-            Err(e) if e.code == "ledger_unavailable" => Err(e),
-            Err(_) => Err(Error::new("ledger_unavailable", "The trusted testnet ledger is unavailable.")),
-        }
-    }
-
-    fn inspect(
+    /// Verify and attach with the scope of the last check before signing. Returns the result field and value.
+    fn finish(
         artifact: &Artifact,
         passphrase: &str,
-        address: &str,
         key: &str,
         now: u64,
-        ledger: Option<u32>,
-    ) -> Result<(Value, String, u64)> {
-        if passphrase != TESTNET {
-            return Err(Error::new("network_unsupported", "Walleterm signs only on Stellar testnet."));
-        }
-        match artifact {
-            Artifact::Transaction(xdr) => {
-                let (checked, details, expires) = inspect_transaction(xdr, passphrase, address, key, now)?;
-                Ok((details, hex(&checked.hash), expires))
-            }
-            Artifact::Preimage(xdr) => {
-                if address != key {
-                    return Err(Error::new(
-                        "address_mismatch",
-                        "The requested signer differs from the selected account.",
-                    ));
-                }
-                let checked = inspect_auth_preimage(xdr, key, passphrase, ledger)?;
-                let details = json!({
-                    "kind": "auth_entry",
-                    "hash": hex(&checked.digest),
-                    "address": checked.address,
-                    "public_key": key,
-                    "network_passphrase": passphrase,
-                    "nonce": checked.preimage.nonce.to_string(),
-                    "expiration_ledger": checked.preimage.signature_expiration_ledger,
-                    "invocation_xdr": crate::stellar::encode(&checked.preimage.invocation),
-                    "preimage_xdr": xdr,
-                });
-                Ok((details, hex(&checked.digest), now + REQUEST_MS))
-            }
-            Artifact::Authorization { auth_entry_xdr, auth_address, adapter } => {
-                // Admission validates structure only. The queue obtains a trusted ledger before signing.
-                let ledger = match ledger {
-                    Some(ledger) => ledger,
-                    None => {
-                        let entry = parse_auth_entry(auth_entry_xdr)?;
-                        address_credentials(&entry)?.signature_expiration_ledger.saturating_sub(60).max(1)
-                    }
-                };
-                let input = entry_input(auth_entry_xdr, passphrase, address, auth_address, adapter);
-                let checked = inspect_auth_entry(&input, key, Some(ledger))?;
-                let details = json!({
-                    "kind": "authorization",
-                    "hash": hex(&checked.digest),
-                    "address": auth_address,
-                    "public_key": key,
-                    "network_passphrase": passphrase,
-                    "credential_type": "sorobanCredentialsAddressV2",
-                    "nonce": checked.nonce.to_string(),
-                    "expiration_ledger": checked.expiration_ledger,
-                    "invocation_xdr": crate::stellar::encode(&checked.entry.root_invocation),
-                    "adapter": adapter,
-                });
-                Ok((details, hex(&checked.digest), now + REQUEST_MS))
-            }
-        }
-    }
-
-    fn attach(
-        artifact: &Artifact,
-        passphrase: &str,
-        address: &str,
-        key: &str,
-        now: u64,
-        ledger: Option<u32>,
         signature: &str,
     ) -> Result<(&'static str, String)> {
-        match artifact {
-            Artifact::Transaction(xdr) => {
-                let (checked, _, _) =
-                    inspect_transaction(xdr, passphrase, address, key, now).or_else(|_| {
-                        // Attachment rechecks only the envelope; time bounds were checked before signing.
-                        crate::transaction::inspect_transaction_request(xdr, key, passphrase)
-                            .map(|c| (c, Value::Null, 0))
-                    })?;
-                Ok(("signed_tx_xdr", attach_signature(&checked, signature)?))
-            }
-            Artifact::Preimage(xdr) => Ok((
-                "signed_auth_entry",
-                attach_preimage_signature(xdr, key, passphrase, ledger.unwrap_or(0), signature)?,
-            )),
-            Artifact::Authorization { auth_entry_xdr, auth_address, adapter } => {
-                let input = entry_input(auth_entry_xdr, passphrase, address, auth_address, adapter);
-                Ok(("signed_auth_entry_xdr", attach_auth_signature(&input, key, ledger, signature)?))
-            }
-        }
+        let Some(raw) = lower_hex::<64>(signature) else {
+            return Err(Error::new("internal", "The signer returned an invalid signature."));
+        };
+        let scope = artifact::Scope { key, passphrase: Some(passphrase), now_ms: now };
+        Ok(match artifact::finish(artifact, &scope, &raw)? {
+            Signed::Transaction(xdr) => ("signed_tx_xdr", xdr),
+            Signed::AuthEntry(xdr) => ("signed_auth_entry_xdr", xdr),
+            Signed::Raw => ("signed_auth_entry", STANDARD.encode(raw)),
+        })
     }
 
     /// Review, then sign one request. One job runs at a time. Every await is followed by a fresh check.
@@ -885,9 +790,9 @@ impl Bridge {
             let r = &state.records[key];
             (r.artifact.clone(), r.network_passphrase.clone(), address_of(r), r.public_key.clone())
         };
-        if let Artifact::Transaction(_) = artifact {
-            Self::inspect(&artifact, &passphrase, &address, &public_key, self.now(), None)?;
-        }
+        // A transaction can reach its max_time while it waits. The same scope finishes the signature.
+        let checked_at = self.now();
+        admit(&artifact, &passphrase, &address, &public_key, checked_at)?;
         self.set_state(key, RequestState::Approved);
         // Vault discovery stops its CLI children before it returns, so it is awaited, not dropped.
         let keys = (self.deps.list_signers)(signal.clone()).await;
@@ -905,12 +810,6 @@ impl Bridge {
         };
         if !allowed || !keys.iter().any(|k| k.public_key == public_key) {
             return Err(Error::new("internal", "The selected key is no longer available."));
-        }
-        let mut ledger = None;
-        if !matches!(artifact, Artifact::Transaction(_)) {
-            let latest = self.trusted_ledger(signal).await?;
-            Self::inspect(&artifact, &passphrase, &address, &public_key, self.now(), Some(latest))?;
-            ledger = Some(latest);
         }
         let hash = {
             // The last check and the move to Signing share one lock.
@@ -933,11 +832,7 @@ impl Bridge {
         if !still_signing {
             self.log(&format!("1Password returned a signature after cancellation. Withheld {hash}.\n"));
         }
-        if !matches!(artifact, Artifact::Transaction(_)) {
-            ledger = Some(self.trusted_ledger(signal).await?);
-        }
-        let result =
-            Self::attach(&artifact, &passphrase, &address, &public_key, self.now(), ledger, &signature)?;
+        let result = Self::finish(&artifact, &passphrase, &public_key, checked_at, &signature)?;
         let mut state = self.state.lock().unwrap();
         if !self.eligible(&state, key, session_id, signal, RequestState::Signing) {
             return Err(Error::new(
@@ -1400,16 +1295,18 @@ impl Bridge {
             Some("transaction") => Artifact::Transaction(text("xdr").unwrap()),
             Some("auth_entry") => Artifact::Preimage(text("preimage_xdr").unwrap()),
             _ => Artifact::Authorization {
-                auth_entry_xdr: text("auth_entry_xdr").unwrap(),
-                auth_address: text("auth_address").unwrap(),
+                entry_xdr: text("auth_entry_xdr").unwrap(),
+                address: text("auth_address").unwrap(),
                 adapter: input.get("adapter").cloned().unwrap_or(Value::Null),
             },
         };
         let (passphrase, address) = (text("network_passphrase").unwrap(), text("address").unwrap());
         let public_key = public_key.unwrap();
-        let (details, hash, expires) =
-            Self::inspect(&artifact, &passphrase, &address, &public_key, self.now(), None)
-                .map_err(rejected)?;
+        let now = self.now();
+        let (details, hash) = admit(&artifact, &passphrase, &address, &public_key, now).map_err(rejected)?;
+        // A transaction request never outlives the transaction's max_time.
+        let max_time = details["max_time"].as_str().and_then(|t| t.parse::<u64>().ok()).filter(|&t| t != 0);
+        let expires = max_time.map_or(now + REQUEST_MS, |t| t.saturating_mul(1000).min(now + REQUEST_MS));
         let seq = state.next_seq;
         state.next_seq += 1;
         let mut record = Record {
@@ -1507,25 +1404,44 @@ impl Bridge {
     }
 }
 
-fn address_of(r: &Record) -> String {
-    r.identity.get("address").and_then(Value::as_str).unwrap_or_default().to_owned()
-}
-
-/// The adapter extension reuses the CLI input shape. `address` names the signer in protocol 3.
-fn entry_input(
-    auth_entry_xdr: &str,
+/// The shared inspection with the website rules: testnet only, the selected key as `address`,
+/// the transaction signer role, and the selected G-address or a C-address as the preimage bound address.
+pub fn admit(
+    artifact: &Artifact,
     passphrase: &str,
     address: &str,
-    auth_address: &str,
-    adapter: &Value,
-) -> AuthEntryInput {
-    AuthEntryInput {
-        auth_entry_xdr: auth_entry_xdr.to_owned(),
-        network_passphrase: passphrase.to_owned(),
-        public_key: address.to_owned(),
-        address: auth_address.to_owned(),
-        adapter: adapter.clone(),
+    key: &str,
+    now: u64,
+) -> Result<(Value, String)> {
+    if passphrase != TESTNET {
+        return Err(Error::new("network_unsupported", "Walleterm signs only on Stellar testnet."));
     }
+    if address != key {
+        return Err(Error::new(
+            "address_mismatch",
+            "The requested account differs from the selected account.",
+        ));
+    }
+    let checked =
+        artifact::inspect(artifact, &artifact::Scope { key, passphrase: Some(passphrase), now_ms: now })?;
+    match artifact {
+        Artifact::Transaction(xdr) => signer_role(xdr, &checked.key)?,
+        Artifact::Preimage(_) => {
+            let bound = checked.details["address"].as_str().unwrap_or_default();
+            if bound != key && !crate::stellar::is_contract(bound) {
+                return Err(Error::new(
+                    "address_mismatch",
+                    "The authorization address must be the selected G-address or a C-address.",
+                ));
+            }
+        }
+        Artifact::Authorization { .. } | Artifact::Message(_) => {}
+    }
+    Ok((checked.details, hex(&checked.digest)))
+}
+
+fn address_of(r: &Record) -> String {
+    r.identity.get("address").and_then(Value::as_str).unwrap_or_default().to_owned()
 }
 
 /// A discovery failure during a website call is an external service error.
@@ -1536,16 +1452,11 @@ fn listing_failure(e: Error) -> Fail {
     Fail { status: 502, error: sep43(&Error::new(reason, &e.message), None) }
 }
 
-/// The production dependencies: the 1Password agent, `OP_VAULT` discovery, and the fixed testnet ledger.
-pub fn production(
-    socket: std::path::PathBuf,
-    vault: Option<String>,
-    client: crate::ledger::HttpsClient,
-) -> Deps {
+/// The production dependencies: the 1Password agent and `OP_VAULT` discovery.
+pub fn production(socket: std::path::PathBuf, vault: Option<String>) -> Deps {
     let socket = Arc::new(socket);
     let (list_socket, sign_socket) = (socket.clone(), socket);
     let vault = Arc::new(vault);
-    let client = Arc::new(client);
     Deps {
         list_signers: Box::new(move |cancel| {
             let (socket, vault) = (list_socket.clone(), vault.clone());
@@ -1561,10 +1472,6 @@ pub fn production(
                     crate::agent::nonblocking::sign(&socket, &public_key, &digest, limit, &cancel).await?;
                 Ok(hex(&signature))
             })
-        }),
-        latest_ledger: Box::new(move |cancel| {
-            let client = client.clone();
-            Box::pin(async move { crate::ledger::latest_ledger(&client, &cancel).await })
         }),
         review: None,
         log: Box::new(|line| {
