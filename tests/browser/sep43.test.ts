@@ -17,7 +17,7 @@ import type { contract } from '@stellar/stellar-sdk';
 import { createHost } from './host.ts';
 import { Walleterm, WalletermClient } from '../../sdk/walleterm.ts';
 import type { AccessInterface } from '../../sdk/walleterm.ts';
-import type { HostOptions } from './host.ts';
+import type { HostOptions, ReviewRequest } from './host.ts';
 import type { Fetch } from '../../sdk/types.ts';
 
 const key = Keypair.random(),
@@ -105,16 +105,144 @@ function preimage(address: string, { expiration = 150, network = Networks.TESTNE
   return buildAuthorizationEntryPreimage(entry(address, expiration), expiration, network).toXDR('base64');
 }
 
-test('getNetwork and signMessage answer without a session or bridge request', async () => {
+test('getNetwork answers without a session or bridge request', async () => {
   const f = await fixture();
   expect(await f.wallet.getNetwork()).toEqual({ network: 'TESTNET', networkPassphrase: Networks.TESTNET });
-  const message = await f.wallet.signMessage('Sign in to example.com');
-  expect(message).toEqual({
-    signedMessage: '',
-    signerAddress: '',
-    error: expect.objectContaining({ code: -3, ext: ['walleterm:unsupported'] }),
+  expect((await f.wallet.signMessage('Sign in to example.com')).error).toMatchObject({
+    code: -3,
+    ext: ['walleterm:not_connected'],
+  });
+  // Bad text fails before the session check, which can send a request.
+  expect((await f.wallet.signMessage('a\ud800b')).error).toMatchObject({
+    code: -3,
+    ext: ['walleterm:invalid_request'],
   });
   expect(f.requests()).toBe(0);
+});
+
+test('signMessage signs SEP-53 text without review and the tunnel prints one escaped line', async () => {
+  const lines: string[] = [];
+  const f = await fixture({ review: undefined, log: (line) => lines.push(line) });
+  await f.wallet.getAddress();
+  // A newline and a bidirectional override reach the terminal only as escapes.
+  const text = 'sep43.example asks for proof of key control.\nNonce: 5f1c \u202egpj.exe';
+  for (const message of [text, 'a'.repeat(1024), 'é'.repeat(512)]) {
+    const result = await f.wallet.signMessage(message, { networkPassphrase: Networks.TESTNET });
+    expect(result.error).toBeUndefined();
+    expect(result.signerAddress).toBe(key.publicKey());
+    expect(key.verifyMessage(message, Buffer.from(result.signedMessage, 'base64'))).toBe(true);
+  }
+  const digest = Buffer.from(hash(Buffer.from(`Stellar Signed Message:\n${text}`))).toString('hex');
+  expect(lines.slice(0, 2)).toEqual([
+    `Message request from ${site} for ${key.publicKey()} (67 bytes, digest ${digest}, no network, site, or expiry binding): "sep43.example asks for proof of key control.\\nNonce: 5f1c \\u202egpj.exe"\n`,
+    `Signed ${digest} (signer ${key.publicKey()}, SEP-53 message) for ${site}.\n`,
+  ]);
+  expect(f.calls()).toBe(3);
+});
+
+test('signMessage refuses bad text, another network, and another signer before any request', async () => {
+  const f = await fixture({ review: undefined });
+  await f.wallet.getAddress();
+  const calls = f.calls(),
+    requests = f.requests();
+  for (const [message, options, reason] of [
+    // A lone surrogate would become U+FFFD in UTF-8. The site would then get a signature for other text.
+    ['a\ud800b', {}, 'walleterm:invalid_request'],
+    ['\udc00', {}, 'walleterm:invalid_request'],
+    ['', {}, 'walleterm:invalid_request'],
+    ['a'.repeat(1025), {}, 'walleterm:invalid_request'],
+    // 513 characters are 1026 UTF-8 bytes. The limit counts bytes.
+    ['é'.repeat(513), {}, 'walleterm:invalid_request'],
+    [42 as unknown as string, {}, 'walleterm:invalid_request'],
+    ['hello', { networkPassphrase: Networks.PUBLIC }, 'walleterm:network_unsupported'],
+    ['hello', { address: other.publicKey() }, 'walleterm:address_mismatch'],
+  ] as const) {
+    expect(await f.wallet.signMessage(message, options)).toEqual({
+      signedMessage: '',
+      signerAddress: '',
+      error: expect.objectContaining({ code: -3, ext: [reason] }),
+    });
+  }
+  expect(f.calls()).toBe(calls);
+  expect(f.requests()).toBe(requests);
+});
+
+test('message review receives the text, and a denial or cancellation returns -4', async () => {
+  const reviewed: ReviewRequest[] = [];
+  const denied = await fixture({
+    review: async (request) => {
+      reviewed.push(request);
+      return false;
+    },
+  });
+  await denied.wallet.getAddress();
+  expect((await denied.wallet.signMessage('Sign in to example.com')).error).toMatchObject({
+    code: -4,
+    ext: ['walleterm:rejected'],
+    requestState: 'denied',
+  });
+  expect(reviewed[0]).toMatchObject({
+    origin: site,
+    details: { kind: 'message', message: 'Sign in to example.com', bytes: 22, public_key: key.publicKey() },
+  });
+  const queued = await fixture({
+    review: (_request, { signal }) =>
+      new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason))),
+  });
+  await queued.wallet.getAddress();
+  const stop = new AbortController();
+  const waiting = queued.wallet.signMessage('Sign in to example.com', { signal: stop.signal });
+  setTimeout(() => stop.abort(), 20);
+  expect((await waiting).error).toMatchObject({ code: -4, ext: ['walleterm:rejected'] });
+  expect(denied.calls() + queued.calls()).toBe(0);
+});
+
+test('signMessage returns the SEP-53 vector signatures, and the SDK verifies them', async () => {
+  // The public SEP-53 test key: a mock key, never funded or used live. The mock signer returns published signatures.
+  const sep53 = 'GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L';
+  const published: Record<string, string> = {
+    d52eb59c06bb510d065997ff93077068eed0a486c20215b5e02e1ab0d2ebea5f:
+      '7cee5d6d885752104c85eea421dfdcb95abf01f1271d11c4bec3fcbd7874dccd6e2e98b97b8eb23b643cac4073bb77de5d07b0710139180ae9f3cbba78f2ba04',
+    '7bde4f792e336ed43df42ad66a92b44cb1bc60708e8bee63494c289dee161682':
+      '083536eb95ecf32dce59b07fe7a1fd8cf814b2ce46f40d2a16e4ea1f6cecd980e04e6fbef9d21f98011c785a81edb85f3776a6e7d942b435eb0adc07da4d4604',
+  };
+  const bridge = await createHost({
+    listSigners: async () => [{ public_key: sep53 }],
+    sign: async (_publicKey, digest) => published[digest] ?? '00'.repeat(64),
+  });
+  onTestFinished(() => bridge.close());
+  const wallet = new Walleterm({
+    storageKey: null,
+    page: null,
+    pollInterval: 1,
+    fetch: (url, init) => {
+      const headers = new Headers(init?.headers);
+      headers.set('Origin', site);
+      return fetch(url, { ...init, headers });
+    },
+    ui: {
+      requestAccess: async (target) =>
+        (
+          await target.connect({
+            url: bridge.origin,
+            code: await bridge.code(),
+            selectWallet: async () => sep53,
+          })
+        ).address,
+    },
+  });
+  expect(await wallet.getAddress()).toEqual({ address: sep53 });
+  for (const [message, signedMessage] of [
+    [
+      'Hello, World!',
+      'fO5dbYhXUhBMhe6kId/cuVq/AfEnHRHEvsP8vXh03M1uLpi5e46yO2Q8rEBzu3feXQewcQE5GArp88u6ePK6BA==',
+    ],
+    [
+      'こんにちは、世界！',
+      'CDU265Xs8y3OWbB/56H9jPgUss5G9A0qFuTqH2zs2YDgTm+++dIfmAEceFqB7bhfN3am59lCtDXrCtwH2k1GBA==',
+    ],
+  ])
+    expect(await wallet.signMessage(message)).toEqual({ signedMessage, signerAddress: sep53 });
 });
 
 test('getAddress pairs through the access interface, then confirms the session without it', async () => {

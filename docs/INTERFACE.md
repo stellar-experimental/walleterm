@@ -16,8 +16,8 @@ walleterm --version
 
 `tunnel` starts the independent signing bridge and its Cloudflare Quick Tunnel.
 It needs no recipient, demo, or website build.
-It accepts supported unsigned testnet XDR through the [bridge protocol](BRIDGE-PROTOCOL.md).
-It returns signed XDR to the requesting website. It never builds or submits transactions.
+It accepts supported unsigned testnet XDR and SEP-53 messages through the [bridge protocol](BRIDGE-PROTOCOL.md).
+It returns signed XDR or a signature to the requesting website. It never builds or submits transactions.
 A website connects with a single-use eight-digit code and selects a 1Password key.
 The default connection stays fixed to that key.
 An explicit `wallet_scope: "available"` grant permits changes among the initially displayed eligible wallets.
@@ -49,6 +49,13 @@ A parent pipe stops the tunnel after a parent crash. Shutdown uses bounded termi
 
 The bridge keeps sessions and requests in memory. A restart ends them and never retries a request.
 The tunnel terminal prints one line for each produced or withheld signature.
+Before it signs a message, it prints one line with the origin, key, byte count, digest, and escaped text:
+
+```text
+Message request from https://example.com for G... (43 bytes, digest <hex>, no network, site, or expiry binding): "example.com asks..."
+```
+
+The text uses the escapes of the `sign` notice. The line states that the signature binds no network, site, or expiry.
 Earlier versions kept records in `~/Library/Application Support/walleterm/bridge`. The bridge no longer reads that directory.
 
 `tunnel` and `demo` always print readable public links. They print QR codes when the terminal is wide enough.
@@ -79,6 +86,7 @@ Disconnect clears the saved session. Recovery never repeats signing or submissio
 The bridge signs each valid request without a terminal step. Ctrl+C stops the tunnel.
 A 1Password prompt can still require the Mac. Cached 1Password approval can suppress a fresh desktop prompt.
 Use only dedicated testnet keys. Any website that holds a valid session can request signatures.
+A message signature is valid on every network. Never use a Walleterm key as an identity for another service.
 
 The bridge filters no operations. It signs testnet V1 or fee-bump envelopes that need the selected key.
 It refuses a nonzero `max_time` at or before now. No other time rule applies. See [the protocol](BRIDGE-PROTOCOL.md).

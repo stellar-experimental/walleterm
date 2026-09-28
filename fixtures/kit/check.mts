@@ -138,8 +138,12 @@ try {
   assert.ok(key.verify(hash(Buffer.from(preimage, 'base64')), Buffer.from(signedAuthEntry, 'base64')));
   results.sign_auth_entry = 'verified';
 
-  await assert.rejects(StellarWalletsKit.signMessage('hello'), { code: -3, ext: ['walleterm:unsupported'] });
-  results.sign_message = 'rejected with -3';
+  // The Kit core adds the selected network to the options. The bridge returns Base64, as Freighter does.
+  const message = 'kit.example asks for proof of key control. Nonce: 1.';
+  const signedMessage = await StellarWalletsKit.signMessage(message);
+  assert.equal(signedMessage.signerAddress, key.publicKey());
+  assert.ok(key.verifyMessage(message, Buffer.from(signedMessage.signedMessage, 'base64')));
+  results.sign_message = 'verified';
   assert.deepEqual(await StellarWalletsKit.getNetwork(), {
     network: 'TESTNET',
     networkPassphrase: Networks.TESTNET,

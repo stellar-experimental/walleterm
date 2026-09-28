@@ -85,7 +85,9 @@ await wallet.disconnect();
 ```
 
 SEP-43 methods resolve results and never reject. A failure returns empty fields and `error`.
-`getAddress` returns `{address}`. `getNetwork` returns testnet. `signMessage` returns `-3`.
+`getAddress` returns `{address}`. `getNetwork` returns testnet.
+`signMessage` signs SEP-53 text of 1–1024 UTF-8 bytes and returns `{signedMessage, signerAddress}`.
+`signedMessage` is Base64. Read [message signing](message-signing.md) before you connect a key that signs messages.
 `signTransaction` returns `{signedTxXdr, signerAddress}`. It does not submit. `submit: true` returns `-3`.
 The SDK independently verifies the unchanged body and the selected key's appended signature.
 `listWallets`, `selectWallet`, `onChange`, and `disconnect` manage the connection. They throw on failure.

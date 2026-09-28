@@ -13,7 +13,7 @@ export interface Account {
 /** `selected` fixes one wallet. `available` permits changes among the wallets granted at first selection. */
 export type WalletScope = 'selected' | 'available';
 export type RequestState = 'pending' | 'approved' | 'signing' | 'signed' | 'denied' | 'expired' | 'unknown';
-export type RequestKind = 'transaction' | 'auth_entry' | 'authorization';
+export type RequestKind = 'transaction' | 'auth_entry' | 'authorization' | 'message';
 export interface SignalOptions {
   signal?: AbortSignal;
 }
@@ -39,7 +39,12 @@ export interface AuthorizationInput extends RequestBase {
   auth_address: string;
   adapter: AuthAdapter;
 }
-export type SigningInput = TransactionInput | AuthPreimageInput | AuthorizationInput;
+/** SEP-53 text of 1 to 1024 UTF-8 bytes. The bridge returns a raw signature. */
+export interface MessageInput extends RequestBase {
+  kind: 'message';
+  message: string;
+}
+export type SigningInput = TransactionInput | AuthPreimageInput | AuthorizationInput | MessageInput;
 export interface RequestResult {
   id: string;
   kind: RequestKind;
@@ -51,6 +56,7 @@ export interface RequestResult {
   signed_tx_xdr?: string;
   signed_auth_entry?: string;
   signed_auth_entry_xdr?: string;
+  signed_message?: string;
 }
 export interface AccountResult {
   address: string | null;

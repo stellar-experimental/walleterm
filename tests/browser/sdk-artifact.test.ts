@@ -58,6 +58,7 @@ function fixture(artifact: unknown, reply = true) {
               signed_tx_xdr: artifact,
               signed_auth_entry: artifact,
               signed_auth_entry_xdr: artifact,
+              signed_message: artifact,
             }
           : { state: 'signed' },
       );
@@ -272,6 +273,15 @@ function preimageFor(address: string, { network = Networks.TESTNET, nonce = 7n, 
         )
   ).toXDR('base64');
 }
+// The last data character of a 64-byte signature carries 2 data bits and 4 zero bits. Setting one zero bit
+// keeps the decoded bytes, so only the canonical Base64 check can refuse the result.
+const BASE64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+function nonCanonical(signature: string) {
+  const variant = signature.slice(0, -3) + BASE64[BASE64.indexOf(signature.at(-3)!) | 1] + '==';
+  expect(variant).not.toBe(signature);
+  expect(Buffer.from(variant, 'base64')).toEqual(Buffer.from(signature, 'base64'));
+  return variant;
+}
 const preimageSignature = (preimage: string, signer = key) =>
   Buffer.from(signer.sign(hash(Buffer.from(preimage, 'base64')))).toString('base64');
 
@@ -318,11 +328,70 @@ test('returned preimage signatures that fail verification preserve unknown outco
     preimageSignature(preimage, other),
     preimageSignature(preimageFor(contract, { nonce: 8n })),
     raw.toString('hex'),
-    valid.slice(0, -3) + 'B==',
+    nonCanonical(valid),
     Buffer.concat([raw, Buffer.from([0])]).toString('base64'),
   ]) {
     const f = fixture(artifact);
     await unknownOutcome(f.client.signAuthEntry(preimage));
     expect(f.requests()).toBe(1);
   }
+});
+
+const messageSignature = (message: string, signer = key) =>
+  Buffer.from(signer.signMessage(message)).toString('base64');
+
+test('SEP-43 messages return a verified Base64 signature and send the exact text', async () => {
+  const message = 'Sign in to example.com. Nonce: 5f1c.';
+  let sent: unknown;
+  const client = new WalletermClient('https://bridge.example', {
+    page: null,
+    fetch: async (_url, options) => {
+      sent = JSON.parse(String(options?.body));
+      return Response.json({ state: 'signed', signed_message: messageSignature(message) });
+    },
+  });
+  client.token = 'session';
+  client.account = { address: key.publicKey(), networkPassphrase: Networks.TESTNET };
+  expect(await client.signMessage(message)).toEqual({
+    signedMessage: messageSignature(message),
+    signerAddress: key.publicKey(),
+  });
+  expect(sent).toMatchObject({
+    kind: 'message',
+    message,
+    address: key.publicKey(),
+    network_passphrase: Networks.TESTNET,
+  });
+  expect(Object.keys(sent as object).sort()).toEqual([
+    'address',
+    'id',
+    'kind',
+    'message',
+    'network_passphrase',
+  ]);
+});
+
+test('returned message signatures that fail verification preserve unknown outcomes', async () => {
+  const message = 'Sign in to example.com. Nonce: 5f1c.',
+    valid = messageSignature(message);
+  const raw = Buffer.from(valid, 'base64');
+  for (const artifact of [
+    'not base64',
+    null,
+    '',
+    messageSignature(message, other),
+    messageSignature(message + '!'),
+    // The raw digest signature is not a SEP-53 signature.
+    Buffer.from(key.sign(Buffer.from(message))).toString('base64'),
+    raw.toString('hex'),
+    nonCanonical(valid),
+    Buffer.concat([raw, Buffer.from([0])]).toString('base64'),
+  ]) {
+    const f = fixture(artifact);
+    await unknownOutcome(f.client.signMessage(message));
+    expect(f.requests()).toBe(1);
+  }
+  const missing = fixture(undefined, false);
+  await unknownOutcome(missing.client.signMessage(message));
+  expect(missing.requests()).toBe(1);
 });

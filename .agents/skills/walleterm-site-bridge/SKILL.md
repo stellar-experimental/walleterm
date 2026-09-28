@@ -7,7 +7,7 @@ description: Connect or test Stellar testnet websites through walleterm tunnel, 
 
 `walleterm tunnel` runs the signing bridge and a temporary public HTTPS tunnel.
 `walleterm demo` runs an independent example website and its own tunnel.
-The bridge returns signed XDR. The website builds, reviews, and submits transactions.
+The bridge returns signed XDR or a signature. The website builds, reviews, and submits transactions.
 The browser SDK is a SEP-43 wallet and a Stellar Wallets Kit module.
 An unchanged website needs an integration or a compatible wallet adapter.
 
@@ -32,7 +32,9 @@ Use the user's existing grant when it covers that key's creation and storage.
 Never read, export, print, log, or cache private-key fields. Never sign with an unrelated key.
 Check the user's grant before connecting a website or returning a signature.
 A connection code lets the website request supported signatures after wallet selection.
-The bridge signs valid requests without a terminal approval step.
+The bridge signs valid requests without a terminal approval step. This includes SEP-53 messages.
+A message signature binds no network, so the testnet rule does not limit it.
+Connect only a dedicated testnet key. Never let it serve as an identity or key-derivation source for another service.
 The 1Password prompt identifies the process and key. It does not show Stellar transaction details.
 Cached 1Password approval can skip a later prompt.
 Do not describe the bridge as an agent review queue or a transaction policy approval service.
@@ -44,7 +46,8 @@ Keep codes and session tokens out of public records.
 
 ## Review and verify
 
-For message requests, use [message signing](references/message-signing.md). The message shape of `walleterm sign` signs SEP-53 text.
+For message requests, use [message signing](references/message-signing.md).
+The bridge `signMessage` and the message shape of `walleterm sign` sign SEP-53 text.
 For transaction requests, follow these steps.
 
 1. Confirm the exact website origin, selected G-address, and `Test SDF Network ; September 2015` passphrase.

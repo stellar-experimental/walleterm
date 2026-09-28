@@ -21,7 +21,8 @@ export interface Outcome {
   code?: number;
   ext?: string[];
 }
-const MESSAGE = 'Sign in to example.com';
+// A lone surrogate is not well-formed text. As UTF-8 it would become U+FFFD, so a signature would cover other text.
+const MESSAGE = 'Sign in to example.com \ud800';
 
 // A V1 preimage omits the address. Walleterm refuses it because it permits cross-address replay.
 function v1Preimage() {
@@ -63,7 +64,7 @@ export async function runNegatives(wallet: Walleterm, requests: BridgeRequest[])
   const calls: Record<string, () => Promise<{ error?: Outcome }>> = {
     public: () => wallet.signTransaction(transaction, { networkPassphrase: Networks.PUBLIC }),
     v1_preimage: () => wallet.signAuthEntry(preimage),
-    sign_message: () => wallet.signMessage(MESSAGE),
+    bad_message: () => wallet.signMessage(MESSAGE),
     submit: () => wallet.signTransaction(transaction, { submit: true }),
   };
   const sdk: Record<string, Outcome & { bridgeRequests: number }> = {};
@@ -90,8 +91,8 @@ export async function runNegatives(wallet: Walleterm, requests: BridgeRequest[])
   const bridge = {
     public: await raw({ kind: 'transaction', xdr: transaction, network_passphrase: Networks.PUBLIC }),
     v1_preimage: await raw({ kind: 'auth_entry', preimage_xdr: preimage }),
-    // The bridge has no message request kind.
-    sign_message: await raw({ kind: 'message', message: MESSAGE }),
+    // JSON.stringify escapes the lone surrogate. The bridge refuses the escape as invalid JSON text.
+    bad_message: await raw({ kind: 'message', message: MESSAGE }),
     // The bridge has no submission field.
     submit: await raw({ kind: 'transaction', xdr: transaction, submit: true }),
   };
@@ -103,13 +104,13 @@ export const EXPECTED = {
   sdk: {
     public: { code: -3, ext: ['walleterm:network_unsupported'], bridgeRequests: 0 },
     v1_preimage: { code: -3, ext: ['walleterm:unsupported'], bridgeRequests: 0 },
-    sign_message: { code: -3, ext: ['walleterm:unsupported'], bridgeRequests: 0 },
+    bad_message: { code: -3, ext: ['walleterm:invalid_request'], bridgeRequests: 0 },
     submit: { code: -3, ext: ['walleterm:unsupported'], bridgeRequests: 0 },
   },
   bridge: {
     public: { status: 400, code: -3, ext: ['walleterm:network_unsupported'] },
     v1_preimage: { status: 400, code: -3, ext: ['walleterm:unsupported'] },
-    sign_message: { status: 400, code: -3, ext: ['walleterm:invalid_request'] },
+    bad_message: { status: 400, code: -3, ext: ['walleterm:invalid_request'] },
     submit: { status: 400, code: -3, ext: ['walleterm:invalid_request'] },
   },
 };

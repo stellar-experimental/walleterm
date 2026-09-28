@@ -1,6 +1,7 @@
 # Walleterm bridge protocol version 3
 
-The bridge signs testnet transaction envelopes and authorization payloads. It never builds or submits transactions.
+The bridge signs testnet transaction envelopes, authorization payloads, and SEP-53 messages.
+It never builds or submits transactions.
 The bridge and `walleterm sign` share one Rust core for each artifact. The bridge adds only its website rules.
 The browser SDK exposes this protocol through a SEP-43 wallet. See [the SEP-43 design](SEP-43.md).
 All routes return JSON. Errors contain `{ "error": { "code": -3, "message": "...", "ext": ["walleterm:..."] } }`.
@@ -81,8 +82,9 @@ An `available` session also sends `selection_revision`. Unknown fields fail.
 | `transaction` | `xdr`: a canonical V1 or fee-bump envelope | `signed_tx_xdr`: the envelope with one appended signature |
 | `auth_entry` | `preimage_xdr`: a CAP-71 address-bound `HashIdPreimage` | `signed_auth_entry`: the Base64 64-byte Ed25519 signature |
 | `authorization` | `auth_entry_xdr`, `auth_address`, and `adapter` | `signed_auth_entry_xdr`: the signed AddressV2 entry |
+| `message` | `message`: SEP-53 text of 1–1024 UTF-8 bytes | `signed_message`: the Base64 64-byte Ed25519 signature |
 
-`hash` holds the transaction hash, the SHA-256 digest of the preimage, or the adapter digest.
+`hash` holds the transaction hash, the SHA-256 digest of the preimage, the adapter digest, or the SEP-53 digest.
 The request ID is client-generated, with 1–64 letters, digits, underscores, or hyphens.
 An identical retry returns the same request. A changed payload with the same ID fails.
 A signing request lasts at most five minutes. A transaction request ends sooner at a nonzero `max_time`.
@@ -96,7 +98,7 @@ A connection permits 1000 requests. The bridge permits 32 active requests and 64
 | `-3` | `walleterm:not_connected` | No session, an expired session, or no selected key. |
 | `-3` | `walleterm:network_unsupported` | A network other than testnet. |
 | `-3` | `walleterm:address_mismatch` | A signer other than the selected key, or a key that the envelope does not need. |
-| `-3` | `walleterm:invalid_request` | Malformed fields or artifacts, an expired `max_time`, or expiration ledger 0. |
+| `-3` | `walleterm:invalid_request` | Malformed fields or artifacts, a body that is not valid UTF-8, message text outside 1–1024 bytes, an expired `max_time`, or expiration ledger 0. |
 | `-3` | `walleterm:unsupported` | A V1 authorization preimage. |
 | `-3` | `walleterm:conflict` | A stale selection, grant, or revision, or a reused request ID. |
 | `-3` | `walleterm:rate_limited` | A code, connection, or request limit. |
@@ -114,7 +116,8 @@ A connected website approves a request by sending it. The bridge asks for no app
 The bridge signs every structurally valid request, one at a time.
 1Password can still require its own approval on the Mac. Cached 1Password approval can skip that prompt.
 The connection code is the only gate. A website with a valid session can request any valid signature.
-This fits testnet use only. An automated agentic review will use the bridge's `review` hook.
+This fits testnet use only. A message signature is valid on every network. See [Messages](#messages).
+An automated agentic review will use the bridge's `review` hook.
 A review denial returns `-4`. The selected key must still exist before signing.
 The bridge independently verifies every returned signature.
 
@@ -160,6 +163,32 @@ It rejects V1, SourceAccount, and delegated credentials. The signer never conver
 Expiration ledger 0 fails. See [the CLI interface](INTERFACE.md) for schemas and helpers.
 C-account policy and ownership checks remain the website's responsibility.
 
+## Messages
+
+`message` implements SEP-43 `signMessage` with [SEP-53](https://github.com/stellar/stellar-protocol/blob/9cd703075d87a6ce293752b1532e7b68efe12ae1/ecosystem/sep-0053.md).
+The bridge computes the digest from the text: `SHA-256("Stellar Signed Message:\n" || text bytes)`.
+No request accepts a precomputed hash. The bridge checks the message before signing:
+
+1. The request body is valid UTF-8. JSON with a lone surrogate escape fails. The bridge never replaces a character.
+2. The text has 1–1024 UTF-8 bytes. The limit counts bytes, not characters.
+3. `network_passphrase` is testnet. This is a session check only. The signature binds no network.
+4. `address` is the selected G-address.
+
+The bridge applies no Unicode normalization and no content filter. NUL, control, and bidirectional characters are accepted.
+The website approves a message by sending it, as for every kind. The optional `review` hook applies.
+Before signing, the tunnel prints one line for each message request:
+
+```text
+Message request from https://example.com for G... (43 bytes, digest <hex>, no network, site, or expiry binding): "example.com asks..."
+```
+
+The line escapes control, format, bidirectional, separator, and private-use characters. The usual result line follows.
+A SEP-53 signature is a permanent, portable proof that the key approved the text.
+It binds no network, origin, nonce, or expiry, unless the text contains them.
+So the testnet rule does not limit a message signature.
+The 1Password prompt shows no text. Cached 1Password approval can skip that prompt.
+Connect only dedicated testnet keys. Never use a Walleterm key as an identity or a key-derivation source for another service.
+
 ## Expiry
 
 No request reads a ledger. The bridge has no RPC endpoint and no authorization expiry window.
@@ -174,6 +203,7 @@ The bridge keeps sessions and requests in memory. A restart ends all of them.
 The browser SDK shares one session token among the tabs of a website. The bridge treats them as one client.
 A wallet change, a disconnection, or an expiry applies to every tab. Each tab generates random request IDs.
 The bridge never retries a signing request. The terminal prints a line for each produced or withheld signature.
+It also prints one line for each message request before signing.
 A signature is withheld only when the bridge never sent it to the website.
 A signed transaction applies at most once, because its sequence number limits it.
 An authorization applies at most once, because its nonce limits it. Both stay usable until the network refuses them.
@@ -185,4 +215,4 @@ The SDK never retries the signer itself. It bounds cancellation checks to ten se
 Unconfirmed cancellation returns `-1` with `requestState: "unknown"`.
 A 4xx answer to the first create attempt returns that error without a cancel request, because no request exists.
 Canceled requests never expose late signatures. The bridge and SDK each verify returned signatures independently.
-The bridge exposes no arbitrary digest route and no message signing route.
+The bridge exposes no arbitrary digest route. A message request signs only the SEP-53 digest of its text.

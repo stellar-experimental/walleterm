@@ -30,7 +30,12 @@ test('module methods reject with the SEP-43 error object that the wallet resolve
   expect(await module.getNetwork()).toEqual({ network: 'TESTNET', networkPassphrase: Networks.TESTNET });
   for (const [call, reason] of [
     [() => module.getAddress({ skipRequestAccess: true }), 'walleterm:not_connected'],
-    [() => module.signMessage('hello'), 'walleterm:unsupported'],
+    [() => module.signMessage('hello'), 'walleterm:not_connected'],
+    [() => module.signMessage('a\ud800b'), 'walleterm:invalid_request'],
+    [
+      () => module.signMessage('hello', { networkPassphrase: Networks.PUBLIC }),
+      'walleterm:network_unsupported',
+    ],
     [
       () => module.signTransaction('AAAA', { networkPassphrase: Networks.PUBLIC }),
       'walleterm:network_unsupported',

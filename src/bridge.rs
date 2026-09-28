@@ -329,7 +329,7 @@ fn reply(status: u16, body: Value) -> std::result::Result<Reply, Fail> {
     Ok(Reply { status, headers: Vec::new(), body: Some(body), raw: None })
 }
 
-/// Read and parse a JSON object body with the TS server's rules. Duplicate keys fail.
+/// Read and parse a JSON object body. Invalid UTF-8 and duplicate keys fail.
 async fn object(
     content_type: &Option<String>,
     read: BodyReader,
@@ -342,8 +342,11 @@ async fn object(
         return Err(fail("invalid_request", "Use application/json.", Some(415)));
     }
     let bytes = read().await?;
-    let text = String::from_utf8_lossy(&bytes);
-    match crate::json::strict_object(&text) {
+    // A lossy conversion would sign replacement characters in place of the message bytes that the website sent.
+    let Ok(text) = std::str::from_utf8(&bytes) else {
+        return Err(fail("invalid_request", "The request body must be valid UTF-8.", None));
+    };
+    match crate::json::strict_object(text) {
         Some(object) => Ok(object),
         None => Err(fail("invalid_request", "Send one JSON object.", None)),
     }
@@ -474,6 +477,7 @@ impl Bridge {
                 r.public_key,
                 r.details["sequence"].as_str().unwrap_or_default()
             ),
+            Artifact::Message(_) => format!("{} (signer {}, SEP-53 message)", r.hash, r.public_key),
             _ => format!(
                 "{} (signer {}, authorization {})",
                 r.hash,
@@ -667,10 +671,11 @@ impl Bridge {
             return Err(Error::new("internal", "The signer returned an invalid signature."));
         };
         let scope = artifact::Scope { key, passphrase: Some(passphrase), now_ms: now };
-        Ok(match artifact::finish(artifact, &scope, &raw)? {
-            Signed::Transaction(xdr) => ("signed_tx_xdr", xdr),
-            Signed::AuthEntry(xdr) => ("signed_auth_entry_xdr", xdr),
-            Signed::Raw => ("signed_auth_entry", STANDARD.encode(raw)),
+        Ok(match (artifact::finish(artifact, &scope, &raw)?, artifact) {
+            (Signed::Transaction(xdr), _) => ("signed_tx_xdr", xdr),
+            (Signed::AuthEntry(xdr), _) => ("signed_auth_entry_xdr", xdr),
+            (Signed::Raw, Artifact::Message(_)) => ("signed_message", STANDARD.encode(raw)),
+            (Signed::Raw, _) => ("signed_auth_entry", STANDARD.encode(raw)),
         })
     }
 
@@ -1241,6 +1246,7 @@ impl Bridge {
             Some("transaction") => &["xdr"],
             Some("auth_entry") => &["preimage_xdr"],
             Some("authorization") => &["auth_entry_xdr", "auth_address", "adapter"],
+            Some("message") => &["message"],
             _ => &[],
         };
         let id = input.get("id").and_then(Value::as_str).unwrap_or_default().to_owned();
@@ -1294,6 +1300,7 @@ impl Bridge {
         let artifact = match kind {
             Some("transaction") => Artifact::Transaction(text("xdr").unwrap()),
             Some("auth_entry") => Artifact::Preimage(text("preimage_xdr").unwrap()),
+            Some("message") => Artifact::Message(text("message").unwrap()),
             _ => Artifact::Authorization {
                 entry_xdr: text("auth_entry_xdr").unwrap(),
                 address: text("auth_address").unwrap(),
@@ -1304,6 +1311,14 @@ impl Bridge {
         let public_key = public_key.unwrap();
         let now = self.now();
         let (details, hash) = admit(&artifact, &passphrase, &address, &public_key, now).map_err(rejected)?;
+        // No display shows a message except this line. The signature binds nothing that the text does not name.
+        if let Artifact::Message(text) = &artifact {
+            self.log(&format!(
+                "Message request from {origin} for {public_key} ({} bytes, digest {hash}, no network, site, or expiry binding): {}\n",
+                text.len(),
+                crate::cli::go_quote(text)
+            ));
+        }
         // A transaction request never outlives the transaction's max_time.
         let max_time = details["max_time"].as_str().and_then(|t| t.parse::<u64>().ok()).filter(|&t| t != 0);
         let expires = max_time.map_or(now + REQUEST_MS, |t| t.saturating_mul(1000).min(now + REQUEST_MS));
@@ -1406,6 +1421,7 @@ impl Bridge {
 
 /// The shared inspection with the website rules: testnet only, the selected key as `address`,
 /// the transaction signer role, and the selected G-address or a C-address as the preimage bound address.
+/// A message binds no network. Its testnet passphrase is a session check only.
 pub fn admit(
     artifact: &Artifact,
     passphrase: &str,

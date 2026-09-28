@@ -232,6 +232,20 @@ const actions = {
       ) ?? null;
     return { signerAddress, ...submitted, trustline };
   },
+  // Step 3f. A SEP-53 message through the Kit. Nothing goes to the network. The tunnel prints the message line.
+  async signMessage(message = `walleterm acceptance ${new Date().toISOString()} ${crypto.randomUUID()}`) {
+    const address = (await StellarWalletsKit.getAddress()).address;
+    const { signedMessage, signerAddress } = await StellarWalletsKit.signMessage(message);
+    const signature = Uint8Array.from(atob(signedMessage), (c) => c.charCodeAt(0));
+    return {
+      address,
+      signerAddress,
+      message,
+      bytes: new TextEncoder().encode(message).length,
+      signedMessage,
+      verified: Keypair.fromPublicKey(address).verifyMessage(message, signature),
+    };
+  },
   // Step 3e. A Kit disconnection revokes the Walleterm bridge session.
   async kitDisconnect() {
     const token = wallet.client?.token,
