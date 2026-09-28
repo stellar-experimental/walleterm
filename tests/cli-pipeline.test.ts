@@ -1,0 +1,252 @@
+import { onTestFinished, test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import * as sdk from '@stellar/stellar-sdk';
+import { runCliPipeline, type CliPipelineContext } from './cli-pipeline.ts';
+import { createSubmissionGuard, UnknownSubmission, type RpcStatus } from './submission.ts';
+import type { Details } from './types.ts';
+
+type Fault = 'none' | 'send-timeout' | 'lookup-lost' | 'not-found';
+
+function setup(fault: Fault = 'none') {
+  const directory = mkdtempSync(join(tmpdir(), 'walleterm-cli-pipeline-'));
+  onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
+  // These isolated mock keys never leave the offline test.
+  const signer = sdk.Keypair.random();
+  const recipient = sdk.Keypair.random();
+  const key = { name: 'mock', publicKey: signer.publicKey(), rawPublicKey: signer.rawPublicKey() };
+  const tx = new sdk.TransactionBuilder(new sdk.Account(key.publicKey, '10'), {
+    fee: '100',
+    networkPassphrase: sdk.Networks.TESTNET,
+  })
+    .addOperation(
+      sdk.Operation.payment({
+        destination: recipient.publicKey(),
+        asset: sdk.Asset.native(),
+        amount: '0.0000100',
+      }),
+    )
+    .setTimeout(0)
+    .build();
+  const hash = Buffer.from(tx.hash()).toString('hex');
+  const gateFile = join(directory, 'pending-submission.json');
+  const calls = { signs: 0, sends: 0, commands: [] as string[], lookups: [] as string[] };
+  const records: { id: string; status: string; details: Details }[] = [];
+  const events = (): {
+    stage: string;
+    hash?: string;
+    networkPassphrase?: string;
+    envelope_xdr?: string;
+    response?: Details;
+  }[] => {
+    const archive = readdirSync(directory).find((file) => file.startsWith('submission-'));
+    assert.ok(archive);
+    return readFileSync(join(directory, archive), 'utf8')
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line));
+  };
+  let lookup: (value: string) => Promise<RpcStatus> = async () => {
+    if (fault === 'lookup-lost') throw new Error('The lookup response was lost.');
+    if (fault === 'not-found') return { status: 'NOT_FOUND' };
+    return { status: 'SUCCESS', txHash: hash, ledger: 123 };
+  };
+  const ctx: CliPipelineContext = {
+    sdk,
+    networkPassphrase: sdk.Networks.TESTNET,
+    keys: {
+      a: key,
+      b: key,
+      c: { name: 'recipient', publicKey: recipient.publicKey(), rawPublicKey: recipient.rawPublicKey() },
+    },
+    async signDigest(selected, digest) {
+      calls.signs++;
+      assert.equal(selected, key);
+      assert.deepEqual(Buffer.from(digest), Buffer.from(tx.hash()));
+      return signer.sign(Buffer.from(digest));
+    },
+    rpc: {
+      async getTransaction(value) {
+        calls.lookups.push(value);
+        assert.equal(value, hash);
+        return lookup(value);
+      },
+    },
+    record(id, status, details = {}) {
+      records.push({ id, status, details });
+    },
+  };
+  const stellar = (args: string[], input?: string) => {
+    calls.commands.push(args[1]);
+    switch (args[1]) {
+      case 'new':
+        return tx.toXDR();
+      case 'hash':
+        assert.ok(input);
+        return Buffer.from(sdk.TransactionBuilder.fromXDR(input, sdk.Networks.TESTNET).hash()).toString(
+          'hex',
+        );
+      case 'decode':
+        assert.equal(input, tx.toXDR());
+        return JSON.stringify({ tx: { signatures: [] } });
+      case 'encode': {
+        assert.ok(input);
+        const decoded: { tx: { signatures: { hint: string; signature: string }[] } } = JSON.parse(input);
+        assert.equal(decoded.tx.signatures.length, 1);
+        const signature = decoded.tx.signatures[0];
+        assert.equal(signature.hint, Buffer.from(signer.rawPublicKey()).subarray(-4).toString('hex'));
+        assert.ok(signer.verify(tx.hash(), Buffer.from(signature.signature, 'hex')));
+        const signed = sdk.TransactionBuilder.fromXDR(tx.toXDR(), sdk.Networks.TESTNET);
+        signed.addSignature(key.publicKey, Buffer.from(signature.signature, 'hex').toString('base64'));
+        return signed.toXDR();
+      }
+      case 'send': {
+        calls.sends++;
+        assert.ok(input);
+        const gate = JSON.parse(readFileSync(gateFile, 'utf8'));
+        assert.equal(gate.hash, hash);
+        assert.equal(gate.networkPassphrase, sdk.Networks.TESTNET);
+        assert.equal(gate.label, 'CLI01');
+        assert.equal(events()[0].stage, 'prepared');
+        assert.equal(events()[0].envelope_xdr, input);
+        assert.equal(events()[0].hash, hash);
+        assert.equal(events()[0].networkPassphrase, sdk.Networks.TESTNET);
+        const signed = sdk.TransactionBuilder.fromXDR(input, sdk.Networks.TESTNET);
+        assert.equal(signed.signatures.length, 1);
+        assert.ok(signer.verify(signed.hash(), signed.signatures[0].signature));
+        if (fault === 'send-timeout') throw new Error('The CLI timed out after possible acceptance.');
+        return 'mock CLI output';
+      }
+      default:
+        throw new Error(`Unexpected CLI operation: ${args[1]}`);
+    }
+  };
+  const guard = () =>
+    createSubmissionGuard({
+      rpc: {
+        sendTransaction: async () => {
+          throw new Error('Reconciliation must not submit.');
+        },
+        getTransaction: (value) => ctx.rpc.getTransaction(value),
+      },
+      directory,
+      networkPassphrase: ctx.networkPassphrase,
+      record: ctx.record,
+      timeoutMs: 50,
+      pollMs: 1,
+    });
+  const run = () => runCliPipeline(ctx, { stellar, directory, timeoutMs: 50, pollMs: 1 });
+  const unknown = (error: unknown): error is UnknownSubmission => {
+    assert.ok(error instanceof UnknownSubmission);
+    assert.equal(error.hash, hash);
+    return true;
+  };
+  return {
+    directory,
+    gateFile,
+    hash,
+    calls,
+    records,
+    events,
+    run,
+    guard,
+    unknown,
+    setLookup: (handler: typeof lookup) => {
+      lookup = handler;
+    },
+  };
+}
+
+for (const fault of ['send-timeout', 'lookup-lost', 'not-found'] as const) {
+  test(`CLI01 preserves the original envelope and blocks another attempt after ${fault}`, async () => {
+    const f = setup(fault);
+    await assert.rejects(f.run(), f.unknown);
+    assert.equal(f.calls.signs, 1);
+    assert.equal(f.calls.sends, 1);
+    assert.equal(existsSync(f.gateFile), true);
+    assert.equal(
+      f.records.some((row) => row.id === 'CLI01' && row.status === 'passed'),
+      false,
+    );
+    const previousCommands = [...f.calls.commands];
+    await assert.rejects(f.run(), f.unknown);
+    assert.equal(f.calls.signs, 1);
+    assert.equal(f.calls.sends, 1);
+    assert.deepEqual(f.calls.commands, previousCommands);
+
+    // A new process must import the pipeline without initializing live-utils.
+    const script = `
+      import { runCliPipeline } from ${JSON.stringify(new URL('./cli-pipeline.ts', import.meta.url).href)};
+      import { UnknownSubmission } from ${JSON.stringify(new URL('./submission.ts', import.meta.url).href)};
+      let signs = 0, commands = 0;
+      try {
+        await runCliPipeline({ networkPassphrase: ${JSON.stringify(sdk.Networks.TESTNET)}, record() {},
+          rpc: {}, signDigest() { signs++; } },
+          { directory: process.argv[1], stellar() { commands++; } });
+        process.exitCode = 2;
+      } catch (error) {
+        if (!(error instanceof UnknownSubmission)) throw error;
+        console.log(JSON.stringify({ signs, commands, hash: error.hash }));
+      }
+    `;
+    const child = spawnSync(process.execPath, ['-e', script, f.directory], {
+      encoding: 'utf8',
+      timeout: 5000,
+    });
+    assert.ifError(child.error);
+    assert.equal(child.status, 0, child.stderr);
+    assert.deepEqual(JSON.parse(child.stdout), { signs: 0, commands: 0, hash: f.hash });
+
+    const restarted = f.guard();
+    assert.throws(restarted.assertClear, f.unknown);
+    f.setLookup(async () => ({ status: 'NOT_FOUND' }));
+    await assert.rejects(restarted.reconcile(), f.unknown);
+    assert.equal(existsSync(f.gateFile), true);
+    f.setLookup(async () => ({ status: 'SUCCESS', txHash: f.hash, ledger: 124 }));
+    const outcome = await restarted.reconcile();
+    assert.equal(outcome?.hash, f.hash);
+    assert.equal(outcome?.status, 'SUCCESS');
+    assert.equal(existsSync(f.gateFile), false);
+    assert.doesNotThrow(restarted.assertClear);
+    assert.equal(f.calls.signs, 1);
+    assert.equal(f.calls.sends, 1);
+    assert.ok(f.calls.lookups.every((hash) => hash === f.hash));
+  });
+}
+
+test('CLI01 confirms SUCCESS through original-hash lookup and retains CLI output', async () => {
+  const f = setup();
+  const outcome = await f.run();
+  assert.equal(outcome.hash, f.hash);
+  assert.equal(outcome.status, 'SUCCESS');
+  assert.equal(outcome.ledger, 123);
+  assert.equal(outcome.sent.cli_output, 'mock CLI output');
+  assert.equal(f.calls.signs, 1);
+  assert.equal(f.calls.sends, 1);
+  assert.deepEqual(f.calls.commands, ['new', 'hash', 'decode', 'encode', 'hash', 'send']);
+  assert.deepEqual(f.calls.lookups, [f.hash]);
+  assert.equal(f.events().find((event) => event.stage === 'sent')?.response?.cli_output, 'mock CLI output');
+  const row = f.records.find((row) => row.id === 'CLI01');
+  assert.equal(row?.status, 'passed');
+  assert.equal(row?.details.hash, f.hash);
+  assert.equal(row?.details.cli_output, 'mock CLI output');
+  assert.equal(row?.details.signed_xdr, f.events()[0].envelope_xdr);
+  assert.equal(existsSync(f.gateFile), false);
+  assert.doesNotThrow(f.guard().assertClear);
+});
+
+test('CLI01 clears a saved attempt after original-hash reconciliation returns FAILED', async () => {
+  const f = setup('send-timeout');
+  await assert.rejects(f.run(), f.unknown);
+  f.setLookup(async () => ({ status: 'FAILED', txHash: f.hash, ledger: 125 }));
+  const restarted = f.guard();
+  assert.equal((await restarted.reconcile())?.status, 'FAILED');
+  assert.equal(existsSync(f.gateFile), false);
+  assert.doesNotThrow(restarted.assertClear);
+  assert.equal(f.calls.signs, 1);
+  assert.equal(f.calls.sends, 1);
+  assert.deepEqual(f.calls.lookups, [f.hash]);
+});

@@ -52,7 +52,13 @@ export function createDemoSite({ port = 8788 } = {}) {
       res.writeHead(403);
       return res.end();
     }
-    const path = new URL(req.url || '/', origin).pathname;
+    let path: string;
+    try {
+      path = new URL(req.url || '/', origin).pathname;
+    } catch {
+      res.writeHead(400);
+      return res.end();
+    }
     if (req.method !== 'GET') {
       res.writeHead(405);
       return res.end();

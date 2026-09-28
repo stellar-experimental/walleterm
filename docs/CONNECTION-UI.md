@@ -16,8 +16,11 @@ This change does not add trusted review to the bridge or change its existing sig
 
 ## Integration
 
-Serve the `sdk` files from one directory. Load the stylesheet once.
-The camera scanner also needs the existing `jsqr.js` dependency in that directory.
+Run `bun run build` in the source checkout.
+Copy the complete contents of `dist/` into the website's static root.
+Preserve all generated directories and shared JavaScript files.
+Copy `sdk/connect.css` separately into the website's `sdk/` directory. Load the stylesheet once.
+The build includes the scanner dependency in its shared JavaScript files.
 
 ```html
 <link rel="stylesheet" href="/sdk/connect.css">

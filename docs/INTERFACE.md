@@ -137,8 +137,12 @@ Never claim that 1Password displays or approves Stellar transaction details.
 - Do not expose a runtime socket override or use `SSH_AUTH_SOCK`.
 - Verify socket type, owner, and restrictive permissions before connecting.
 - Bound each response frame to 1 MiB and each identity list to 1024 entries.
-- Use a 120-second absolute deadline for the full list-and-sign operation and pollable standard input.
+- Use one 120-second absolute deadline for pollable signing input and SSH-agent connection establishment.
+  The same deadline covers identity listing and signing reads and writes.
   Signing input requires EOF. Regular input files finish normally; non-pollable streams may need a caller timeout.
+- Standard output and standard error writes have no internal deadline. Callers must drain both streams concurrently while the command runs.
+  For bounded process completion, callers must enforce an outer timeout, terminate the child, and wait for its exit.
+  Blocked output can delay connection cleanup. Missing output can follow completed signing and does not authorize automatic signing retries.
 - Reject invalid lengths, unsupported response types, invalid algorithms, and trailing data inside a response.
 - Close connections on completion, failure, and timeout.
 - Do not retry signing automatically.
