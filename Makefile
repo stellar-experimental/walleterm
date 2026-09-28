@@ -1,21 +1,25 @@
 PREFIX ?= $(HOME)/.local
 
-.PHONY: build install install-skill test test-kit
+.PHONY: build install install-skill release test test-kit test-package
 
 SKILL_HOME ?= $(HOME)
 SKILL_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/.agents/skills)
+TOOLS := cargo run --locked -q -p walleterm-tools --
 
-# One Rust binary with the demo website embedded. Browser files are minified in a private directory.
+# One Rust binary with the minified demo website embedded, and its third-party notices.
 build:
-	bun scripts/build.ts target/assets --minify
-	WALLETERM_ASSETS="$(CURDIR)/target/assets" cargo build --release --locked --bin walleterm
-	mkdir -p bin
-	cp target/release/walleterm bin/walleterm
+	$(TOOLS) package bin
 	ln -sf walleterm bin/stellar-walleterm
 
+# A failed build leaves the installed command unchanged.
 install:
 	bun install --frozen-lockfile --ignore-scripts
-	bun scripts/install.ts "$(PREFIX)"
+	$(TOOLS) install "$(PREFIX)"
+
+# Build, sign, and notarize on the maintainer's Mac. Add PUBLISH=1 to publish, or NOTARIZE=0 for a local check.
+release:
+	@test -n "$(VERSION)" || { echo "Use make release VERSION=<major.minor.patch> [PUBLISH=1 | NOTARIZE=0]." >&2; exit 1; }
+	$(TOOLS) release "$(VERSION)" $(if $(PUBLISH),--publish) $(if $(filter 0,$(NOTARIZE)),--no-notarize)
 
 install-skill:
 	@set -eu; \
@@ -60,6 +64,16 @@ test:
 	cargo build --locked --features test-host --bin walleterm-test-host
 	bun run typecheck
 	bun run test
+
+# The release package: one binary that reports its version and rejects malformed input.
+test-package:
+	@set -eu; dir=$$(mktemp -d); trap 'rm -rf "$$dir"' EXIT; \
+	$(TOOLS) package "$$dir" 0.0.0-test; \
+	test "$$("$$dir/walleterm" --version)" = "walleterm 0.0.0-test"; \
+	test "$$(ls "$$dir")" = "$$(printf 'NOTICES.txt\nwalleterm')"; \
+	status=0; printf '{}' | "$$dir/walleterm" sign-auth > "$$dir/out" || status=$$?; \
+	test "$$status" = 2; grep -q '"invalid_input"' "$$dir/out"; \
+	echo "The package check passed."
 
 # The real Stellar Wallets Kit 2.7.0 against the Rust bridge. Its dependency stays in fixtures/kit.
 test-kit:

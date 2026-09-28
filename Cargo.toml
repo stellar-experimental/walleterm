@@ -52,6 +52,7 @@ strip = true
 panic = "unwind"
 
 [workspace]
-members = ["."]
+members = [".", "tools"]
+default-members = ["."]
 exclude = ["fixtures"]
 resolver = "3"

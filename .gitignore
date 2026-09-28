@@ -24,6 +24,7 @@
 *.swp
 *.swo
 coverage.out
+__pycache__/
 **/test_snapshots/
 
 # Keep run state, signer metadata, and review scratch files on this machine.
