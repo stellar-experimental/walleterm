@@ -1,6 +1,11 @@
+<a href="https://walleterm.com"><img src="site/og.png" alt="A red folded wallet with thin legs stands under a cream moon on a green field." width="100%"></a>
+
 # walleterm
 
+**Your agent asks. 1Password signs.**
 A small macOS signing companion for agents using Stellar and 1Password.
+
+[Website](https://walleterm.com) · [Docs](docs/INTERFACE.md) · [Website guide](docs/WEB-BRIDGE.md)
 
 `walleterm` lists public Ed25519 keys and signs 32-byte digests through the 1Password desktop SSH agent.
 It verifies each signature before returning it. The Go binary has no third-party dependencies.
