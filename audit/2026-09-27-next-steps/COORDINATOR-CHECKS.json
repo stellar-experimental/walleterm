@@ -1,0 +1,72 @@
+{
+  "checked_at": "2026-09-28T01:48:57.744890+00:00",
+  "head": "2bd4fa7ee28ec7a8e38b564558a01e36b946c938",
+  "remote_main_verified": "2bd4fa7ee28ec7a8e38b564558a01e36b946c938",
+  "main_ci": {
+    "run": 36365415031,
+    "head": "2bd4fa7ee28ec7a8e38b564558a01e36b946c938",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/stellar-experimental/walleterm/actions/runs/36365415031"
+  },
+  "herdr": {
+    "reviewer": "opus-next-review",
+    "pane": "w44:p10",
+    "model": "claude-opus-5-5",
+    "configured_effort": "xhigh",
+    "session": "4a4b59a5-ff76-471c-b666-990e1cc07430",
+    "other_agent_pane": "w44:p1W",
+    "other_agent_controlled": false
+  },
+  "c09_repeat": {
+    "exit_code": 0,
+    "observations": [
+      {
+        "case": "substituted",
+        "blockedOnRestore": false,
+        "restoredLabelState": "signed",
+        "requests": 0,
+        "stateAfter": "signed",
+        "status": "The signed transaction differs from the reviewed transaction."
+      },
+      {
+        "case": "unsigned",
+        "blockedOnRestore": false,
+        "requests": 0,
+        "stateAfter": "signed",
+        "status": "The signed transaction differs from the reviewed transaction."
+      }
+    ],
+    "coordinator_assertions": "passed"
+  },
+  "typecheck_proposal": {
+    "temporary_configuration": {
+      "extends": "/Users/kalepail/Desktop/walleterm-v2/tsconfig.json",
+      "exclude": [
+        "/Users/kalepail/Desktop/walleterm-v2/node_modules",
+        "/Users/kalepail/Desktop/walleterm-v2/dist",
+        "/Users/kalepail/Desktop/walleterm-v2/evidence"
+      ]
+    },
+    "exit_code": 0,
+    "diagnostics": "",
+    "tracked_typescript_under_evidence": [],
+    "repository_configuration_changed": false,
+    "method": "Temporary extends config retains inherited source paths. A temporary node_modules symlink preserves Bun type resolution. The symlink was removed afterward.",
+    "setup_corrections": [
+      "The first temporary config lacked Bun type resolution.",
+      "TypeScript 7.0.2 provides no typescript/lib/typescript.js API at the attempted path.",
+      "The final check used the installed tsc executable and the original dependencies."
+    ]
+  },
+  "fixture_paths_unchanged_since_original_audit": [
+    "tests/contracts.ts",
+    "tests/extended-contracts.ts",
+    "tests/cap85.ts"
+  ],
+  "tracked_changes": [],
+  "new_files_scope": "audit/2026-09-27-next-steps/",
+  "live_signing": "not_run",
+  "full_behavioral_suite": "not_repeated",
+  "commit_push": "not_performed"
+}
