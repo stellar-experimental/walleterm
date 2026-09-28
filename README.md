@@ -172,6 +172,11 @@ Git includes source, lockfiles, pinned contract artifacts, and acceptance summar
 Local signer metadata, submission journals, raw evidence, and build caches stay ignored.
 Keep unresolved submission journals until their original transaction hashes are resolved.
 
+## Website
+
+`site/` holds the marketing page. It is static HTML with no build step. Open `site/index.html` to view it.
+Its illustrations come from `design/art/build.ts`. Read [the illustration standard](design/ILLUSTRATION.md) before you change them.
+
 ## TypeScript development
 
 Use Bun 1.4.2 or later. The Go binary keeps signing keys inside 1Password.
