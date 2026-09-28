@@ -1,0 +1,82 @@
+import { test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { Account, Keypair, Networks, Operation, TransactionBuilder } from '/private/tmp/walleterm-audit-40d6cca9db73/node_modules/@stellar/stellar-sdk';
+import { createBridge } from '/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts';
+import { WalletermClient } from '/private/tmp/walleterm-audit-40d6cca9db73/sdk/walleterm.ts';
+
+// These keys exist only in this offline test. No submission or 1Password access occurs.
+for (const returnToA of [false, true]) {
+  test(`reproduces a delayed signature after a remote ${returnToA ? 'A-B-A' : 'A-B'} switch`, async () => {
+    const keys = [Keypair.random(), Keypair.random()];
+    let signCalls = 0;
+    const bridge = createBridge({
+      port: 0,
+      log() {},
+      listSigners: async () => keys.map(key => ({ public_key: key.publicKey() })),
+      sign: async (address, hash) => {
+        signCalls++;
+        return Buffer.from(keys.find(key => key.publicKey() === address)!.sign(Buffer.from(hash, 'hex'))).toString('hex');
+      },
+    });
+    await bridge.listen();
+    const address = bridge.server.address();
+    assert.ok(address && typeof address !== 'string');
+    const origin = `http://127.0.0.1:${address.port}`;
+    bridge.setPublicOrigin(origin);
+    const held = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    let requestId = '';
+    const transport = async (input: string | URL | Request, options?: RequestInit) => {
+      const headers = new Headers(options?.headers);
+      headers.set('Origin', 'https://offline.example');
+      return fetch(input, { ...options, headers });
+    };
+    const first = new WalletermClient(origin, {
+      page: null,
+      pollInterval: 1,
+      fetch: async (input, options) => {
+        const response = await transport(input, options);
+        if (String(input).includes('/v1/requests')) {
+          const body = await response.clone().json();
+          if (body.state === 'signed') {
+            requestId = body.id;
+            held.resolve();
+            await release.promise;
+          }
+        }
+        return response;
+      },
+    });
+    try {
+      await first.connect({ code: bridge.pairing.code, walletScope: 'available', selectWallet: async s => s[0].public_key });
+      const second = new WalletermClient(origin, { page: null, fetch: transport });
+      // Model a same-origin page restored from a copied sessionStorage capability.
+      second.token = first.token;
+      second.walletScope = 'available';
+      second.revision = null;
+      await second.getAddress();
+      const xdr = new TransactionBuilder(new Account(keys[0].publicKey(), '10'), { fee: '100', networkPassphrase: Networks.TESTNET })
+        .addOperation(Operation.manageData({ name: 'audit', value: 'offline' })).setTimeout(180).build().toXDR();
+      const signing = first.signTransaction(xdr);
+      await held.promise;
+      const generation = first.generation;
+      await second.selectWallet(keys[1].publicKey());
+      if (returnToA) await second.selectWallet(keys[0].publicKey());
+      await first.getAddress();
+      const currentRecord = await second.request(`/v1/requests/${requestId}`);
+      assert.equal(currentRecord.state, 'unknown');
+      assert.equal(currentRecord.signed_xdr, undefined);
+      assert.equal(first.revision, returnToA ? 3 : 2);
+      assert.equal(first.generation, generation);
+      release.resolve();
+      const stale = await signing;
+      assert.ok(stale.signedTxXdr);
+      assert.equal(stale.signerAddress, keys[0].publicKey());
+      assert.equal(signCalls, 1);
+      console.log(JSON.stringify({ scenario: returnToA ? 'A-B-A' : 'A-B', liveRevision: first.revision, serverState: currentRecord.state, staleSignatureReturned: true, signatureCalls: signCalls }));
+    } finally {
+      release.resolve();
+      await bridge.close();
+    }
+  });
+}

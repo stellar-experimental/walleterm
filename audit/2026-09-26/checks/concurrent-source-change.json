@@ -1,0 +1,13 @@
+{
+  "baseline": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "file": ".agents/skills/walleterm-site-bridge/references/interception.md",
+  "current_sha256": "0c417445aa7661064f49d975a235ea29e420f1222ab2398067ab1602c3b412b2",
+  "authorship": "Not attributed by this audit",
+  "review_status": "reviewed by both overall reviewers",
+  "summary": "Adds in-page signing guidance, invocation-tree review, durable attempt identity, and cancellation limits.",
+  "review_reports": [
+    "reports/09-overall-astra.md",
+    "reports/09-overall-daybreak.md"
+  ],
+  "reviewed_utc": "2026-09-27T04:27:17.748137+00:00"
+}

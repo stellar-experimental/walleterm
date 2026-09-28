@@ -1,0 +1,122 @@
+[
+  {
+    "path": "reports/05-demo-astra.md",
+    "bytes": 12141,
+    "sha256": "dea4c692ac163d7cb2ae5fb8406c17da1ba2782d4a1e8f12da5900b862e5296c"
+  },
+  {
+    "path": "checks/05-demo-astra/COMMANDS.md",
+    "bytes": 4589,
+    "sha256": "6b8c3c2fb0ac6424d2cf5dff0e9a6a3757080cae1a44a01edc6284921b3d9783"
+  },
+  {
+    "path": "checks/05-demo-astra/adversarial.log",
+    "bytes": 1476,
+    "sha256": "f576e545a0116b7ae0da53e1ca05941e4f731eeccea0e8289c549df7832ab134"
+  },
+  {
+    "path": "checks/05-demo-astra/adversarial.test.ts",
+    "bytes": 11261,
+    "sha256": "e8fdf3be5dd41e631cb68ce3f7e909034644eaaad6bd989c93b37991c6803d64"
+  },
+  {
+    "path": "checks/05-demo-astra/code-view-offline.log",
+    "bytes": 514,
+    "sha256": "0c6a7237ff2e87444159510a997901d8a47bb7101beec84fa15833f22f42cc70"
+  },
+  {
+    "path": "checks/05-demo-astra/existing-offline.log",
+    "bytes": 3035,
+    "sha256": "411fb8c33dc105b0536be9aca3831692a62cfdce0a97405ea594b6d6b0806d27"
+  },
+  {
+    "path": "checks/05-demo-astra/preflight.log",
+    "bytes": 12175,
+    "sha256": "171868bd19e4bb55cee139f16da160beeb6a15e0773bfbee4ebf75213a49c638"
+  },
+  {
+    "path": "checks/05-demo-astra/snapshot-integrity.json",
+    "bytes": 164,
+    "sha256": "481ed57345e0d82780915b3bac87807fcb6f592a64fd161213f2a635468bf952"
+  },
+  {
+    "path": "checks/05-demo-astra/verify-snapshot.py",
+    "bytes": 1010,
+    "sha256": "8bcef8caa2045ac42950a54646b73b410488cce5e428621f1b8b31335b46faa9"
+  },
+  {
+    "path": "research/05-demo-astra/SOURCES.md",
+    "bytes": 4769,
+    "sha256": "d0499ae81f6313142203fd26365cdc19e74a967b8b6ea3dbfd1af9cdc4201055"
+  },
+  {
+    "path": "research/05-demo-astra/jev-compact.json",
+    "bytes": 2363,
+    "sha256": "d1692ba3ac7c4b910c4455624511cac19216344350d508741e48d9b7b6aa21fd"
+  },
+  {
+    "path": "research/05-demo-astra/jev-network-compact.json",
+    "bytes": 14202,
+    "sha256": "f76fe055f1db5a060db529d4bc2c5316aa449104f5410a87df188f077c9558c9"
+  },
+  {
+    "path": "research/05-demo-astra/jev-network-stderr.txt",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "research/05-demo-astra/jev-stderr.txt",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "research/05-demo-astra/parallel-cli-network-stderr.txt",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "research/05-demo-astra/parallel-cli-network-stdout.json",
+    "bytes": 13682,
+    "sha256": "35cd00900589836a53298975f8bf804c52b25633c6fe95b3f2d8c563e95b632a"
+  },
+  {
+    "path": "research/05-demo-astra/parallel-cli-stderr.txt",
+    "bytes": 168,
+    "sha256": "3e62948791716667e57ce950aa73207b6d61b0fd98acfa575a4281455aa4eb7b"
+  },
+  {
+    "path": "research/05-demo-astra/parallel-cli-stdout.json",
+    "bytes": 90,
+    "sha256": "fdeba4119a441a5f38cd1a766692d6d9dbd7ce54651ffba01c5ac4e4f7b394de"
+  },
+  {
+    "path": "research/05-demo-astra/parallel-cli-storage.json",
+    "bytes": 13596,
+    "sha256": "dc05392752511bcb706ed3ee105f482bf1c827eae2fa0943460e34a636a6a755"
+  },
+  {
+    "path": "research/05-demo-astra/parallel-mcp.json",
+    "bytes": 14128,
+    "sha256": "60742411d44375ee6f6e112c1433a55e5e54496cff9bef7a52c7c8054fe16000"
+  },
+  {
+    "path": "research/05-demo-astra/perplexity.json",
+    "bytes": 8008,
+    "sha256": "72ab3e01c2e8b3a1ff71c5575fbb5c36c92333ffb35741f8762b2f63d0a7238e"
+  },
+  {
+    "path": "research/05-demo-astra/raven-source.json",
+    "bytes": 26453,
+    "sha256": "d5e7363cf001033eff50e527bb128e791b4f21c7b35f3eeb6a5d0eb22feaa46a"
+  },
+  {
+    "path": "research/05-demo-astra/requests.json",
+    "bytes": 1063,
+    "sha256": "8a7bf8d8d6a3f94d38319c8bfe017a804f2bd931850ff3ac45f166286d4623ed"
+  },
+  {
+    "path": "research/05-demo-astra/sdk-source.json",
+    "bytes": 4791,
+    "sha256": "0f6ad9ed46afdfe71d5df42ad61f9875bf0ab8383478d5fd014923efe26f6699"
+  }
+]

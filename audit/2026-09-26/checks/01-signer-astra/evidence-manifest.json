@@ -1,0 +1,731 @@
+{
+  "report_sha256": "cf90f06f7d3c951d36e76dfc6a97bd8943c2c7abef5ee465ad3fce294abb7bf3",
+  "broken_local_links": [],
+  "files": [
+    {
+      "path": "checks/01-signer-astra/audit-fuzz.exit",
+      "bytes": 7,
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061"
+    },
+    {
+      "path": "checks/01-signer-astra/audit-fuzz.log",
+      "bytes": 631,
+      "sha256": "cca0f943638cf3d43edda7cae93324ded86519f066696ed0f7cc3f243e7b6085"
+    },
+    {
+      "path": "checks/01-signer-astra/audit-output-deadline.exit",
+      "bytes": 7,
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061"
+    },
+    {
+      "path": "checks/01-signer-astra/audit-output-deadline.log",
+      "bytes": 372,
+      "sha256": "f71d334e50118e1ee084383b934fcaa22f2653ce7c984ff18d3d9c37e2bf29a1"
+    },
+    {
+      "path": "checks/01-signer-astra/audit-tests.exit",
+      "bytes": 7,
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061"
+    },
+    {
+      "path": "checks/01-signer-astra/audit-tests.log",
+      "bytes": 2690,
+      "sha256": "f8a53a417cb1573315488d518d6485db9dea3f258c349519e92e3c5e50b888a3"
+    },
+    {
+      "path": "checks/01-signer-astra/audit_test.go",
+      "bytes": 10578,
+      "sha256": "73ecda33748b033bb23077450f6ca24ce59d9b5aeeab0077e248303474800e9d"
+    },
+    {
+      "path": "checks/01-signer-astra/cache-location.txt",
+      "bytes": 45,
+      "sha256": "4836d53ada9f7487b1dbeefa5e4bf825b6cc2998ff5277ab48a09645f1134145"
+    },
+    {
+      "path": "checks/01-signer-astra/commands.md",
+      "bytes": 8293,
+      "sha256": "81d26835e955f6cc3c26f60f476ffb9feb37aab147b274b4f16e7cc97dc013fa"
+    },
+    {
+      "path": "checks/01-signer-astra/coordinator-notes.md",
+      "bytes": 691,
+      "sha256": "e9ebc76a248628446b792c8e1b1b2cf2e323720a1b8383555eb16884cd525f9a"
+    },
+    {
+      "path": "checks/01-signer-astra/coverage.out",
+      "bytes": 23869,
+      "sha256": "3d0e3557aa567a53bd67163b3b64a7c2d073a9d03168d71a8278d5c44ab3e0ef"
+    },
+    {
+      "path": "checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/1c907e9c727fbc05",
+      "bytes": 39,
+      "sha256": "1c907e9c727fbc052980b2d8b389181b237bb6c9fa394d05ac3222e77ae0d01c"
+    },
+    {
+      "path": "checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/3f5c6b7acd341547",
+      "bytes": 30,
+      "sha256": "3f5c6b7acd341547814bb37a0edc604e8a17dbfb1d1f18d6dbd775b5ad004e96"
+    },
+    {
+      "path": "checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/4e8dae1eca66aba7",
+      "bytes": 49,
+      "sha256": "4e8dae1eca66aba7227f763f62999ca51a9ae1fd013847b576f5221ec3890527"
+    },
+    {
+      "path": "checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/55cdcd1ad9bc3c2f",
+      "bytes": 111,
+      "sha256": "55cdcd1ad9bc3c2f842aea76e6296a6b55e8afee4200e64dd6953b261ae2a844"
+    },
+    {
+      "path": "checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/58840356299711e0",
+      "bytes": 32,
+      "sha256": "58840356299711e05d2bbd008660b9c1fb0c8ba167241b2fc303a942df180ae1"
+    },
+    {
+      "path": "checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/6c119d25c2c77623",
+      "bytes": 32,
+      "sha256": "6c119d25c2c776233602573670268acd3baf43445d55289a50950b95a47737cf"
+    },
+    {
+      "path": "checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/82d90a2610700f79",
+      "bytes": 29,
+      "sha256": "82d90a2610700f7985b834e3db9c5547be57d0be87d7c87b5916bcb66df98c3b"
+    },
+    {
+      "path": "checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/ae123a5f050076b9",
+      "bytes": 184,
+      "sha256": "ae123a5f050076b99e38dc438fe19e7d05ab93b171b28dc6b39116b09b1e223c"
+    },
+    {
+      "path": "checks/01-signer-astra/go-test.exit",
+      "bytes": 7,
+      "sha256": "cf205dbb8cea84897b488abcc281bf96698d5e94b1096b16657b4caba9082a22"
+    },
+    {
+      "path": "checks/01-signer-astra/go-test.log",
+      "bytes": 7013,
+      "sha256": "3e7b6c0f5df85cb7133c57c02c448546d77e7d6c7d67a8c15ee20ff1501c0368"
+    },
+    {
+      "path": "checks/01-signer-astra/go-vet.exit",
+      "bytes": 7,
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061"
+    },
+    {
+      "path": "checks/01-signer-astra/go-vet.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "checks/01-signer-astra/go.mod",
+      "bytes": 26,
+      "sha256": "4556f821907e1963288caca334fc2f73011709312e28f35b8be8cef8be741511"
+    },
+    {
+      "path": "checks/01-signer-astra/main.go",
+      "bytes": 15782,
+      "sha256": "43f4fe2e97c5e5837e34b7d8f4b38792fc277851fbec15da5cf1d5006c15c1da"
+    },
+    {
+      "path": "checks/01-signer-astra/main_test.go",
+      "bytes": 19483,
+      "sha256": "02847410813957a5714606f9b5a1e18cd7496969b8828d9271f985485d6db500"
+    },
+    {
+      "path": "checks/01-signer-astra/service.go",
+      "bytes": 4101,
+      "sha256": "d457358c1a1b5d91d2792297573971605794cd7996513f90dc7f16b9df9d4220"
+    },
+    {
+      "path": "checks/01-signer-astra/snapshot-verification.json",
+      "bytes": 41647,
+      "sha256": "4947d71b1a677e2cbba1eb780253ec1605a8aef156c00d9a77b01d62bb3dae4f"
+    },
+    {
+      "path": "checks/01-signer-astra/snapshot-verification.log",
+      "bytes": 189,
+      "sha256": "979e397302bb2941b771fd7f334b81006d31050300cb73e3ecb347204a71a6eb"
+    },
+    {
+      "path": "checks/01-signer-astra/tool-versions.json",
+      "bytes": 741,
+      "sha256": "1d0e8bac9ebd601e627d2078696ea1b63814da5a4f007f46e9d2fa9f3a1bc12c"
+    },
+    {
+      "path": "checks/01-signer-astra/verify_snapshot.py",
+      "bytes": 1326,
+      "sha256": "0b1ff1ac24c1f7b7cd046fff9b20310a311bc527a5abd5da2cdd45a05cb3256f"
+    },
+    {
+      "path": "research/01-signer-astra/1password-fetch.exit",
+      "bytes": 35,
+      "sha256": "58d6453d032e164a99e2d696d0950aa6fe275944b5aa41dbb1ac000ca3a417fc"
+    },
+    {
+      "path": "research/01-signer-astra/1password-get-started.html",
+      "bytes": 21974,
+      "sha256": "f18aebc90d8746dbe3d39f096d1187268bfb6389c4d074fbf281b862ae4a5839"
+    },
+    {
+      "path": "research/01-signer-astra/1password-get-started.txt",
+      "bytes": 21975,
+      "sha256": "c42c72a1c756b16617e2362229835a48103d735a764a4cf07505719a4a4e04ad"
+    },
+    {
+      "path": "research/01-signer-astra/1password-primary-manifest.json",
+      "bytes": 590,
+      "sha256": "c7fbf0ca0d734eef67297cfd62959988e801cfcd377fa5cb63bfc0904192c3b4"
+    },
+    {
+      "path": "research/01-signer-astra/1password-security.html",
+      "bytes": 7300,
+      "sha256": "2e296a911c2ca5be8ff4897ab6812df59e36b75b851cd4d25cc89543477d60ab"
+    },
+    {
+      "path": "research/01-signer-astra/1password-security.txt",
+      "bytes": 7301,
+      "sha256": "3fc5ca015bde7dda7c51df202a71e24027626b507f1abb7819a28980cf718462"
+    },
+    {
+      "path": "research/01-signer-astra/fetch-primary.log",
+      "bytes": 3660,
+      "sha256": "25bdce7d5be3f361e1aa416e47e39a54b028516884f8a2c4db0141c96d8c9f43"
+    },
+    {
+      "path": "research/01-signer-astra/fetch_primary.py",
+      "bytes": 1491,
+      "sha256": "63bdfd65a3636a2b42391c6092170faed03115ff2202dd67fa08512b93c82dc7"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/bundle.md",
+      "bytes": 215,
+      "sha256": "4b9c5af9e4063353763c2f0de3c5c9549fcc00a0bdbea8c89c5edac39c640bf9"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/classification.json",
+      "bytes": 44,
+      "sha256": "7555dfa2f97e3674422b0b5550e70b52449010b7130389b4e51ec56a9b5df91c"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/deferred.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/documents.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/failures.json",
+      "bytes": 513,
+      "sha256": "17769ba957bc8431d80d177687bd8b0a5f2c05e280d686f07164689ac2e574bf"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/intent.json",
+      "bytes": 63,
+      "sha256": "c15c18cb38d86b5bb89232c7b3d2a101d58963db0419082d67184ffacd29aba3"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/load.json",
+      "bytes": 4,
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/manifest.json",
+      "bytes": 2197,
+      "sha256": "4ae51b1d64c28cc990e360c4631d48d1e8a7b1f47ff27f76111390ba684ab004"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/omitted.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/question.json",
+      "bytes": 898,
+      "sha256": "fbf51be683068b963d1032ea469c6b5d94b3301defc70f17c41469bb17e04041"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/retrieved.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/routes.json",
+      "bytes": 279,
+      "sha256": "4a9d2aadc67e988da14b347c27caa54cede8bc00d8c416bb5c6e93d06ebda181"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/scores.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/search.json",
+      "bytes": 4083,
+      "sha256": "7fde6d5b2a3c96235c5760f8591f2ca548e73dbf79a5743c4a86a2bca516e043"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/session.json",
+      "bytes": 487,
+      "sha256": "91c2df0a6595be59430348d9043cba4f9a93072453b156f0dba2f7c7c97fa63a"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/source-decisions.json",
+      "bytes": 6922,
+      "sha256": "3430ec7d8db9df2c7d2115a94cb2305db28b565c00a9c7899cd6123cc14b6d55"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/source-scope.json",
+      "bytes": 1347,
+      "sha256": "a8e7aea5f2f8141cf84be99a96dd78189b22de0c0c38ba57f46f7875664693a1"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/usage.json",
+      "bytes": 162,
+      "sha256": "81ebf95a11f903e5001147cfe69547b9991f542bcdc2b622371f059214dfb912"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/bundle.md",
+      "bytes": 24120,
+      "sha256": "1a939ebedd914bee2d10acb74401ad89b8c335b733816e8a4d1d53854b133b4c"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/classification.json",
+      "bytes": 20441,
+      "sha256": "432eb31e7a49327752da4e47d60973551dc69e4349f27f6467f7dd70e797de78"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/deferred.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/documents.json",
+      "bytes": 2570902,
+      "sha256": "5310e2732952efd3fbe7ea6180a8bfc004692e1f6bf8f135ff678ff1757041c8"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/failures.json",
+      "bytes": 21002,
+      "sha256": "8b9678149d9be64d94dd0ba58c66cb1130f6bfb2213837065fc9d2318487d44d"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/intent.json",
+      "bytes": 65,
+      "sha256": "7173413cf83cc63d682a9c7b3234e93dc9c2c793dbd18ed40a1dc1f835b70202"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/load.json",
+      "bytes": 1280,
+      "sha256": "886919207b45ad49df2c59c7f0aefdf10041882a221d2ec560901b7cf82bf18d"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/manifest.json",
+      "bytes": 2335,
+      "sha256": "34b0ca4d27af3d6af2af84c49930721fe021cfb88375b1b835fe836690cb910f"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/omitted.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/question.json",
+      "bytes": 899,
+      "sha256": "7b68cd1f137ebf9fcf4ab69f80fea020f541629178c598e0bf8c278f31f610f0"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/retrieved.json",
+      "bytes": 28579,
+      "sha256": "3afd6f7fb0124d140ba96a1908f3e78d4ea8f0ac03d53605d9a671ce9f292e63"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/routes.json",
+      "bytes": 25152,
+      "sha256": "7c84d6d49d4de4df10208dd0bdff2918c7194eeb5fd47d36c73e3cae399c2799"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/scores.json",
+      "bytes": 144118,
+      "sha256": "5bcdbdae104724fbfad42faa69325dd2bca8b82f12d2974b5c7cea2b6962c1b7"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0012.txt",
+      "bytes": 3142,
+      "sha256": "76fb094fab7c27c81b63d4a7acb6074b310ce725cdd7aee74d3194648fd7b40d"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0014.txt",
+      "bytes": 4397,
+      "sha256": "ce755852f4e888cd081af0efcbd8728a37bfcd80c4e5413e96a2dfc5df063ad3"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0015.txt",
+      "bytes": 1677,
+      "sha256": "6ce6d5eae5af087653bbbaf4706bd1d3ce6df2da949ef4155a16e6a008eb78b3"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0023.txt",
+      "bytes": 3748,
+      "sha256": "e6ac2343346657f0d0e724b6c72251219d44ddde22f62114314f7ea438a7692c"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0025.txt",
+      "bytes": 3096,
+      "sha256": "d378e35b96054256ea6c4b6e378b3e36b2f9ff9c01ebb3a571c9d4d4764aa63a"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0029.txt",
+      "bytes": 1210,
+      "sha256": "1851afb819917d0a6cc07a07545a0bc253ce2857e286b70070b4efdb62a28982"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0040.txt",
+      "bytes": 1292,
+      "sha256": "2b6db4bb4af4423f2fca8a0ab2893416f48c4965a6663c2f3f052f53d9578bef"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0046.txt",
+      "bytes": 1400,
+      "sha256": "54dc4962cdda91aa75a4dce6ea21f774e487b479821c2209ec93fdb05b07c58a"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0049.txt",
+      "bytes": 820,
+      "sha256": "cad4de593923eb5f41d91226c86fbdc397bae5935bfacc8bb1b83edbbaa27f45"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0063.txt",
+      "bytes": 4366,
+      "sha256": "3d2d144436dbf3b39e92e0ec3fd182d9244398bae5b1986ac8378d2bf2b42e7f"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0069.txt",
+      "bytes": 4921,
+      "sha256": "18fba948c5a75b9d58ec20e40a0f014fb783ae971a2e501fc1c48ae4f7e0e5db"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0070.txt",
+      "bytes": 2227,
+      "sha256": "4cac6891f161e2ae97b3e339c6e0f29ceb874151fe7a0d43a49665e622786801"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0071.txt",
+      "bytes": 1609,
+      "sha256": "5cf63237fa2fbdc712ade377470e483971b567ca90d10a2196c38e37372bc910"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0073.txt",
+      "bytes": 5378,
+      "sha256": "0b13f1b3643a29399672ee21d085a3bdcb5ded5ccf677c6e3e24a8a67d5d9405"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0085.txt",
+      "bytes": 3899,
+      "sha256": "936257909d0a6f61e9a427c832c0c6d8748033d0bb2b262063b723f5cfd78d99"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0086.txt",
+      "bytes": 223,
+      "sha256": "934bb365bd0fec0597b0ae4317fe411c2bbd0f2ba64c8346e58795d93215adb0"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0087.txt",
+      "bytes": 2480,
+      "sha256": "d308c5b7964b16fc928c906a60f21bffd29a92d653e2fe25b771274cfa39049f"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0090.txt",
+      "bytes": 878,
+      "sha256": "02c46a551e37ba73855ff561ef86d99525461155c254bcc994d799ad34521b40"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0092.txt",
+      "bytes": 5728,
+      "sha256": "3f3778c1b3568f2dbc1d6d1d45ddee03663bde2e5850d09388a1aa6bff458cb4"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0096.txt",
+      "bytes": 820,
+      "sha256": "c65e14d8ad1e16bcd38efbd96b29b04040aa553ba68f73014a3cd73c4ca58f05"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0109.txt",
+      "bytes": 4121,
+      "sha256": "7ab5f9a1a57fe39679288bfa6b198e370f42a215247e9c4b297f890d7a03c001"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0110.txt",
+      "bytes": 2818,
+      "sha256": "dd8cfccb8228fe7e16fa1cf25d7c2d9091555c4b6ffec1172c1a5e93fe4aa875"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0119.txt",
+      "bytes": 1901,
+      "sha256": "261a6975395e128c8d5f86c3714706f2655daf7d8e895e1ad8e5e27e88e86a0e"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0142.txt",
+      "bytes": 1623,
+      "sha256": "bd00ce734990a1190020b4825ea18a716c58cee53db78c97c58751e483579933"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0155.txt",
+      "bytes": 238,
+      "sha256": "6c82b35a443275bc0d65bcbb4f29edcc548083dc9f2972352ad5c072b138b84d"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0156.txt",
+      "bytes": 2756,
+      "sha256": "22deb2235ea5939184afb142c9eb7b740867d3e259e693971f8645bef57aff46"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0161.txt",
+      "bytes": 2253,
+      "sha256": "8e006d5f8a7d33705a75390c03fc041c768724c5580c1e24ca10aaceea9834be"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0162.txt",
+      "bytes": 817,
+      "sha256": "9b5549931fd8512c1f9586837a73697ed1ae7c1ec9090dab6a8a2c44c223d234"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0166.txt",
+      "bytes": 17948,
+      "sha256": "94977b9b14da35dbcffd662172a4252c32932f0b4979e32d17fcb75d0c628cca"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0185.txt",
+      "bytes": 1075,
+      "sha256": "558c83ceddfe789df33253c22d0b23a14760f1e1ba2117b8b47da8201a6c8fc7"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0223.txt",
+      "bytes": 5912,
+      "sha256": "fcf6c585a809081d5a78bb15a9f10c32d024b1666cf1b66e767ebd42bd64854e"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0230.txt",
+      "bytes": 392,
+      "sha256": "a9899832fad15a1f6849040233ea07fb31d11865892d0a6cf406ca07a1d45793"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0267.txt",
+      "bytes": 139,
+      "sha256": "f93d2f61b9a42bcc50d956a8e4c1ea7d258482f01390519cd659e33fe7f7de73"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0268.txt",
+      "bytes": 5969,
+      "sha256": "0393f4105d210e7f6b9d9972cb5117cc70328fd10105d81fd9c56c2e3b90fdee"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0271.txt",
+      "bytes": 2505,
+      "sha256": "8aeba7812ee8a1aa010486735eaf61d093320271f595b1376b82cd615f5bdc27"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search-documents/0280.txt",
+      "bytes": 8615,
+      "sha256": "03a5511b1ef9d36add61cc36fd94848c3a9efc072cafbf22646e6eb3f0a5548e"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search.json",
+      "bytes": 75682,
+      "sha256": "a22582c047978f99f508aa816d4844230cb481bae7b71c8a4d8c35d59504d981"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/session.json",
+      "bytes": 702,
+      "sha256": "112e70a857b68a818447f979bb9696536ebc9ca8e80ad5e240fe229121d26f75"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/source-decisions.json",
+      "bytes": 6352,
+      "sha256": "42ff5e46627e7065262d81b34e99810da4cb2ef415e45a2be643b1db8489b218"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/source-scope.json",
+      "bytes": 1347,
+      "sha256": "a8e7aea5f2f8141cf84be99a96dd78189b22de0c0c38ba57f46f7875664693a1"
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/usage.json",
+      "bytes": 203,
+      "sha256": "d6d7680acb4df09b07b775b741373a151e2976793ebea27c3badb4c92e0d94e0"
+    },
+    {
+      "path": "research/01-signer-astra/jev-compact.json",
+      "bytes": 2350,
+      "sha256": "5f3a5e2a7c1a467f17f9439678f622f7e8b2752a865b07d1944c80de6626a657"
+    },
+    {
+      "path": "research/01-signer-astra/jev-doctor.json",
+      "bytes": 1727,
+      "sha256": "7110cb64c8e3308d8f5bc5da53af8bf7312a4c602f176549686ba52529919d94"
+    },
+    {
+      "path": "research/01-signer-astra/jev-help.txt",
+      "bytes": 3840,
+      "sha256": "7d04ddb3c1b4af9467eb3f03f33cfdfa016dae2abb4a0626403ac8d775efe318"
+    },
+    {
+      "path": "research/01-signer-astra/jev-host/slot-0.lock",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "research/01-signer-astra/jev-host/state.json",
+      "bytes": 1191,
+      "sha256": "886a2505fba168539d0223df3d646675b413fab8a1d70a5465f770216456568e"
+    },
+    {
+      "path": "research/01-signer-astra/jev-host/state.lock",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "research/01-signer-astra/jev-permitted-compact.json",
+      "bytes": 9635,
+      "sha256": "26c9b5975db5a1e7643f04eecf17f87aab32687db5e304239bd5de079ea85e69"
+    },
+    {
+      "path": "research/01-signer-astra/jev-permitted-stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "research/01-signer-astra/jev-permitted.exit",
+      "bytes": 7,
+      "sha256": "5f8bd21203fdbe78b3339b6c8102f5a67cea53316e7b8797aa7aea63e498d985"
+    },
+    {
+      "path": "research/01-signer-astra/jev-search-help.txt",
+      "bytes": 4153,
+      "sha256": "9f25f6ec6ad206e63d0ac7496fe2433fbe6ac4dac1c4d9a69852a41a9108609b"
+    },
+    {
+      "path": "research/01-signer-astra/jev-stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "research/01-signer-astra/parallel-cli-permitted-stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "research/01-signer-astra/parallel-cli-permitted-stdout.log",
+      "bytes": 17518,
+      "sha256": "300280fffd31d5100c3a61eff37623ef730c41a745b6b9500a51af20d9b016f3"
+    },
+    {
+      "path": "research/01-signer-astra/parallel-cli-permitted.exit",
+      "bytes": 7,
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061"
+    },
+    {
+      "path": "research/01-signer-astra/parallel-cli-stderr.log",
+      "bytes": 168,
+      "sha256": "d31757f4e402a80dd0dbc3c415634b17a5e0050fd2adeae1178fe13ad7ec136a"
+    },
+    {
+      "path": "research/01-signer-astra/parallel-cli-stdout.log",
+      "bytes": 90,
+      "sha256": "fdeba4119a441a5f38cd1a766692d6d9dbd7ce54651ffba01c5ac4e4f7b394de"
+    },
+    {
+      "path": "research/01-signer-astra/parallel-cli.json",
+      "bytes": 17400,
+      "sha256": "73d6687451a6a7be61e26937ad7b269a090e0085cba64162edc3991ae2290708"
+    },
+    {
+      "path": "research/01-signer-astra/parallel-help.txt",
+      "bytes": 1185,
+      "sha256": "5a6796f0ddfcc86b60e0f26e9d3096ae86ebcbbc71dc732d4f9a9dfb86203ca3"
+    },
+    {
+      "path": "research/01-signer-astra/parallel-mcp.json",
+      "bytes": 35490,
+      "sha256": "9d7a4ce547e1cd9f5b3d85d6b2270f58940c426b16462b8c763bd2d47e19eb79"
+    },
+    {
+      "path": "research/01-signer-astra/parallel-search-help.txt",
+      "bytes": 2449,
+      "sha256": "46526c359ba6c8c79cd8031587810a0a2d544f0a75761d7e8b82345983d4febf"
+    },
+    {
+      "path": "research/01-signer-astra/perplexity.json",
+      "bytes": 21074,
+      "sha256": "bb3883da7a8afe1923b9406b214f758f5b385fc18bd79dffbc1547543332018f"
+    },
+    {
+      "path": "research/01-signer-astra/primary-source-manifest.json",
+      "bytes": 3660,
+      "sha256": "25bdce7d5be3f361e1aa416e47e39a54b028516884f8a2c4db0141c96d8c9f43"
+    },
+    {
+      "path": "research/01-signer-astra/raven-digest-attempt.json",
+      "bytes": 303,
+      "sha256": "cfedb903d9fda9377aede54378928235b41e1be6015e78698dc72fb641409666"
+    },
+    {
+      "path": "research/01-signer-astra/raven-discovery.json",
+      "bytes": 28935,
+      "sha256": "1727f5c6400d158667752d282876eac1b0620d54f35a722d4a8436e109455f7a"
+    },
+    {
+      "path": "research/01-signer-astra/raven-sources.json",
+      "bytes": 26289,
+      "sha256": "f3cf2c87e25592e09c72e79e5eb54dd4a490a8588de6228ee12b94fc4aadcf1d"
+    },
+    {
+      "path": "research/01-signer-astra/rfc8709.txt",
+      "bytes": 11255,
+      "sha256": "ea4aa3a8feec6bd5b1cc7847a6d08cd0afae49d12220cac1e2c39bc72c29fd3d"
+    },
+    {
+      "path": "research/01-signer-astra/rfc9987.txt",
+      "bytes": 62192,
+      "sha256": "2da579912a2a39265f3a719c2091408cd1fedb31c2f1e8240fd629f6dcb94999"
+    },
+    {
+      "path": "research/01-signer-astra/sep23.md",
+      "bytes": 13421,
+      "sha256": "d40b7227fc6876f3ac82ad9bfbcb4c7f3076c41e502ba266a5e186d35ff4c3b3"
+    },
+    {
+      "path": "research/01-signer-astra/stellar-cli-signer.rs",
+      "bytes": 34439,
+      "sha256": "a42681ed1de80f7653f3836a02ac49cd78bd3efa4805ede74e34c8acf57b0997"
+    },
+    {
+      "path": "research/01-signer-astra/stellar-cli-utils-manifest.json",
+      "bytes": 272,
+      "sha256": "684bfceb6309c246d09cad73e69a518cb672f9f562a1249a196da5c953affe61"
+    },
+    {
+      "path": "research/01-signer-astra/stellar-cli-utils.exit",
+      "bytes": 7,
+      "sha256": "19eaf43821a7660ec323a87c8457bf74823beb296c39f5e01aa8a683aa50f061"
+    },
+    {
+      "path": "research/01-signer-astra/stellar-cli-utils.rs",
+      "bytes": 14961,
+      "sha256": "e1d76a2b799acacf760bf6cd663cc8310a7cd3b313723421f2ed41b10a77f703"
+    },
+    {
+      "path": "research/01-signer-astra/stellar-transaction.x",
+      "bytes": 62101,
+      "sha256": "8f7accb9d9e0c077e6c5b43fc32eb06badb1cd3e6e10733387836dd8804ce89f"
+    },
+    {
+      "path": "research/01-signer-astra/usage-summary.json",
+      "bytes": 1257,
+      "sha256": "0635eeb490b8b4b3d782de35361a32f12e316114ba3fb3aa51784fbca08ebc06"
+    }
+  ]
+}

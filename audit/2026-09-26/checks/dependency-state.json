@@ -1,0 +1,22 @@
+[
+  {
+    "path": "node_modules/@stellar/stellar-sdk/package.json",
+    "name": "@stellar/stellar-sdk",
+    "version": "17.1.0"
+  },
+  {
+    "path": "node_modules/typescript/package.json",
+    "name": "typescript",
+    "version": "7.0.2"
+  },
+  {
+    "path": "node_modules/jsqr/package.json",
+    "name": "jsqr",
+    "version": "1.4.0"
+  },
+  {
+    "path": "node_modules/qrcode/package.json",
+    "name": "qrcode",
+    "version": "1.5.4"
+  }
+]

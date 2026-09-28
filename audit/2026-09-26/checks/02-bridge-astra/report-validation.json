@@ -1,0 +1,25 @@
+{
+  "checked_utc": "2026-09-27T01:09:29.026864+00:00",
+  "revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "source_files_checked": 199,
+  "source_hash_mismatches": [],
+  "missing_report_sections": [],
+  "missing_local_links": [],
+  "test_counts": {
+    "targeted-tests.log": {
+      "passed": 62,
+      "failed": 0,
+      "matches_report": true
+    },
+    "adversarial-tests.log": {
+      "passed": 12,
+      "failed": 0,
+      "matches_report": true
+    }
+  },
+  "jev_total_recorded_usd": 0.028356624,
+  "jev_within_allocation": true,
+  "prose_sentences_above_20_words": [],
+  "report_sha256": "7c1eccbeb2f50d69c62778fe47500c2b758e26082ff17effc3564e6759d8f631",
+  "status": "passed"
+}

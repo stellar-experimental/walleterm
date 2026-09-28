@@ -1,0 +1,11 @@
+bun test v1.4.2 (744846f84)
+
+../../../Users/kalepail/Desktop/walleterm-v2/audit/2026-09-26/checks/04-sdk-astra/remote-switch.test.ts:
+{"scenario":"A-B","liveRevision":2,"serverState":"unknown","staleSignatureReturned":true,"signatureCalls":1}
+(pass) reproduces a delayed signature after a remote A-B switch [34.64ms]
+{"scenario":"A-B-A","liveRevision":3,"serverState":"unknown","staleSignatureReturned":true,"signatureCalls":1}
+(pass) reproduces a delayed signature after a remote A-B-A switch [8.89ms]
+
+ 2 pass
+ 0 fail
+Ran 2 tests across 1 file. [179.00ms]

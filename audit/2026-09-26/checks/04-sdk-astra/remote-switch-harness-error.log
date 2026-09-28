@@ -1,0 +1,31 @@
+bun test v1.4.2 (744846f84)
+
+audit/2026-09-26/checks/04-sdk-astra/remote-switch.test.ts:
+377 |     } finally {
+378 |       this.signings.delete(stop);
+379 |       this.page?.removeEventListener?.('pagehide', leave);
+380 |     }
+381 |     if (result.state !== 'signed' || typeof result.signed_xdr !== 'string')
+382 |       throw Object.assign(Error(result.message || `The signing request is ${result.state}.`), {
+                                ^
+error: The signing response failed independent signature verification.
+ requestState: "unknown",
+
+      at signTransaction (/private/tmp/walleterm-audit-40d6cca9db73/sdk/walleterm.ts:382:27)
+(fail) reproduces a delayed signature after a remote A-B switch [26.83ms]
+377 |     } finally {
+378 |       this.signings.delete(stop);
+379 |       this.page?.removeEventListener?.('pagehide', leave);
+380 |     }
+381 |     if (result.state !== 'signed' || typeof result.signed_xdr !== 'string')
+382 |       throw Object.assign(Error(result.message || `The signing request is ${result.state}.`), {
+                                ^
+error: The signing response failed independent signature verification.
+ requestState: "unknown",
+
+      at signTransaction (/private/tmp/walleterm-audit-40d6cca9db73/sdk/walleterm.ts:382:27)
+(fail) reproduces a delayed signature after a remote A-B-A switch [6.39ms]
+
+ 0 pass
+ 2 fail
+Ran 2 tests across 1 file. [280.00ms]

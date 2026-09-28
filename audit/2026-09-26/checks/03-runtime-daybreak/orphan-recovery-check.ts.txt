@@ -1,0 +1,85 @@
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
+import { launchService } from '/private/tmp/walleterm-audit-40d6cca9db73/bridge/launch.ts';
+import type { LaunchOptions, Service } from '/private/tmp/walleterm-audit-40d6cca9db73/bridge/launch.ts';
+
+interface ChildRecord {
+  supervisor_pid: number;
+  cloudflared_pid: number;
+}
+
+function alive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false;
+    throw error;
+  }
+}
+
+async function until(check: () => boolean): Promise<void> {
+  const deadline = Date.now() + 2000;
+  while (!check() && Date.now() < deadline) await delay(10);
+  assert.equal(check(), true);
+}
+
+const mockDirectory = mkdtempSync(join(tmpdir(), 'walleterm-orphan-recovery-'));
+const frozen = '/private/tmp/walleterm-audit-40d6cca9db73';
+let oldCloudflared = 0;
+
+try {
+  writeFileSync(
+    join(mockDirectory, 'cloudflared'),
+    `#!${process.execPath}\nprocess.on('SIGTERM',()=>process.exit(0)); setInterval(()=>{},1000); console.log('https://mock-runtime.trycloudflare.com');\n`,
+    { mode: 0o700 },
+  );
+  let spawns = 0;
+  let tunnelDirectory = '';
+  const service: Service = {
+    service: 'walleterm',
+    async listen() {},
+    async close() {},
+    setPublicOrigin() {},
+  };
+  const options: LaunchOptions = {
+    create: () => service,
+    output: { write: () => {} },
+    environment: { PATH: `${mockDirectory}:${process.env.PATH ?? ''}` },
+    healthIntervalMs: 2,
+    recoveryDelayMs: 1,
+    ready: async () => {},
+    probe: async () => ({ status: 200, service: 'walleterm' }),
+    spawnTunnel: (_command, args, spawnOptions) => {
+      spawns++;
+      tunnelDirectory = String(spawnOptions.cwd);
+      return spawn(process.execPath, [join(frozen, 'bridge/tunnel-child.ts'), ...args], {
+        ...spawnOptions,
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    },
+  };
+  const running = await launchService({ port: 18787, label: 'Mock runtime' }, options);
+  try {
+    const record = JSON.parse(readFileSync(join(tunnelDirectory, 'child.json'), 'utf8')) as ChildRecord;
+    oldCloudflared = record.cloudflared_pid;
+    assert.equal(record.supervisor_pid, running.child?.pid);
+    running.child?.kill('SIGKILL');
+    await until(() => spawns >= 2);
+    const result = {
+      replacement_supervisors_started: spawns,
+      old_cloudflared_alive_after_recovery: alive(oldCloudflared),
+    };
+    console.log(JSON.stringify(result));
+    assert.equal(result.old_cloudflared_alive_after_recovery, true);
+  } finally {
+    await running.stop(0);
+  }
+} finally {
+  if (oldCloudflared && alive(oldCloudflared)) process.kill(oldCloudflared, 'SIGKILL');
+  rmSync(mockDirectory, { recursive: true, force: true });
+}

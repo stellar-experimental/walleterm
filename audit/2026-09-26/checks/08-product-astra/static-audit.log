@@ -1,0 +1,8 @@
+{
+  "documents": 45,
+  "missing_local_links": 10,
+  "skill_missing_links": [],
+  "npm_packages": 101,
+  "installed_version_mismatches": [],
+  "rust_registry_versions": 235
+}

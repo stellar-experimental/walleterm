@@ -1,0 +1,183 @@
+bridge/connect.test.ts(1064,12): error TS2339: Property 'open' does not exist on type '{ close(): void; }'.
+evidence/pagebook-2026-09-26/source/client/rpc.ts(2,36): error TS2307: Cannot find module '../keys' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/prepare.ts(2,29): error TS2307: Cannot find module '../client/account' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/prepare.ts(5,111): error TS2307: Cannot find module './clientKeys' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/prepare.ts(6,50): error TS2307: Cannot find module './diagnose' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/prepare.ts(7,43): error TS2307: Cannot find module './liveness' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/prepare.ts(18,8): error TS2307: Cannot find module './op' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/prepare.ts(19,61): error TS2307: Cannot find module './pad' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/prepare.ts(20,26): error TS2307: Cannot find module './quote' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/prepare.ts(34,8): error TS2307: Cannot find module './txdata' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/prepare.ts(106,40): error TS2366: Function lacks ending return statement and return type does not include 'undefined'.
+evidence/pagebook-2026-09-26/source/engine/prepare.ts(161,12): error TS7006: Parameter 'key' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/engine/prepare.ts(333,43): error TS2339: Property 'v1' does not exist on type 'TransactionEnvelope'.
+  Property 'v1' does not exist on type 'TransactionEnvelopeTxFeeBump'.
+evidence/pagebook-2026-09-26/source/engine/prepare.ts(372,20): error TS7006: Parameter 'byKey' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/engine/submit.ts(2,29): error TS2307: Cannot find module '../client/account' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/submit.ts(5,28): error TS2307: Cannot find module './clientKeys' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/submit.ts(6,79): error TS2307: Cannot find module './diagnose' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/submit.ts(7,75): error TS2307: Cannot find module './op' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/submit.ts(8,29): error TS2307: Cannot find module './pad' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/submit.ts(10,26): error TS2307: Cannot find module './quote' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/submit.ts(11,52): error TS2307: Cannot find module './txdata' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/engine/submit.ts(79,12): error TS2339: Property 'switch' does not exist on type 'LedgerKey'.
+  Property 'switch' does not exist on type 'LedgerKeyAccountArm'.
+evidence/pagebook-2026-09-26/source/engine/submit.ts(88,57): error TS2349: This expression is not callable.
+  Type 'ContractDataDurability' has no call signatures.
+evidence/pagebook-2026-09-26/source/engine/submit.ts(118,65): error TS2349: This expression is not callable.
+  Type 'BigInt' has no call signatures.
+evidence/pagebook-2026-09-26/source/engine/submit.ts(166,62): error TS2349: This expression is not callable.
+  Type 'BigInt' has no call signatures.
+evidence/pagebook-2026-09-26/source/engine/submit.ts(215,62): error TS2349: This expression is not callable.
+  Type 'BigInt' has no call signatures.
+evidence/pagebook-2026-09-26/source/wallet/classic.ts(3,47): error TS2307: Cannot find module '../client/account' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(2,46): error TS2307: Cannot find module '../book' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(3,28): error TS2307: Cannot find module '../client/entries' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(4,33): error TS2307: Cannot find module '../client/protocol' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(6,40): error TS2307: Cannot find module '../decode' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(7,37): error TS2307: Cannot find module '../engine/clientKeys' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(8,51): error TS2307: Cannot find module '../engine/pad' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(9,26): error TS2307: Cannot find module '../engine/quote' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(10,54): error TS2307: Cannot find module '../engine/op' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(12,35): error TS2307: Cannot find module '../engine/txdata' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(13,26): error TS2307: Cannot find module '../keys' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(14,96): error TS2307: Cannot find module '../view/format' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(15,39): error TS2307: Cannot find module '../client/account' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(24,32): error TS2307: Cannot find module './balances' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(25,29): error TS2307: Cannot find module '../view/stable' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(26,28): error TS2307: Cannot find module '../store' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(27,31): error TS2307: Cannot find module '../view/market' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(39,8): error TS2307: Cannot find module './units' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(465,22): error TS7006: Parameter 'r' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(762,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(768,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(780,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(793,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(801,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(809,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(826,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(839,59): error TS7006: Parameter 'x' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(845,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(850,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(861,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(868,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(873,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(886,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(912,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(917,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(948,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(974,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(987,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/orders.ts(993,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(1,35): error TS2307: Cannot find module '../book' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(10,8): error TS2307: Cannot find module '../client/account' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(12,32): error TS2307: Cannot find module '../client/protocol' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(14,40): error TS2307: Cannot find module '../decode' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(15,32): error TS2307: Cannot find module '../view/format' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(18,69): error TS2307: Cannot find module './provision' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(20,33): error TS2307: Cannot find module './awareness' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(22,95): error TS2307: Cannot find module './refresh' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(23,25): error TS2307: Cannot find module '../view/format' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(24,31): error TS2307: Cannot find module '../view/market' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(25,28): error TS2307: Cannot find module '../store' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(26,29): error TS2307: Cannot find module '../view/stable' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(27,35): error TS2307: Cannot find module '../request' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(265,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(282,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(292,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(303,24): error TS7006: Parameter 'contract' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(303,34): error TS7006: Parameter 'source' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(303,42): error TS7006: Parameter 'sequence' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(303,52): error TS7006: Parameter 'market' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(303,60): error TS7006: Parameter 'owner' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(303,67): error TS7006: Parameter 'extraNonces' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(303,80): error TS7006: Parameter 'events' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(303,88): error TS7006: Parameter 'previous' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(310,21): error TS7006: Parameter 'pubkey' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(311,24): error TS7006: Parameter 'pubkey' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(311,32): error TS7006: Parameter 'assets' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(368,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(590,23): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(597,23): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(608,23): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(613,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(620,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(632,23): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(637,23): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(648,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(652,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(657,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(661,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(667,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(683,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(687,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(699,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(712,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(724,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(736,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(746,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(760,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(793,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(799,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(806,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(819,23): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(826,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(839,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(854,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(859,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(873,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(878,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(888,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(915,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/pane.ts(951,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(1,35): error TS2307: Cannot find module '../book' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(2,33): error TS2307: Cannot find module '../client/protocol' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(4,53): error TS2307: Cannot find module '../decode' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(5,26): error TS2307: Cannot find module '../engine/clientKeys' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(6,33): error TS2307: Cannot find module '../engine/pad' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(7,31): error TS2307: Cannot find module '../engine/quote' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(8,71): error TS2307: Cannot find module '../engine/op' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(10,44): error TS2307: Cannot find module '../request' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(11,35): error TS2307: Cannot find module '../engine/txdata' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(12,85): error TS2307: Cannot find module '../engine/errors' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(13,41): error TS2307: Cannot find module '../view/format' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(14,50): error TS2307: Cannot find module '../view/format' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(15,58): error TS2307: Cannot find module '../client/account' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(16,43): error TS2307: Cannot find module '../view/stable' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(17,32): error TS2307: Cannot find module './balances' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(18,28): error TS2307: Cannot find module '../store' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(19,31): error TS2307: Cannot find module '../view/market' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(32,8): error TS2307: Cannot find module './units' or its corresponding type declarations.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(345,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(362,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(476,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(496,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(517,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(524,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(545,92): error TS2365: Operator '*' cannot be applied to types 'number' and 'bigint'.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(547,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(566,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(600,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(609,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(627,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(633,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(636,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(657,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(662,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(680,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(690,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(697,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(704,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(711,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(884,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(892,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(903,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(914,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(923,21): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(956,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(969,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(985,17): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(1015,25): error TS7006: Parameter 's' implicitly has an 'any' type.
+evidence/pagebook-2026-09-26/source/wallet/ticket.ts(1060,19): error TS7006: Parameter 's' implicitly has an 'any' type.
+$ tsc --noEmit
+error: script "typecheck" exited with code 1

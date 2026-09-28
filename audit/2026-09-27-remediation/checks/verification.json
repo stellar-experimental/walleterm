@@ -1,0 +1,93 @@
+[
+  {
+    "name": "go-race",
+    "command": [
+      "go",
+      "test",
+      "-race",
+      "./..."
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 0,
+    "seconds": 0.39
+  },
+  {
+    "name": "go-vet",
+    "command": [
+      "go",
+      "vet",
+      "./..."
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 0,
+    "seconds": 0.15
+  },
+  {
+    "name": "bun-suite",
+    "command": [
+      "bun",
+      "run",
+      "test"
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 0,
+    "seconds": 25.4
+  },
+  {
+    "name": "type-only-erasure",
+    "command": [
+      "bun",
+      "-e",
+      "const t = new Bun.Transpiler({loader:'ts'}); const a = t.transformSync(await Bun.file(process.argv[1]).text()); const b = t.transformSync(await Bun.file(process.argv[2]).text()); if(a !== b) throw new Error('Executable test content changed'); console.log('The corrected test has identical transpiled JavaScript.');",
+      "/private/tmp/walleterm-remediation-5karzitu/V01/bridge/connect.test.ts",
+      "/Users/kalepail/Desktop/walleterm-v2/bridge/connect.test.ts"
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 0,
+    "seconds": 0.01
+  },
+  {
+    "name": "diff",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 0,
+    "seconds": 0.02
+  },
+  {
+    "name": "format",
+    "command": [
+      "bun",
+      "run",
+      "format:check"
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 0,
+    "seconds": 0.75
+  },
+  {
+    "name": "checkout-typescript",
+    "command": [
+      "bun",
+      "run",
+      "typecheck"
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 1,
+    "seconds": 0.24
+  },
+  {
+    "name": "isolated-typescript",
+    "command": [
+      "bun",
+      "run",
+      "typecheck"
+    ],
+    "cwd": "/private/tmp/walleterm-remediation-verify-0e_uzw7l",
+    "exit_code": 0,
+    "seconds": 0.17
+  }
+]

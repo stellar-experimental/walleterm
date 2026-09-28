@@ -1,0 +1,1130 @@
+$ bun run build && bun test && bun tests/contracts.ts && bun tests/extended-contracts.ts && bun tests/cap85.ts
+$ bun scripts/build.ts && tsc -p tsconfig.sdk.json
+bun test v1.4.2 (744846f84)
+
+bridge/code-view.test.ts:
+(pass) JSON tokens preserve source text and keep HTML inert [0.68ms]
+(pass) terminal command highlighting preserves spaces and newlines [0.90ms]
+(pass) large, dense, and unsupported source remains complete plain text [1.41ms]
+(pass) an older asynchronous highlight cannot replace newer content [0.05ms]
+(pass) disclosures highlight on demand and preserve unchanged DOM and scroll [0.27ms]
+79 |     },
+80 |     async listen() {
+81 |       if (closing) throw Error('The demo is stopping.');
+82 |       await new Promise<void>((resolve, reject) => {
+83 |         server.once('error', reject);
+84 |         server.listen(port, '127.0.0.1', resolve);
+                    ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/demo/server.ts:84:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/demo/server.ts:82:13)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/code-view.test.ts:156:13)
+(fail) demo serves the exact bundled assets under the existing strict CSP [1.35ms]
+
+bridge/signer.test.ts:
+(pass) stopping the signer kills its child and rejects the request [8.84ms]
+(pass) wallet discovery excludes agent keys outside OP_VAULT [1.32ms]
+(pass) wallet discovery uses OP_VAULT from the process environment [0.37ms]
+(pass) an empty selected vault exposes no agent keys [0.23ms]
+(pass) vault lookup failures never expose the unfiltered agent list or CLI diagnostics [0.56ms]
+(pass) invalid vault metadata and malformed Ed25519 public keys stop wallet discovery [1.36ms]
+(pass) unsupported vault keys do not become wallets [0.18ms]
+(pass) an unset vault preserves agent discovery without a 1Password CLI call [0.16ms]
+(pass) public key reads overlap with at most four active reads [0.35ms]
+(pass) a failed public key read cancels its batch and waits for cleanup [0.35ms]
+(pass) caller cancellation stops concurrent public key reads without returning wallets [0.30ms]
+
+bridge/tunnel-child.test.ts:
+(pass) a hard parent crash stops the tunnel supervisor and its stubborn child [1242.30ms]
+
+bridge/activity.test.ts:
+(pass) activity JSON redacts nested credentials without changing source data [0.80ms]
+(pass) transport history preserves the original request, response body, and abort signal [1.99ms]
+(pass) unchanged signing polls collapse while changed states and signatures remain searchable [17.91ms]
+(pass) transaction history survives clearing and preserves earlier state snapshots [5.83ms]
+(pass) history loading merges with new activity instead of overwriting it [5.94ms]
+(pass) restored history drops stored credentials and events with malformed metadata [0.38ms]
+(pass) storage and decoding failures do not block wallet response delivery [0.51ms]
+(pass) request failures retain their original error and log without headers [0.32ms]
+(pass) non-JSON responses remain readable and unrelated requests stay outside the log [0.22ms]
+
+bridge/vault.test.ts:
+(pass) real CLI subprocesses filter UUIDs and names using public fields only [434.23ms]
+(pass) CLI failures and invalid JSON never return agent identities or diagnostics [413.78ms]
+(pass) canceling vault discovery stops a CLI process that ignores SIGTERM [1825.94ms]
+(pass) a missing 1Password CLI stops vault discovery without returning agent keys [204.80ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/vault.test.ts:196:16)
+(fail) bridge discovery, selection, and signing rechecks enforce the vault through real CLI processes [2.25ms]
+(pass) SDK wallet discovery and selection accept vault responses after fifteen seconds [16003.47ms]
+(pass) caller cancellation still stops SDK vault discovery immediately [0.57ms]
+
+bridge/sdk.test.ts:
+(pass) wallet discovery can refresh without replacing the selected account [0.43ms]
+(pass) discovery and selection permit slow vault lookup but keep a bounded deadline [0.49ms]
+(pass) the caller can cancel discovery and selection before their long deadline [0.21ms]
+(pass) an empty wallet picker can refresh discovery within its current connection [0.25ms]
+(pass) signing retries preserve the request ID and report network recovery [5.51ms]
+(pass) an unreachable bridge bounds cancellation and preserves signing uncertainty [10.59ms]
+(pass) failed remote disconnection retains credentials until an explicit local discard [0.21ms]
+
+bridge/launch.test.ts:
+(pass) healthy checks stay silent after a minute and keep monitoring public access [14.12ms]
+(pass) public health failures recover without replacing a healthy tunnel process [8.85ms]
+(pass) a stopped tunnel gets a new URL without restarting the local service [6.11ms]
+(pass) six failed public health checks replace an unreachable tunnel [17.16ms]
+(pass) recovery pauses after three replacement attempts and preserves the local service [27.64ms]
+(pass) a paused replacement prints its new URL once when a later public probe succeeds [24.72ms]
+(pass) paused recovery resumes after the oldest restart leaves the ten-minute window [25.02ms]
+(pass) shutdown during recovery cannot create another tunnel [14.86ms]
+(pass) a split cloudflared URL selects only the tunnel origin [0.20ms]
+(pass) the service owns its listener and an isolated tunnel, and prints the pairing code [23.09ms]
+(pass) a narrow terminal prints the connection fields without a broken QR code [2.46ms]
+(pass) a public readiness failure closes the listener and tunnel [1.31ms]
+(pass) a public HTML error rejects the probe without an uncaught callback error [1.17ms]
+(pass) cancellation during listener startup cannot start a tunnel or report readiness [0.18ms]
+(pass) cancellation during public readiness cannot report readiness [0.89ms]
+(pass) an exit immediately after the tunnel URL closes the listener [0.58ms]
+(pass) readiness requires the exact service name [351.29ms]
+
+bridge/scan.test.ts:
+(pass) the QR decoder reads the tunnel payload and retains leading zeroes [19.42ms]
+(pass) camera scan returns the connection and stops all camera tracks [9.02ms]
+(pass) canceling before camera permission resolves stops the late stream [0.88ms]
+(pass) canceling an unanswered camera request settles before permission responds [1.77ms]
+(pass) canceling an unanswered video start stops the camera [1.83ms]
+(pass) canceling during decoder loading ends the scan before camera access [0.59ms]
+(pass) leaving the page before camera permission resolves stops the late stream [0.59ms]
+
+bridge/runtime.test.ts:
+(pass) a stopped child exits even when it ignores SIGTERM [117.31ms]
+
+bridge/server.test.ts:
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:179:19)
+(fail) short codes expire, rotate once, and pause for one minute after five incorrect attempts [0.87ms]
+(pass) an unused code rotates at expiry [0.33ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:215:19)
+(fail) ended sessions release their connection slots [0.31ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:224:19)
+(fail) two origins have separate authority; only the review hook decides a request [0.44ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:257:19)
+(fail) wallet discovery requires a session and legacy wallet selection cannot change [0.28ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:300:19)
+(fail) scoped wallets pin the displayed list and never renew the connection deadline [0.32ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:337:19)
+(fail) first selection rejects a replaced discovery grant and an unknown scope [0.18ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:353:19)
+(fail) switches cancel queued reviews, preserve other sessions, and reject A-B-A delayed requests [0.26ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:381:19)
+(fail) simultaneous switches use compare-and-set after delayed discovery [0.20ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:405:21)
+(fail) a switch during approved withholds the old result [0.24ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:405:21)
+(fail) a switch during signing withholds the old result [0.13ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:405:21)
+(fail) a switch during signed withholds the old result [0.11ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:442:19)
+(fail) SDK switches in one session and recovers a lost selection response [0.20ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:472:19)
+(fail) a delayed account response cannot overwrite a newer SDK wallet [0.18ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:503:19)
+(fail) a delayed request body fails after switching away and back [0.19ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:542:19)
+(fail) expiry aborts active signing and switching never extends the deadline [0.23ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:575:19)
+(fail) SDK withholds a delayed successful signature after a same-session wallet change [0.20ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:607:19)
+(fail) scoped signing fails closed after a key is removed or discovery fails [0.25ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:633:19)
+(fail) SDK keeps signing blocked when an aborted selection still awaits discovery [0.22ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:681:19)
+(fail) SDK rejects account reads started during a wallet selection [0.18ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:713:19)
+(fail) SDK preserves signing uncertainty when session expiry prevents cancellation [0.20ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:740:19)
+(fail) invalid or excessive transactions never invoke review or signing [0.23ms]
+(pass) review records exact offer price, destination, memo and data bytes [7.82ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:796:19)
+(fail) denial, expiry and removal of a key do not sign [0.38ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:814:19)
+(fail) canceling a queued review never signs; only one review runs at a time [0.20ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:831:21)
+(fail) cancellation during signing withholds the signature [0.21ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:831:21)
+(fail) revocation during signing withholds the signature [0.10ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:861:19)
+(fail) invalid signatures are never delivered [0.14ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:871:19)
+(fail) restart invalidates old credentials and requests [0.16ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:888:19)
+(fail) SDK uses the code and wallet picker, signs, and reconnects after revocation [0.15ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:910:19)
+(fail) SDK preserves denied state and clears a canceled wallet selection [0.13ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:929:19)
+(fail) aborting an SDK request cancels its review and never signs [0.15ms]
+(pass) invalid UTF-8 data names fail before review [0.61ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:956:19)
+(fail) closing the bridge aborts signing and reports it [0.18ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:975:19)
+(fail) canceling a signed request withholds its result [0.15ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:987:19)
+(fail) SDK retries a failed poll and a lost first response [0.17ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:1007:19)
+(fail) leaving the page cancels an open SDK request [0.21ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:1034:19)
+(fail) a cancel that arrives before its create blocks that request ID [0.14ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:1045:19)
+(fail) concurrent key listings share one signer process [0.13ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:1062:19)
+(fail) SDK retries stop when the connection changes [0.12ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:1079:19)
+(fail) SDK reports an unconfirmed cancel and accepts a primitive abort reason [0.13ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:1101:19)
+(fail) SDK does not retry a non-JSON 4xx response [0.12ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:1118:19)
+(fail) a slow disconnect does not clear a newer connection [0.13ms]
+602 |     },
+603 |     async listen() {
+604 |       if (closing) throw Error('The bridge is stopping.');
+605 |       await new Promise<void>((resolve, reject) => {
+606 |         server.once('error', reject);
+607 |         server.listen(port, '127.0.0.1', resolve);
+                     ^
+error: Failed to start server. Is port 0 in use?
+ syscall: "listen",
+   errno: 0,
+    code: "EADDRINUSE"
+
+      at <anonymous> (node:_http_server:359:39)
+      at <anonymous> (node:_http_server:332:33)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:607:16)
+      at new Promise (1:11)
+      at listen (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts:605:13)
+      at fixture (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:120:16)
+      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.test.ts:1147:19)
+(fail) without a review hook, the bridge signs a valid request with no terminal step [0.13ms]
+
+bridge/site.test.ts:
+(pass) signing shows retry progress and stops at the server expiry after the page wakes [3.52ms]
+(pass) wallet changes preserve the original transaction journal and signer [4.83ms]
+(pass) an unknown signing outcome remains distinct from a confirmed cancellation [1.07ms]
+(pass) demo denial and expiry finish the request; unknown submission remains protected after reload [1.27ms]
+(pass) a reload preserves an open signing request until the user clears it [1.01ms]
+(pass) an unreadable journal blocks new transaction actions [1.45ms]
+(pass) a damaged journal still permits disconnect without changing storage [0.72ms]
+(pass) another tab cannot overwrite an unknown submission [0.90ms]
+(pass) demo selects an existing recent testnet account without recipient input [0.86ms]
+(pass) recipient lookup reports failure without choosing an unchecked account [0.71ms]
+(pass) demo funds a missing testnet account once with Friendbot [0.76ms]
+(pass) demo reports a Friendbot failure and does not hide Horizon errors [1.25ms]
+(pass) an unknown submission expires only after a ledger closes past its time bound [6.43ms]
+(pass) a storage failure before signing leaves the demo usable [1.34ms]
+(pass) cancel removes the newest open offer from Horizon [12.48ms]
+(pass) a built transaction waits for Sign before it is signed [11.91ms]
+(pass) a saved review with invalid XDR blocks actions without breaking the page [0.99ms]
+(pass) the action modal opens before account lookup and keeps preparation errors visible [0.93ms]
+(pass) connection work disables demo actions and signing without changing the journal [0.79ms]
+(pass) only an active request shows progress; stopped signing cannot be canceled again [0.87ms]
+(pass) completed transactions permit another action after wallet switching without a separate clear step [8.04ms]
+(pass) unfinished transactions still prevent replacement after wallet switching [5.80ms]
+(pass) another tab changing a completed record prevents its automatic replacement [1.12ms]
+(pass) a storage failure preserves the completed record and prevents a new build [1.04ms]
+
+bridge/connect.test.ts:
+(pass) reload checks the saved session before publishing the wallet and uses the live selection revision [1.78ms]
+(pass) reload keeps an offline session and recovers it on the next health check without replaying requests [0.94ms]
+(pass) reload removes a revoked or expired session and does not exchange the old connection code [0.75ms]
+(pass) invalid saved details never send credentials, and unavailable storage does not break the UI [0.75ms]
+(pass) explicit disconnect clears saved credentials even when remote revocation fails [0.85ms]
+(pass) health checks retain credentials through a network failure and recover the connection [0.72ms]
+(pass) an expired session removes the account and requires a new code [0.68ms]
+(pass) health checks do not overlap or overwrite a newer connection [0.58ms]
+(pass) manual replacement connects to a new tunnel when the previous tunnel cannot revoke its session [0.73ms]
+(pass) manual disconnection discards an unreachable session locally and reports unconfirmed revocation [0.74ms]
+(pass) opening the connection dialog focuses Scan and leaves camera access to an explicit action [0.73ms]
+(pass) camera denial keeps manual entry available without input focus [0.67ms]
+(pass) a successful scan fills the details and focuses Continue [0.65ms]
+(pass) an old canceled scan cannot hide the camera after immediate reopening [0.70ms]
+(pass) changing a wallet uses the current client and does not open the scanner [0.66ms]
+(pass) opening the wallet menu renders known wallets without another lookup [0.55ms]
+(pass) the connection UI publishes the recovered account after a lost selection response [0.61ms]
+(pass) Continue requires an allowed origin and exactly eight digits [0.53ms]
+(pass) a connection disables its inputs and prevents duplicate requests until failure settles [0.54ms]
+(pass) wallet selection locks immediately and accepts only the first click [0.71ms]
+(pass) wallet refresh prevents overlapping discovery and blocks selection until it settles [0.68ms]
+(pass) retrying empty wallet discovery locks the retry button and restores it after failure [0.71ms]
+
+scripts/install.test.ts:
+(pass) installation failure preserves the previous release [438.32ms]
+(pass) installation switches to a complete release [337.00ms]
+
+scripts/syntax.test.ts:
+(pass) the browser syntax bundle matches the typed tokenizer entry [6.99ms]
+
+tests/checkpoint.test.ts:
+(pass) checkpoint binds its network and public keys [0.69ms]
+(pass) checkpoint rejects stale source, stale code, and unbound prior deployments [0.36ms]
+
+tests/submission.test.ts:
+(pass) archived rejection cannot clear a newer attempt with the same hash [2.37ms]
+(pass) gate and envelope persist before send; sent response persists before lookup [1.36ms]
+(pass) dropped send response retains original hash and blocks a second send [0.67ms]
+(pass) dropped poll response retains sent response and blocks signer guard [0.73ms]
+(pass) pending NOT_FOUND lookups reach a bounded deadline without resubmission [1.08ms]
+(pass) a hanging send call times out and a late response cannot clear the gate [0.79ms]
+(pass) a hanging lookup call times out and a late response cannot clear the gate [0.77ms]
+(pass) a recreated guard remains blocked; NOT_FOUND reconciliation does not clear it [1.09ms]
+(pass) explicit reconciliation clears only the original terminal SUCCESS hash [1.23ms]
+(pass) explicit reconciliation clears only the original terminal FAILED hash [0.77ms]
+(pass) reconciliation leaves PENDING blocked, including ERROR with a result [0.65ms]
+(pass) reconciliation leaves DUPLICATE blocked, including ERROR with a result [0.66ms]
+(pass) reconciliation leaves TRY_AGAIN_LATER blocked, including ERROR with a result [0.59ms]
+(pass) reconciliation leaves ERROR blocked, including ERROR with a result [0.57ms]
+(pass) reconciliation leaves unexpected blocked, including ERROR with a result [0.54ms]
+(pass) PENDING followed by SUCCESS, expectFailure=false [0.68ms]
+(pass) PENDING followed by SUCCESS, expectFailure=true [0.67ms]
+(pass) PENDING followed by FAILED, expectFailure=false [0.60ms]
+(pass) PENDING followed by FAILED, expectFailure=true [0.57ms]
+(pass) DUPLICATE followed by SUCCESS, expectFailure=false [0.62ms]
+(pass) DUPLICATE followed by SUCCESS, expectFailure=true [0.59ms]
+(pass) DUPLICATE followed by FAILED, expectFailure=false [0.53ms]
+(pass) DUPLICATE followed by FAILED, expectFailure=true [0.56ms]
+(pass) definite ERROR plus errorResult clears the gate, expectFailure=false [0.70ms]
+(pass) definite ERROR plus errorResult clears the gate, expectFailure=true [0.73ms]
+(pass) nonterminal send ERROR blocks even when failure was expected [0.73ms]
+(pass) nonterminal send TRY_AGAIN_LATER blocks even when failure was expected [0.61ms]
+(pass) nonterminal send NOT_FOUND blocks even when failure was expected [0.52ms]
+(pass) nonterminal send unexpected blocks even when failure was expected [0.66ms]
+(pass) separate attempts with the same label preserve previous archives exactly [1.43ms]
+(pass) another guard cannot send while the first call is still pending [0.76ms]
+(pass) a changed response hash cannot replace the original submission hash [0.97ms]
+(pass) network mismatch and malformed gates fail closed without an RPC call [0.85ms]
+(pass) a response after the absolute deadline cannot clear the gate [0.49ms]
+(pass) a separate process reads the unresolved gate before signer use [13.53ms]
+(pass) a nonterminal polling response blocks without another send [0.87ms]
+
+tests/site-bridge.test.ts:
+(pass) a reviewed V1 XDR crosses the legacy page bridge once [1055.17ms]
+
+tests/cap71.test.ts:
+(pass) native tree signs one shared root-bound digest and records before signing [4.86ms]
+(pass) SDK sorts tree levels and rejects duplicate delegates before signing [2.00ms]
+(pass) gate failure prevents direct CAP71 signatures and evidence prompts [0.12ms]
+(pass) native substitution changes the digest without changing nonce or invocation [1.39ms]
+(pass) address_v2 same-key account substitution fails cryptographic verification [2.23ms]
+(pass) malformed order negatives preserve the signed payload at each tree level [3.36ms]
+(pass) missing G signature preserves the present delegate and every signed payload field [2.38ms]
+(pass) error oracle checks exact contract code and duplicate diagnostic [0.27ms]
+(pass) paired root and nested comparisons use a successful control and preserve signed fields [13.34ms]
+(pass) paired comparison rejects failed or incomplete controls before mutation simulation [7.09ms]
+(pass) paired comparison rejects wrong errors and available contradictory diagnostics [10.27ms]
+(pass) paired comparison rejects expired, nearly expired, missing, or reversed ledger evidence [10.17ms]
+(pass) checkpoint fails closed on corruption, binding change, and interrupted submission [2.06ms]
+(pass) setup performs enforce simulation and stops before any envelope signing on failure [1.73ms]
+(pass) unknown row IDs fail before RPC, signing, or checkpoint access [0.14ms]
+(pass) mocked CAP71 run > mocked setup and native calls enforce before signing; restart reuses confirmed steps [21.57ms]
+(pass) mocked CAP71 run > malicious RPC roots and unexpected subinvocations cause zero signing requests [12.75ms]
+
+tests/cap85.test.ts:
+(pass) X02: SUCCESS recovery verifies and persists the original counter delta [1.18ms]
+(pass) X02: a mismatched counter cannot become a passed cached step on restart [0.49ms]
+(pass) X03: SUCCESS recovery verifies and persists the original counter delta [0.49ms]
+(pass) X03: a mismatched counter cannot become a passed cached step on restart [0.39ms]
+(pass) SUCCESS without the original counter precondition fails closed [0.36ms]
+(pass) startup queries both saved hashes and checks the counter before assertClear [0.50ms]
+(pass) an unknown shared outcome stops before local recovery or assertClear [0.33ms]
+(pass) an unknown local outcome keeps the checkpoint and stops before assertClear [0.29ms]
+(pass) X04 accepts the expected v2 executable and rejects each wrong identity or version [0.08ms]
+
+43 tests failed:
+(fail) demo serves the exact bundled assets under the existing strict CSP [1.35ms]
+(fail) bridge discovery, selection, and signing rechecks enforce the vault through real CLI processes [2.25ms]
+(fail) short codes expire, rotate once, and pause for one minute after five incorrect attempts [0.87ms]
+(fail) ended sessions release their connection slots [0.31ms]
+(fail) two origins have separate authority; only the review hook decides a request [0.44ms]
+(fail) wallet discovery requires a session and legacy wallet selection cannot change [0.28ms]
+(fail) scoped wallets pin the displayed list and never renew the connection deadline [0.32ms]
+(fail) first selection rejects a replaced discovery grant and an unknown scope [0.18ms]
+(fail) switches cancel queued reviews, preserve other sessions, and reject A-B-A delayed requests [0.26ms]
+(fail) simultaneous switches use compare-and-set after delayed discovery [0.20ms]
+(fail) a switch during approved withholds the old result [0.24ms]
+(fail) a switch during signing withholds the old result [0.13ms]
+(fail) a switch during signed withholds the old result [0.11ms]
+(fail) SDK switches in one session and recovers a lost selection response [0.20ms]
+(fail) a delayed account response cannot overwrite a newer SDK wallet [0.18ms]
+(fail) a delayed request body fails after switching away and back [0.19ms]
+(fail) expiry aborts active signing and switching never extends the deadline [0.23ms]
+(fail) SDK withholds a delayed successful signature after a same-session wallet change [0.20ms]
+(fail) scoped signing fails closed after a key is removed or discovery fails [0.25ms]
+(fail) SDK keeps signing blocked when an aborted selection still awaits discovery [0.22ms]
+(fail) SDK rejects account reads started during a wallet selection [0.18ms]
+(fail) SDK preserves signing uncertainty when session expiry prevents cancellation [0.20ms]
+(fail) invalid or excessive transactions never invoke review or signing [0.23ms]
+(fail) denial, expiry and removal of a key do not sign [0.38ms]
+(fail) canceling a queued review never signs; only one review runs at a time [0.20ms]
+(fail) cancellation during signing withholds the signature [0.21ms]
+(fail) revocation during signing withholds the signature [0.10ms]
+(fail) invalid signatures are never delivered [0.14ms]
+(fail) restart invalidates old credentials and requests [0.16ms]
+(fail) SDK uses the code and wallet picker, signs, and reconnects after revocation [0.15ms]
+(fail) SDK preserves denied state and clears a canceled wallet selection [0.13ms]
+(fail) aborting an SDK request cancels its review and never signs [0.15ms]
+(fail) closing the bridge aborts signing and reports it [0.18ms]
+(fail) canceling a signed request withholds its result [0.15ms]
+(fail) SDK retries a failed poll and a lost first response [0.17ms]
+(fail) leaving the page cancels an open SDK request [0.21ms]
+(fail) a cancel that arrives before its create blocks that request ID [0.14ms]
+(fail) concurrent key listings share one signer process [0.13ms]
+(fail) SDK retries stop when the connection changes [0.12ms]
+(fail) SDK reports an unconfirmed cancel and accepts a primitive abort reason [0.13ms]
+(fail) SDK does not retry a non-JSON 4xx response [0.12ms]
+(fail) a slow disconnect does not clear a newer connection [0.13ms]
+(fail) without a review hook, the bridge signs a valid request with no terminal step [0.13ms]
+
+ 181 pass
+ 43 fail
+Ran 224 tests across 19 files. [23.09s]
+error: script "test" exited with code 1

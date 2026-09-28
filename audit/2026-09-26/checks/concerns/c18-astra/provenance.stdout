@@ -1,0 +1,18 @@
+{
+  "verified_files": 21,
+  "manifest_tree_paths": 199,
+  "absent_local_references": 9,
+  "tunnel_revisions": [
+    {
+      "recorded_revision": "3bf7810",
+      "full_revision": "3bf7810772fc3314261c8dd0f445ade6d150b192",
+      "baseline_ancestor": true
+    },
+    {
+      "recorded_revision": "a9b2982",
+      "full_revision": "a9b2982e003aa4955f9e8da1c5f5ca741e049e21",
+      "baseline_ancestor": true
+    }
+  ],
+  "preserved_reproduction_match": true
+}

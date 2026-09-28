@@ -1,0 +1,11 @@
+{
+  "matching_owned_test_processes": [],
+  "known_mock_ports": [
+    51656,
+    51657
+  ],
+  "known_mock_port_listeners_present": false,
+  "process_inventory_exit": 0,
+  "port_inventory_exit": 1,
+  "scope": "Bounded path and port checks; no unrelated process was stopped. The initial sandbox process inventory was denied; this permitted check completed."
+}

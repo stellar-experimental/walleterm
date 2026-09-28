@@ -1,0 +1,180 @@
+    454
+    455 +test('interrupted rows label saved checks separately from the current protocol without repeating work', async () => {
+    456 +  const files = ['cap71_delegate.wasm', 'cap71_raw_account.wasm', 'cap71_target.wasm'];
+    457 +  const binding = {
+    458 +    network: sdk.Networks.TESTNET,
+    459 +    keys: (['a', 'b', 'c'] as const).map((name) => keys[name].publicKey),
+    460 +    artifacts: Object.fromEntries(
+    461 +      files.map((file) => [
+    462 +        file,
+    463 +        digest(readFileSync(new URL(`../fixtures/cap71/target/wasm32v1-none/release/${file}`, import.meta.url))).toString
+         ('hex'),
+    464 +      ]),
+    465 +    ),
+    466 +  };
+    467 +  const dir = mkdtempSync(join(tmpdir(), 'cap71-reuse-'));
+    468 +  onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
+    469 +  for (const currentProtocol of [28, 29]) {
+    470 +    const ctx = context();
+    471 +    const file = join(dir, `${currentProtocol}.json`);
+    472 +    ctx.cap71Checkpoint = file;
+    473 +    ctx.rows = ['CAP71-01'];
+    474 +    const state = loadCheckpoint(file, binding);
+    475 +    for (const wasm of files) state.steps[`CAP71-upload-${wasm}`] = { protocol: 28 };
+    476 +    for (const [index, name] of ['target', 'any', 'both', 'weighted', 'chain', 'raw1', 'raw2'].entries()) {
+    477 +      state.salts[name] = Buffer.alloc(32, index + 30).toString('hex');
+    478 +      state.steps[`CAP71-deploy-${name}`] = {
+    479 +        protocol: 28,
+    480 +        retval_xdr: new sdk.Address(contract(index + 10)).toScVal().toXdr('base64'),
+    481 +      };
+    482 +    }
+    483 +    state.checks['CAP71-direct-a'] = { protocol: 28, outcome: 'submitted', state_before: 0, state_after: 1 };
+    484 +    state.checks['CAP71-direct-c'] = { protocol: 27, outcome: 'submitted', state_before: 1, state_after: 2 };
+    485 +    state.done['CAP71-02'] = { protocol: 27, historical: true };
+    486 +    saveCheckpoint(file, state);
+    487 +    const blockedCalls: string[] = [];
+    488 +    const deny = (name: string) => async (): Promise<never> => {
+    489 +      blockedCalls.push(name);
+    490 +      throw new Error(`Must not call ${name}`);
+    491 +    };
+    492 +    let versionCalls = 0;
+    493 +    ctx.rpc = {
+    494 +      async getVersionInfo() {
+    495 +        versionCalls++;
+    496 +        return { protocolVersion: currentProtocol };
+    497 +      },
+    498 +      getAccount: deny('getAccount'),
+    499 +      simulateTransaction: deny('simulateTransaction'),
+    500 +    };
+    501 +    ctx.signDigest = deny('signDigest');
+    502 +    ctx.sign = deny('sign');
+    503 +    ctx.send = deny('send');
+    504 +    const result = await runCap71(ctx);
+    505 +    const row = ctx.events.find((event) => event.id === 'CAP71-01');
+    506 +    assert.ok(row);
+    507 +    assert.equal(row.status, 'passed');
+    508 +    assert.equal(row.protocol, currentProtocol);
+    509 +    assert.equal(row.current_environment_protocol, currentProtocol);
+    510 +    assert.equal(row.reused_evidence, true);
+    511 +    assert.deepEqual(row.reused_checks, [
+    512 +      { label: 'CAP71-direct-a', original_protocol: 28 },
+    513 +      { label: 'CAP71-direct-c', original_protocol: 27 },
+    514 +    ]);
+    515 +    assert.deepEqual(row.checks, { a: state.checks['CAP71-direct-a'], c: state.checks['CAP71-direct-c'] });
+    516 +    const saved = loadCheckpoint(file, binding);
+    517 +    assert.deepEqual(saved.done['CAP71-01'], result.done['CAP71-01']);
+    518 +    for (const field of ['binding', 'salts', 'steps', 'checks'] as const)
+    519 +      assert.deepEqual(saved[field], state[field]);
+    520 +    assert.deepEqual(saved.done['CAP71-02'], state.done['CAP71-02']);
+    521 +    ctx.events.length = 0;
+    522 +    await runCap71(ctx);
+    523 +    assert.deepEqual(ctx.events.find((event) => event.id === 'CAP71-01'), {
+    524 +      id: 'CAP71-01',
+    525 +      status: 'passed_previous_run',
+    526 +      ...saved.done['CAP71-01'],
+    527 +      reused_evidence: true,
+    528 +    });
+    529 +    assert.equal(versionCalls, 2);
+    530 +    assert.deepEqual(blockedCalls, []);
+    531 +  }
+    532 +});
+    533 +
+    534  test('setup performs enforce simulation and stops before any envelope signing on failure', async () => {
+        ⋮
+    721      assert.equal(Object.values(result.checks).length, 2);
+    722 +    assert.equal(result.done['CAP71-01'].reused_evidence, undefined);
+    723 +    assert.equal(result.done['CAP71-01'].reused_checks, undefined);
+    724      assert.equal(result.inflight, undefined);
+
+  └ tests/cap71.ts (+19 -2)
+    605    }
+    606 +  const reusedChecks: { label: string; original_protocol: unknown }[] = [];
+    607    async function call(
+        ⋮
+    620      ctx.assertClear();
+    620 -    if (state.checks[label]) return state.checks[label];
+    621 +    if (state.checks[label]) {
+    622 +      reusedChecks.push({ label, original_protocol: state.checks[label].protocol ?? null });
+    623 +      return state.checks[label];
+    624 +    }
+    625      let evidence = state.steps[label];
+        ⋮
+    894        ctx.assertClear();
+    891 -      const details = { protocol, contracts: c, checks: await run() };
+    895 +      reusedChecks.length = 0;
+    896 +      const checks = await run();
+    897 +      const details = {
+    898 +        protocol,
+    899 +        contracts: c,
+    900 +        checks,
+    901 +        ...(reusedChecks.length
+    902 +          ? {
+    903 +              reused_evidence: true,
+    904 +              reused_checks: [...reusedChecks],
+    905 +              current_environment_protocol: protocol,
+    906 +            }
+    907 +          : {}),
+    908 +      };
+    909        state.done[id] = details;
+
+• Ran bun x prettier --write tests/cap71.ts tests/cap71.test.ts
+  └ tests/cap71.ts 69ms (unchanged)
+    tests/cap71.test.ts 45ms
+
+• Ran bun x tsc --ignoreConfig --noEmit --target ESNext --module Preserve --moduleResolution bundler --lib ESNext,DOM,DOM.Iterable
+  │ --types bun --strict --allowImportingTsExtensions --verbatimModuleSyntax --skipLibCheck --noFallthroughCasesInSwitch
+  │ --moduleDetection force --noImplicitOverride tests/cap71.ts tests/cap71.test.ts
+  └ (no output)
+
+• Ran bun test tests/cap71.test.ts
+  └ bun test v1.4.2 (744846f84)
+
+    tests/cap71.test.ts:
+    +22 lines (ctrl+t to view transcript)
+
+• Ran bun x prettier --check tests/cap71.ts tests/cap71.test.ts; git diff --check -- tests/cap71.ts tests/cap71.test.ts; git diff
+  │ --stat -- tests/cap71.ts tests/cap71.test.ts
+  └ Checking formatting...
+    All matched files use Prettier code style!
+     tests/cap71.test.ts | 86 +++++++++++++++++++++++++++++++++++++++++++++++++++++
+    +2 lines (ctrl+t to view transcript)
+
+• The focused tests pass. The regression confirms reuse without simulation, signing, or submission calls.
+
+  The checkpoint retains its saved checks, deployments, salts, and completed-row history. Type checking and formatting checks also
+  pass.
+
+• Ran git diff -- tests/cap71.ts tests/cap71.test.ts; git status --short
+  └ diff --git a/tests/cap71.test.ts b/tests/cap71.test.ts
+    index 4dafdd9..4a07186 100644
+    --- a/tests/cap71.test.ts
+    +163 lines (ctrl+t to view transcript)
+
+• Implemented. C17 remains a narrow evidence-label correction.
+
+  Changed files:
+
+  • tests/cap71.ts:606: Adds reused_evidence, reused_checks, original check protocols, and current_environment_protocol.
+  • tests/cap71.test.ts:455: Tests interrupted-row reuse, checkpoint preservation, and completed-row history.
+
+  Exact checks:
+
+  bun test tests/cap71.test.ts
+  bun x prettier --check tests/cap71.ts tests/cap71.test.ts
+  git diff --check -- tests/cap71.ts tests/cap71.test.ts
+  bun x tsc --ignoreConfig --noEmit --target ESNext --module Preserve --moduleResolution bundler --lib ESNext,DOM,DOM.Iterable
+  --types bun --strict --allowImportingTsExtensions --verbatimModuleSyntax --skipLibCheck --noFallthroughCasesInSwitch
+  --moduleDetection force --noImplicitOverride tests/cap71.ts tests/cap71.test.ts
+
+  All checks passed. The Bun suite passed 18 tests.
+
+  Limits: The regression uses synthetic checkpoints and mocked protocol discovery. Reuse makes zero simulation, signing, or
+  submission calls. No live acceptance ran. Missing original protocols remain null. CAP-85 and general assertion identity remain
+  outside scope.
+
+  Worked for 2m 29s · 4:20 PM
+
+
+› Ask Codex to do anything
+
+  GPT-6-Sol high · ~/Desktop/walleterm-v2 · Assess C17 remediation                                      ⚠ 2 warnings · f2 to view

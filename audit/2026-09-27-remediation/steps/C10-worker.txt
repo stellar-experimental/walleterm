@@ -1,0 +1,180 @@
+    181 +          assert.equal(text, originalXdr);
+    182 +          return { signedTxXdr: signedXdr };
+    183 +        },
+    184 +      },
+    185 +      address,
+    186 +      fetch: async (url: string, options?: RequestInit) => {
+    187 +        assert.equal(url, 'https://horizon-testnet.stellar.org/transactions');
+    188 +        assert.equal(options?.method, 'POST');
+    189 +        submissions.push(new URLSearchParams(String(options?.body)).get('tx')!);
+    190 +        return ok({ hash, ledger: 1, successful: false });
+    191 +      },
+    192 +    };
+    193 +    const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8');
+    194 +    const source = app();
+    195 +    const f = contextFor(html, extras);
+    196 +    f.run(source);
+    197 +    f.run('connection.onChange({client, account:{address}})');
+    198 +    assert.deepEqual(JSON.parse(f.el('details').textContent).transaction, expected);
+    199 +    assert.equal(f.el('sign').hidden, false);
+    200 +    assert.equal(f.el('submit').hidden, true);
+    201 +    await f.click('sign');
+    202 +    assert.equal(signs, 1);
+    203 +    assert.equal(f.run('pending.state'), 'signed');
+    204 +    assert.deepEqual(JSON.parse(f.el('details').textContent).transaction, expected);
+    205 +    assert.equal(f.el('sign').hidden, true);
+    206 +    assert.equal(f.el('submit').hidden, false);
+    207 +    assert.equal(f.el('submit').disabled, false);
+    208 +    assert.equal(f.el('clear').hidden, false);
+    209 +    assert.equal(JSON.parse(stored!).xdr, originalXdr);
+    210 +    assert.equal(JSON.parse(stored!).signed_xdr, signedXdr);
+    211 +    const saved = stored;
+    212 +    f.click('close-review');
+    213 +    f.click('open-review');
+    214 +    assert.equal(f.el('review').open, true);
+    215 +    assert.deepEqual(JSON.parse(f.el('details').textContent).transaction, expected);
+    216 +    assert.equal(stored, saved);
+    217 +    const restored = contextFor(html, extras);
+    218 +    restored.run(source);
+    219 +    assert.equal(restored.run('pending.state'), 'signed');
+    220 +    assert.equal(restored.el('review').open, true);
+    221 +    assert.deepEqual(JSON.parse(restored.el('details').textContent).transaction, expected);
+    222 +    assert.equal(restored.el('sign').hidden, true);
+    223 +    assert.equal(restored.el('submit').hidden, false);
+    224 +    assert.equal(restored.el('submit').disabled, false);
+    225 +    assert.equal(stored, saved);
+    226 +    assert.equal(signs, 1);
+    227 +    assert.deepEqual(submissions, []);
+    228 +    await restored.click('submit');
+    229 +    assert.deepEqual(submissions, [signedXdr]);
+    230 +    assert.equal(restored.run('pending.hash'), hash);
+    231 +    assert.equal(signs, 1);
+    232 +  });
+    233 +}
+    234  test('signing shows retry progress and stops at the server expiry after the page wakes', async () => {
+
+• Ran bun test bridge/site.test.ts --test-name-pattern 'keeps transaction details after signing'
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/site.test.ts:
+    +177 lines (ctrl+t to view transcript)
+
+• Edited bridge/site.test.ts (+2 -2)
+    130        .addOperation(operation)
+    131 -      .addMemo(sdk.Memo.text('review memo'))
+    131 +      .addMemo(sdk.Memo.id('42'))
+    132        .setTimeout(180)
+        ⋮
+    141        sequence: '11',
+    142 -      memo: 'review memo',
+    142 +      memo: '42',
+    143        time_bounds: tx.timeBounds,
+
+• Ran bun test bridge/site.test.ts --test-name-pattern 'keeps transaction details after signing'
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/site.test.ts:
+    +184 lines (ctrl+t to view transcript)
+
+• The four regression tests confirm that details disappear after signing.
+  I will apply the display correction and test signing, reopening, reload, and exact envelope submission.
+
+• Edited 2 files (+17 -3)
+  └ bridge/site.test.ts (+16 -2)
+    107  const ok = (data: unknown) => ({ ok: true, json: async () => data });
+    108 +const reviewSdk = {
+    109 +  Networks: { TESTNET: 'testnet' },
+    110 +  Asset: class {},
+    111 +  TransactionBuilder: {
+    112 +    fromXDR: () => ({
+    113 +      source: 'GORIGINAL',
+    114 +      fee: '100',
+    115 +      sequence: '2',
+    116 +      memo: { value: null },
+    117 +      timeBounds: { minTime: '0', maxTime: '1' },
+    118 +      operations: [{ type: 'manageData', name: 'walleterm-demo' }],
+    119 +    }),
+    120 +  },
+    121 +};
+    122  for (const kind of ['note', 'payment', 'offer', 'cancel_offer'] as const) {
+        ⋮
+    301      const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    288 -      StellarSdk: { Networks: { TESTNET: 'testnet' } },
+    302 +      StellarSdk: reviewSdk,
+    303        localStorage: {
+        ⋮
+    909    const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+    896 -    StellarSdk: {},
+    910 +    StellarSdk: reviewSdk,
+    911      localStorage: { getItem: () => null },
+
+  └ demo/site/app.ts (+1 -1)
+    407          hash: pending.hash,
+    408 -        ...(pending.state === 'review' ? { transaction: describe(pending.xdr) } : {}),
+    408 +        ...(['review', 'signed'].includes(pending.state) ? { transaction: describe(pending.xdr) } : {}),
+    409          result: pending.result,
+
+• Ran bun test bridge/site.test.ts
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/site.test.ts:
+    +32 lines (ctrl+t to view transcript)
+
+• Ran bun x tsc --noEmit --target ESNext --module Preserve --moduleResolution bundler --lib ESNext,DOM,DOM.Iterable --types bun
+  │ --strict --allowImportingTsExtensions --verbatimModuleSyntax --skipLibCheck --noFallthroughCasesInSwitch
+  │ --noImplicitOverride demo/site/app.ts bridge/site.test.ts
+  └ error TS5112: tsconfig.json is present but will not be loaded if files are specified on commandline. Use '--ignoreConfig' to
+    skip this error.
+
+• Ran git diff --check; git diff --stat -- demo/site/app.ts bridge/site.test.ts; git status --short
+  └  bridge/site.test.ts | 144 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+     demo/site/app.ts    |   2 +-
+     2 files changed, 143 insertions(+), 3 deletions(-)
+    +12 lines (ctrl+t to view transcript)
+
+• Ran bun x prettier --check demo/site/app.ts bridge/site.test.ts
+  └ Checking formatting...
+    All matched files use Prettier code style!
+
+• Ran bun x tsc --ignoreConfig --noEmit --target ESNext --module Preserve --moduleResolution bundler --lib ESNext,DOM,DOM.Iterable
+  │ --types bun --strict --allowImportingTsExtensions --verbatimModuleSyntax --skipLibCheck --noFallthroughCasesInSwitch
+  │ --noImplicitOverride demo/site/app.ts bridge/site.test.ts
+  └ (no output)
+
+• Ran git diff -- demo/site/app.ts bridge/site.test.ts
+  └ diff --git a/bridge/site.test.ts b/bridge/site.test.ts
+    index 83fbf2f..2242e0a 100644
+    --- a/bridge/site.test.ts
+    +179 lines (ctrl+t to view transcript)
+
+• Implemented. C10 remains clear, narrow, and worthwhile. The signed state now retains decoded details from the original
+  transaction body.
+
+  Changed files:
+
+  • demo/site/app.ts:408: retain transaction details in signed.
+  • bridge/site.test.ts:124: test all four actions after signing, reopening, and reload.
+
+  Exact checks:
+
+  • bun test bridge/site.test.ts — 28 passed, zero failed.
+  • bun x prettier --check demo/site/app.ts bridge/site.test.ts — passed.
+  • git diff --check — passed.
+  • The targeted typecheck below passed. Its first invocation required --ignoreConfig after TS5112.
+
+  bun x tsc --ignoreConfig --noEmit --target ESNext --module Preserve --moduleResolution bundler --lib ESNext,DOM,DOM.Iterable
+  --types bun --strict --allowImportingTsExtensions --verbatimModuleSyntax --skipLibCheck --noFallthroughCasesInSwitch
+  --noImplicitOverride demo/site/app.ts bridge/site.test.ts
+
+  The regressions verify retained material terms, action visibility, unchanged stored bytes, and exact envelope submission through
+  mocked requests.
+
+  Limits: Tests use a mocked browser and isolated keys. Restored tests cover valid signed records. C09 journal integrity remains
+  outside scope. No live signing, testnet submission, or physical browser checks ran.
+
+  Worked for 3m 12s · 4:13 PM
+
+
+› Ask Codex to do anything
+
+  GPT-6-Sol high · ~/Desktop/walleterm-v2 · Assess and implement C10                                    ⚠ 2 warnings · f2 to view

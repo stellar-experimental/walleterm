@@ -1,0 +1,33 @@
+{
+  "closed_audit_owned_panes": [
+    {
+      "pane": "w44:p1Q",
+      "result": {
+        "id": "cli:pane:close",
+        "result": {
+          "type": "ok"
+        }
+      }
+    },
+    {
+      "pane": "w44:p1R",
+      "result": {
+        "id": "cli:pane:close",
+        "result": {
+          "type": "ok"
+        }
+      }
+    },
+    {
+      "pane": "w44:p1S",
+      "result": {
+        "id": "cli:pane:close",
+        "result": {
+          "type": "ok"
+        }
+      }
+    }
+  ],
+  "unrelated_panes_changed": false,
+  "focus_command_sent": false
+}

@@ -1,0 +1,19 @@
+Encode a transaction envelope from JSON to XDR
+
+Usage: stellar tx encode [OPTIONS] [INPUT]...
+
+Arguments:
+  [INPUT]...  XDR or files containing XDR to decode, or stdin if empty
+
+Options:
+      --input <INPUT_FORMAT>    [default: json] [possible values: json]
+      --output <OUTPUT_FORMAT>  [default: single-base64] [possible values: single-base64, single]
+  -h, --help                    Print help
+
+Global Options:
+      --config-dir <CONFIG_DIR>    Location of config directory. By default, it uses `$XDG_CONFIG_HOME/stellar` if set, falling back to `~/.config/stellar` otherwise. Contains configuration files, aliases, and other persistent settings
+  -f, --filter-logs <FILTER_LOGS>  Filter logs output. To turn on `stellar_cli::log::footprint=debug` or off `=off`. Can also use env var `RUST_LOG`
+  -q, --quiet                      Do not write logs to stderr including `INFO`
+  -v, --verbose                    Log DEBUG events
+      --very-verbose               Log DEBUG and TRACE events [alias: --vv]
+      --no-cache                   Do not cache your simulations and transactions [env: STELLAR_NO_CACHE=]

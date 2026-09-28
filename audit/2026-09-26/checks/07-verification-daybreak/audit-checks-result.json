@@ -1,0 +1,30 @@
+{
+  "snapshot": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "status": "passed",
+  "cli_pipeline": {
+    "signs_with_live_context": true,
+    "submits_with_stellar_cli_directly": true,
+    "submits_with_shared_guard": false,
+    "documented_in_live_guide": false
+  },
+  "submission_gate": {
+    "gate_file_fsync": true,
+    "parent_directory_fsync": false
+  },
+  "checkpoint_reuse": {
+    "cap71_binds_protocol_or_harness_revision": false,
+    "cap85_binds_protocol_or_harness_revision": false,
+    "reused_rows_are_labeled_previous_run": true
+  },
+  "missing_tracked_references": 9,
+  "historical_source_hash_paths_absent": 5,
+  "current_source_sha256": {
+    "tests/submission.ts": "863cdd2fca94988bc1d5acaca36fe4853c5cfc105d322ec7e96384f60731750b",
+    "tests/submission.test.ts": "e1dab0bb99c3ab602d6f179bacfda2654395149417b8154792df2e9b5068193e",
+    "tests/checkpoint.test.ts": "01e909e60ad67055b4be2b266427b9d5d64b34a03aa60ca5e798bec34b8a1191",
+    "tests/live-utils.ts": "71a3938d6e9268f7e7b2e88ff9ac32d85b7ddba93a97e03d88fec36d855506c9",
+    "tests/live.ts": "38788b85473eb91663219900e2a7a55ca49be3c847fb82fad73d8f38218663f6",
+    "tests/classic.ts": "1b6cb0242b5aee02b539b90e82ef1b247c64d5082ce96de5189acf1ed481d8fd",
+    "tests/cli-pipeline.ts": "be5946c4093554cf559060c565daf7081fbea5ff5140b0088a1dd941720dadeb"
+  }
+}

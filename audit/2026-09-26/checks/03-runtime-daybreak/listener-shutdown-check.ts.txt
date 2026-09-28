@@ -1,0 +1,39 @@
+import assert from 'node:assert/strict';
+import { createConnection } from 'node:net';
+import type { AddressInfo } from 'node:net';
+import { createBridge } from '/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts';
+import { createDemoSite } from '/private/tmp/walleterm-audit-40d6cca9db73/demo/server.ts';
+
+async function accepts(port: number): Promise<boolean> {
+  return new Promise((resolve, reject) => {
+    const socket = createConnection({ host: '127.0.0.1', port });
+    socket.once('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.once('error', (error: NodeJS.ErrnoException) => {
+      if (error.code === 'ECONNREFUSED') resolve(false);
+      else reject(error);
+    });
+  });
+}
+
+const bridge = createBridge({
+  port: 0,
+  listSigners: async () => [],
+  log: () => {},
+});
+await bridge.listen();
+const bridgePort = (bridge.server.address() as AddressInfo).port;
+assert.equal(await accepts(bridgePort), true);
+await bridge.close();
+assert.equal(await accepts(bridgePort), false);
+
+const demo = createDemoSite({ port: 0 });
+await demo.listen();
+const demoPort = (demo.server.address() as AddressInfo).port;
+assert.equal(await accepts(demoPort), true);
+await demo.close();
+assert.equal(await accepts(demoPort), false);
+
+console.log(JSON.stringify({ bridge_listener_closed: true, demo_listener_closed: true }));

@@ -1,0 +1,616 @@
+{
+  "report": "reports/02-bridge-astra.md",
+  "retained_file_count": 122,
+  "files": [
+    {
+      "path": "reports/02-bridge-astra.md",
+      "bytes": 15578,
+      "sha256": "7c1eccbeb2f50d69c62778fe47500c2b758e26082ff17effc3564e6759d8f631"
+    },
+    {
+      "path": "checks/02-bridge-astra/adversarial-tests.log",
+      "bytes": 1178,
+      "sha256": "1776bc3f7d283cb7cc8f0969acabb1fdcf50b826397930364e1d66654fe0243b"
+    },
+    {
+      "path": "checks/02-bridge-astra/adversarial.test.ts",
+      "bytes": 11274,
+      "sha256": "5fe9e6148f17b45a7e21fb8ad04df0909111e822f6b16499c0e5576c53deb32e"
+    },
+    {
+      "path": "checks/02-bridge-astra/commands.md",
+      "bytes": 7234,
+      "sha256": "3e072755f51025ea8de45102467cd63244c6f0747060fe44e75df0d9e0050afc"
+    },
+    {
+      "path": "checks/02-bridge-astra/report-validation.json",
+      "bytes": 694,
+      "sha256": "d400b5eabd22cd3d252145660b4570125d128a44b9497fae4d13fe04ae8eb7b1"
+    },
+    {
+      "path": "checks/02-bridge-astra/results.json",
+      "bytes": 1245,
+      "sha256": "6e7a827b25a99bfd55a2ab128ad0d3a7deedc8c19e34d803527cda224f0c0f66"
+    },
+    {
+      "path": "checks/02-bridge-astra/snapshot-verification.json",
+      "bytes": 218,
+      "sha256": "3c678b28d0593b0c2eaa60305b7e6057fda8daed3991288b97c831c68bb93d8b"
+    },
+    {
+      "path": "checks/02-bridge-astra/targeted-tests.log",
+      "bytes": 5064,
+      "sha256": "7bf242fcb6a811f4619f5d351825ee9bdeadd6d91a69ee2508547441a48df08c"
+    },
+    {
+      "path": "checks/02-bridge-astra/validate-report.py",
+      "bytes": 3283,
+      "sha256": "744bdd6410b48e82c99e26e4d17e1cb330818b960d1a5acb3ba7d59889bb5604"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/.host/slot-0.lock",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/.host/state.json",
+      "bytes": 1319,
+      "sha256": "2fa863cad1869e83b5211c512c48748f92253495b24081ab87d05c7ff15ad58b"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/.host/state.lock",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/bundle.md",
+      "bytes": 175,
+      "sha256": "8de28ade63b23541bac5770ca65c6e0e65642a7a22dfd469a168dab0897215f9"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/classification.json",
+      "bytes": 44,
+      "sha256": "7555dfa2f97e3674422b0b5550e70b52449010b7130389b4e51ec56a9b5df91c"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/deferred.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/documents.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/failures.json",
+      "bytes": 513,
+      "sha256": "fdfcca2212ad52408e76642afb837ac72272e6980da2b9efa8f0bf823721be77"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/intent.json",
+      "bytes": 63,
+      "sha256": "c15c18cb38d86b5bb89232c7b3d2a101d58963db0419082d67184ffacd29aba3"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/load.json",
+      "bytes": 4,
+      "sha256": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/manifest.json",
+      "bytes": 2198,
+      "sha256": "e6ed6d0c2f189bf7900cc37135c55e6db6b7800f4de2ebe234ab2d20d478b9ed"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/omitted.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/question.json",
+      "bytes": 859,
+      "sha256": "e28d03e7d08e7ff65b2eebb4b2787e91fb8d79423d78be1fa9133b67c917aabe"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/retrieved.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/routes.json",
+      "bytes": 279,
+      "sha256": "81d44874ed0a9a20a9c8940306dd0fb82c1c3eb8c65cfe151dae0c57498710ba"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/scores.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/search.json",
+      "bytes": 4043,
+      "sha256": "be3f98a6ddc8ca2e3c9cd5bef5fb49e0855c182a1483fcc307e49e8134742af2"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/session.json",
+      "bytes": 447,
+      "sha256": "9f9d0befe4b9a740d877d64cc84e6f466367c286bdb2b1377de374fc3e6ef3f9"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/source-decisions.json",
+      "bytes": 6922,
+      "sha256": "3430ec7d8db9df2c7d2115a94cb2305db28b565c00a9c7899cd6123cc14b6d55"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/source-scope.json",
+      "bytes": 1347,
+      "sha256": "a8e7aea5f2f8141cf84be99a96dd78189b22de0c0c38ba57f46f7875664693a1"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/usage.json",
+      "bytes": 162,
+      "sha256": "81ebf95a11f903e5001147cfe69547b9991f542bcdc2b622371f059214dfb912"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/bundle.md",
+      "bytes": 49037,
+      "sha256": "fab08deeebfee18a986a9115f82fc8d832cada2ef5e8549e5b8d68e8df94a738"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/classification.json",
+      "bytes": 26211,
+      "sha256": "01f7fd09748ebc004a227f42e9a0daf1d9b403310ef1cf4ee3f7e8760c06869d"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/deferred.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/documents.json",
+      "bytes": 2853634,
+      "sha256": "450d48bc72536a4d08d0b643a01229ceb7fbadc6e0da7872917abb3935c52b33"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/failures.json",
+      "bytes": 23142,
+      "sha256": "10054ea616406d0f9ce48988159fdb42ebfa47db0694eb9729c315a59b2ad27d"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/intent.json",
+      "bytes": 65,
+      "sha256": "b7f6110b3075bb3dacf62f8617cd0ed15531c9239556a0a4355a2a30b8c05bac"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/load.json",
+      "bytes": 1128,
+      "sha256": "e0b6f286a53c677bf82a2701474a0b46dcf45280279784f8e0d76d19d44f9dd6"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/manifest.json",
+      "bytes": 2340,
+      "sha256": "4906e5dd23aca82e67bd3e6907a2a2220f9cecf1067a8323437d762ad3c67ea0"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/omitted.json",
+      "bytes": 2,
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/question.json",
+      "bytes": 859,
+      "sha256": "f16bad8d4fd3b7b8001bca3a74d7d3eb499f42a2f372a86d58cb3078a7f2e54d"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/retrieved.json",
+      "bytes": 36350,
+      "sha256": "7bd6abba7df0e38e1849de5cf946af6ffc05f5caa0ea86c334ba4557458d6934"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/routes.json",
+      "bytes": 25159,
+      "sha256": "ab452461094c5c44e63297546ced1e529a0bf6b4d46605f9fbb9725b4a95f288"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/scores.json",
+      "bytes": 179489,
+      "sha256": "f9cdc65d8c057faa1c858c8675bb0a01c3f935b5078fa5fff26bb851f4cbdb2e"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0007.txt",
+      "bytes": 1197,
+      "sha256": "1a81f4d54a26a8ffc024358f67726ec1c551530f524465e06be05782901f94b3"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0008.txt",
+      "bytes": 938,
+      "sha256": "f254c5c80a31b4416edb21249a61635fa5b6d2bb8d35a9d38cfb16c36685d2bb"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0009.txt",
+      "bytes": 938,
+      "sha256": "f254c5c80a31b4416edb21249a61635fa5b6d2bb8d35a9d38cfb16c36685d2bb"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0018.txt",
+      "bytes": 5279,
+      "sha256": "dd8bd0c4b0f9c73fc31f066474eca9670bb46fc483010191b116ac9b6cdaab76"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0019.txt",
+      "bytes": 3440,
+      "sha256": "afc35307eb28ed07c7f467a867c5aecaed2c5078d54ede6a2cc969191e3fb295"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0020.txt",
+      "bytes": 4291,
+      "sha256": "e04d9b55697c25556a2ad2cb8d9a48687c1b49cd7a0acafdd27d7602df09244f"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0024.txt",
+      "bytes": 1165,
+      "sha256": "2543cb9bef3b75982aa8e80b89624c5af5bb19a0d79e22989ad999218c97567c"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0027.txt",
+      "bytes": 3090,
+      "sha256": "21baa7bdddc351e627ebaec6f1589004aa91c9f50c472dcb36025e8135c8f8b0"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0028.txt",
+      "bytes": 4014,
+      "sha256": "b5c0db771238d205b0286be4a67143dda73b1e6fd822e645b9b501d7c887b40a"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0030.txt",
+      "bytes": 3328,
+      "sha256": "485b71899de06161e2a5de60374e1c230234ac9d0c66a832a3cfc462104047fb"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0040.txt",
+      "bytes": 1365,
+      "sha256": "ff4b8c1d3d979c874460ccd34616becfed85f597be9faf0d718bd881249e22ec"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0049.txt",
+      "bytes": 3518,
+      "sha256": "10e1e0365507afed9e206a14000a5a6d2dcf00d2dda0336f84ba6a655b194df0"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0050.txt",
+      "bytes": 5997,
+      "sha256": "554e29f8409a20ec81c3d61079f8579005c3a3a5d74f305c559f0170184f2a23"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0057.txt",
+      "bytes": 1436,
+      "sha256": "8d17eba42d4733946fa5f49550ecc52c5810773426c1321a97a7e14a5d885dad"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0077.txt",
+      "bytes": 5742,
+      "sha256": "53d7ecd29ee83e60c6243410ec708ffc1f383e0ebfdbc45f768bccdd9cb0ac26"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0078.txt",
+      "bytes": 5985,
+      "sha256": "d8471364f8958a2c25d04f21e735b6748052c681d46bbfbca58325fa0820c5b5"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0079.txt",
+      "bytes": 5337,
+      "sha256": "5e7411835e766844d17d473696ff52992a4aa6329cebedc58b85eaea4de55fa5"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0086.txt",
+      "bytes": 3748,
+      "sha256": "e6ac2343346657f0d0e724b6c72251219d44ddde22f62114314f7ea438a7692c"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0107.txt",
+      "bytes": 5714,
+      "sha256": "dbc00338f310d96b588172a80e8a294d5b39a11bb35a7bf2e427fde4f2f0aca7"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0108.txt",
+      "bytes": 5983,
+      "sha256": "ea1b1b4f35bc06a6562bbb284124526752be1657e339f426f979a2ea3f7ae79f"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0115.txt",
+      "bytes": 1793,
+      "sha256": "5328e96871d1c6b4e04423bec1e2ae738d68c8d665ffe761a08e328afe128981"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0127.txt",
+      "bytes": 1167,
+      "sha256": "3f158ca19086a06f2995a48841f3934a6a3fb8a7a825a2e99f23a262b30cb19d"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0135.txt",
+      "bytes": 2405,
+      "sha256": "6682f00c9e3fe5b85c0b5492ddbd628df41e7790593db0f4cd5c469cf8d2cf2f"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0136.txt",
+      "bytes": 448,
+      "sha256": "e5d963379945c210f46fe17138a5d116611017f7e5cd0b07594a18d01481b8e0"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0137.txt",
+      "bytes": 477,
+      "sha256": "4e9bce5bd0bf09732e1ead18561176664c97acd60d5b92f92266b4cfdc428c8f"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0147.txt",
+      "bytes": 17948,
+      "sha256": "94977b9b14da35dbcffd662172a4252c32932f0b4979e32d17fcb75d0c628cca"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0165.txt",
+      "bytes": 553,
+      "sha256": "634836c8fea69c7d0d8ec1d2382333f3fb561572bf25499c64b4a2a6b8060313"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0166.txt",
+      "bytes": 2195,
+      "sha256": "6f90aa91cac1574740dd97e2901710426a34e36674af54d33bb72b51d965aa15"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0171.txt",
+      "bytes": 5285,
+      "sha256": "60db6ab79e3caa4b4abb13ecf44cc7ed6bca734df603bfd54bf8b98276a2bfc9"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0195.txt",
+      "bytes": 3427,
+      "sha256": "a407541e4125b72e40cb962513942e91723473a4445566deabab9a0992062a19"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0201.txt",
+      "bytes": 915,
+      "sha256": "762a90c4534ad021a65bd817beb0efccec19d2150ee19c3a56f1eb2c92aed63b"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0212.txt",
+      "bytes": 1113,
+      "sha256": "0e8c87ad0af4a16602785311dfff787b0e1fc111339a6e96cb99b7b27978fef1"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0223.txt",
+      "bytes": 1683,
+      "sha256": "ace37dc3aa71ed6c7e861ffab1328de67d21270ed16763b7017b49e29e4e2c53"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0231.txt",
+      "bytes": 874,
+      "sha256": "4635d1285b62e1f025fbcb7f41b542d01e865538955c3833dba003d0ff90cfa5"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0252.txt",
+      "bytes": 2331,
+      "sha256": "9cc5177536b01a233c5c15c2ddee6ac3a2aedeac9660a8b977119020771568bb"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0253.txt",
+      "bytes": 5071,
+      "sha256": "8d742f8f04bf4262ce08e61d73ec9198dffcc6a2ad7ca8a7cb8959968a438a24"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0260.txt",
+      "bytes": 2374,
+      "sha256": "c0177dcc43680ac248e6e781f5c88ce1cbc8e4df9c3eefe667743d529d3c8793"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0271.txt",
+      "bytes": 1167,
+      "sha256": "3f158ca19086a06f2995a48841f3934a6a3fb8a7a825a2e99f23a262b30cb19d"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0281.txt",
+      "bytes": 297,
+      "sha256": "87b9b3a8551c7304af8673bc7dde78113bbd449e67058e9436d32bfc4687c35a"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0291.txt",
+      "bytes": 3096,
+      "sha256": "d378e35b96054256ea6c4b6e378b3e36b2f9ff9c01ebb3a571c9d4d4764aa63a"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0299.txt",
+      "bytes": 1365,
+      "sha256": "ff4b8c1d3d979c874460ccd34616becfed85f597be9faf0d718bd881249e22ec"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0307.txt",
+      "bytes": 3370,
+      "sha256": "6170fda22f73a1ed8d81ff812e872ef64509e6e935e57a1c51a764a35636417f"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0308.txt",
+      "bytes": 1365,
+      "sha256": "d29e6da11ba2eb0f1aeac5e549d86cd3c27c4919877d824e51834adb387c5479"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0309.txt",
+      "bytes": 3129,
+      "sha256": "276b7aae04a9546facfc21513be3989aa5e9a1d0d151c90a9097c838911c8ff4"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0317.txt",
+      "bytes": 6013,
+      "sha256": "f4d612516e39df0884e6714e96560cf6038450626c8c3070a8df7ec8c9ca3c33"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0337.txt",
+      "bytes": 666,
+      "sha256": "a02cadc40ed221e6330989d82f0c3c208212dfc714a242815b9644217e541136"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0344.txt",
+      "bytes": 1750,
+      "sha256": "d76066452b2055adf4e085bc98faa79df7bd837ebb02a07ea0dda26d2d15714d"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0346.txt",
+      "bytes": 1857,
+      "sha256": "c477d5dd9dd4dbbdcc553833a126eaef4c58cea99dae4fd09282455b635de6c8"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0347.txt",
+      "bytes": 17876,
+      "sha256": "bef99660bf1d5281725717c06d8204a2f7dda63fe4b5f0ee024de2f23f066db5"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0348.txt",
+      "bytes": 15277,
+      "sha256": "b2a7abd9cde08c23a869ddcc702db7d8101bebb1c83b9a8ec95ef4d5fb6a323d"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0349.txt",
+      "bytes": 7292,
+      "sha256": "75dba9fb1712422de567088d5e6032fa4dae8bbb46b80dc3dd72c997ac0c9b4f"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search-documents/0350.txt",
+      "bytes": 22330,
+      "sha256": "28d2d15af3adbb0a6f81b30318069223c3c6c79ab3a9d19a833dad3574bd3ef2"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search.json",
+      "bytes": 103863,
+      "sha256": "2b7daaa28df79329e73909673720ac7ee8460ced1dcb75f9b6f99c1450569493"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/session.json",
+      "bytes": 647,
+      "sha256": "df1564148e88f39ca3bdff5dbcc76d040deddac0260474eb4de6dda14e1715d7"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/source-decisions.json",
+      "bytes": 6342,
+      "sha256": "b44798f7ab94f6a9e97844ac7e012ee34654daa5b2387ec2e0ed4f2a001a6f2c"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/source-scope.json",
+      "bytes": 1347,
+      "sha256": "a8e7aea5f2f8141cf84be99a96dd78189b22de0c0c38ba57f46f7875664693a1"
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/usage.json",
+      "bytes": 203,
+      "sha256": "b0fdf70ed9c95dec6e4e534ba4b04df1dc2d5eceac9656bd6307d3b28e5a80c3"
+    },
+    {
+      "path": "research/02-bridge-astra/jev-compact.json",
+      "bytes": 2310,
+      "sha256": "7dc0ba5646fd182824ee6e53104e07625d3ac4e3046b45770c570d33a0cc6ab9"
+    },
+    {
+      "path": "research/02-bridge-astra/jev-doctor.txt",
+      "bytes": 1727,
+      "sha256": "7110cb64c8e3308d8f5bc5da53af8bf7312a4c602f176549686ba52529919d94"
+    },
+    {
+      "path": "research/02-bridge-astra/jev-help.txt",
+      "bytes": 3840,
+      "sha256": "7d04ddb3c1b4af9467eb3f03f33cfdfa016dae2abb4a0626403ac8d775efe318"
+    },
+    {
+      "path": "research/02-bridge-astra/jev-retry-compact.json",
+      "bytes": 13369,
+      "sha256": "7acba42ec18dd3aeee2d0e291a7cc947325dd380847379d20d52ea0a2ad0ab8c"
+    },
+    {
+      "path": "research/02-bridge-astra/jev-retry-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "research/02-bridge-astra/jev-search-help.txt",
+      "bytes": 4153,
+      "sha256": "9f25f6ec6ad206e63d0ac7496fe2433fbe6ac4dac1c4d9a69852a41a9108609b"
+    },
+    {
+      "path": "research/02-bridge-astra/jev-stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "research/02-bridge-astra/op-item-list-help.txt",
+      "bytes": 1646,
+      "sha256": "81d09271e7a3ff4d38feb61920a3679b4a195cf07a870b7042813f13129bd00d"
+    },
+    {
+      "path": "research/02-bridge-astra/op-read-help.txt",
+      "bytes": 1468,
+      "sha256": "32aeb36ccdb1c2b1ed15ed76fab4e58da07fa92f5e08f88750d6869d6accba3f"
+    },
+    {
+      "path": "research/02-bridge-astra/op-version.txt",
+      "bytes": 7,
+      "sha256": "c92c1fcc194508ae22cd2d509061d9079a4d54eb789d10bff8d96023a0efe580"
+    },
+    {
+      "path": "research/02-bridge-astra/parallel-cli-retry.stderr.txt",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "research/02-bridge-astra/parallel-cli-retry.stdout.txt",
+      "bytes": 17521,
+      "sha256": "42aeb6a26dda0ba5bfd548dd84288c3e224d68295084f6d8387a3e8250f1913b"
+    },
+    {
+      "path": "research/02-bridge-astra/parallel-cli.json",
+      "bytes": 17442,
+      "sha256": "747d16f6d20d9ee26d570cf45c33c09846002eb386e175284f938e251b595b8a"
+    },
+    {
+      "path": "research/02-bridge-astra/parallel-cli.stderr.txt",
+      "bytes": 168,
+      "sha256": "f471ed7a7eccdcf7f357a34fd5c0ad3977e45aaf4735617d4711c6f139b16f67"
+    },
+    {
+      "path": "research/02-bridge-astra/parallel-cli.stdout.txt",
+      "bytes": 90,
+      "sha256": "fdeba4119a441a5f38cd1a766692d6d9dbd7ce54651ffba01c5ac4e4f7b394de"
+    },
+    {
+      "path": "research/02-bridge-astra/parallel-help.txt",
+      "bytes": 1185,
+      "sha256": "5a6796f0ddfcc86b60e0f26e9d3096ae86ebcbbc71dc732d4f9a9dfb86203ca3"
+    },
+    {
+      "path": "research/02-bridge-astra/parallel-mcp.json",
+      "bytes": 36063,
+      "sha256": "4068b42c9473c9dab3a7cf3dc38aa180c58061bff139c49a0c4d6deb5206741b"
+    },
+    {
+      "path": "research/02-bridge-astra/parallel-search-help.txt",
+      "bytes": 2449,
+      "sha256": "46526c359ba6c8c79cd8031587810a0a2d544f0a75761d7e8b82345983d4febf"
+    },
+    {
+      "path": "research/02-bridge-astra/perplexity.json",
+      "bytes": 15198,
+      "sha256": "062ed5cf454c9a53cb8332eae6091d854b73ae06a7b1f64de0d8857b4f9d73e1"
+    },
+    {
+      "path": "research/02-bridge-astra/raven.json",
+      "bytes": 6745,
+      "sha256": "e53971d5940d865eaac81d7ea517b8770cfc8f9234ae937f35f0f575d05a1e11"
+    },
+    {
+      "path": "research/02-bridge-astra/secret-reference.json",
+      "bytes": 8818,
+      "sha256": "2f2bce16a76f158423cea3848e19c25ac5f036a0e0bbd251d57b2bb6484fadf2"
+    },
+    {
+      "path": "research/02-bridge-astra/usage-summary.json",
+      "bytes": 2024,
+      "sha256": "b9dd7fc656ebd9e110b8cc262c86971ba117e1f1334a80d66aed8f605273c645"
+    }
+  ]
+}

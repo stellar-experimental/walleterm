@@ -1,0 +1,21 @@
+{
+  "raw_outputs_with_json_suffix": [
+    {
+      "path": "research/08-product-astra/parallel-cli-retry-stdout.json",
+      "interpretation": "CLI stdout includes a Results saved preamble. The separate parallel-cli.json contains structured output."
+    },
+    {
+      "path": "research/05-demo-astra/parallel-cli-network-stdout.json",
+      "interpretation": "CLI stdout includes a Results saved preamble. The separate parallel-cli-storage.json contains structured output."
+    },
+    {
+      "path": "research/03-runtime-astra/parallel-cli-permitted-stdout.json",
+      "interpretation": "CLI stdout includes a Results saved preamble. The separate parallel-cli.json contains structured output."
+    },
+    {
+      "path": "checks/concerns/c13-astra/recovery-result.json",
+      "interpretation": "Empty stdout from an initial failed probe. commands.md records the failure; recovery-result-2.json records the corrected successful probe."
+    }
+  ],
+  "policy": "Preserve original raw output bytes and names. These files are not audit control metadata."
+}

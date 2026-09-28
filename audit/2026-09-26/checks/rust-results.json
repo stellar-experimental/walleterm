@@ -1,0 +1,62 @@
+[
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--manifest-path",
+      "fixtures/contracts/Cargo.toml",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "exit_code": 0,
+    "seconds": 25.47,
+    "log": "rust-base.txt"
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--manifest-path",
+      "fixtures/cap71/Cargo.toml",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "exit_code": 0,
+    "seconds": 4.29,
+    "log": "rust-cap71.txt"
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--manifest-path",
+      "fixtures/cap85/contracts/Cargo.toml",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "exit_code": 0,
+    "seconds": 16.46,
+    "log": "rust-cap85.txt"
+  },
+  {
+    "command": [
+      "cargo",
+      "test",
+      "--locked",
+      "--offline",
+      "--manifest-path",
+      "fixtures/cap85/contracts-sdk27/Cargo.toml",
+      "--workspace"
+    ],
+    "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "exit_code": 0,
+    "seconds": 5.3,
+    "log": "rust-legacy27.txt"
+  }
+]

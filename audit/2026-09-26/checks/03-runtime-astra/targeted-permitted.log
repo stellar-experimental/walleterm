@@ -1,0 +1,33 @@
+bun test v1.4.2 (744846f84)
+
+../../../Users/kalepail/Desktop/walleterm-v2/audit/2026-09-26/checks/03-runtime-astra/targeted.test.ts:
+{"check":"supervisor-isolation","private_modes":["0700","0600","0600"],"sentinel_values":["unset","unset"],"stopped_only_owned_processes":true}
+(pass) real supervisor preserves private config, filters environment, and isolates two services [1285.44ms]
+{"check":"loopback-services","addresses":["127.0.0.1","127.0.0.1"],"signer_calls":0}
+(pass) actual bridge and demo bind loopback and close independently without signer calls [6.24ms]
+{"check":"malformed-demo-target","child_exit":1,"response_head":"HTTP/1.1 200 OK","stderr":"42 |       ].includes(req.headers.host || '')\n43 |     ) {\n44 |       res.writeHead(403);\n45 |       return res.end();\n46 |     }\n47 |     const path = new URL(req.url || '/', origin).pathname;\n                      ^\nTypeError: Invalid URL\n input: \"//%\",\n  base: \"http://127.0.0.1:0\",\n  code: \"ERR_INVALID_URL\"\n\n      at <anonymous> (/private/tmp/walleterm-audit-40d6cca9db73/demo/server.ts:47:18)\n      at emit (node:events:103:22)\n      at onNodeHTTPRequest (node:_http_server:526:22)\n\nBun v1.4.2 (macOS arm64)\n"}
+91 |       socket.on('data', b => response += b.toString());
+92 |       socket.on('error', reject); socket.on('close', resolve);
+93 |     });
+94 |     await delay(100);
+95 |     console.log(JSON.stringify({ check: 'malformed-demo-target', child_exit: child.exitCode, response_head: response.split('\r\n')[0], stderr: errors }));
+96 |     assert.equal(child.exitCode, null);
+                ^
+AssertionError: Expected values to be strictly equal:
+
+1 !== null
+
+ generatedMessage: true,
+     actual: 1,
+   expected: null,
+   operator: "strictEqual",
+       diff: "simple",
+       code: "ERR_ASSERTION"
+
+      at /Users/kalepail/Desktop/walleterm-v2/audit/2026-09-26/checks/03-runtime-astra/targeted.test.ts:96:12
+      at processTicksAndRejections (native:7:39)
+(fail) malformed demo request does not terminate its process [123.19ms]
+
+ 2 pass
+ 1 fail
+Ran 3 tests across 1 file. [1491.00ms]

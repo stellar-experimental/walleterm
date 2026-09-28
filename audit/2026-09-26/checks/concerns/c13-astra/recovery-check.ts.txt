@@ -1,0 +1,162 @@
+// Execute frozen recovery and row bodies. Keep all external effects offline.
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { join } from 'node:path';
+import {
+  loadManifest, loadState, saveState, prepareCap85, reconcileInflight,
+} from '/private/tmp/walleterm-audit-40d6cca9db73/tests/cap85.ts';
+
+const source = readFileSync('/private/tmp/walleterm-audit-40d6cca9db73/tests/cap85.ts', 'utf8');
+assert.equal(createHash('sha256').update(source).digest('hex'),
+  '1bebefc34f0532eef91e7854cc70320f43cb0899a915a8c56237a691a9da1a45');
+function extract(start: string, end: string) {
+  const first = source.indexOf(start);
+  const last = source.indexOf(end, first);
+  assert.ok(first >= 0 && last > first);
+  return source.slice(first, last);
+}
+const bodies = [
+  extract('const stepper =', '// The saved hash of an uploaded artifact.'),
+  extract('async function deployWasm(', 'const call ='),
+  extract('async function x06(', '// Observation only:'),
+  extract('export async function runCap85(', '// ---------- offline self-test ----------')
+    .replace('export async', 'async'),
+];
+const executable = new Bun.Transpiler({ loader: 'ts' }).transformSync(bodies.join('\n'));
+const manifest = loadManifest();
+const directory = mkdtempSync('/private/tmp/c13-astra-');
+const base = { contracts: Object.fromEntries(
+  ['oz_basic_a', 'simple_account_b', 'ed25519_verifier'].map(name => [name, { id: 'mock-base' }]),
+) };
+const sdk = { Networks: { TESTNET: 'offline-testnet' } };
+const wasmHash = manifest.artifacts['cap85_target_v1.wasm'].sha256;
+const finalHash = 'ab'.repeat(32);
+const results: unknown[] = [];
+
+async function check(mode: 'control' | 'saved-success' | 'inflight-success' | 'unknown' | 'final-mismatch') {
+  const file = join(directory, `${mode}.json`);
+  const events: string[] = [];
+  let operations = 0;
+  let finalReads = 0;
+  let failFinalRead = mode === 'saved-success';
+  let chain = { type: 'external_ref', version: 2 };
+  const ctx = {
+    sdk, networkPassphrase: sdk.Networks.TESTNET,
+    keys: Object.fromEntries(['a', 'b', 'c'].map(name => [name, { publicKey: `mock-${name}` }])),
+    rows: ['X06'],
+    reconcile: async () => { events.push('shared-reconcile'); },
+    assertClear: () => { events.push('assert-clear'); },
+    fund: async () => { events.push('fund-stub'); },
+    record: (id: string, status: string) => { events.push(`${id}:${status}`); },
+    signDigest: () => assert.fail('no signing'),
+    sign: () => assert.fail('no signing'),
+    send: () => assert.fail('no submission'),
+    rpc: {
+      getNetwork: async () => ({ passphrase: sdk.Networks.TESTNET, protocolVersion: 28 }),
+      getTransaction: async (hash: string) => {
+        assert.equal(hash, finalHash);
+        events.push(`lookup:${hash}`);
+        return { status: mode === 'unknown' ? 'NOT_FOUND' : 'SUCCESS', ledger: 123 };
+      },
+    },
+  };
+  let state = loadState(ctx as never, base, manifest, file);
+  state.contracts.manager = { id: 'mock-manager', executable: { type: 'wasm' } };
+  state.contracts.target_plain = { id: 'mock-plain', executable: { type: 'wasm' } };
+  state.steps['X06:adopt-ref'] = { hash: 'cd'.repeat(32), outcome: 'submitted' };
+  if (mode === 'inflight-success' || mode === 'unknown') {
+    chain = { type: 'wasm', version: 1 };
+    state.inflight = { row: 'X06', label: 'adopt-wasm', key: 'X06:adopt-wasm', hash: finalHash };
+  }
+  saveState(state);
+  const dependencies = {
+    reconcileInflight, prepareCap85, saveState,
+    loadState: () => state,
+    loadManifest: () => manifest,
+    loadBase: () => base,
+    selectRows: () => new Set(['X06']),
+    requestError: (error: unknown) => error,
+    isUnknown: (error: { code?: string }) => error.code === 'unknown_submission',
+    addr: (_sdk: unknown, value: string) => value,
+    str: (_sdk: unknown, value: string) => value,
+    bytes: (_sdk: unknown, value: Uint8Array) => value,
+    readInstanceExecutable: async () => {
+      if (state.steps['X06:adopt-wasm']) {
+        finalReads++;
+        if (failFinalRead) throw new Error('injected final read failure');
+      }
+      return { type: chain.type, wasm_hash: chain.type === 'wasm' ? wasmHash : undefined };
+    },
+    readU32: async () => chain.version,
+    readOptionalHash: async () => 'mock-resolved-v2',
+    gAuthorizer: () => 'mock-authorizer',
+    call: (_sdk: unknown, _contract: string, method: string) => method,
+    wasmHash: () => wasmHash,
+    invokeOperation: async (_ctx: unknown, current: typeof state, options: { operation: string }) => {
+      assert.equal(options.operation, 'adopt_wasm');
+      operations++;
+      current.inflight!.hash = finalHash;
+      saveState(current);
+      chain = { type: 'wasm', version: mode === 'final-mismatch' ? 2 : 1 };
+      return { outcome: 'submitted', hash: finalHash, ledger: 123 };
+    },
+    FILES: { v1: 'cap85_target_v1.wasm' }, TAG: 'target',
+  };
+  const run = new Function(...Object.keys(dependencies),
+    `${executable}\nconst ROWS = [{id: 'X06', run: x06}]; return runCap85;`)(...Object.values(dependencies));
+  const attempt = async () => {
+    let error: string | null = null;
+    try { await run(ctx); } catch (value) { error = String(value); }
+    return error;
+  };
+  const firstError = await attempt();
+  if (mode === 'control') {
+    assert.equal(firstError, null);
+    assert.ok(state.done.X06);
+    assert.equal(operations, 1);
+  } else if (mode === 'final-mismatch') {
+    assert.match(firstError!, /adopt_wasm did not restore the direct v1 executable/);
+    assert.equal(state.done.X06, undefined);
+  } else if (mode === 'unknown') {
+    assert.match(firstError!, /submission outcome is unknown/);
+    assert.equal(operations, 0);
+    assert.equal(state.inflight!.hash, finalHash);
+    assert.ok(!events.includes('assert-clear') && !events.includes('fund-stub'));
+  } else {
+    if (mode === 'saved-success') assert.match(firstError!, /injected final read failure/);
+    else assert.match(firstError!, /adopt_ref did not move/);
+    const saved = JSON.parse(readFileSync(file, 'utf8'));
+    assert.equal(saved.steps['X06:adopt-wasm'].hash, finalHash);
+    assert.equal(saved.inflight, undefined);
+    assert.equal(saved.done.X06, undefined);
+    assert.equal(saved.steps['X06:adopt-ref'].after_adopt_ref, undefined);
+    if (mode === 'inflight-success') assert.equal(saved.steps['X06:adopt-wasm'].outcome, 'reconciled');
+    failFinalRead = false;
+    const operationsBefore = operations;
+    const restartErrors: string[] = [];
+    for (let restart = 0; restart < 2; restart++) {
+      state = loadState(ctx as never, base, manifest, file);
+      const error = await attempt();
+      assert.match(error!, /adopt_ref did not move the contract onto the v2 reference/);
+      assert.equal(state.done.X06, undefined);
+      assert.ok(!events.includes('X06:passed'));
+      assert.equal(operations, operationsBefore);
+      restartErrors.push(error!);
+    }
+    results.push({ mode, firstError, restartErrors, restart_operations: operations - operationsBefore,
+      cached_final: saved.steps['X06:adopt-wasm'], done: false, events });
+    return;
+  }
+  results.push({ mode, firstError, operations, finalReads, done: !!state.done.X06, events });
+}
+
+try {
+  for (const mode of ['control', 'saved-success', 'inflight-success', 'unknown', 'final-mismatch'] as const) {
+    await check(mode);
+  }
+  console.log(JSON.stringify({ status: 'passed', runtime: Bun.version, cases: results,
+    limits: 'Frozen row, runner, and step bodies; real checkpoint IO and reconciliation. Mock RPC, reads, and operation.' }, null, 2));
+} finally {
+  rmSync(directory, { recursive: true, force: true });
+}

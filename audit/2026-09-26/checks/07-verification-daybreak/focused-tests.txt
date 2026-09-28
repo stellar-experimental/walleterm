@@ -1,0 +1,9 @@
+Command: bun test tests/submission.test.ts tests/checkpoint.test.ts tests/site-bridge.test.ts
+Working directory: /private/tmp/walleterm-audit-40d6cca9db73
+Runtime: Bun 1.4.2
+Result: passed
+Tests: 39 passed, 0 failed
+Duration: 1252 ms
+
+The command used isolated temporary state and mock keys.
+The command made no live signature or network submission.

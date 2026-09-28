@@ -1,0 +1,117 @@
+import { test } from 'bun:test';
+import assert from 'node:assert/strict';
+import * as sdk from '/private/tmp/walleterm-audit-40d6cca9db73/node_modules/@stellar/stellar-sdk';
+import {
+  gAuthorizer,
+  invoke,
+  requireAddressCredentials,
+} from '/private/tmp/walleterm-audit-40d6cca9db73/tests/contracts.ts';
+import {
+  simulationError,
+  simulationSuccess,
+} from '/private/tmp/walleterm-audit-40d6cca9db73/tests/simulations.ts';
+
+const pairA = sdk.Keypair.fromRawEd25519Seed(Buffer.alloc(32, 21));
+const pairB = sdk.Keypair.fromRawEd25519Seed(Buffer.alloc(32, 22));
+const key = (name: 'a' | 'b', pair: sdk.Keypair) => ({
+  name,
+  publicKey: pair.publicKey(),
+  rawPublicKey: pair.rawPublicKey(),
+});
+const keys = { a: key('a', pairA), b: key('b', pairB), c: key('b', pairB) };
+const contract = (byte: number) => sdk.StrKey.encodeContract(Buffer.alloc(32, byte));
+const localContract = contract(31);
+const attackerContract = contract(32);
+
+function functionName(tx: sdk.Transaction) {
+  const operation = tx.operations[0];
+  assert.equal(operation?.type, 'invokeHostFunction');
+  assert.equal(operation.func.type, 'hostFunctionTypeInvokeContract');
+  return operation.func.invokeContract.functionName.toString();
+}
+
+test('shared invoke signs a mismatched RPC authorization root', async () => {
+  const attackerRoot = new sdk.xdr.SorobanAuthorizedInvocation({
+    function: sdk.xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+      new sdk.xdr.InvokeContractArgs({
+        contractAddress: new sdk.Address(attackerContract).toScAddress(),
+        functionName: 'drain',
+        args: [sdk.xdr.ScVal.scvU32(999)],
+      }),
+    ),
+    subInvocations: [],
+  });
+  const attackerEntry = new sdk.xdr.SorobanAuthorizationEntry({
+    credentials: sdk.xdr.SorobanCredentials.sorobanCredentialsAddressV2(
+      new sdk.xdr.SorobanAddressCredentials({
+        address: new sdk.Address(keys.b.publicKey).toScAddress(),
+        nonce: 9n,
+        signatureExpirationLedger: 0,
+        signature: sdk.xdr.ScVal.scvVoid(),
+      }),
+    ),
+    rootInvocation: attackerRoot,
+  });
+  let signCalls = 0;
+  let enforceSawSignedAttackerRoot = false;
+  const context = {
+    sdk,
+    networkPassphrase: sdk.Networks.TESTNET,
+    keys,
+    async signDigest(_key: unknown, payload: Uint8Array) {
+      signCalls += 1;
+      return pairB.sign(payload);
+    },
+    async sign() {
+      assert.fail('The rejection path must not sign an envelope.');
+    },
+    async send() {
+      assert.fail('The rejection path must not submit a transaction.');
+    },
+    rpc: {
+      async getAccount() {
+        return new sdk.Account(keys.a.publicKey, '1');
+      },
+      async simulateTransaction(tx: sdk.Transaction, _resource: undefined, mode: string) {
+        const method = functionName(tx);
+        if (method === 'count') {
+          return simulationSuccess({
+            latestLedger: 100,
+            result: { auth: [], retval: sdk.xdr.ScVal.scvU32(0) },
+          });
+        }
+        if (mode === 'record') {
+          return simulationSuccess({
+            latestLedger: 100,
+            result: { auth: [attackerEntry], retval: sdk.xdr.ScVal.scvU32(1) },
+          });
+        }
+        const operation = tx.operations[0];
+        assert.equal(operation?.type, 'invokeHostFunction');
+        assert.equal(operation.auth?.length, 1);
+        const signed = operation.auth?.[0];
+        assert.ok(signed);
+        assert.deepEqual(signed.rootInvocation.toXdr(), attackerRoot.toXdr());
+        assert.notEqual(requireAddressCredentials(signed).signature.type, 'scvVoid');
+        enforceSawSignedAttackerRoot = true;
+        return simulationError('HostError: Error(Auth, InvalidAction)', { latestLedger: 100 });
+      },
+    },
+  };
+
+  const result = await invoke(context, {
+    contractId: localContract,
+    method: 'ping',
+    args: [new sdk.Address(keys.b.publicKey).toScVal(), sdk.xdr.ScVal.scvU32(1)],
+    authorizers: [gAuthorizer(context, keys.b)],
+    label: 'mismatched-root',
+    expect: 'Error(Auth, InvalidAction)',
+    state: { target: localContract, who: keys.b.publicKey },
+  });
+
+  assert.equal(result.outcome, 'simulation_rejected');
+  assert.equal(signCalls, 1);
+  assert.equal(enforceSawSignedAttackerRoot, true);
+  assert.equal(result.entries[0]?.address, keys.b.publicKey);
+  assert.equal(result.entries[0]?.signed_xdr !== undefined, true);
+});

@@ -1,0 +1,11 @@
+--- a/bridge/connect.test.ts
++++ b/bridge/connect.test.ts
+@@ -1060,7 +1060,7 @@
+     writes = [...observed.writes];
+   });
+   Object.assign(f.ui.dialog, {
+-    close() {
++    close(this: ConnectUI['dialog']) {
+       this.open = false;
+       // Native dialog.close() restores host focus synchronously, as verified by the review.
+       host.dispatchEvent(new Event('focus'));

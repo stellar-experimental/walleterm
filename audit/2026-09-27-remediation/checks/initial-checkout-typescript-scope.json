@@ -1,0 +1,22 @@
+{
+  "paths": [
+    "bridge/connect.test.ts",
+    "evidence/pagebook-2026-09-26/source/client/rpc.ts",
+    "evidence/pagebook-2026-09-26/source/engine/prepare.ts",
+    "evidence/pagebook-2026-09-26/source/engine/submit.ts",
+    "evidence/pagebook-2026-09-26/source/wallet/classic.ts",
+    "evidence/pagebook-2026-09-26/source/wallet/orders.ts",
+    "evidence/pagebook-2026-09-26/source/wallet/pane.ts",
+    "evidence/pagebook-2026-09-26/source/wallet/ticket.ts"
+  ],
+  "ignored": {
+    "bridge/connect.test.ts": false,
+    "evidence/pagebook-2026-09-26/source/client/rpc.ts": true,
+    "evidence/pagebook-2026-09-26/source/engine/prepare.ts": true,
+    "evidence/pagebook-2026-09-26/source/engine/submit.ts": true,
+    "evidence/pagebook-2026-09-26/source/wallet/classic.ts": true,
+    "evidence/pagebook-2026-09-26/source/wallet/orders.ts": true,
+    "evidence/pagebook-2026-09-26/source/wallet/pane.ts": true,
+    "evidence/pagebook-2026-09-26/source/wallet/ticket.ts": true
+  }
+}

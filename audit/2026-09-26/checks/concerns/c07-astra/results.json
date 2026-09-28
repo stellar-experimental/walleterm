@@ -1,0 +1,61 @@
+{
+  "revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "checked_at_utc": "2026-09-27T03:34:14.641917+00:00",
+  "source": "/private/tmp/walleterm-audit-40d6cca9db73",
+  "bun_version": "1.4.2",
+  "manifest_files": 199,
+  "git_tree_matches_manifest": true,
+  "before_all_match": true,
+  "after_all_match": true,
+  "checks": [
+    {
+      "name": "original-c07",
+      "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+      "argv": [
+        "bun",
+        "test",
+        "/Users/kalepail/Desktop/walleterm-v2/audit/2026-09-26/checks/04-sdk-daybreak/sdk-regressions.test.ts",
+        "-t",
+        "an unreadable 401 clears the active connection"
+      ],
+      "environment_overrides": {
+        "TMPDIR": "/private/tmp",
+        "BUN_INSTALL_CACHE_DIR": "/private/tmp/walleterm-c07-astra-bun-cache"
+      },
+      "exit_code": 1,
+      "log": "checks/concerns/c07-astra/original-c07.log"
+    },
+    {
+      "name": "c07-observations",
+      "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+      "argv": [
+        "bun",
+        "test",
+        "/Users/kalepail/Desktop/walleterm-v2/audit/2026-09-26/checks/concerns/c07-astra/c07.test.ts"
+      ],
+      "environment_overrides": {
+        "TMPDIR": "/private/tmp",
+        "BUN_INSTALL_CACHE_DIR": "/private/tmp/walleterm-c07-astra-bun-cache"
+      },
+      "exit_code": 0,
+      "log": "checks/concerns/c07-astra/c07-observations.log"
+    },
+    {
+      "name": "existing-controls",
+      "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+      "argv": [
+        "bun",
+        "test",
+        "bridge/connect.test.ts",
+        "-t",
+        "reload removes a revoked|explicit disconnect clears|health checks do not overlap|an expired session removes"
+      ],
+      "environment_overrides": {
+        "TMPDIR": "/private/tmp",
+        "BUN_INSTALL_CACHE_DIR": "/private/tmp/walleterm-c07-astra-bun-cache"
+      },
+      "exit_code": 0,
+      "log": "checks/concerns/c07-astra/existing-controls.log"
+    }
+  ]
+}

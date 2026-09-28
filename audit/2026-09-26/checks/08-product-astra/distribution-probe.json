@@ -1,0 +1,16 @@
+{
+  "status": "reproduced",
+  "source_instruction": "docs/CONNECTION-UI.md:19",
+  "rows": [
+    {
+      "layout": "sdk-only",
+      "exit": 1,
+      "stderr": "error: Cannot find module '../chunk-zx43w6gh.js' from '/private/tmp/walleterm-product-sdk-kaekfrzx/sdk-only/connect.js'\n\nBun v1.4.2 (macOS arm64)"
+    },
+    {
+      "layout": "complete",
+      "exit": 0,
+      "stderr": ""
+    }
+  ]
+}

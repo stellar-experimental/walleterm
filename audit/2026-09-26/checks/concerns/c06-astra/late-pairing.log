@@ -1,0 +1,11 @@
+bun test v1.4.2 (744846f84)
+
+audit/2026-09-26/checks/concerns/c06-astra/late-pairing.test.ts:
+{"pause":"selection-response","destroyed":true,"aborted":false,"lateSavedSession":true,"lateConnectionCallback":true,"previousDisconnectStartedAfterDestroy":true,"signingRequests":0,"calls":[{"route":"/v1/connect","afterDestroy":false,"previous":false},{"route":"/v1/signers","afterDestroy":false,"previous":false},{"route":"/v1/select","afterDestroy":false,"previous":false},{"route":"/v1/disconnect","afterDestroy":true,"previous":true}]}
+(pass) destroy permits a late commit after selection-response [1.52ms]
+{"pause":"previous-disconnect-response","destroyed":true,"aborted":false,"lateSavedSession":true,"lateConnectionCallback":true,"previousDisconnectStartedAfterDestroy":false,"signingRequests":0,"calls":[{"route":"/v1/connect","afterDestroy":false,"previous":false},{"route":"/v1/signers","afterDestroy":false,"previous":false},{"route":"/v1/select","afterDestroy":false,"previous":false},{"route":"/v1/disconnect","afterDestroy":false,"previous":true}]}
+(pass) destroy permits a late commit after previous-disconnect-response [0.10ms]
+
+ 2 pass
+ 0 fail
+Ran 2 tests across 1 file. [19.00ms]

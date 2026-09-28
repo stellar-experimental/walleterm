@@ -1,0 +1,40 @@
+=== RUN   TestListAndSignWithOfflineMock
+=== RUN   TestListAndSignWithOfflineMock/list
+=== RUN   TestListAndSignWithOfflineMock/sign
+--- PASS: TestListAndSignWithOfflineMock (0.01s)
+    --- PASS: TestListAndSignWithOfflineMock/list (0.00s)
+    --- PASS: TestListAndSignWithOfflineMock/sign (0.00s)
+=== RUN   TestAgentReadDeadlineReturnsTimeout
+--- PASS: TestAgentReadDeadlineReturnsTimeout (0.05s)
+=== RUN   TestInputReadDeadlineReturnsTimeout
+--- PASS: TestInputReadDeadlineReturnsTimeout (0.05s)
+=== RUN   TestListAndSignOutputFailure
+=== RUN   TestListAndSignOutputFailure/list/human=false/short=false
+=== RUN   TestListAndSignOutputFailure/list/human=false/short=true
+=== RUN   TestListAndSignOutputFailure/list/human=true/short=false
+=== RUN   TestListAndSignOutputFailure/list/human=true/short=true
+=== RUN   TestListAndSignOutputFailure/sign/human=false/short=false
+=== RUN   TestListAndSignOutputFailure/sign/human=false/short=true
+=== RUN   TestListAndSignOutputFailure/sign/human=true/short=false
+=== RUN   TestListAndSignOutputFailure/sign/human=true/short=true
+--- PASS: TestListAndSignOutputFailure (0.01s)
+    --- PASS: TestListAndSignOutputFailure/list/human=false/short=false (0.00s)
+    --- PASS: TestListAndSignOutputFailure/list/human=false/short=true (0.00s)
+    --- PASS: TestListAndSignOutputFailure/list/human=true/short=false (0.00s)
+    --- PASS: TestListAndSignOutputFailure/list/human=true/short=true (0.00s)
+    --- PASS: TestListAndSignOutputFailure/sign/human=false/short=false (0.00s)
+    --- PASS: TestListAndSignOutputFailure/sign/human=false/short=true (0.00s)
+    --- PASS: TestListAndSignOutputFailure/sign/human=true/short=false (0.00s)
+    --- PASS: TestListAndSignOutputFailure/sign/human=true/short=true (0.00s)
+=== RUN   TestDiagnosticFailurePreventsSigning
+=== RUN   TestDiagnosticFailurePreventsSigning/human=false/short=false
+=== RUN   TestDiagnosticFailurePreventsSigning/human=false/short=true
+=== RUN   TestDiagnosticFailurePreventsSigning/human=true/short=false
+=== RUN   TestDiagnosticFailurePreventsSigning/human=true/short=true
+--- PASS: TestDiagnosticFailurePreventsSigning (0.00s)
+    --- PASS: TestDiagnosticFailurePreventsSigning/human=false/short=false (0.00s)
+    --- PASS: TestDiagnosticFailurePreventsSigning/human=false/short=true (0.00s)
+    --- PASS: TestDiagnosticFailurePreventsSigning/human=true/short=false (0.00s)
+    --- PASS: TestDiagnosticFailurePreventsSigning/human=true/short=true (0.00s)
+PASS
+ok  	command-line-arguments	1.426s

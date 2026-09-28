@@ -1,0 +1,10 @@
+bun test v1.4.2 (744846f84)
+
+tests/cap71.test.ts:
+(pass) mocked CAP71 run > mocked setup and native calls enforce before signing; restart reuses confirmed steps [37.90ms]
+(pass) mocked CAP71 run > malicious RPC roots and unexpected subinvocations cause zero signing requests [19.50ms]
+
+ 2 pass
+ 15 filtered out
+ 0 fail
+Ran 2 tests across 1 file. [126.00ms]
