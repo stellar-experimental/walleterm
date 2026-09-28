@@ -105,6 +105,146 @@ function contextFor(html: string, extras: Record<string, unknown> = {}) {
 }
 const app = () => browserScript(new URL('../demo/site/app.ts', import.meta.url));
 const ok = (data: unknown) => ({ ok: true, json: async () => data });
+const reviewSdk = {
+  Networks: { TESTNET: 'testnet' },
+  Asset: class {},
+  TransactionBuilder: {
+    fromXDR: () => ({
+      source: 'GORIGINAL',
+      fee: '100',
+      sequence: '2',
+      memo: { value: null },
+      timeBounds: { minTime: '0', maxTime: '1' },
+      operations: [{ type: 'manageData', name: 'walleterm-demo' }],
+    }),
+  },
+};
+for (const kind of ['note', 'payment', 'offer', 'cancel_offer'] as const) {
+  test(`${kind} keeps transaction details after signing, reopening, and reload`, async () => {
+    const sdk = await import('@stellar/stellar-sdk');
+    const signer = sdk.Keypair.random(),
+      address = signer.publicKey(),
+      recipient = sdk.Keypair.random().publicKey();
+    const operation =
+      kind === 'note'
+        ? sdk.Operation.manageData({ name: 'walleterm-demo', value: 'review-note' })
+        : kind === 'payment'
+          ? sdk.Operation.payment({ destination: recipient, asset: sdk.Asset.native(), amount: '0.01' })
+          : sdk.Operation.manageSellOffer({
+              selling: sdk.Asset.native(),
+              buying: new sdk.Asset('USDC', recipient),
+              amount: kind === 'offer' ? '0.1' : '0',
+              price: '2',
+              offerId: kind === 'offer' ? '0' : '77',
+            });
+    const tx = new sdk.TransactionBuilder(new sdk.Account(address, '10'), {
+      fee: '100',
+      networkPassphrase: sdk.Networks.TESTNET,
+    })
+      .addOperation(operation)
+      .addMemo(sdk.Memo.id('42'))
+      .setTimeout(180)
+      .build();
+    const originalXdr = tx.toXDR(),
+      hash = Buffer.from(tx.hash()).toString('hex');
+    tx.sign(signer);
+    const signedXdr = tx.toXDR();
+    const expected = {
+      source: address,
+      fee_stroops: '100',
+      sequence: '11',
+      memo: '42',
+      time_bounds: tx.timeBounds,
+      operation:
+        kind === 'note'
+          ? { type: 'manageData', name: 'walleterm-demo', value: Buffer.from('review-note').toString('hex') }
+          : kind === 'payment'
+            ? { type: 'payment', destination: recipient, asset: 'XLM', amount: '0.0100000' }
+            : {
+                type: 'manageSellOffer',
+                selling: 'XLM',
+                buying: `USDC:${recipient}`,
+                amount: kind === 'offer' ? '0.1000000' : '0.0000000',
+                price: '2',
+                offerId: kind === 'offer' ? '0' : '77',
+              },
+    };
+    let stored: string | null = JSON.stringify({
+      kind,
+      state: 'review',
+      address,
+      hash,
+      xdr: originalXdr,
+      ...(kind === 'payment' ? { recipient } : {}),
+    });
+    let signs = 0;
+    const submissions: string[] = [];
+    const extras = {
+      StellarSdk: sdk,
+      Uint8Array,
+      localStorage: {
+        getItem: () => stored,
+        setItem: (_key: string, value: string) => {
+          stored = value;
+        },
+      },
+      client: {
+        token: 'mock-session',
+        async signTransaction(text: string) {
+          signs++;
+          assert.equal(text, originalXdr);
+          return { signedTxXdr: signedXdr };
+        },
+      },
+      address,
+      fetch: async (url: string, options?: RequestInit) => {
+        assert.equal(url, 'https://horizon-testnet.stellar.org/transactions');
+        assert.equal(options?.method, 'POST');
+        submissions.push(new URLSearchParams(String(options?.body)).get('tx')!);
+        return ok({ hash, ledger: 1, successful: false });
+      },
+    };
+    const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8');
+    const source = app();
+    const f = contextFor(html, extras);
+    f.run(source);
+    f.run('connection.onChange({client, account:{address}})');
+    assert.deepEqual(JSON.parse(f.el('details').textContent).transaction, expected);
+    assert.equal(f.el('sign').hidden, false);
+    assert.equal(f.el('submit').hidden, true);
+    await f.click('sign');
+    assert.equal(signs, 1);
+    assert.equal(f.run('pending.state'), 'signed');
+    assert.deepEqual(JSON.parse(f.el('details').textContent).transaction, expected);
+    assert.equal(f.el('sign').hidden, true);
+    assert.equal(f.el('submit').hidden, false);
+    assert.equal(f.el('submit').disabled, false);
+    assert.equal(f.el('clear').hidden, false);
+    assert.equal(JSON.parse(stored!).xdr, originalXdr);
+    assert.equal(JSON.parse(stored!).signed_xdr, signedXdr);
+    const saved = stored;
+    f.click('close-review');
+    f.click('open-review');
+    assert.equal(f.el('review').open, true);
+    assert.deepEqual(JSON.parse(f.el('details').textContent).transaction, expected);
+    assert.equal(stored, saved);
+    const restored = contextFor(html, extras);
+    restored.run(source);
+    assert.equal(restored.run('pending.state'), 'signed');
+    assert.equal(restored.el('review').open, true);
+    assert.deepEqual(JSON.parse(restored.el('details').textContent).transaction, expected);
+    assert.equal(restored.el('sign').hidden, true);
+    assert.equal(restored.el('submit').hidden, false);
+    assert.equal(restored.el('submit').disabled, false);
+    assert.equal(stored, saved);
+    assert.equal(signs, 1);
+    assert.deepEqual(submissions, []);
+    await restored.click('submit');
+    assert.deepEqual(submissions, [signedXdr]);
+    assert.equal(restored.run('pending.hash'), hash);
+    assert.equal(signs, 1);
+  });
+}
 test('signing shows retry progress and stops at the server expiry after the page wakes', async () => {
   let now = Date.now(),
     tick: (() => void) | undefined,
@@ -159,7 +299,7 @@ test('wallet changes preserve the original transaction journal and signer', () =
   for (const state of ['signed', 'unknown', 'signing_unknown']) {
     let stored: string | null | undefined;
     const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
-      StellarSdk: { Networks: { TESTNET: 'testnet' } },
+      StellarSdk: reviewSdk,
       localStorage: {
         getItem: () => null,
         setItem: (_key: string, value: string) => {
@@ -767,7 +907,7 @@ test('the action modal opens before account lookup and keeps preparation errors 
 
 test('connection work disables demo actions and signing without changing the journal', () => {
   const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
-    StellarSdk: {},
+    StellarSdk: reviewSdk,
     localStorage: { getItem: () => null },
   });
   f.run(app());
@@ -942,4 +1082,263 @@ test('a storage failure preserves the completed record and prevents a new build'
   assert.equal(f.reads(), 0);
   assert.equal(f.signs(), 0);
   assert.match(f.el('status').textContent, /Storage unavailable/);
+});
+
+async function confirmationFixture(
+  state: 'signed' | 'unknown' | 'submitting',
+  response: (hash: string) => unknown,
+  kind: 'note' | 'offer' = 'note',
+) {
+  const sdk = await import('@stellar/stellar-sdk');
+  const signer = sdk.Keypair.random(),
+    address = signer.publicKey();
+  const tx = new sdk.TransactionBuilder(new sdk.Account(address, '1'), {
+    fee: '100',
+    networkPassphrase: sdk.Networks.TESTNET,
+  })
+    .addOperation(
+      kind === 'note'
+        ? sdk.Operation.manageData({ name: 'confirmation', value: 'test' })
+        : sdk.Operation.manageSellOffer({
+            selling: sdk.Asset.native(),
+            buying: new sdk.Asset('USDC', address),
+            amount: '0.1',
+            price: '2',
+            offerId: '0',
+          }),
+    )
+    .setTimeout(180)
+    .build();
+  const hash = Buffer.from(tx.hash()).toString('hex'),
+    xdr = tx.toXDR();
+  tx.sign(signer);
+  const original = { kind, state, address, hash, xdr, signed_xdr: tx.toXDR() };
+  const writes: { state: string; result?: unknown }[] = [];
+  const store = {
+    value: JSON.stringify(original) as string | null,
+    getItem() {
+      return this.value;
+    },
+    setItem(_key: string, value: string) {
+      this.value = value;
+      writes.push(JSON.parse(value));
+    },
+  };
+  const requests: { url: string; method: string; body?: BodyInit | null }[] = [];
+  let signs = 0;
+  const extras = {
+    StellarSdk: sdk,
+    Uint8Array,
+    localStorage: store,
+    client: {
+      token: 'mock-session',
+      signTransaction() {
+        signs++;
+        throw Error('Confirmation must not sign.');
+      },
+    },
+    address,
+    fetch: async (url: string, options?: RequestInit) => {
+      requests.push({ url, method: options?.method || 'GET', body: options?.body });
+      if (url === 'https://horizon-testnet.stellar.org/ledgers?order=desc&limit=1')
+        return ok({ _embedded: { records: [{ closed_at: new Date().toISOString() }] } });
+      assert.equal(
+        url,
+        `https://horizon-testnet.stellar.org/transactions${options?.method === 'POST' ? '' : `/${hash}`}`,
+      );
+      return ok(response(hash));
+    },
+  };
+  const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'),
+    source = app();
+  const load = () => {
+    const f = contextFor(html, extras);
+    f.run(source);
+    f.run('connection.onChange({client, account:{address}})');
+    return f;
+  };
+  return { ...load(), load, store, writes, requests, original, signs: () => signs };
+}
+
+const invalidConfirmations: [string, (hash: string) => unknown][] = [
+  ['empty object', () => ({})],
+  ['null', () => null],
+  ['primitive', () => 'invalid'],
+  ['array', (hash) => Object.assign([], { hash, ledger: 1, successful: true })],
+];
+for (const [field, values] of [
+  ['hash', [undefined, null, 1, '', 'another-hash']],
+  ['ledger', [undefined, null, '1', 0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, NaN, Infinity]],
+  ['successful', [undefined, null, 'true', 'false', 0, 1]],
+] as const) {
+  for (const value of values)
+    invalidConfirmations.push([
+      `${field}=${String(value)}`,
+      (hash) => ({ hash, ledger: 1, successful: true, [field]: value }),
+    ]);
+}
+
+for (const state of ['signed', 'unknown', 'submitting'] as const) {
+  const button = state === 'signed' ? 'submit' : 'check';
+  for (const [label, response] of invalidConfirmations) {
+    test(`${button} from ${state} preserves the original transaction for ${label}`, async () => {
+      const f = await confirmationFixture(state, response),
+        before = f.store.value;
+      await f.click(button);
+      const unresolved = state === 'signed' ? 'unknown' : state;
+      const record = JSON.parse(f.store.value!);
+      assert.deepEqual(record, { ...f.original, state: unresolved });
+      assert.equal(f.run('pending.state'), unresolved);
+      assert.equal(f.run('pending.result'), undefined);
+      assert.deepEqual(
+        f.writes.map((write) => write.state),
+        state === 'signed' ? ['submitting', 'unknown'] : [],
+      );
+      if (state !== 'signed') assert.equal(f.store.value, before);
+      assert.equal(f.signs(), 0);
+      assert.equal(
+        f.requests.filter((request) => request.method === 'POST').length,
+        state === 'signed' ? 1 : 0,
+      );
+      if (state === 'signed')
+        assert.equal(new URLSearchParams(String(f.requests[0]!.body)).get('tx'), f.original.signed_xdr);
+      const restored = f.load();
+      assert.equal(restored.run('pending.hash'), f.original.hash);
+      assert.equal(restored.run('pending.state'), unresolved);
+      assert.equal(restored.el('check').hidden, false);
+      assert.equal(restored.el('clear').hidden, true);
+      for (const name of ['note', 'payment', 'offer', 'cancel-offer'])
+        assert.equal(restored.el(name).disabled, true);
+      const saved = f.store.value,
+        requestCount = f.requests.length;
+      await restored.click('note');
+      assert.equal(f.store.value, saved);
+      assert.equal(f.requests.length, requestCount);
+      assert.equal(f.signs(), 0);
+    });
+  }
+  for (const successful of [true, false]) {
+    test(`${button} from ${state} accepts the original on-ledger ${successful ? 'success' : 'failure'}`, async () => {
+      const f = await confirmationFixture(state, (hash) => ({ hash, ledger: 1, successful }));
+      await f.click(button);
+      assert.deepEqual(JSON.parse(f.store.value!), {
+        ...f.original,
+        state: successful ? 'submitted' : 'failed',
+        result: { hash: f.original.hash, ledger: 1, successful },
+      });
+      assert.equal(f.el('check').hidden, true);
+      assert.equal(f.el('note').disabled, false);
+      assert.equal(f.signs(), 0);
+    });
+  }
+}
+
+test('an invalid submission response recovers only through the original hash', async () => {
+  let valid = false;
+  const f = await confirmationFixture('signed', (hash) => ({
+    hash: valid ? hash : 'another-hash',
+    ledger: 1,
+    successful: true,
+  }));
+  await f.click('submit');
+  assert.equal(f.run('pending.state'), 'unknown');
+  valid = true;
+  const restored = f.load();
+  await restored.click('check');
+  assert.equal(restored.run('pending.state'), 'submitted');
+  assert.equal(restored.run('pending.hash'), f.original.hash);
+  assert.deepEqual(
+    f.requests.map(({ method, url }) => [method, url]),
+    [
+      ['POST', 'https://horizon-testnet.stellar.org/transactions'],
+      ['GET', 'https://horizon-testnet.stellar.org/ledgers?order=desc&limit=1'],
+      ['GET', `https://horizon-testnet.stellar.org/transactions/${f.original.hash}`],
+    ],
+  );
+  assert.equal(f.signs(), 0);
+});
+
+for (const state of ['signed', 'unknown'] as const) {
+  const button = state === 'signed' ? 'submit' : 'check';
+  test(`${button} keeps an offer confirmed when optional offer decoding fails`, async () => {
+    for (const result_xdr of [undefined, null, 1, '', 'invalid-xdr']) {
+      const f = await confirmationFixture(
+        state,
+        (hash) => ({ hash, ledger: 1, successful: true, result_xdr }),
+        'offer',
+      );
+      await f.click(button);
+      assert.equal(f.run('pending.state'), 'submitted');
+      assert.deepEqual(JSON.parse(f.store.value!).result, {
+        hash: f.original.hash,
+        ledger: 1,
+        successful: true,
+      });
+      assert.match(f.el('status').textContent, /succeeded.*Offer details are unavailable/);
+      assert.equal(f.el('note').disabled, false);
+      assert.equal(f.signs(), 0);
+    }
+  });
+  test(`${button} still decodes a valid offer result without a resting offer`, async () => {
+    const { xdr } = await import('@stellar/stellar-sdk');
+    const result_xdr = new xdr.TransactionResult({
+      feeCharged: 100n,
+      result: xdr.TransactionResultResult.txSuccess([
+        xdr.OperationResult.opInner(
+          xdr.OperationResultTr.manageSellOffer(
+            xdr.ManageSellOfferResult.manageSellOfferSuccess(
+              new xdr.ManageOfferSuccessResult({
+                offersClaimed: [],
+                offer: xdr.ManageOfferSuccessResultOffer.manageOfferDeleted(),
+              }),
+            ),
+          ),
+        ),
+      ]),
+      ext: xdr.TransactionResultExt.v0(),
+    }).toXDR('base64');
+    const f = await confirmationFixture(
+      state,
+      (hash) => ({ hash, ledger: 1, successful: true, result_xdr }),
+      'offer',
+    );
+    await f.click(button);
+    assert.equal(f.run('pending.state'), 'submitted');
+    assert.equal(JSON.parse(f.store.value!).result.hash, f.original.hash);
+    assert.match(f.el('status').textContent, /succeeded without a resting offer/);
+    assert.equal(f.signs(), 0);
+  });
+}
+
+test('submission transport errors and tx_bad_seq still preserve uncertainty without retrying', async () => {
+  for (const error of ['invalid JSON', 'HTTP 504', 'tx_bad_seq']) {
+    const f = await confirmationFixture('signed', () => ({}));
+    let calls = 0;
+    f.context.fetch = async (_url: string, options: RequestInit) => {
+      calls++;
+      assert.equal(options.method, 'POST');
+      assert.equal(new URLSearchParams(String(options.body)).get('tx'), f.original.signed_xdr);
+      if (error === 'invalid JSON')
+        return {
+          ok: true,
+          json: async () => {
+            throw SyntaxError('Invalid JSON');
+          },
+        };
+      return {
+        ok: false,
+        status: error === 'HTTP 504' ? 504 : 400,
+        json: async () => ({
+          detail: error,
+          extras: { result_codes: { transaction: 'tx_bad_seq' }, result_xdr: 'mock' },
+        }),
+      };
+    };
+    await f.click('submit');
+    assert.deepEqual(JSON.parse(f.store.value!), { ...f.original, state: 'unknown' });
+    assert.equal(f.el('check').hidden, false);
+    assert.equal(f.el('note').disabled, true);
+    assert.equal(calls, 1);
+    assert.equal(f.signs(), 0);
+  }
 });

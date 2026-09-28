@@ -1,7 +1,9 @@
-import { test } from 'bun:test';
+import { onTestFinished, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { browserScript } from './test/support.ts';
+import { scanConnection } from '../sdk/scan.ts';
+import type { WalletermClient } from '../sdk/walleterm.ts';
 
 // The connection UI reads and writes only these node members.
 interface MockNode {
@@ -9,6 +11,7 @@ interface MockNode {
   value: string;
   disabled?: boolean;
   textContent?: string;
+  srcObject?: MediaProvider | null;
   onclick?: () => unknown;
   classList: { add(): void; remove(): void; toggle(): void };
   addEventListener(): void;
@@ -32,6 +35,10 @@ interface Change {
 type ScanMock = (video: unknown, options: { signal: AbortSignal }) => unknown;
 // The members of the VM WalletermConnect instance that these tests drive.
 interface ConnectUI {
+  destroy(): void;
+  destroyed: boolean;
+  scanning: AbortController | null;
+  connection: AbortController | null;
   sessionStorageKey?: string;
   restoreSession(): Promise<void>;
   saveSession(): void;
@@ -83,7 +90,18 @@ function fixture(scanConnection: ScanMock, WalletermClient?: unknown) {
     }
     return value;
   };
-  const context = vm.createContext({ scanConnection, WalletermClient, AbortController, AbortSignal, URL });
+  const events = new EventTarget();
+  const context = vm.createContext({
+    scanConnection,
+    WalletermClient,
+    AbortController,
+    AbortSignal,
+    URL,
+    clearInterval,
+    document: events,
+    addEventListener: events.addEventListener.bind(events),
+    removeEventListener: events.removeEventListener.bind(events),
+  });
   // Errors must come from the page realm, as in the browser.
   vm.runInContext(browserScript(new URL('../sdk/errors.ts', import.meta.url)), context);
   if (!WalletermClient)
@@ -91,11 +109,17 @@ function fixture(scanConnection: ScanMock, WalletermClient?: unknown) {
   vm.runInContext(browserScript(new URL('../sdk/connect.ts', import.meta.url)), context);
   const ui: ConnectUI = vm.runInContext('Object.create(WalletermConnect.prototype)', context);
   Object.assign(ui, {
+    destroyed: false,
+    scanning: null,
+    connection: null,
     client: null,
     account: null,
     wallets: [],
     onChange() {},
     onBusyChange() {},
+    wake() {},
+    outside() {},
+    keyboard() {},
     $: node,
     element: { querySelector: node, querySelectorAll: () => [] },
     trigger: node('trigger'),
@@ -115,9 +139,37 @@ function fixture(scanConnection: ScanMock, WalletermClient?: unknown) {
     assert.ok(handler, `Node ${name} has no click handler.`);
     return handler;
   };
-  return { ui, node, click, context, focused: () => focused };
+  const view = () => ({
+    focused,
+    nodes: [...nodes].map(([name, value]) => ({
+      name,
+      hidden: value.hidden,
+      value: value.value,
+      disabled: value.disabled,
+      textContent: value.textContent,
+    })),
+  });
+  return { ui, node, click, context, view, focused: () => focused };
 }
 const settle = () => new Promise((resolve) => setImmediate(resolve));
+
+function observe(f: ReturnType<typeof fixture>) {
+  const callbacks: unknown[] = [],
+    writes: unknown[] = [];
+  Object.assign(f.ui, {
+    sessionStorageKey: 'test-connection',
+    onChange: (value: Change) => callbacks.push(['connection', value]),
+    onStateChange: (value: string) => callbacks.push(['state', value]),
+    onBusyChange: (value: boolean) => callbacks.push(['busy', value]),
+  });
+  Object.assign(f.context, {
+    sessionStorage: {
+      setItem: (key: string, value: string) => writes.push(['set', key, value]),
+      removeItem: (key: string) => writes.push(['remove', key]),
+    },
+  });
+  return { callbacks, writes };
+}
 
 function savedConnection() {
   const f = fixture(() => {});
@@ -710,3 +762,432 @@ test('retrying empty wallet discovery locks the retry button and restores it aft
   controller.abort();
   await stopped;
 });
+
+for (const stage of ['permission', 'video-start']) {
+  test(`destroying during camera ${stage} stops the stream without updating the view`, async () => {
+    const requested = Promise.withResolvers<void>(),
+      grant = Promise.withResolvers<MediaStream>(),
+      playing = Promise.withResolvers<void>(),
+      events = new EventTarget();
+    let stopped = false;
+    const stream = {
+      getTracks: () => [
+        {
+          stop() {
+            stopped = true;
+          },
+        },
+      ],
+    } as MediaStream;
+    const globals = {
+      isSecureContext: true,
+      navigator: {
+        mediaDevices: {
+          getUserMedia() {
+            requested.resolve();
+            return grant.promise;
+          },
+        },
+      },
+      addEventListener: events.addEventListener.bind(events),
+      removeEventListener: events.removeEventListener.bind(events),
+    };
+    for (const [name, value] of Object.entries(globals)) {
+      const original = Object.getOwnPropertyDescriptor(globalThis, name);
+      Object.defineProperty(globalThis, name, { value, configurable: true });
+      onTestFinished(() => {
+        if (original) Object.defineProperty(globalThis, name, original);
+        else Reflect.deleteProperty(globalThis, name);
+      });
+    }
+    const f = fixture((video, options) => scanConnection(video as HTMLVideoElement, options));
+    const camera = f.node('camera');
+    Object.assign(camera, {
+      play() {
+        playing.resolve();
+        return new Promise(() => {});
+      },
+    });
+    f.ui.open();
+    const scanning = f.ui.scan();
+    await requested.promise;
+    if (stage === 'video-start') {
+      grant.resolve(stream);
+      await playing.promise;
+      assert.equal(camera.srcObject, stream);
+    }
+    const controller = f.ui.scanning;
+    assert.ok(controller);
+    const view = f.view();
+    f.ui.destroy();
+    assert.equal(controller.signal.aborted, true);
+    assert.equal(f.ui.scanning, null);
+    await scanning;
+    if (stage === 'permission') {
+      assert.equal(stopped, false);
+      // Permission can arrive after scan() has settled.
+      grant.resolve(stream);
+      await settle();
+    }
+    assert.equal(stopped, true);
+    assert.equal(camera.srcObject, null);
+    assert.deepEqual(f.view(), view);
+    await f.ui.scan();
+    assert.deepEqual(f.view(), view);
+  });
+}
+
+test('a scanner that returns after destruction cannot fill connection details', async () => {
+  const result = Promise.withResolvers<{ url: string; code: string }>();
+  const f = fixture(() => result.promise);
+  f.ui.open();
+  const scanning = f.ui.scan();
+  const view = f.view();
+  f.ui.destroy();
+  result.resolve({ url: 'https://late.example', code: '87654321' });
+  await scanning;
+  assert.deepEqual(f.view(), view);
+  assert.equal(f.node('url').value, '');
+  assert.equal(f.node('code').value, '');
+});
+
+for (const stage of ['discovery', 'wallet-choice', 'selection', 'replacement', 'replacement-failure']) {
+  test(`destroying during ${stage} prevents late connection publication and storage changes`, async () => {
+    const f = fixture(() => {}),
+      observed = observe(f),
+      reached = Promise.withResolvers<void>(),
+      release = Promise.withResolvers<void>();
+    const oldToken = 'o'.repeat(43),
+      nextToken = 'n'.repeat(43);
+    const requests: { path: string; previous: boolean; destroyed: boolean }[] = [];
+    let heldSignal: AbortSignal | undefined;
+    Object.assign(f.context, {
+      fetch: async (url: string, options: RequestInit) => {
+        const path = new URL(url).pathname;
+        const previous = new Headers(options.headers).get('Authorization') === `Bearer ${oldToken}`;
+        requests.push({ path, previous, destroyed: f.ui.destroyed });
+        if (
+          (stage === 'discovery' && path === '/v1/signers') ||
+          (stage === 'selection' && path === '/v1/select') ||
+          (stage.startsWith('replacement') && previous && path === '/v1/disconnect')
+        ) {
+          assert.ok(options.signal);
+          heldSignal = options.signal;
+          reached.resolve();
+          // Return a late response even if cancellation wins.
+          await release.promise;
+          if (stage === 'replacement-failure') throw Error('The previous tunnel is unavailable.');
+        }
+        switch (path) {
+          case '/v1/connect':
+            return Response.json({ token: nextToken, wallet_scope: 'available', selection_revision: 0 });
+          case '/v1/signers':
+            return Response.json({ signers: [{ public_key: 'GNEW' }], grant_id: 'mock-grant' });
+          case '/v1/select':
+            return Response.json({
+              public_key: 'GNEW',
+              network_passphrase: 'testnet',
+              selection_revision: 1,
+            });
+          case '/v1/disconnect':
+            return Response.json({ disconnected: true });
+          case '/v1/account':
+            assert.equal(previous, true);
+            return Response.json({ public_key: 'GOLD', network_passphrase: 'testnet' });
+          default:
+            throw Error(`Unexpected mock request: ${path}`);
+        }
+      },
+    });
+    const previous: WalletermClient = vm.runInContext(
+      "new WalletermClient('https://bridge.example')",
+      f.context,
+    );
+    previous.token = oldToken;
+    const account = { address: 'GOLD', networkPassphrase: 'testnet' };
+    previous.account = account;
+    Object.assign(f.ui, { client: previous, account, state: 'connected' });
+    let choose: ((key: MockSigner) => void) | undefined;
+    f.ui.rows = (_target, keys, callback) => {
+      choose = callback;
+      if (stage === 'wallet-choice') reached.resolve();
+      else callback(keys[0]);
+    };
+    f.node('url').value = 'https://bridge.example';
+    f.node('code').value = '12345678';
+    const pairing = f.ui.connect();
+    await reached.promise;
+    const controller = f.ui.connection;
+    assert.ok(controller);
+    const callbacks = [...observed.callbacks],
+      view = f.view();
+    f.ui.destroy();
+    assert.equal(controller.signal.aborted, true);
+    assert.equal(f.ui.connection, null);
+    if (stage === 'discovery' || stage === 'selection') assert.equal(heldSignal?.aborted, true);
+    if (stage === 'wallet-choice') {
+      assert.ok(choose);
+      choose({ public_key: 'GNEW' });
+    }
+    release.resolve();
+    await pairing;
+    assert.equal(f.ui.client, previous);
+    assert.equal(f.ui.account, account);
+    assert.deepEqual(observed.callbacks, callbacks);
+    assert.deepEqual(observed.writes, []);
+    assert.deepEqual(f.view(), view);
+    assert.equal(f.ui.working, false);
+    const revocations = requests.filter(({ path }) => path === '/v1/disconnect');
+    assert.equal(
+      revocations.filter(({ previous }) => previous).length,
+      stage.startsWith('replacement') ? 1 : 0,
+    );
+    assert.equal(revocations.filter(({ previous }) => !previous).length, 1);
+    assert.equal(
+      requests.some(({ previous, destroyed }) => previous && destroyed),
+      false,
+    );
+    if (stage === 'replacement') {
+      // Destruction cannot undo a revocation request that already started.
+      assert.equal(previous.token, null);
+    } else {
+      assert.equal(previous.token, oldToken);
+      assert.equal((await previous.getAddress()).address, 'GOLD');
+    }
+  });
+}
+
+test('destroying an established view preserves its shared client and rejects new component work', async () => {
+  const f = savedConnection();
+  const requests: string[] = [];
+  Object.assign(f.context, {
+    fetch: async (url: string, options: RequestInit) => {
+      requests.push(url);
+      assert.equal(new Headers(options.headers).get('Authorization'), `Bearer ${f.token}`);
+      return Response.json(recoveredAccount);
+    },
+  });
+  await f.ui.restoreSession();
+  const client = f.ui.client as WalletermClient;
+  const saved = f.storage.get(f.key),
+    observed = observe(f),
+    view = f.view();
+  f.ui.destroy();
+  f.ui.destroy();
+  f.ui.open();
+  f.ui.close();
+  f.ui.toggleMenu();
+  f.ui.saveSession();
+  await f.ui.scan();
+  await f.ui.connect();
+  await f.ui.refresh();
+  await f.ui.changeWallet({ public_key: 'GOTHER' });
+  await f.ui.disconnect();
+  await f.ui.restoreSession();
+  await f.ui.checkHealth();
+  assert.equal(requests.length, 1);
+  assert.equal(f.ui.client, client);
+  assert.equal(client.token, f.token);
+  assert.equal(f.storage.get(f.key), saved);
+  assert.deepEqual(observed.writes, []);
+  assert.deepEqual(observed.callbacks, []);
+  assert.deepEqual(f.view(), view);
+  assert.equal((await client.getAddress()).address, 'GRECOVERED');
+  assert.deepEqual(requests, Array(2).fill('https://bridge.example/v1/account'));
+});
+
+test('a busy callback can destroy the component before pairing creates a client', async () => {
+  let clients = 0;
+  const f = fixture(
+    () => {},
+    class {
+      constructor() {
+        clients++;
+      }
+    },
+  );
+  const observed = observe(f);
+  const busy: boolean[] = [];
+  f.ui.onBusyChange = (value) => {
+    busy.push(value);
+    if (value) f.ui.destroy();
+  };
+  f.node('url').value = 'https://bridge.example';
+  f.node('code').value = '12345678';
+  await f.ui.connect();
+  assert.equal(clients, 0);
+  assert.equal(f.ui.destroyed, true);
+  assert.equal(f.ui.connection, null);
+  assert.equal(f.ui.client, null);
+  assert.deepEqual(busy, [true]);
+  assert.deepEqual(observed.callbacks, []);
+  assert.deepEqual(observed.writes, []);
+});
+
+test('dialog focus restoration can destroy the component before connection publication', async () => {
+  let next: Replacement | undefined,
+    disconnected = 0;
+  class Replacement {
+    token: string | null = 'new-session';
+    url = 'https://bridge.example';
+    constructor() {
+      next = this;
+    }
+    async connect() {
+      return { address: 'GNEW', networkPassphrase: 'testnet' };
+    }
+    async disconnect() {
+      disconnected++;
+      this.token = null;
+    }
+  }
+  const f = fixture(() => {}, Replacement),
+    observed = observe(f),
+    host = new EventTarget(),
+    changes: Change[] = [];
+  Object.assign(f.ui, { onChange: (value: Change) => changes.push(value) });
+  f.ui.open();
+  let view: ReturnType<typeof f.view> | undefined,
+    callbacks: unknown[] = [],
+    writes: unknown[] = [],
+    triggerWrites = 0,
+    restoredFocus = 0;
+  host.addEventListener('focus', () => {
+    restoredFocus++;
+    f.ui.destroy();
+    view = f.view();
+    callbacks = [...observed.callbacks];
+    writes = [...observed.writes];
+  });
+  Object.assign(f.ui.dialog, {
+    close(this: ConnectUI['dialog']) {
+      this.open = false;
+      // Native dialog.close() restores host focus synchronously, as verified by the review.
+      host.dispatchEvent(new Event('focus'));
+    },
+  });
+  f.node('trigger').setAttribute = () => {
+    if (f.ui.destroyed) triggerWrites++;
+  };
+  f.node('url').value = 'https://bridge.example';
+  f.node('code').value = '12345678';
+  await f.ui.connect();
+  assert.ok(next);
+  assert.equal(restoredFocus, 1);
+  assert.equal(f.ui.destroyed, true);
+  assert.equal(f.ui.dialog.open, false);
+  assert.equal(disconnected, 1);
+  assert.equal(next.token, null);
+  assert.equal(triggerWrites, 0);
+  assert.deepEqual(f.view(), view);
+  assert.deepEqual(observed.callbacks, callbacks);
+  assert.deepEqual(observed.writes, writes);
+  assert.deepEqual(changes, []);
+  assert.equal(f.ui.connection, null);
+  assert.equal(f.ui.working, false);
+});
+
+for (const callback of ['state', 'connection']) {
+  test(`destruction from the ${callback} callback preserves connection ownership`, async () => {
+    let next: Replacement | undefined,
+      disconnected = 0;
+    class Replacement {
+      token: string | null = 'new-session';
+      url = 'https://bridge.example';
+      constructor() {
+        next = this;
+      }
+      async connect() {
+        return { address: 'GNEW', networkPassphrase: 'testnet' };
+      }
+      async disconnect() {
+        disconnected++;
+        this.token = null;
+      }
+    }
+    const f = fixture(() => {}, Replacement);
+    const changes: Change[] = [],
+      writesAfterDestroy: boolean[] = [],
+      busy: boolean[] = [];
+    Object.assign(f.ui, {
+      sessionStorageKey: 'test-connection',
+      onStateChange() {
+        if (callback === 'state') f.ui.destroy();
+      },
+      onChange(value: Change) {
+        changes.push(value);
+        if (callback === 'connection') f.ui.destroy();
+      },
+      onBusyChange: (value: boolean) => busy.push(value),
+    });
+    Object.assign(f.context, {
+      sessionStorage: {
+        setItem: () => writesAfterDestroy.push(f.ui.destroyed),
+        removeItem: () => writesAfterDestroy.push(f.ui.destroyed),
+      },
+    });
+    f.node('url').value = 'https://bridge.example';
+    f.node('code').value = '12345678';
+    await f.ui.connect();
+    assert.ok(next);
+    assert.equal(f.ui.destroyed, true);
+    assert.deepEqual(writesAfterDestroy, [false]);
+    assert.deepEqual(busy, [true]);
+    if (callback === 'state') {
+      assert.equal(changes.length, 0);
+      assert.equal(disconnected, 1);
+      assert.equal(next.token, null);
+    } else {
+      assert.equal(changes.length, 1);
+      assert.equal(changes[0].client, next);
+      assert.equal(disconnected, 0);
+      assert.equal(next.token, 'new-session');
+    }
+  });
+}
+
+for (const operation of ['refresh', 'changeWallet', 'checkHealth']) {
+  test(`a delayed ${operation} result cannot publish after destruction`, async () => {
+    const f = fixture(() => {}),
+      observed = observe(f),
+      response = Promise.withResolvers<void>();
+    const account = { address: 'GOLD' };
+    const wallets = [{ public_key: 'GOLD' }];
+    const client = {
+      token: 'session',
+      url: 'https://bridge.example',
+      generation: 1,
+      async listWallets() {
+        await response.promise;
+        return [{ public_key: 'GNEW' }];
+      },
+      async selectWallet() {
+        await response.promise;
+        return { address: 'GNEW' };
+      },
+      async getAddress() {
+        await response.promise;
+        return { address: 'GNEW' };
+      },
+    };
+    Object.assign(f.ui, { client, account, wallets, state: 'connected' });
+    const pending =
+      operation === 'changeWallet'
+        ? f.ui.changeWallet({ public_key: 'GNEW' })
+        : operation === 'refresh'
+          ? f.ui.refresh()
+          : f.ui.checkHealth();
+    const callbacks = [...observed.callbacks],
+      view = f.view();
+    f.ui.destroy();
+    response.resolve();
+    await pending;
+    assert.equal(f.ui.client, client);
+    assert.equal(client.token, 'session');
+    assert.equal(f.ui.account, account);
+    assert.equal(f.ui.wallets, wallets);
+    assert.deepEqual(observed.callbacks, callbacks);
+    assert.deepEqual(observed.writes, []);
+    assert.deepEqual(f.view(), view);
+  });
+}
