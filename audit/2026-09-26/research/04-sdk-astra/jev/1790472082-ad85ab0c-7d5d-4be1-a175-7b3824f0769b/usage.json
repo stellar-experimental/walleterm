@@ -1,0 +1,1 @@
+{"requests":320,"input_tokens":494663,"output_tokens":26119,"cost_usd":0.021021724,"hedged_requests":0,"rate_limited_requests":0,"provider_requests":{"cloudflare":88,"typesafe":232},"provider_wait_ms":0}

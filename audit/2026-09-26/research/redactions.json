@@ -1,0 +1,22 @@
+{
+  "archive_sha256_before_redaction": "d9422d681b7bbc45d464c1a70f83b99e6d6d926bfa37c06e18e27b87fc3b6c3a",
+  "archive_sha256_after_redaction": "4cfb4494cf30febd20939b5657ee7b90427b642e480716c008ffecb835d98f5b",
+  "changes": [
+    {
+      "path": "02-bridge-astra/parallel-cli-retry.stdout.txt",
+      "removed_blocks": 1,
+      "original_sha256": "42aeb6a26dda0ba5bfd548dd84288c3e224d68295084f6d8387a3e8250f1913b",
+      "redacted_sha256": "08587faacd1f98c936fe9f5563ea1180b0455940d838103bbccb8e0c4415ea0d",
+      "source": "https://developer.1password.com/docs/cli/ssh-keys/",
+      "reason": "Public documentation key example is irrelevant to this audit. No project credential was identified or printed."
+    },
+    {
+      "path": "02-bridge-astra/parallel-cli.json",
+      "removed_blocks": 1,
+      "original_sha256": "747d16f6d20d9ee26d570cf45c33c09846002eb386e175284f938e251b595b8a",
+      "redacted_sha256": "44b882774e6bb359d0db8579ad871e8261fcde11344c2ac43a36cb9c23fb814f",
+      "source": "https://developer.1password.com/docs/cli/ssh-keys/",
+      "reason": "Public documentation key example is irrelevant to this audit. No project credential was identified or printed."
+    }
+  ]
+}

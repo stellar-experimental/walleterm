@@ -1,0 +1,125 @@
+// Audit-only probes. All clients, signers, commands, and evidence writes are isolated mocks.
+import assert from 'node:assert/strict';
+import { readFileSync, mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
+import { createRequire } from 'node:module';
+import { createSubmissionGuard, UnknownSubmission } from '/private/tmp/walleterm-audit-40d6cca9db73/tests/submission.ts';
+import { runClassic } from '/private/tmp/walleterm-audit-40d6cca9db73/tests/classic.ts';
+
+const root = '/private/tmp/walleterm-audit-40d6cca9db73';
+const require = createRequire(root + '/package.json');
+const sdk = require('@stellar/stellar-sdk');
+const scratch = mkdtempSync('/private/tmp/walleterm-07-astra-');
+const reports: unknown[] = [];
+const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+
+// Use the frozen CLI body. Replace only imports and import.meta.url with injected dependencies.
+const pipelineFile = root + '/tests/cli-pipeline.ts';
+const pipeline = new Bun.Transpiler({ loader: 'ts' })
+  .transformSync(readFileSync(pipelineFile, 'utf8'))
+  .replace(/^import .*\n/gm, '')
+  .replaceAll('import.meta.url', JSON.stringify(new URL('file://' + pipelineFile).href));
+assert.equal(/\bimport\b/.test(pipeline), false);
+
+try {
+  for (const fault of ['send_timeout', 'lookup_not_found']) {
+    const directory = join(scratch, fault);
+    let signatures = 0, lookups = 0;
+    const writes: string[] = [], commands: string[][] = [];
+    const hash = 'ab'.repeat(32);
+    const guard = createSubmissionGuard({
+      directory, networkPassphrase: 'offline test network', record() {},
+      rpc: { async sendTransaction() { throw Error('must not call shared send'); }, async getTransaction() { throw Error('must not reconcile'); } },
+    });
+    const ctx = {
+      keys: { a: { publicKey: 'GMOCKA', rawPublicKey: Buffer.alloc(32) }, c: { publicKey: 'GMOCKC' } },
+      networkPassphrase: 'offline test network',
+      sdk: { TransactionBuilder: { fromXDR: () => ({ hash: () => Buffer.from(hash, 'hex') }) } },
+      async signDigest() { guard.assertClear(); signatures++; return Buffer.alloc(64); },
+      rpc: { async getTransaction(requested: string) { assert.equal(requested, hash); lookups++; return { status: 'NOT_FOUND' }; } },
+      record() { throw Error('must not record a pass'); },
+    };
+    const command = (name: string, args: string[]) => {
+      assert.equal(name, 'stellar'); commands.push(args);
+      if (args[1] === 'new') return 'offline-unsigned';
+      if (args[1] === 'hash') return hash;
+      if (args[1] === 'decode') return JSON.stringify({ tx: { signatures: [] } });
+      if (args[1] === 'encode') return 'offline-signed';
+      if (args[1] === 'send') {
+        if (fault === 'send_timeout') throw Error('mock timeout after remote acceptance');
+        return 'mock enqueued';
+      }
+      throw Error('unexpected command');
+    };
+    const run = new AsyncFunction('assert', 'execFileSync', 'writeFileSync', 'ctx', pipeline);
+    await assert.rejects(run(assert, command, (file: URL) => writes.push(file.pathname), ctx));
+    assert.equal(commands.filter(args => args[1] === 'send').length, 1);
+    assert.equal(existsSync(join(directory, 'pending-submission.json')), false);
+    assert.doesNotThrow(guard.assertClear);
+    await ctx.signDigest();
+    assert.equal(signatures, 2);
+    assert.equal(lookups, fault === 'send_timeout' ? 0 : 1);
+    reports.push({ probe: 'CLI pipeline bypass', fault, mock_commands: commands, evidence_write_targets: writes,
+      pending_gate: false, signatures_after_failure: signatures, original_hash_lookups: lookups, defect_reproduced: true });
+  }
+
+  // The shared guard fails closed if a terminal evidence callback fails.
+  {
+    const directory = join(scratch, 'record_failure');
+    const hash = 'cd'.repeat(32);
+    let sends = 0;
+    const rpc = {
+      async sendTransaction() { sends++; return { status: 'SUCCESS', hash, ledger: 10 }; },
+      async getTransaction(requested: string) { assert.equal(requested, hash); return { status: 'SUCCESS', txHash: hash, ledger: 10 }; },
+    };
+    const guard = createSubmissionGuard({ directory, networkPassphrase: 'offline', rpc, record() { throw Error('mock evidence disk failure'); } });
+    await assert.rejects(guard.send({ hash: () => Buffer.from(hash, 'hex'), toXDR: () => 'mock' }, 'record-failure'), UnknownSubmission);
+    assert.throws(guard.assertClear, UnknownSubmission);
+    const restarted = createSubmissionGuard({ directory, networkPassphrase: 'offline', rpc, record() {} });
+    assert.equal((await restarted.reconcile())?.hash, hash);
+    assert.doesNotThrow(restarted.assertClear);
+    assert.equal(sends, 1);
+    reports.push({ probe: 'terminal record failure', blocked: true, original_hash_reconciled: true, send_count: sends, passed: true });
+  }
+
+  // Run the actual classic runner with synthetic accounts and no signer process.
+  {
+    const directory = join(scratch, 'classic_unknown');
+    const keypairs = Object.fromEntries(['a', 'b', 'c'].map(name => [name, sdk.Keypair.random()]));
+    const keys = Object.fromEntries(Object.entries(keypairs).map(([name, key]: [string, any]) => [name, { name, publicKey: key.publicKey(), rawPublicKey: key.rawPublicKey() }]));
+    const signed: string[] = [], submitted: string[] = [];
+    let cBalance = '100.0000000';
+    const guard = createSubmissionGuard({ directory, networkPassphrase: sdk.Networks.TESTNET, record() {},
+      rpc: { async sendTransaction() { throw Error('mock dropped response'); }, async getTransaction() { return { status: 'NOT_FOUND' }; } },
+    });
+    const ctx: any = {
+      sdk, keys, networkPassphrase: sdk.Networks.TESTNET, record() {}, assertClear: guard.assertClear,
+      rpc: { async getAccount(address: string) { return new sdk.Account(address, '100'); } },
+      horizon: { async loadAccount(address: string) { return { account_id: address, sequence: '100', last_modified_ledger: 100,
+        balances: [{ asset_type: 'native', balance: address === keys.c.publicKey ? cBalance : '100.0000000' }],
+        thresholds: { low_threshold: 0, med_threshold: 0, high_threshold: 0 },
+        signers: [{ key: address, weight: 1, type: 'ed25519_public_key' }],
+      }; } },
+      async sign(tx: any, key: any) { guard.assertClear(); signed.push(key.name); return tx; },
+      async send(tx: any, label: string) {
+        submitted.push(label);
+        if (label === 'G01-payment') {
+          cBalance = '100.0000100';
+          return { status: 'SUCCESS', hash: Buffer.from(tx.hash()).toString('hex'), ledger: 100, sent: {},
+            result: { resultXdr: { result: { type: 'txSuccess' }, feeCharged: 100n, toXdr: () => 'mock-result' } } };
+        }
+        assert.equal(label, 'G02-configure');
+        return guard.send(tx, label);
+      },
+    };
+    await assert.rejects(runClassic(ctx), UnknownSubmission);
+    assert.deepEqual(submitted, ['G01-payment', 'G02-configure']);
+    assert.deepEqual(signed, ['a', 'b']);
+    assert.throws(guard.assertClear, UnknownSubmission);
+    reports.push({ probe: 'classic unknown during signer configuration', mock_submissions: submitted,
+      mock_signatures: signed, restoration_signatures: 0, retained_gate: true, passed: true });
+  }
+  console.log(JSON.stringify({ source: root, live_commands: 0, network_requests: 0, probes: reports }, null, 2));
+} finally {
+  rmSync(scratch, { recursive: true, force: true });
+}

@@ -1,0 +1,47 @@
+[
+  {
+    "command": [
+      "go",
+      "test",
+      "-race",
+      "./..."
+    ],
+    "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "exit_code": 1,
+    "seconds": 4.76,
+    "log": "baseline-1.txt"
+  },
+  {
+    "command": [
+      "go",
+      "vet",
+      "./..."
+    ],
+    "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "exit_code": 0,
+    "seconds": 1.97,
+    "log": "baseline-2.txt"
+  },
+  {
+    "command": [
+      "bun",
+      "run",
+      "typecheck"
+    ],
+    "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "exit_code": 0,
+    "seconds": 0.24,
+    "log": "baseline-3.txt"
+  },
+  {
+    "command": [
+      "bun",
+      "run",
+      "test"
+    ],
+    "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+    "exit_code": 1,
+    "seconds": 23.21,
+    "log": "baseline-4.txt"
+  }
+]

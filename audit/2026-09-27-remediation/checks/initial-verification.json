@@ -1,0 +1,80 @@
+[
+  {
+    "name": "diff",
+    "command": [
+      "git",
+      "diff",
+      "--check"
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 0,
+    "seconds": 0.02
+  },
+  {
+    "name": "go-race",
+    "command": [
+      "go",
+      "test",
+      "-race",
+      "./..."
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 0,
+    "seconds": 0.39
+  },
+  {
+    "name": "go-vet",
+    "command": [
+      "go",
+      "vet",
+      "./..."
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 0,
+    "seconds": 0.15
+  },
+  {
+    "name": "format",
+    "command": [
+      "bun",
+      "run",
+      "format:check"
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 0,
+    "seconds": 0.75
+  },
+  {
+    "name": "bun-suite",
+    "command": [
+      "bun",
+      "run",
+      "test"
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 0,
+    "seconds": 25.4
+  },
+  {
+    "name": "checkout-typescript",
+    "command": [
+      "bun",
+      "run",
+      "typecheck"
+    ],
+    "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+    "exit_code": 1,
+    "seconds": 0.21
+  },
+  {
+    "name": "isolated-typescript",
+    "command": [
+      "bun",
+      "run",
+      "typecheck"
+    ],
+    "cwd": "/private/tmp/walleterm-remediation-verify-uqhuk2wz",
+    "exit_code": 1,
+    "seconds": 0.18
+  }
+]

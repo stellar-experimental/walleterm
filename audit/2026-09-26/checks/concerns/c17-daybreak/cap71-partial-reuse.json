@@ -1,0 +1,25 @@
+{
+  "status": "passed_reproduction",
+  "revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "source_sha256": "02e8cf6cd46b887c38230d36043bf410fa2d65fb8fec3a59f0f512bb3a520566",
+  "scenario": "protocol-28 checks, incomplete row, protocol-29 resume",
+  "emitted": {
+    "status": "passed",
+    "row_protocol": 29,
+    "check_protocols": {
+      "a": 28,
+      "c": 28
+    },
+    "reused_evidence_present": false,
+    "passed_previous_run_events": 0
+  },
+  "saved_done": {
+    "protocol": 29,
+    "check_protocols": {
+      "a": 28,
+      "c": 28
+    }
+  },
+  "blocked_live_calls_reached": [],
+  "limits": "Synthetic state and hypothetical protocol 29; no network, signing, or submission."
+}

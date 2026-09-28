@@ -1,0 +1,162 @@
+{
+  "authorized_limit_usd": 250,
+  "jev_reported_or_reserved_usd": 0.430850701,
+  "jev_runs": [
+    {
+      "path": "research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/search.json",
+      "status": "partial",
+      "cost_usd": 0.017824644
+    },
+    {
+      "path": "research/01-signer-daybreak/1790470379-6fbfa220-bbf3-4de5-b384-b28cd822e6cf/search.json",
+      "status": "partial",
+      "cost_usd": 0.014611102
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/search.json",
+      "status": "partial",
+      "cost_usd": 0.019627227
+    },
+    {
+      "path": "research/02-bridge-daybreak/1790471299-0400c960-507f-4bcd-9245-6e7967917e05/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/03-runtime-astra/jev/1790471396-40454500-5ed0-461c-a2cb-4f71cac316dd/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/03-runtime-astra/jev/1790471498-a6665079-1cab-44dd-b9b6-bf236f1196e0/search.json",
+      "status": "partial",
+      "cost_usd": 0.020225809
+    },
+    {
+      "path": "research/03-runtime-daybreak/1790471765-170778a2-4113-4dcd-b22e-61aa616ecfb1/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/03-runtime-daybreak/1790471786-1dbdbdac-711d-4be6-ba7e-078be5f4ed3c/search.json",
+      "status": "partial",
+      "cost_usd": 0.024306173
+    },
+    {
+      "path": "research/04-sdk-astra/jev/1790471997-324ec1e7-b15d-4b3e-8d7e-b0f0438e6c90/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/04-sdk-astra/jev/1790472082-ad85ab0c-7d5d-4be1-a175-7b3824f0769b/search.json",
+      "status": "partial",
+      "cost_usd": 0.021021724
+    },
+    {
+      "path": "research/04-sdk-daybreak/jev/1790472530-3bdfbb9d-a89d-47c0-816f-ba15f4707864/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/05-demo-astra/jev/1790472479-e0dabd5d-d30c-44e9-b368-cb29369000a7/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/05-demo-astra/jev/1790472565-4261390e-e50c-47f5-8527-d01249a80789/search.json",
+      "status": "partial",
+      "cost_usd": 0.021480082
+    },
+    {
+      "path": "research/05-demo-daybreak/1790472929-f8a823a2-0a5d-4a1a-b615-b09fccf9a730/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/06-contracts-astra/jev/1790473147-1689f319-6720-439d-a702-09f74059b5fc/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/06-contracts-astra/jev/1790473192-27a4daca-7de6-4c3e-8903-74b4a98dff6c/search.json",
+      "status": "partial",
+      "cost_usd": 0.023837354
+    },
+    {
+      "path": "research/06-contracts-daybreak/1790473655-ea9c2e79-e942-4bba-9f3c-c98937f902f7/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/07-verification-astra/jev/1790473710-1ea9991d-e893-4c35-9112-1503ffb75009/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/07-verification-astra/jev/1790473788-1dc393c6-c348-42dc-9752-4ca20924cfcd/search.json",
+      "status": "partial",
+      "cost_usd": 0.017990716
+    },
+    {
+      "path": "research/07-verification-daybreak/jev/1790474319-133fa9a9-2d71-4f1f-8ff6-c64294692383/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/08-product-astra/jev/1790474238-fe374237-108c-4e84-bf51-cd6009f18185/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/08-product-astra/jev/1790474322-46fdd3eb-5c5f-4672-a346-e359a9460c34/search.json",
+      "status": "partial",
+      "cost_usd": 0.018602107
+    },
+    {
+      "path": "research/08-product-daybreak/1790475024-2125bd78-064f-466c-85ba-e1834d42c991/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/08-product-daybreak/1790475038-0133bec9-01be-470b-9609-dc50e6ad3625/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/09-overall-astra/jev/1790482259-37b15a57-42c8-4633-be1f-fce1453da44d/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/09-overall-astra/jev/1790482309-a4b85cf3-32a1-41db-b3cc-63d3d56535b1/search.json",
+      "status": "partial",
+      "cost_usd": 0.014946393
+    },
+    {
+      "path": "research/09-overall-daybreak/1790482537-bf244f27-a8aa-42e9-9be7-463c38686b8b/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/central-jev/1790470309-f34dc647-c8d3-4a1a-92ab-5365880f9e29/search.json",
+      "status": "failed",
+      "cost_usd": 0.008729397
+    },
+    {
+      "path": "research/central-jev/1790470394-ea614df8-cd83-4197-8cee-f00658b278bd/search.json",
+      "status": "partial",
+      "cost_usd": 0.050518827
+    }
+  ],
+  "other_provider_cost": "Unknown where tools expose no dollar charge; query counts are bounded by reviewer contracts."
+}

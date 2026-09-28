@@ -1,0 +1,70 @@
+{
+  "revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "snapshot": "/private/tmp/walleterm-audit-40d6cca9db73",
+  "before": {
+    "command": [
+      "git",
+      "-C",
+      "/Users/kalepail/Desktop/walleterm-v2",
+      "ls-tree",
+      "-rz",
+      "40d6cca9db732a0db16d154c80d4a153bf33c6b7"
+    ],
+    "tracked_files": 199,
+    "mismatches": []
+  },
+  "checks": [
+    {
+      "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+      "command": [
+        "bun",
+        "test",
+        "audit/2026-09-26/checks/05-demo-astra/adversarial.test.ts",
+        "-t",
+        "fresh signing|finding: restored|storage failure before submission|storage failure after POST|unavailable Web Locks|normal reload|quota error saving waiting"
+      ],
+      "exit_code": 0,
+      "log": "restoration.log"
+    },
+    {
+      "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+      "command": [
+        "bun",
+        "test",
+        "bridge/site.test.ts",
+        "-t",
+        "wallet changes preserve|an unreadable journal|a damaged journal|another tab cannot|a saved review with invalid XDR|an unknown submission expires"
+      ],
+      "exit_code": 0,
+      "log": "guards.log"
+    }
+  ],
+  "sdk_version": "17.1.0",
+  "sdk_source_matches": [
+    {
+      "path": "/private/tmp/walleterm-audit-40d6cca9db73/node_modules/@stellar/stellar-sdk/lib/esm/base/transaction_base.js",
+      "sha256": "f0de5986ff5b23b77c4bb1807b953c214a34b1396f2149d520b7a7ec5143ed62"
+    },
+    {
+      "path": "/private/tmp/walleterm-audit-40d6cca9db73/node_modules/@stellar/stellar-sdk/lib/esm/base/transaction.js",
+      "sha256": "8ef9689384f2c6b5a0e2504229b72580baa4157892b98464cbd5eec67286239d"
+    }
+  ],
+  "after": {
+    "command": [
+      "git",
+      "-C",
+      "/Users/kalepail/Desktop/walleterm-v2",
+      "ls-tree",
+      "-rz",
+      "40d6cca9db732a0db16d154c80d4a153bf33c6b7"
+    ],
+    "tracked_files": 199,
+    "mismatches": []
+  },
+  "research": {
+    "new_calls": 0,
+    "new_cost_usd": 0,
+    "new_jev_cost_usd": 0
+  }
+}

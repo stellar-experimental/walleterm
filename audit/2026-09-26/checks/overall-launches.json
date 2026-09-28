@@ -1,0 +1,112 @@
+[
+  {
+    "name": "wa09-astra",
+    "model": "gpt-6-astra",
+    "effort": "xhigh",
+    "pane": "w44:p1R",
+    "command": [
+      "herdr",
+      "agent",
+      "start",
+      "wa09-astra",
+      "--kind",
+      "codex",
+      "--pane",
+      "w44:p1R",
+      "--",
+      "-m",
+      "gpt-6-astra",
+      "-c",
+      "model_reasoning_effort=\"xhigh\"",
+      "--approve-for-me",
+      "--no-alt-screen"
+    ],
+    "launch": {
+      "id": "cli:agent:start",
+      "result": {
+        "agent": {
+          "agent": "codex",
+          "agent_status": "idle",
+          "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+          "focused": false,
+          "foreground_cwd": "/Users/kalepail/Desktop/walleterm-v2",
+          "interactive_ready": true,
+          "name": "wa09-astra",
+          "pane_id": "w44:p1R",
+          "revision": 770,
+          "state_change_seq": 318,
+          "tab_id": "w44:tH",
+          "terminal_id": "term_65c6c4b53960b11",
+          "terminal_title": "walleterm-v2",
+          "terminal_title_stripped": "walleterm-v2",
+          "workspace_id": "w44"
+        },
+        "argv": [
+          "codex",
+          "-m",
+          "gpt-6-astra",
+          "-c",
+          "model_reasoning_effort=\"xhigh\"",
+          "--approve-for-me",
+          "--no-alt-screen"
+        ],
+        "type": "agent_started"
+      }
+    }
+  },
+  {
+    "name": "wa09-daybreak",
+    "model": "gpt-daybreak-blue-latest",
+    "effort": "xhigh",
+    "pane": "w44:p1S",
+    "command": [
+      "herdr",
+      "agent",
+      "start",
+      "wa09-daybreak",
+      "--kind",
+      "codex",
+      "--pane",
+      "w44:p1S",
+      "--",
+      "-m",
+      "gpt-daybreak-blue-latest",
+      "-c",
+      "model_reasoning_effort=\"xhigh\"",
+      "--approve-for-me",
+      "--no-alt-screen"
+    ],
+    "launch": {
+      "id": "cli:agent:start",
+      "result": {
+        "agent": {
+          "agent": "codex",
+          "agent_status": "idle",
+          "cwd": "/Users/kalepail/Desktop/walleterm-v2",
+          "focused": false,
+          "foreground_cwd": "/Users/kalepail/Desktop/walleterm-v2",
+          "interactive_ready": true,
+          "name": "wa09-daybreak",
+          "pane_id": "w44:p1S",
+          "revision": 805,
+          "state_change_seq": 320,
+          "tab_id": "w44:tH",
+          "terminal_id": "term_65c6c547f244812",
+          "terminal_title": "walleterm-v2",
+          "terminal_title_stripped": "walleterm-v2",
+          "workspace_id": "w44"
+        },
+        "argv": [
+          "codex",
+          "-m",
+          "gpt-daybreak-blue-latest",
+          "-c",
+          "model_reasoning_effort=\"xhigh\"",
+          "--approve-for-me",
+          "--no-alt-screen"
+        ],
+        "type": "agent_started"
+      }
+    }
+  }
+]

@@ -1,0 +1,14 @@
+{
+  "report": "/Users/kalepail/Desktop/walleterm-v2/audit/2026-09-26/reports/08-product-astra.md",
+  "lines": 179,
+  "findings": {
+    "low": 1,
+    "medium": 0,
+    "high": 0,
+    "critical": 0
+  },
+  "unresolved_material_concerns": 0,
+  "jev_cost_usd": 0.027331504,
+  "other_provider_charges": "unknown",
+  "blockers": []
+}

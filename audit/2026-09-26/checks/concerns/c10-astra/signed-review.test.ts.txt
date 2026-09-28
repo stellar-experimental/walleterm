@@ -1,0 +1,122 @@
+import { test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import vm from 'node:vm';
+import * as sdk from '/private/tmp/walleterm-audit-40d6cca9db73/node_modules/@stellar/stellar-sdk';
+import { browserScript } from '/private/tmp/walleterm-audit-40d6cca9db73/bridge/test/support.ts';
+import { ActivityHistory } from '/private/tmp/walleterm-audit-40d6cca9db73/demo/site/activity.ts';
+
+// Reuse only the frozen DOM fixture. Execute the frozen app with real SDK bytes.
+// All network requests are in-memory mocks. Mock keys never leave this process.
+const root = '/private/tmp/walleterm-audit-40d6cca9db73/';
+const fixtureUrl = new URL(`file://${root}bridge/site.test.ts`);
+const fixtureSource = readFileSync(fixtureUrl, 'utf8').split('const app = () =>')[0];
+const helper = new Bun.Transpiler({ loader: 'ts' }).transformSync(fixtureSource)
+  .replace(/^import .*\n/gm, '')
+  .replaceAll('import.meta.url', JSON.stringify(fixtureUrl.href));
+const contextFor = vm.runInNewContext(helper + '\ncontextFor;', {
+  vm, assert, URL, URLSearchParams, AbortSignal, AbortController, browserScript,
+});
+const html = readFileSync(root + 'demo/site/index.html', 'utf8');
+const source = browserScript(new URL(`file://${root}demo/site/app.ts`));
+const key = sdk.Keypair.fromRawEd25519Seed(new Uint8Array(32).fill(61));
+const destination = sdk.Keypair.fromRawEd25519Seed(new Uint8Array(32).fill(62)).publicKey();
+const stranger = sdk.Keypair.fromRawEd25519Seed(new Uint8Array(32).fill(63));
+const hash = (tx: sdk.Transaction) => Buffer.from(tx.hash()).toString('hex');
+function transaction(amount = '0.0100000', sequence = '10') {
+  return new sdk.TransactionBuilder(new sdk.Account(key.publicKey(), sequence), {
+    fee: '100', networkPassphrase: sdk.Networks.TESTNET,
+  }).addOperation(sdk.Operation.payment({ destination, amount, asset: sdk.Asset.native() }))
+    .setTimeout(180).build();
+}
+function journal(state = 'signed', tx = transaction()) {
+  const xdr = tx.toXDR();
+  tx.sign(key);
+  return { kind: 'payment', address: key.publicKey(), recipient: destination,
+    hash: hash(tx), xdr, signed_xdr: tx.toXDR(), state };
+}
+function page(record: unknown = null, options: Record<string, any> = {}) {
+  let stored = record === null ? null : JSON.stringify(record);
+  let failWrites = false;
+  const calls: { url: string; options: RequestInit }[] = [];
+  const events: unknown[] = [];
+  const storage = {
+    getItem: () => stored,
+    setItem: (_key: string, value: string) => {
+      if (failWrites) throw Error('Injected quota failure');
+      stored = value;
+    },
+    removeItem: () => { if (failWrites) throw Error('Injected storage failure'); stored = null; },
+  };
+  const fetch = async (url: string, request: RequestInit) => {
+    calls.push({ url, options: request });
+    if (!options.fetch) throw Error('Unexpected mock request: ' + url);
+    return options.fetch(url, request);
+  };
+  const f = contextFor(html, { StellarSdk: sdk, crypto, Uint8Array, localStorage: storage, fetch,
+    createActivityLog: () => ({ record() {}, transaction: (r: unknown) => events.push(structuredClone(r)),
+      wrapFetch: (fn: unknown) => fn }), ...options.extras });
+  f.run(source);
+  return { ...f, calls, events, storage, getStored: () => stored,
+    failWrites: (value: boolean) => { failWrites = value; } };
+}
+const ok = (value: unknown) => ({ ok: true, status: 200, json: async () => value });
+const rejection = (status: number, value: unknown) => ({ ok: false, status, json: async () => value });
+
+
+// The setup above comes unchanged from checks/05-demo-astra/adversarial.test.ts.
+// This check adds normal persistence, modal reopening, and restored display evidence.
+test('C10: normal signing, reopening, and reload omit decoded details while preserving exact bytes', async () => {
+  const initial = journal('review');
+  const signatureResult = initial.signed_xdr;
+  delete initial.signed_xdr;
+  const f = page(initial);
+  const before = JSON.parse(f.el('details').textContent);
+  assert.equal(before.transaction.operation.amount, '0.0100000');
+  assert.equal(before.transaction.fee_stroops, '100');
+  assert.equal(before.transaction.sequence, '11');
+  assert.ok(before.transaction.time_bounds.maxTime);
+  assert.equal(before.transaction.memo, null);
+  f.context.signed = signatureResult;
+  f.run(`wallet={token:'mock',signTransaction:async()=>({signedTxXdr:signed})}; account={address:${JSON.stringify(key.publicKey())}};`);
+  await f.click('sign');
+  assert.equal(f.run('pending.state'), 'signed');
+  assert.match(f.el('status').textContent, /Signature verified\. Review the transaction/);
+  const saved = f.getStored();
+  assert.ok(saved);
+  const signedRecord = JSON.parse(saved);
+  assert.equal(signedRecord.xdr, initial.xdr);
+  assert.equal(signedRecord.hash, initial.hash);
+  assert.equal(signedRecord.signed_xdr, signatureResult);
+  assert.equal(f.calls.length, 0);
+  await f.click('close-review');
+  assert.equal(f.el('review').open, false);
+  await f.click('open-review');
+  assert.equal(f.el('review').open, true);
+  const restored = page(JSON.parse(saved));
+  assert.equal(restored.el('review').open, true);
+  assert.equal(restored.run('journalBlocked'), false);
+  assert.equal(restored.getStored(), saved);
+  assert.equal(restored.calls.length, 0);
+  for (const view of [f, restored]) {
+    const detail = JSON.parse(view.el('details').textContent);
+    assert.equal(detail.transaction, undefined);
+    assert.equal(detail.hash, initial.hash);
+    assert.equal(detail.signer, initial.address);
+    assert.equal(detail.recipient, initial.recipient);
+    assert.equal(view.el('review-title').textContent, 'Pay 0.01 test XLM');
+    assert.equal(view.el('submit').hidden, false);
+    assert.equal(view.el('submit').disabled, false);
+    assert.equal(JSON.stringify(view.run('describe(pending.signed_xdr)')), JSON.stringify(before.transaction));
+  }
+  console.log(JSON.stringify({
+    check: 'C10',
+    before_sign: before,
+    after_sign: JSON.parse(f.el('details').textContent),
+    after_reload: JSON.parse(restored.el('details').textContent),
+    submit_available: true,
+    displayed_title: restored.el('review-title').textContent,
+    decoded_signed_body_matches_initial_review: true,
+    network_calls: f.calls.length + restored.calls.length,
+  }, null, 2));
+});

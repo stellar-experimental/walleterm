@@ -1,0 +1,180 @@
+    Read connect.test.ts
+    Search async connect|async disconnect|signal|chooseWallet in walleterm.ts
+
+• Ran cat audit/2026-09-26/reports/concerns/c06-component-destroy-astra.md audit/2026-09-26/reports/concerns/
+  │ c06-component-destroy-daybreak.md; sed -n '195,410p' sdk/connect.ts
+  └ # C06: Component destruction leaves owned work active
+
+    ## Identity and verdict
+    +406 lines (ctrl+t to view transcript)
+
+• Explored
+  └ Read connect.ts, connect.test.ts, walleterm.ts, support.ts
+
+• The correction remains clear, narrow, and worthwhile. The current files contain the paused changes and destruction tests.
+  The review confirms one remaining path: native dialog closure can destroy the component before connection publication.
+  I will add two destruction checks and a regression test. I will preserve the existing client ownership rules.
+
+• Ran python3 - <<'PY'
+  │ from pathlib import Path
+  │ import hashlib, subprocess, tempfile
+  │ … +8 lines
+  └ {'.agents/skills/walleterm-site-bridge/references/interception.md':
+    '0c417445aa7661064f49d975a235ea29e420f1222ab2398067ab1602c3b412b2', 'bridge/code-view.test.ts':
+    '4492af3ff96ff23e41df095068c0c4e07789dca9a8818afee5df955dbdbaa8b0', 'bridge/server.test.ts':
+    +2 lines (ctrl+t to view transcript)
+
+• Edited bridge/connect.test.ts (+61 -0)
+    1026
+    1027 +test('dialog focus restoration can destroy the component before connection publication', async () => {
+    1028 +  let next: Replacement | undefined,
+    1029 +    disconnected = 0;
+    1030 +  class Replacement {
+    1031 +    token: string | null = 'new-session';
+    1032 +    url = 'https://bridge.example';
+    1033 +    constructor() {
+    1034 +      next = this;
+    1035 +    }
+    1036 +    async connect() {
+    1037 +      return { address: 'GNEW', networkPassphrase: 'testnet' };
+    1038 +    }
+    1039 +    async disconnect() {
+    1040 +      disconnected++;
+    1041 +      this.token = null;
+    1042 +    }
+    1043 +  }
+    1044 +  const f = fixture(() => {}, Replacement),
+    1045 +    observed = observe(f),
+    1046 +    host = new EventTarget();
+    1047 +  f.ui.open();
+    1048 +  let view: ReturnType<typeof f.view> | undefined,
+    1049 +    callbacks: unknown[] = [],
+    1050 +    writes: unknown[] = [],
+    1051 +    triggerWrites = 0,
+    1052 +    restoredFocus = 0;
+    1053 +  host.addEventListener('focus', () => {
+    1054 +    restoredFocus++;
+    1055 +    f.ui.destroy();
+    1056 +    view = f.view();
+    1057 +    callbacks = [...observed.callbacks];
+    1058 +    writes = [...observed.writes];
+    1059 +  });
+    1060 +  Object.assign(f.ui.dialog, {
+    1061 +    close() {
+    1062 +      this.open = false;
+    1063 +      // Native dialog.close() restores host focus synchronously, as verified by the review.
+    1064 +      host.dispatchEvent(new Event('focus'));
+    1065 +    },
+    1066 +  });
+    1067 +  f.node('trigger').setAttribute = () => {
+    1068 +    if (f.ui.destroyed) triggerWrites++;
+    1069 +  };
+    1070 +  f.node('url').value = 'https://bridge.example';
+    1071 +  f.node('code').value = '12345678';
+    1072 +  await f.ui.connect();
+    1073 +  assert.ok(next);
+    1074 +  assert.equal(restoredFocus, 1);
+    1075 +  assert.equal(f.ui.destroyed, true);
+    1076 +  assert.equal(f.ui.dialog.open, false);
+    1077 +  assert.equal(disconnected, 1);
+    1078 +  assert.equal(next.token, null);
+    1079 +  assert.equal(triggerWrites, 0);
+    1080 +  assert.deepEqual(f.view(), view);
+    1081 +  assert.deepEqual(observed.callbacks, callbacks);
+    1082 +  assert.deepEqual(observed.writes, writes);
+    1083 +  assert.equal(observed.callbacks.some(([kind]: any) => kind === 'connection'), false);
+    1084 +  assert.equal(f.ui.connection, null);
+    1085 +  assert.equal(f.ui.working, false);
+    1086 +});
+    1087 +
+    1088  for (const callback of ['state', 'connection']) {
+
+• Ran bun test bridge/connect.test.ts --test-name-pattern 'dialog focus restoration'
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/connect.test.ts:
+    +25 lines (ctrl+t to view transcript)
+
+• Edited 2 files (+6 -2)
+  └ bridge/connect.test.ts (+4 -2)
+    1045      observed = observe(f),
+    1046 -    host = new EventTarget();
+    1046 +    host = new EventTarget(),
+    1047 +    changes: Change[] = [];
+    1048 +  Object.assign(f.ui, { onChange: (value: Change) => changes.push(value) });
+    1049    f.ui.open();
+         ⋮
+    1084    assert.deepEqual(observed.writes, writes);
+    1083 -  assert.equal(observed.callbacks.some(([kind]: any) => kind === 'connection'), false);
+    1085 +  assert.deepEqual(changes, []);
+    1086    assert.equal(f.ui.connection, null);
+
+  └ sdk/connect.ts (+2 -0)
+    579      this.dialog.close();
+    580 +    if (this.destroyed) return;
+    581      this.trigger.setAttribute('aria-expanded', 'false');
+        ⋮
+    732        this.close();
+    733 +      if (this.destroyed) throw Error('The connection component was destroyed.');
+    734        this.onChange({ client: next, account: { ...account } });
+
+• Ran bun test bridge/connect.test.ts --test-name-pattern 'dialog focus restoration'
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/connect.test.ts:
+    +6 lines (ctrl+t to view transcript)
+
+• Ran node_modules/.bin/tsc -p tsconfig.sdk.json --noEmit --emitDeclarationOnly false
+  └ (no output)
+
+• Ran bun test bridge/connect.test.ts bridge/scan.test.ts
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/scan.test.ts:
+    +51 lines (ctrl+t to view transcript)
+
+• Ran node_modules/.bin/prettier --check sdk/connect.ts bridge/connect.test.ts; git diff --check -- sdk/connect.ts bridge/
+  │ connect.test.ts
+  └ Checking formatting...
+    All matched files use Prettier code style!
+
+• The new regression failed before the correction and passes after it.
+  All 45 connection and scanner tests passed. The SDK type check and formatting checks also passed.
+  The correction suppresses late publication and cleans up the unpublished client. Fresh independent review remains pending.
+
+• Ran python3 - <<'PY'
+  │ from pathlib import Path
+  │ import hashlib, subprocess, difflib
+  │ … +13 lines
+  └ --- before/sdk/connect.ts
+    +++ sdk/connect.ts
+    @@ -577,6 +577,7 @@
+    +147 lines (ctrl+t to view transcript)
+
+• Implemented C06. The correction remains clear, narrow, and worthwhile. I preserved the partial edits and existing destruction
+  tests.
+
+  Changed files:
+
+  • sdk/connect.ts:580: Added destruction checks after dialog closure. Unpublished clients use the existing cleanup.
+  • bridge/connect.test.ts:1027: Added the focus restoration regression. It verifies cleanup and prevents late callbacks, storage
+    writes, and view changes.
+
+  Exact checks:
+
+  • bun test bridge/connect.test.ts --test-name-pattern 'dialog focus restoration' — failed before correction; passed afterward.
+  • bun test bridge/connect.test.ts bridge/scan.test.ts — 45 passed, 0 failed.
+  • node_modules/.bin/tsc -p tsconfig.sdk.json --noEmit --emitDeclarationOnly false — passed.
+  • node_modules/.bin/prettier --check sdk/connect.ts bridge/connect.test.ts — passed.
+  • git diff --check -- sdk/connect.ts bridge/connect.test.ts — passed.
+
+  The regression simulates the native behavior verified by the reviewer. I did not implement the rejected disabled-button concern.
+  Established shared clients remain usable. Other modified files retain their original hashes.
+  Fresh independent review remains pending. I ran no broad suite, browser, physical-camera, or live-signing checks.
+
+  Worked for 2m 17s · 4:04 PM
+
+
+› Ask Codex to do anything
+
+  GPT-6-Sol high · ~/Desktop/walleterm-v2 · Assess C06 remediation viability                            ⚠ 2 warnings · f2 to view

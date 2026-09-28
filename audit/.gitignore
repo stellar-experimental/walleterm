@@ -1,0 +1,3 @@
+# Preserve verification logs with the audit reports.
+!*.log
+!coverage.out

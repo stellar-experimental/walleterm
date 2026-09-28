@@ -1,0 +1,201 @@
+import { test } from 'bun:test';
+import assert from 'node:assert/strict';
+import {
+  Account,
+  Keypair,
+  Networks,
+  Operation,
+  TransactionBuilder,
+} from '/private/tmp/walleterm-audit-40d6cca9db73/node_modules/@stellar/stellar-sdk';
+import { createBridge } from '/private/tmp/walleterm-audit-40d6cca9db73/bridge/server.ts';
+import { WalletermClient } from '/private/tmp/walleterm-audit-40d6cca9db73/sdk/walleterm.ts';
+
+function unsignedXdr(publicKey: string) {
+  return new TransactionBuilder(new Account(publicKey, '10'), {
+    fee: '100',
+    networkPassphrase: Networks.TESTNET,
+  })
+    .addOperation(Operation.manageData({ name: 'c05', value: 'offline' }))
+    .setTimeout(180)
+    .build()
+    .toXDR();
+}
+
+function transportFor(origin: string) {
+  const paths: string[] = [];
+  const fetcher = async (input: string | URL | Request, options?: RequestInit) => {
+    const url = new URL(String(input));
+    assert.equal(url.origin, origin, 'The check must not make an external request.');
+    paths.push(url.pathname);
+    const headers = new Headers(options?.headers);
+    headers.set('Origin', 'https://offline.example');
+    return fetch(input, { ...options, headers });
+  };
+  return { fetcher, paths };
+}
+
+for (const returnToA of [false, true]) {
+  const scenario = returnToA ? 'A-B-A' : 'A-B';
+  test(`a buffered signed response survives an observed ${scenario} revision change`, async () => {
+    const keys = [Keypair.random(), Keypair.random()];
+    let signCalls = 0;
+    const bridge = createBridge({
+      port: 0,
+      log() {},
+      listSigners: async () => keys.map((key) => ({ public_key: key.publicKey() })),
+      sign: async (address, hash) => {
+        signCalls++;
+        const key = keys.find((candidate) => candidate.publicKey() === address);
+        assert.ok(key);
+        return Buffer.from(key.sign(Buffer.from(hash, 'hex'))).toString('hex');
+      },
+    });
+    await bridge.listen();
+    const address = bridge.server.address();
+    assert.ok(address && typeof address !== 'string');
+    const origin = `http://127.0.0.1:${address.port}`;
+    bridge.setPublicOrigin(origin);
+    const { fetcher, paths } = transportFor(origin);
+    const responseReady = Promise.withResolvers<void>();
+    const releaseResponse = Promise.withResolvers<void>();
+    let requestId = '';
+    const first = new WalletermClient(origin, {
+      page: null,
+      pollInterval: 1,
+      fetch: async (input, options) => {
+        const response = await fetcher(input, options);
+        if (new URL(String(input)).pathname.startsWith('/v1/requests')) {
+          const body = await response.clone().json();
+          if (body.state === 'signed') {
+            requestId = body.id;
+            responseReady.resolve();
+            await releaseResponse.promise;
+          }
+        }
+        return response;
+      },
+    });
+    try {
+      await first.connect({
+        code: bridge.pairing.code,
+        walletScope: 'available',
+        selectWallet: async (signers) => signers[0].public_key,
+      });
+      const second = new WalletermClient(origin, { page: null, pollInterval: 1, fetch: fetcher });
+      second.token = first.token;
+      second.walletScope = 'available';
+      second.revision = null;
+      await second.getAddress();
+
+      const signing = first.signTransaction(unsignedXdr(keys[0].publicKey()));
+      await responseReady.promise;
+      await second.selectWallet(keys[1].publicKey());
+      if (returnToA) await second.selectWallet(keys[0].publicKey());
+      const observed = await first.getAddress();
+      const bridgeRecord = await second.request(`/v1/requests/${requestId}`);
+
+      assert.equal(first.revision, returnToA ? 3 : 2);
+      assert.equal(observed.address, keys[returnToA ? 0 : 1].publicKey());
+      assert.equal(bridgeRecord.state, 'unknown');
+      assert.equal(bridgeRecord.signed_xdr, undefined);
+      assert.match(bridgeRecord.message || '', /sent the signature/);
+      releaseResponse.resolve();
+
+      const result = await signing;
+      const signed = TransactionBuilder.fromXDR(result.signedTxXdr, Networks.TESTNET);
+      assert.equal(result.signerAddress, keys[0].publicKey());
+      assert.equal(signed.signatures.length, 1);
+      assert.ok(
+        keys[0].verify(signed.hash(), signed.signatures[0].signature.toBytes()),
+        'The returned old signature must be cryptographically valid.',
+      );
+      assert.equal(signCalls, 1);
+      assert.equal(paths.filter((path) => path.endsWith('/cancel')).length, 0);
+      console.log(
+        JSON.stringify({
+          scenario,
+          observedRevision: first.revision,
+          bridgeState: bridgeRecord.state,
+          validOldSignatureReturned: true,
+          sdkCancellationAttempted: false,
+          signatureCalls: signCalls,
+          externalRequests: 0,
+        }),
+      );
+    } finally {
+      releaseResponse.resolve();
+      await bridge.close();
+    }
+  });
+}
+
+test('a remote switch before signer completion withholds a late signature', async () => {
+  const keys = [Keypair.random(), Keypair.random()];
+  const signingStarted = Promise.withResolvers<void>();
+  const releaseSigner = Promise.withResolvers<void>();
+  let signerSignal: AbortSignal | undefined;
+  let signatureProduced = false;
+  const bridge = createBridge({
+    port: 0,
+    log() {},
+    listSigners: async () => keys.map((key) => ({ public_key: key.publicKey() })),
+    sign: async (address, hash, { signal }) => {
+      signerSignal = signal;
+      signingStarted.resolve();
+      await releaseSigner.promise;
+      signatureProduced = true;
+      const key = keys.find((candidate) => candidate.publicKey() === address);
+      assert.ok(key);
+      return Buffer.from(key.sign(Buffer.from(hash, 'hex'))).toString('hex');
+    },
+  });
+  await bridge.listen();
+  const address = bridge.server.address();
+  assert.ok(address && typeof address !== 'string');
+  const origin = `http://127.0.0.1:${address.port}`;
+  bridge.setPublicOrigin(origin);
+  const { fetcher, paths } = transportFor(origin);
+  const first = new WalletermClient(origin, { page: null, pollInterval: 1, fetch: fetcher });
+  try {
+    await first.connect({
+      code: bridge.pairing.code,
+      walletScope: 'available',
+      selectWallet: async (signers) => signers[0].public_key,
+    });
+    const second = new WalletermClient(origin, { page: null, pollInterval: 1, fetch: fetcher });
+    second.token = first.token;
+    second.walletScope = 'available';
+    second.revision = null;
+    await second.getAddress();
+
+    const signing = first.signTransaction(unsignedXdr(keys[0].publicKey()));
+    await signingStarted.promise;
+    await second.selectWallet(keys[1].publicKey());
+    const observed = await first.getAddress();
+    assert.equal(observed.address, keys[1].publicKey());
+    assert.equal(signerSignal?.aborted, true);
+    releaseSigner.resolve();
+
+    const error = await signing.then(
+      () => assert.fail('The SDK must not return a signature after pre-delivery withholding.'),
+      (value) => value,
+    );
+    assert.equal(error.requestState, 'unknown');
+    assert.equal(signatureProduced, true);
+    assert.equal(paths.filter((path) => path.endsWith('/cancel')).length, 0);
+    console.log(
+      JSON.stringify({
+        scenario: 'switch-before-signer-completion',
+        observedRevision: first.revision,
+        signerSignalAborted: signerSignal?.aborted,
+        lateSignatureProducedByMock: signatureProduced,
+        signatureDelivered: false,
+        requestState: error.requestState,
+        externalRequests: 0,
+      }),
+    );
+  } finally {
+    releaseSigner.resolve();
+    await bridge.close();
+  }
+});

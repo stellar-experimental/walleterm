@@ -1,0 +1,180 @@
+    775 +        {
+    776 +          stop() {
+    777 +            stopped = true;
+    778 +          },
+    779 +        },
+    780 +      ],
+    781      } as MediaStream;
+
+• Ran bunx tsc --ignoreConfig --noEmit --strict --target ESNext --module Preserve --moduleResolution bundler --lib
+  │ ESNext,DOM,DOM.Iterable --types bun --allowImportingTsExtensions --skipLibCheck --verbatimModuleSyntax
+  │ --noFallthroughCasesInSwitch --noImplicitOverride sdk/connect.ts bridge/connect.test.ts
+  └ (no output)
+
+• All 42 tests passed. The focused TypeScript check found a camera mock type error.
+  I corrected the mock, and TypeScript passed. I will check whether selected regressions fail against the original component.
+
+• Ran python3 - <<'PY'
+  │ from pathlib import Path
+  │ import shutil
+  │ … +29 lines
+  └ Original component baseline: 40d6cca9db732a0db16d154c80d4a153bf33c6b7
+    Temporary directory: /private/tmp/walleterm-c06-ft7wjdku
+    Command: ['bun', 'test', 'bridge/connect.test.ts', '-t', 'scanner that returns after destruction|a delayed (refresh|
+    +180 lines (ctrl+t to view transcript)
+
+• Three selected regressions failed against the original component, as expected.
+  I found one small gap in the partial correction. A state callback can destroy the component before client publication.
+  That path must still clean up the unpublished client.
+
+• Edited 2 files (+60 -1)
+  └ bridge/connect.test.ts (+59 -0)
+    1026
+    1027 +for (const callback of ['state', 'connection']) {
+    1028 +  test(`destruction from the ${callback} callback preserves connection ownership`, async () => {
+    1029 +    let next: Replacement | undefined,
+    1030 +      disconnected = 0;
+    1031 +    class Replacement {
+    1032 +      token: string | null = 'new-session';
+    1033 +      url = 'https://bridge.example';
+    1034 +      constructor() {
+    1035 +        next = this;
+    1036 +      }
+    1037 +      async connect() {
+    1038 +        return { address: 'GNEW', networkPassphrase: 'testnet' };
+    1039 +      }
+    1040 +      async disconnect() {
+    1041 +        disconnected++;
+    1042 +        this.token = null;
+    1043 +      }
+    1044 +    }
+    1045 +    const f = fixture(() => {}, Replacement);
+    1046 +    const changes: Change[] = [],
+    1047 +      writesAfterDestroy: boolean[] = [],
+    1048 +      busy: boolean[] = [];
+    1049 +    Object.assign(f.ui, {
+    1050 +      sessionStorageKey: 'test-connection',
+    1051 +      onStateChange() {
+    1052 +        if (callback === 'state') f.ui.destroy();
+    1053 +      },
+    1054 +      onChange(value: Change) {
+    1055 +        changes.push(value);
+    1056 +        if (callback === 'connection') f.ui.destroy();
+    1057 +      },
+    1058 +      onBusyChange: (value: boolean) => busy.push(value),
+    1059 +    });
+    1060 +    Object.assign(f.context, {
+    1061 +      sessionStorage: {
+    1062 +        setItem: () => writesAfterDestroy.push(f.ui.destroyed),
+    1063 +        removeItem: () => writesAfterDestroy.push(f.ui.destroyed),
+    1064 +      },
+    1065 +    });
+    1066 +    f.node('url').value = 'https://bridge.example';
+    1067 +    f.node('code').value = '12345678';
+    1068 +    await f.ui.connect();
+    1069 +    assert.ok(next);
+    1070 +    assert.equal(f.ui.destroyed, true);
+    1071 +    assert.deepEqual(writesAfterDestroy, [false]);
+    1072 +    assert.deepEqual(busy, [true]);
+    1073 +    if (callback === 'state') {
+    1074 +      assert.equal(changes.length, 0);
+    1075 +      assert.equal(disconnected, 1);
+    1076 +      assert.equal(next.token, null);
+    1077 +    } else {
+    1078 +      assert.equal(changes.length, 1);
+    1079 +      assert.equal(changes[0].client, next);
+    1080 +      assert.equal(disconnected, 0);
+    1081 +      assert.equal(next.token, 'new-session');
+    1082 +    }
+    1083 +  });
+    1084 +}
+    1085 +
+    1086  for (const operation of ['refresh', 'changeWallet', 'checkHealth']) {
+
+  └ sdk/connect.ts (+1 -1)
+    727        this.setState('connected');
+    728 -      if (this.destroyed) return;
+    728 +      if (this.destroyed) throw Error('The connection component was destroyed.');
+    729        this.wallets = this.nextWallets || [];
+
+• Ran bunx prettier --write sdk/connect.ts bridge/connect.test.ts
+  └ sdk/connect.ts 63ms (unchanged)
+    bridge/connect.test.ts 44ms (unchanged)
+
+• Ran bun test bridge/connect.test.ts bridge/scan.test.ts
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/scan.test.ts:
+    +50 lines (ctrl+t to view transcript)
+
+• Ran git diff --check -- sdk/connect.ts bridge/connect.test.ts; shasum -a 256 sdk/connect.ts bridge/connect.test.ts .agents/
+  │ skills/walleterm-site-bridge/references/interception.md; git status --short
+  └ 047b5413ea3012872ff6608bc0a2b909585623f10822cb0ee6b4526fcdefd5a2  sdk/connect.ts
+    684a5871974da1fec82eab0fbec1be2308dbea4972976a08bcd19da739fd8f0e  bridge/connect.test.ts
+    0c417445aa7661064f49d975a235ea29e420f1222ab2398067ab1602c3b412b2  .agents/skills/walleterm-site-bridge/references/
+    +11 lines (ctrl+t to view transcript)
+
+• Ran bunx prettier --check sdk/connect.ts bridge/connect.test.ts
+  └ Checking formatting...
+    All matched files use Prettier code style!
+
+• Ran bunx tsc --ignoreConfig --noEmit --strict --target ESNext --module Preserve --moduleResolution bundler --lib
+  │ ESNext,DOM,DOM.Iterable --types bun --allowImportingTsExtensions --skipLibCheck --verbatimModuleSyntax
+  │ --noFallthroughCasesInSwitch --noImplicitOverride sdk/connect.ts bridge/connect.test.ts
+  └ (no output)
+
+• Ran python3 - <<'PY'
+  │ from pathlib import Path
+  │ import shutil
+  │ … +32 lines
+  └ Restored the checkpoint return before unpublished-client cleanup.
+    Command: ['bun', 'test', 'bridge/connect.test.ts', '-t', 'destruction from the state callback']
+    bun test v1.4.2 (744846f84)
+    +31 lines (ctrl+t to view transcript)
+
+• Ran rg -n '^  destroy\(|if \(this.destroyed\) throw|^for \(const stage|^test\(.a scanner|^for \(const callback|^for \(const
+  │ operation' sdk/connect.ts bridge/connect.test.ts; git diff --numstat -- sdk/connect.ts bridge/connect.test.ts
+  └ sdk/connect.ts:208:  destroy() {
+    sdk/connect.ts:703:          if (this.destroyed) throw Error('The connection component was destroyed.');
+    sdk/connect.ts:710:      if (this.destroyed) throw Error('The connection component was destroyed.');
+    +10 lines (ctrl+t to view transcript)
+
+• Implemented. C06 remains clear, narrow, and worthwhile. The correction uses existing cancellation fields and preserves
+  established clients.
+
+  Changed files:
+
+  • sdk/connect.ts:208: preserved the partial guards; fixed unpublished-client cleanup after callback destruction.
+  • bridge/connect.test.ts:766: added 15 destruction regression cases.
+
+  These checks passed:
+
+  bun test bridge/connect.test.ts bridge/scan.test.ts
+  bunx prettier --check sdk/connect.ts bridge/connect.test.ts
+  bunx tsc --ignoreConfig --noEmit --strict --target ESNext --module Preserve --moduleResolution bundler --lib
+  ESNext,DOM,DOM.Iterable --types bun --allowImportingTsExtensions --skipLibCheck --verbatimModuleSyntax
+  --noFallthroughCasesInSwitch --noImplicitOverride sdk/connect.ts bridge/connect.test.ts
+  git diff --check -- sdk/connect.ts bridge/connect.test.ts
+
+  Bun reported 44 passed, 0 failed. Coverage includes camera cleanup, delayed pairing, replacement, callbacks, storage writes, and
+  established-client use.
+
+  These isolated regression checks failed as expected:
+
+  # Original component: three failures
+  bun test bridge/connect.test.ts -t 'scanner that returns after destruction|a delayed (refresh|changeWallet) result'
+
+  # Paused correction: one failure
+  bun test bridge/connect.test.ts -t 'destruction from the state callback'
+
+  The temporary directories were removed.
+
+  Destruction cannot undo a revocation request that already started. Physical camera, live 1Password, and testnet checks did not
+  run. Independent review and combined verification remain pending.
+
+  Worked for 7m 34s · 3:52 PM
+
+
+› Ask Codex to do anything
+
+  GPT-6-Sol high · ~/Desktop/walleterm-v2 · Assess C06 remediation viability                            ⚠ 2 warnings · f2 to view

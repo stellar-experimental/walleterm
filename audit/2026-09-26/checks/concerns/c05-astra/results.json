@@ -1,0 +1,19 @@
+{
+  "cache": "/private/tmp/c05-astra-cache",
+  "checks": [
+    {
+      "name": "remote-switch",
+      "command": "bun test /Users/kalepail/Desktop/walleterm-v2/audit/2026-09-26/checks/04-sdk-astra/remote-switch.test.ts",
+      "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+      "exit_code": 1,
+      "log": "remote-switch.log"
+    },
+    {
+      "name": "counterevidence",
+      "command": "bun test bridge/server.test.ts --test-name-pattern 'switches cancel queued reviews|a switch during .* withholds the old result|SDK withholds a delayed successful signature|SDK preserves signing uncertainty when session expiry'",
+      "cwd": "/private/tmp/walleterm-audit-40d6cca9db73",
+      "exit_code": 1,
+      "log": "counterevidence.log"
+    }
+  ]
+}

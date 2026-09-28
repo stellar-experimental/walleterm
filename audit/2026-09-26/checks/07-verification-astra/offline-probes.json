@@ -1,0 +1,134 @@
+{
+  "source": "/private/tmp/walleterm-audit-40d6cca9db73",
+  "live_commands": 0,
+  "network_requests": 0,
+  "probes": [
+    {
+      "probe": "CLI pipeline bypass",
+      "fault": "send_timeout",
+      "mock_commands": [
+        [
+          "tx",
+          "new",
+          "payment",
+          "--network",
+          "testnet",
+          "--source-account",
+          "GMOCKA",
+          "--destination",
+          "GMOCKC",
+          "--amount",
+          "100",
+          "--build-only"
+        ],
+        [
+          "tx",
+          "hash",
+          "--network",
+          "testnet"
+        ],
+        [
+          "tx",
+          "decode"
+        ],
+        [
+          "tx",
+          "encode"
+        ],
+        [
+          "tx",
+          "hash",
+          "--network",
+          "testnet"
+        ],
+        [
+          "tx",
+          "send",
+          "--network",
+          "testnet"
+        ]
+      ],
+      "evidence_write_targets": [
+        "/private/tmp/walleterm-audit-40d6cca9db73/evidence/live/cli-pipeline-unsigned.json"
+      ],
+      "pending_gate": false,
+      "signatures_after_failure": 2,
+      "original_hash_lookups": 0,
+      "defect_reproduced": true
+    },
+    {
+      "probe": "CLI pipeline bypass",
+      "fault": "lookup_not_found",
+      "mock_commands": [
+        [
+          "tx",
+          "new",
+          "payment",
+          "--network",
+          "testnet",
+          "--source-account",
+          "GMOCKA",
+          "--destination",
+          "GMOCKC",
+          "--amount",
+          "100",
+          "--build-only"
+        ],
+        [
+          "tx",
+          "hash",
+          "--network",
+          "testnet"
+        ],
+        [
+          "tx",
+          "decode"
+        ],
+        [
+          "tx",
+          "encode"
+        ],
+        [
+          "tx",
+          "hash",
+          "--network",
+          "testnet"
+        ],
+        [
+          "tx",
+          "send",
+          "--network",
+          "testnet"
+        ]
+      ],
+      "evidence_write_targets": [
+        "/private/tmp/walleterm-audit-40d6cca9db73/evidence/live/cli-pipeline-unsigned.json"
+      ],
+      "pending_gate": false,
+      "signatures_after_failure": 2,
+      "original_hash_lookups": 1,
+      "defect_reproduced": true
+    },
+    {
+      "probe": "terminal record failure",
+      "blocked": true,
+      "original_hash_reconciled": true,
+      "send_count": 1,
+      "passed": true
+    },
+    {
+      "probe": "classic unknown during signer configuration",
+      "mock_submissions": [
+        "G01-payment",
+        "G02-configure"
+      ],
+      "mock_signatures": [
+        "a",
+        "b"
+      ],
+      "restoration_signatures": 0,
+      "retained_gate": true,
+      "passed": true
+    }
+  ]
+}

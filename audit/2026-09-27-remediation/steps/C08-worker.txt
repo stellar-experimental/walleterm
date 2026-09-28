@@ -1,0 +1,180 @@
+    1267 +      });
+    1268 +      assert.match(f.el('status').textContent, /succeeded.*Offer details are unavailable/);
+    1269 +      assert.equal(f.el('note').disabled, false);
+    1270 +      assert.equal(f.signs(), 0);
+    1271 +    }
+    1272 +  });
+    1273 +}
+
+• Ran bun test bridge/site.test.ts
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/site.test.ts:
+    +113 lines (ctrl+t to view transcript)
+
+• Explored
+  └ Search type TransactionResult|interface TransactionResult|ManageOfferSuccessResult|manageOfferCreated in stellar-base (exit 2)
+
+• Ran bunx --no-install tsc --ignoreConfig --noEmit --strict --skipLibCheck --target ESNext --module Preserve --moduleResolution
+  │ bundler --allowImportingTsExtensions --noImplicitOverride --noFallthroughCasesInSwitch demo/site/app.ts bridge/site.test.ts
+  └ bridge/site.test.ts(1,22): error TS2307: Cannot find module 'bun:test' or its corresponding type declarations.
+    bridge/site.test.ts(2,20): error TS2591: Cannot find name 'node:assert/strict'. Do you need to install type definitions for
+    node? Try `npm i --save-dev @types/node` and then add 'node' to the types field in your tsconfig.
+    +114 lines (ctrl+t to view transcript)
+
+• Ran bunx --no-install prettier --check demo/site/app.ts bridge/site.test.ts
+  └ Checking formatting...
+    [warn] bridge/site.test.ts
+    [warn] Code style issues found in the above file. Run Prettier with --write to fix.
+
+• Explored
+  └ Search ManageOfferSuccessResult|manageOfferCreated|TransactionResult in stellar-sdk
+
+• Ran bunx --no-install tsc --ignoreConfig --noEmit --strict --skipLibCheck --target ESNext --module Preserve --moduleResolution
+  │ bundler --allowImportingTsExtensions --noImplicitOverride --noFallthroughCasesInSwitch --types bun demo/site/app.ts bridge/
+  │ site.test.ts
+  └ (no output)
+
+• Ran bunx --no-install prettier --write demo/site/app.ts bridge/site.test.ts
+  └ demo/site/app.ts 62ms (unchanged)
+    bridge/site.test.ts 51ms
+
+• The guard preserves the original hash and unresolved state for invalid POST and GET results.
+  All 109 site tests pass. The focused type check passes after I add --types bun.
+  I will check valid offer decoding and the existing submission error behavior before completion.
+
+• Ran cat node_modules/@stellar/stellar-sdk/lib/esm/xdr/generated/transaction-result.d.ts node_modules/@stellar/stellar-sdk/lib/
+  │ esm/xdr/generated/transaction-result-result.d.ts node_modules/@stellar/stellar-sdk/lib/esm/xdr/generated/
+  │ operation-result.d.ts node_modules/@stellar/stellar-sdk/lib/esm/xdr/generated/operation-result-tr.d.ts node_modules/
+  │ … +3 lines
+  └ import type { XdrType } from "@stellar/js-xdr";
+    import { XdrValue } from "../values/xdr-value.js";
+    import { TransactionResultResult, type TransactionResultResultWire } from "./transaction-result-result.js";
+    +1242 lines (ctrl+t to view transcript)
+
+• Edited bridge/site.test.ts (+62 -0)
+    1281    });
+    1282 +  test(`${button} still decodes a valid offer result without a resting offer`, async () => {
+    1283 +    const { xdr } = await import('@stellar/stellar-sdk');
+    1284 +    const result_xdr = new xdr.TransactionResult({
+    1285 +      feeCharged: 100n,
+    1286 +      result: xdr.TransactionResultResult.txSuccess([
+    1287 +        xdr.OperationResult.opInner(
+    1288 +          xdr.OperationResultTr.manageSellOffer(
+    1289 +            xdr.ManageSellOfferResult.manageSellOfferSuccess(
+    1290 +              new xdr.ManageOfferSuccessResult({
+    1291 +                offersClaimed: [],
+    1292 +                offer: xdr.ManageOfferSuccessResultOffer.manageOfferDeleted(),
+    1293 +              }),
+    1294 +            ),
+    1295 +          ),
+    1296 +        ),
+    1297 +      ]),
+    1298 +      ext: xdr.TransactionResultExt.v0(),
+    1299 +    }).toXDR('base64');
+    1300 +    const f = await confirmationFixture(
+    1301 +      state,
+    1302 +      (hash) => ({ hash, ledger: 1, successful: true, result_xdr }),
+    1303 +      'offer',
+    1304 +    );
+    1305 +    await f.click(button);
+    1306 +    assert.equal(f.run('pending.state'), 'submitted');
+    1307 +    assert.equal(JSON.parse(f.store.value!).result.hash, f.original.hash);
+    1308 +    assert.match(f.el('status').textContent, /succeeded without a resting offer/);
+    1309 +    assert.equal(f.signs(), 0);
+    1310 +  });
+    1311  }
+    1312 +
+    1313 +test('submission transport errors and tx_bad_seq still preserve uncertainty without retrying', async () => {
+    1314 +  for (const error of ['invalid JSON', 'HTTP 504', 'tx_bad_seq']) {
+    1315 +    const f = await confirmationFixture('signed', () => ({}));
+    1316 +    let calls = 0;
+    1317 +    f.context.fetch = async (_url: string, options: RequestInit) => {
+    1318 +      calls++;
+    1319 +      assert.equal(options.method, 'POST');
+    1320 +      assert.equal(new URLSearchParams(String(options.body)).get('tx'), f.original.signed_xdr);
+    1321 +      if (error === 'invalid JSON')
+    1322 +        return {
+    1323 +          ok: true,
+    1324 +          json: async () => {
+    1325 +            throw SyntaxError('Invalid JSON');
+    1326 +          },
+    1327 +        };
+    1328 +      return {
+    1329 +        ok: false,
+    1330 +        status: error === 'HTTP 504' ? 504 : 400,
+    1331 +        json: async () => ({
+    1332 +          detail: error,
+    1333 +          extras: { result_codes: { transaction: 'tx_bad_seq' }, result_xdr: 'mock' },
+    1334 +        }),
+    1335 +      };
+    1336 +    };
+    1337 +    await f.click('submit');
+    1338 +    assert.deepEqual(JSON.parse(f.store.value!), { ...f.original, state: 'unknown' });
+    1339 +    assert.equal(f.el('check').hidden, false);
+    1340 +    assert.equal(f.el('note').disabled, true);
+    1341 +    assert.equal(calls, 1);
+    1342 +    assert.equal(f.signs(), 0);
+    1343 +  }
+    1344 +});
+
+• Ran bunx --no-install prettier --write demo/site/app.ts bridge/site.test.ts
+  └ demo/site/app.ts 67ms (unchanged)
+    bridge/site.test.ts 56ms (unchanged)
+
+• Ran bunx --no-install tsc --ignoreConfig --noEmit --strict --skipLibCheck --target ESNext --module Preserve --moduleResolution
+  │ bundler --allowImportingTsExtensions --noImplicitOverride --noFallthroughCasesInSwitch --types bun demo/site/app.ts bridge/
+  │ site.test.ts
+  └ (no output)
+
+• Ran bunx --no-install prettier --check demo/site/app.ts bridge/site.test.ts
+  └ Checking formatting...
+    All matched files use Prettier code style!
+
+• Ran git diff --check -- demo/site/app.ts bridge/site.test.ts; git diff --stat -- demo/site/app.ts bridge/site.test.ts; git diff
+  │ -- demo/site/app.ts; git status --short
+  └  bridge/site.test.ts | 403 +++++++++++++++++++++++++++++++++++++++++++++++++++-
+     demo/site/app.ts    |  33 +++--
+     2 files changed, 426 insertions(+), 10 deletions(-)
+    +74 lines (ctrl+t to view transcript)
+
+• Ran bun test bridge/site.test.ts
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/site.test.ts:
+    +116 lines (ctrl+t to view transcript)
+
+• Implemented C08. The correction remains clear, narrow, and worthwhile.
+
+  Changed files:
+
+  • demo/site/app.ts:681: Validates the exact pending hash, boolean successful, and positive safe-integer ledger before journal
+    changes.
+
+  • bridge/site.test.ts:1089: Tests invalid responses, valid success and failure, reload protection, original-hash recovery, and
+    offer decoding.
+
+  Invalid responses preserve the unresolved outcome and original hash. Optional offer decoding failures preserve validated
+  terminal results. I preserved existing changes.
+
+  Exact final checks passed:
+
+  bun test bridge/site.test.ts
+  bunx --no-install prettier --check demo/site/app.ts bridge/site.test.ts
+  bunx --no-install tsc --ignoreConfig --noEmit --strict --skipLibCheck --target ESNext --module Preserve --moduleResolution
+  bundler --allowImportingTsExtensions --noImplicitOverride --noFallthroughCasesInSwitch --types bun demo/site/app.ts bridge/
+  site.test.ts
+  git diff --check -- demo/site/app.ts bridge/site.test.ts
+
+  The test file passed 112 tests with zero failures. The initial type-check command omitted --types bun; the corrected command
+  passed.
+
+  Limits: Tests used network mocks and isolated keys. No real provider incident was demonstrated. Live signing and submission were
+  not run. Independent review and combined verification remain pending.
+
+  Worked for 4m 51s · 4:26 PM
+
+
+› Ask Codex to do anything
+
+  GPT-6-Sol high · ~/Desktop/walleterm-v2 · Assess and implement C08 correction                         ⚠ 2 warnings · f2 to view

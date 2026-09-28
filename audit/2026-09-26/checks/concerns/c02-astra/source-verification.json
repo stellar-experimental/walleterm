@@ -1,0 +1,20 @@
+{
+  "checked_utc": "2026-09-27T03:07:30.059207+00:00",
+  "revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "snapshot": "/private/tmp/walleterm-audit-40d6cca9db73",
+  "manifest_count": 199,
+  "git_tree_count": 199,
+  "manifest_paths_match_git_tree": true,
+  "sha256_or_git_blob_mismatches": [],
+  "evidence_sha256": {
+    "briefs/COMMON.md": "3030f36e998c49f49d32c6d09cd5b5775001fa9b8aaf67c623fd06cc3e7a07e0",
+    "briefs/CONCERN.md": "3903e0968f4a1eca8572aa2c681c568a1a4f596db4eb05327ccd86ea23b7193d",
+    "briefs/C02-demo-url.md": "d01cc834855b0fee145326b30029cfacd45e5e9e8f26a26423f281f7d4949c48",
+    "reports/03-runtime-astra.md": "8420bede4235850e2622fcc7efca5006c4e0e525e22f23bd8aed07cfa72b424d",
+    "checks/03-runtime-astra/targeted.test.ts": "220faff8f1269188baeb32612fb19dbaefd584652778d2cd803d7b59c435ec14",
+    "checks/03-runtime-astra/malformed-encoded.log": "9da5fe618bf40deab76f462150f88e675c1f7fa5be53814be0e7167c94541f4f",
+    "research/03-runtime-astra/cloudflare-normalization.md": "5ba6bd3e0731c69b94fcd213639fa132868312df397121b72d61dfc7afd9cf43",
+    "checks/concerns/c02-astra/malformed-rerun.log": "707da1d1442102c545eea48669474caa5c0043b76c876f1b89bc39fb9afebbb1",
+    "checks/concerns/c02-astra/malformed-permitted.log": "fbbc80b41663a1f1a322c1ebfc0118b16d36e91cbad08bb2e24fec9c5e2b8441"
+  }
+}

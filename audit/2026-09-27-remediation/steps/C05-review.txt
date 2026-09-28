@@ -1,0 +1,180 @@
+    observed remote revision change
+
+    +603 lines (ctrl+t to view transcrip…
+
+• Explored
+  └ Search selection_revision|generation|
+           cancel|requestSign|
+           signing_unknown
+           in walleterm.ts
+    Read package.json
+    List 2026-09-26
+    Search C05|c05|concern|finding
+    Read MEMORY.md
+    Read server.test.ts, sdk.test.ts
+
+• Ran git diff -- sdk/walleterm.ts
+  │ bridge/sdk.test.ts bridge/
+  │ server.test.ts; rg -n
+  │ … +11 lines
+  └ diff --git a/bridge/server.test.ts b/
+    bridge/server.test.ts
+    index 5c136e8..ac99e2d 100644
+    +246 lines (ctrl+t to view transcrip…
+
+• The patch adds one revision check to
+  the existing success guard. The new
+  tests cover A-B, A-B-A, and unchanged
+  revisions.
+
+• Explored
+  └ Read walleterm.ts, errors.ts
+    Read server.test.ts
+    Search ^test\(|^  test\( in
+           server.test.ts
+    Read server.ts, server.test.ts
+    Read server.test.ts
+    Search ^test\(|^  test\( in
+           server.test.ts
+
+• Ran git apply --reverse --check
+  │ audit/2026-09-27-remediation/steps/
+  │ C05.patch
+  └ (no output)
+
+• Ran bun test bridge/server.test.ts
+  │ bridge/sdk.test.ts
+  │ --test-name-pattern 'observed
+  │ … +9 lines
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/sdk.test.ts:
+    +229 lines (ctrl+t to view transcrip…
+
+• Ran ./node_modules/.bin/prettier
+  │ --check sdk/walleterm.ts bridge/
+  │ server.test.ts bridge/sdk.test.ts
+  └ Checking formatting...
+    All matched files use Prettier code
+    style!
+
+• Ran ./node_modules/.bin/tsc -p
+  │ tsconfig.sdk.json --noEmit
+  │ --emitDeclarationOnly false
+  └ (no output)
+
+• The two SDK checks, formatting, and SDK
+  type check passed. The sandbox blocked
+  local listeners, so I will rerun the
+  bridge checks with listener access.
+
+• Ran bun test bridge/server.test.ts
+  │ bridge/sdk.test.ts
+  │ --test-name-pattern 'observed
+  │ … +9 lines
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/sdk.test.ts:
+    +20 lines (ctrl+t to view transcript)
+
+• All 13 targeted tests passed with local
+  listener access. I will test the
+  regressions against the old guard in
+  memory.
+
+• Ran python3 - <<'PY'
+  │ from pathlib import Path
+  │ import tempfile
+  │ … +47 lines
+  └ /private/tmp/
+    walleterm-c05-review-phv9wg0c/
+    old-guard-preload.ts
+
+• Ran bun test bridge/server.test.ts
+  │ --preload /private/tmp/
+  │ walleterm-c05-review-phv9wg0c/
+  │ … +3 lines
+  └ bun test v1.4.2 (744846f84)
+
+    bridge/server.test.ts:
+    +49 lines (ctrl+t to view transcript)
+
+• Ran shasum -a 256 sdk/walleterm.ts
+  │ bridge/sdk.test.ts bridge/
+  │ server.test.ts
+  │ … +2 lines
+  └ 0a6da72a0ce3ed848faa9ae6175e8a3579370
+    ad124885769125721f743e74d33  sdk/
+    walleterm.ts
+    +11 lines (ctrl+t to view transcript)
+
+• Ran python3 - <<'PY'
+  │ from pathlib import Path
+  │ review_dir = Path('/private/tmp/
+  │ … +7 lines
+  └ Removed the temporary review probe.
+
+• accept — C05 has no unresolved issue.
+
+  • sdk/walleterm.ts:357 compares the
+    captured and current revisions inside
+    the existing cancellation path. This
+    rejects both A-B and A-B-A delayed
+    results.
+
+  • bridge/server.test.ts:604 verifies
+    both rejections, requestState:
+    'unknown', and unchanged-revision
+    success.
+
+  • The tests verify the original
+    transaction hash and signature. Each
+    case makes one signing request and
+    one mock signing call. Changed cases
+    cancel the original request. No
+    submission request occurs.
+
+  • The runtime change adds one
+    comparison. The patch matches the
+    current files. bridge/sdk.test.ts
+    remains unchanged.
+
+  All 13 targeted offline tests passed:
+
+  bun test bridge/server.test.ts bridge/
+  sdk.test.ts --test-name-pattern
+  'observed remote wallet revision|same-
+  session wallet change|switches cancel
+  queued reviews|a switch during|
+  preserves signing uncertainty|
+  unreachable bridge bounds cancellation|
+  signing retries preserve the request
+  ID|SDK uses the code and wallet picker|
+  SDK reports an unconfirmed cancel'
+
+  The initial sandbox run blocked local
+  listeners. The permitted rerun passed.
+  Formatting, SDK type checking, and git
+  apply --reverse --check passed.
+
+  An in-memory check restored the old
+  guard. A-B and A-B-A then failed with
+  Missing expected rejection. The
+  unchanged case passed.
+
+  The fix cannot revoke a produced
+  signature. The cancellation path
+  preserves that uncertainty.
+
+  I did not read the implementation
+  worker transcript. Source hashes and
+  Git status remained unchanged. Live
+  signing and testnet checks were not
+  run.
+
+  Worked for 3m 27s · 8:25 AM
+
+
+› Ask Codex to do anything
+
+  GPT-6-Sol xhigh · ~/Desktop…  ⚠ 2 · f2

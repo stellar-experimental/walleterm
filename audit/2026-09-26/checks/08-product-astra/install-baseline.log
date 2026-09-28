@@ -1,0 +1,9 @@
+bun test v1.4.2 (744846f84)
+
+scripts/install.test.ts:
+(pass) installation failure preserves the previous release [438.32ms]
+(pass) installation switches to a complete release [359.62ms]
+
+ 2 pass
+ 0 fail
+Ran 2 tests across 1 file. [803.00ms]

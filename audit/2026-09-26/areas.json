@@ -1,0 +1,50 @@
+[
+  {
+    "id": "01-signer",
+    "title": "Go signer and 1Password boundary",
+    "files": "main.go, main_test.go, docs/INTERFACE.md, docs/STELLAR-CLI.md",
+    "focus": "Raw digest bytes, SSH framing, input validation, deadlines, socket provenance, independent signature verification, public metadata, output failures."
+  },
+  {
+    "id": "02-bridge",
+    "title": "Bridge service and authorization",
+    "files": "bridge/server.ts, bridge/signer.ts, bridge/transaction.ts, bridge/PROTOCOL.md, bridge/server.test.ts, bridge/signer.test.ts, bridge/vault.test.ts",
+    "focus": "Origin and capability binding, pairing, wallet grants/revisions, OP_VAULT, XDR constraints, cancellation races, concurrency, resource limits. Website approval on testnet is an accepted design."
+  },
+  {
+    "id": "03-runtime",
+    "title": "Service runtime and tunnel lifecycle",
+    "files": "service.go, service_test.go, bridge/runtime.ts, bridge/launch.ts, bridge/tunnel-child.ts, demo/entry.ts, bridge/entry.ts and corresponding tests",
+    "focus": "Process ownership, loopback listeners, private config, environment containment, timeouts, restart limits, shutdown, orphan cleanup, service isolation."
+  },
+  {
+    "id": "04-sdk",
+    "title": "Browser SDK and connection UI",
+    "files": "sdk/*, bridge/sdk.test.ts, bridge/connect.test.ts, bridge/scan.test.ts",
+    "focus": "Session/token scope, retries, cancellation uncertainty, wallet switching, restored pages, multi-tab behavior, scanning, secure contexts, accessibility and actual integration promises."
+  },
+  {
+    "id": "05-demo",
+    "title": "Demo website and transaction recovery",
+    "files": "demo/server.ts, demo/site/*, bridge/site.test.ts, bridge/activity.test.ts, bridge/code-view.test.ts",
+    "focus": "Transaction construction, review versus submitted bytes, public network assumptions, persistence, journal recovery, unresolved submissions, activity accuracy, meaningful user-facing gaps."
+  },
+  {
+    "id": "06-contracts",
+    "title": "Contract authorization and protocol fixtures",
+    "files": "fixtures/*, tests/contracts.ts, tests/extended-contracts.ts, tests/cap71.ts, tests/cap85.ts, docs/OPENZEPPELIN.md, docs/PROTOCOL-UPDATES.md",
+    "focus": "G/C account authorization preimages, OpenZeppelin pinned adapters, CAP-71 and CAP-85, field preservation, fixture-only limits, replay, signer policy, executable changes, artifact provenance."
+  },
+  {
+    "id": "07-verification",
+    "title": "Test harness, submission journals, and acceptance evidence",
+    "files": "tests/submission.ts, tests/live-utils.ts, tests/1password-failure.ts, tests/cli-pipeline.ts, tests/checkpoint.test.ts, tests/submission.test.ts, tests/live.ts, evidence/*, docs/TEST-MATRIX.md, docs/LIVE-TESTS.md",
+    "focus": "Durable unknown outcome handling, reconciliation before signing, checkpoint ownership, test isolation, real assertion strength, stale evidence, coverage claims, missing significant failure cases."
+  },
+  {
+    "id": "08-product",
+    "title": "Installation, dependencies, agent skills, and product scope",
+    "files": "scripts/*, package.json, bun.lock, go.mod, Makefile, tsconfig*, README.md, docs/*, .agents/skills/*",
+    "focus": "Atomic installation, dependencies and actual affected advisories, platform compatibility, documented promises, agent workflow completeness, material feature gaps, simplicity versus scope creep."
+  }
+]

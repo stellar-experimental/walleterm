@@ -1,0 +1,13 @@
+bun test v1.4.2 (744846f84)
+
+bridge/code-view.test.ts:
+(pass) JSON tokens preserve source text and keep HTML inert [0.61ms]
+(pass) terminal command highlighting preserves spaces and newlines [0.81ms]
+(pass) large, dense, and unsupported source remains complete plain text [1.39ms]
+(pass) an older asynchronous highlight cannot replace newer content [0.04ms]
+(pass) disclosures highlight on demand and preserve unchanged DOM and scroll [0.25ms]
+
+ 5 pass
+ 1 filtered out
+ 0 fail
+Ran 5 tests across 1 file. [20.00ms]

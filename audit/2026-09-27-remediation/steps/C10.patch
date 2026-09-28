@@ -1,0 +1,178 @@
+--- a/demo/site/app.ts
++++ b/demo/site/app.ts
+@@ -405,7 +405,7 @@
+         signer: pending.address,
+         recipient: pending.recipient,
+         hash: pending.hash,
+-        ...(pending.state === 'review' ? { transaction: describe(pending.xdr) } : {}),
++        ...(['review', 'signed'].includes(pending.state) ? { transaction: describe(pending.xdr) } : {}),
+         result: pending.result,
+       },
+       null,
+--- a/bridge/site.test.ts
++++ b/bridge/site.test.ts
+@@ -105,6 +105,146 @@
+ }
+ const app = () => browserScript(new URL('../demo/site/app.ts', import.meta.url));
+ const ok = (data: unknown) => ({ ok: true, json: async () => data });
++const reviewSdk = {
++  Networks: { TESTNET: 'testnet' },
++  Asset: class {},
++  TransactionBuilder: {
++    fromXDR: () => ({
++      source: 'GORIGINAL',
++      fee: '100',
++      sequence: '2',
++      memo: { value: null },
++      timeBounds: { minTime: '0', maxTime: '1' },
++      operations: [{ type: 'manageData', name: 'walleterm-demo' }],
++    }),
++  },
++};
++for (const kind of ['note', 'payment', 'offer', 'cancel_offer'] as const) {
++  test(`${kind} keeps transaction details after signing, reopening, and reload`, async () => {
++    const sdk = await import('@stellar/stellar-sdk');
++    const signer = sdk.Keypair.random(),
++      address = signer.publicKey(),
++      recipient = sdk.Keypair.random().publicKey();
++    const operation =
++      kind === 'note'
++        ? sdk.Operation.manageData({ name: 'walleterm-demo', value: 'review-note' })
++        : kind === 'payment'
++          ? sdk.Operation.payment({ destination: recipient, asset: sdk.Asset.native(), amount: '0.01' })
++          : sdk.Operation.manageSellOffer({
++              selling: sdk.Asset.native(),
++              buying: new sdk.Asset('USDC', recipient),
++              amount: kind === 'offer' ? '0.1' : '0',
++              price: '2',
++              offerId: kind === 'offer' ? '0' : '77',
++            });
++    const tx = new sdk.TransactionBuilder(new sdk.Account(address, '10'), {
++      fee: '100',
++      networkPassphrase: sdk.Networks.TESTNET,
++    })
++      .addOperation(operation)
++      .addMemo(sdk.Memo.id('42'))
++      .setTimeout(180)
++      .build();
++    const originalXdr = tx.toXDR(),
++      hash = Buffer.from(tx.hash()).toString('hex');
++    tx.sign(signer);
++    const signedXdr = tx.toXDR();
++    const expected = {
++      source: address,
++      fee_stroops: '100',
++      sequence: '11',
++      memo: '42',
++      time_bounds: tx.timeBounds,
++      operation:
++        kind === 'note'
++          ? { type: 'manageData', name: 'walleterm-demo', value: Buffer.from('review-note').toString('hex') }
++          : kind === 'payment'
++            ? { type: 'payment', destination: recipient, asset: 'XLM', amount: '0.0100000' }
++            : {
++                type: 'manageSellOffer',
++                selling: 'XLM',
++                buying: `USDC:${recipient}`,
++                amount: kind === 'offer' ? '0.1000000' : '0.0000000',
++                price: '2',
++                offerId: kind === 'offer' ? '0' : '77',
++              },
++    };
++    let stored: string | null = JSON.stringify({
++      kind,
++      state: 'review',
++      address,
++      hash,
++      xdr: originalXdr,
++      ...(kind === 'payment' ? { recipient } : {}),
++    });
++    let signs = 0;
++    const submissions: string[] = [];
++    const extras = {
++      StellarSdk: sdk,
++      Uint8Array,
++      localStorage: {
++        getItem: () => stored,
++        setItem: (_key: string, value: string) => {
++          stored = value;
++        },
++      },
++      client: {
++        token: 'mock-session',
++        async signTransaction(text: string) {
++          signs++;
++          assert.equal(text, originalXdr);
++          return { signedTxXdr: signedXdr };
++        },
++      },
++      address,
++      fetch: async (url: string, options?: RequestInit) => {
++        assert.equal(url, 'https://horizon-testnet.stellar.org/transactions');
++        assert.equal(options?.method, 'POST');
++        submissions.push(new URLSearchParams(String(options?.body)).get('tx')!);
++        return ok({ hash, ledger: 1, successful: false });
++      },
++    };
++    const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8');
++    const source = app();
++    const f = contextFor(html, extras);
++    f.run(source);
++    f.run('connection.onChange({client, account:{address}})');
++    assert.deepEqual(JSON.parse(f.el('details').textContent).transaction, expected);
++    assert.equal(f.el('sign').hidden, false);
++    assert.equal(f.el('submit').hidden, true);
++    await f.click('sign');
++    assert.equal(signs, 1);
++    assert.equal(f.run('pending.state'), 'signed');
++    assert.deepEqual(JSON.parse(f.el('details').textContent).transaction, expected);
++    assert.equal(f.el('sign').hidden, true);
++    assert.equal(f.el('submit').hidden, false);
++    assert.equal(f.el('submit').disabled, false);
++    assert.equal(f.el('clear').hidden, false);
++    assert.equal(JSON.parse(stored!).xdr, originalXdr);
++    assert.equal(JSON.parse(stored!).signed_xdr, signedXdr);
++    const saved = stored;
++    f.click('close-review');
++    f.click('open-review');
++    assert.equal(f.el('review').open, true);
++    assert.deepEqual(JSON.parse(f.el('details').textContent).transaction, expected);
++    assert.equal(stored, saved);
++    const restored = contextFor(html, extras);
++    restored.run(source);
++    assert.equal(restored.run('pending.state'), 'signed');
++    assert.equal(restored.el('review').open, true);
++    assert.deepEqual(JSON.parse(restored.el('details').textContent).transaction, expected);
++    assert.equal(restored.el('sign').hidden, true);
++    assert.equal(restored.el('submit').hidden, false);
++    assert.equal(restored.el('submit').disabled, false);
++    assert.equal(stored, saved);
++    assert.equal(signs, 1);
++    assert.deepEqual(submissions, []);
++    await restored.click('submit');
++    assert.deepEqual(submissions, [signedXdr]);
++    assert.equal(restored.run('pending.hash'), hash);
++    assert.equal(signs, 1);
++  });
++}
+ test('signing shows retry progress and stops at the server expiry after the page wakes', async () => {
+   let now = Date.now(),
+     tick: (() => void) | undefined,
+@@ -159,7 +299,7 @@
+   for (const state of ['signed', 'unknown', 'signing_unknown']) {
+     let stored: string | null | undefined;
+     const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+-      StellarSdk: { Networks: { TESTNET: 'testnet' } },
++      StellarSdk: reviewSdk,
+       localStorage: {
+         getItem: () => null,
+         setItem: (_key: string, value: string) => {
+@@ -767,7 +907,7 @@
+ 
+ test('connection work disables demo actions and signing without changing the journal', () => {
+   const f = contextFor(readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8'), {
+-    StellarSdk: {},
++    StellarSdk: reviewSdk,
+     localStorage: { getItem: () => null },
+   });
+   f.run(app());

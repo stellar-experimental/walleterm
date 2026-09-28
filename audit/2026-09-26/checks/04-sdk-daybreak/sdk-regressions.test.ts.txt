@@ -1,0 +1,50 @@
+import { onTestFinished, test } from 'bun:test';
+import assert from 'node:assert/strict';
+import { WalletermConnect } from '/private/tmp/walleterm-audit-40d6cca9db73/sdk/connect.ts';
+import { WalletermClient } from '/private/tmp/walleterm-audit-40d6cca9db73/sdk/walleterm.ts';
+
+function lifecycle(controller: AbortController) {
+  const originalDocument = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  const originalRemove = Object.getOwnPropertyDescriptor(globalThis, 'removeEventListener');
+  Object.defineProperty(globalThis, 'document', {
+    configurable: true,
+    value: { removeEventListener() {} },
+  });
+  Object.defineProperty(globalThis, 'removeEventListener', {
+    configurable: true,
+    value() {},
+  });
+  onTestFinished(() => {
+    if (originalDocument) Object.defineProperty(globalThis, 'document', originalDocument);
+    else Reflect.deleteProperty(globalThis, 'document');
+    if (originalRemove) Object.defineProperty(globalThis, 'removeEventListener', originalRemove);
+    else Reflect.deleteProperty(globalThis, 'removeEventListener');
+  });
+  const ui = Object.assign(Object.create(WalletermConnect.prototype), {
+    destroyed: false,
+    healthTimer: undefined,
+    wake() {},
+    outside() {},
+    keyboard() {},
+    scanning: controller,
+    connection: controller,
+  });
+  ui.destroy();
+}
+
+test('destroy aborts active camera work', () => {
+  const controller = new AbortController();
+  lifecycle(controller);
+  assert.equal(controller.signal.aborted, true);
+});
+
+test('an unreadable 401 clears the active connection', async () => {
+  const client = new WalletermClient('https://bridge.example', {
+    fetch: async () => new Response('<html>expired</html>', { status: 401 }),
+  });
+  client.token = 'session';
+  client.account = { address: 'GSTALE', networkPassphrase: 'testnet' };
+  await assert.rejects(client.getAddress(), /unreadable response/);
+  assert.equal(client.token, null);
+  assert.equal(client.account, null);
+});

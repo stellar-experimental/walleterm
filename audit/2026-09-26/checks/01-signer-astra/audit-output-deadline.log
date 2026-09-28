@@ -1,0 +1,6 @@
+=== RUN   TestAuditBlockedDiagnosticExceedsOperationDeadline
+    audit_test.go:292: Still blocked after 122.001 seconds; documented deadline is 120 seconds
+    audit_test.go:306: Closing the pipe returned output_error; the mock received zero signing requests
+--- PASS: TestAuditBlockedDiagnosticExceedsOperationDeadline (122.06s)
+PASS
+ok  	command-line-arguments	123.572s

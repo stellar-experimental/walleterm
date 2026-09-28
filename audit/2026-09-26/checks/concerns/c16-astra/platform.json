@@ -1,0 +1,40 @@
+[
+  {
+    "command": [
+      "bun",
+      "--revision"
+    ],
+    "exit_code": 0,
+    "stdout": "1.4.2+744846f84\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "sw_vers"
+    ],
+    "exit_code": 0,
+    "stdout": "ProductName:\t\tmacOS\nProductVersion:\t\t26.7\nBuildVersion:\t\t25G229\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "uname",
+      "-r"
+    ],
+    "exit_code": 0,
+    "stdout": "25.6.0\n",
+    "stderr": ""
+  },
+  {
+    "command": [
+      "df",
+      "-T",
+      "apfs",
+      "/private/tmp",
+      "/Users/kalepail/Desktop/walleterm-v2"
+    ],
+    "exit_code": 0,
+    "stdout": "Filesystem   512-blocks       Used  Available Capacity  iused      ifree %iused  Mounted on\n/dev/disk3s5 3896910480 1907407104 1946475536    50% 14963184 9732377680    0%   /System/Volumes/Data\n/dev/disk3s5 3896910480 1907407104 1946475536    50% 14963184 9732377680    0%   /System/Volumes/Data\n",
+    "stderr": ""
+  }
+]

@@ -1,0 +1,22 @@
+{
+  "reviewed_utc": "2026-09-27T04:27:17.748137+00:00",
+  "classification_changes": [],
+  "conclusion": "Both overall reviews retain ten confirmed concerns, three conditional Low concerns, and seven excluded candidates.",
+  "reports": {
+    "reports/09-overall-astra.md": "154d7df8edda65cdc966374eef09cedcb3894ffa5a6408c5c5e7fb985cdd5e82",
+    "reports/09-overall-daybreak.md": "df1501b2fa37a82c7ced09ee2845713b050fc97146acd02a8287c81a27f5439b"
+  },
+  "coordinator_resolutions": [
+    "C05 minimum mitigation uses the monotonic revision guard. An extra address comparison is optional.",
+    "FEATURES.md separates C05 stale result delivery from uncertain-outcome recovery.",
+    "C17 needs explicit CAP-71 reuse metadata and original/current protocol fields. Existing completion status can remain.",
+    "C07 includes body-read failure after an accessible 401. No shipped-path producer was demonstrated.",
+    "C13 no-repeat evidence applies to X06 operations. Startup funding helpers can still run.",
+    "C08 optional offer-result decoding must not undo a validated terminal result.",
+    "All three locked Soroban SDK versions are recorded: 27.0.2, 27.0.6, and 28.0.0.",
+    "Both reviewers accepted the exact concurrent documentation delta.",
+    "Research allocations are caps, not verified invoice totals."
+  ],
+  "remaining_work": [],
+  "final_package_resolution": "Go race, Go vet, formatting, and Bun passed in the checkout. TypeScript passed for the exact frozen source plus audit in isolation. Checkout TypeScript failed on unrelated concurrent ignored Pagebook captures; that limit remains explicit."
+}
