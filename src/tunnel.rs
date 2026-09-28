@@ -66,7 +66,7 @@ pub struct LaunchDeps {
     pub environment: Vec<(String, String)>,
     pub health_interval: Duration,
     pub recovery_delay: Duration,
-    /// SIGINT, SIGTERM, or a caller abort.
+    /// SIGINT, SIGTERM, SIGHUP, or a caller abort.
     pub stop: Cancel,
 }
 
@@ -777,6 +777,10 @@ pub fn spawn_supervisor_from(
 /// Kernel EOF on standard input also arrives when the parent crashes.
 pub async fn run_supervisor(args: Vec<String>) -> i32 {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    // The handlers exist before cloudflared starts, so `child.json` also marks them ready.
+    let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).ok();
+    let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).ok();
+    let mut hangup = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::hangup()).ok();
     let spawned = tokio::process::Command::new("cloudflared")
         .args(&args)
         .stdin(std::process::Stdio::null())
@@ -821,8 +825,6 @@ pub async fn run_supervisor(args: Vec<String>) -> i32 {
     tokio::spawn(forward(stdout, Box::new(crate::process::StdoutSink), failed.clone()));
     tokio::spawn(forward(stderr, Box::new(crate::process::StderrSink), failed.clone()));
     let parent_gone = crate::process::stdin_closed();
-    let mut interrupt = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::interrupt()).ok();
-    let mut terminate = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate()).ok();
     let mut code = if written { 0 } else { 1 };
     if written {
         tokio::select! {
@@ -831,6 +833,7 @@ pub async fn run_supervisor(args: Vec<String>) -> i32 {
             () = failed.cancelled() => code = 1,
             Some(()) = async { match interrupt.as_mut() { Some(s) => s.recv().await, None => std::future::pending().await } } => {}
             Some(()) = async { match terminate.as_mut() { Some(s) => s.recv().await, None => std::future::pending().await } } => {}
+            Some(()) = async { match hangup.as_mut() { Some(s) => s.recv().await, None => std::future::pending().await } } => {}
         }
     }
     if !crate::process::stop_child(&mut child, Duration::from_secs(1)).await {
