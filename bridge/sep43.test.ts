@@ -297,6 +297,53 @@ test('bridge outcomes map to SEP-43 codes and keep unknown signing outcomes', as
   expect(queued.calls()).toBe(0);
 });
 
+test('signing after session expiry returns not_connected without a cancel request', async () => {
+  const f = await fixture({ review: undefined });
+  const paths: string[] = [];
+  let failFirstCreate = false;
+  const wallet = new Walleterm({
+    sessionStorageKey: null,
+    page: null,
+    pollInterval: 1,
+    ui: f.wallet.ui,
+    fetch: async (url, init) => {
+      const path = new URL(String(url)).pathname;
+      paths.push(path);
+      if (failFirstCreate && path === '/v1/requests') {
+        failFirstCreate = false;
+        throw TypeError('Failed to fetch');
+      }
+      return f.fetcher(url, init);
+    },
+  });
+  const revoke = async () => {
+    await f.fetcher(`${f.origin}/v1/disconnect`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${wallet.client!.token}`, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+  };
+  await wallet.getAddress();
+  await revoke();
+  paths.length = 0;
+  const expired = await wallet.signTransaction(transaction());
+  expect(expired.error).toMatchObject({ code: -3, ext: ['walleterm:not_connected'] });
+  expect(expired.error?.requestState).toBeUndefined();
+  expect(paths).toEqual(['/v1/requests']);
+  expect(wallet.address).toBe('');
+  // A create attempt without an HTTP response can have reached the bridge. The outcome stays unknown.
+  await wallet.getAddress();
+  await revoke();
+  failFirstCreate = true;
+  const uncertain = await wallet.signTransaction(transaction());
+  expect(uncertain.error).toMatchObject({
+    code: -1,
+    ext: ['walleterm:result_unknown'],
+    requestState: 'unknown',
+  });
+  expect(f.calls()).toBe(0);
+});
+
 test('a network failure is an external service error and keeps the session', async () => {
   const f = await fixture();
   await f.wallet.getAddress();

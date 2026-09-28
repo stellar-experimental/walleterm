@@ -103,6 +103,7 @@ function fixture(scanConnection: ScanMock, WalletermClient?: unknown) {
     AbortSignal,
     URL,
     clearInterval,
+    queueMicrotask,
     document: events,
     addEventListener: events.addEventListener.bind(events),
     removeEventListener: events.removeEventListener.bind(events),
@@ -872,7 +873,7 @@ test('a scanner that returns after destruction cannot fill connection details', 
 });
 
 for (const stage of ['discovery', 'wallet-choice', 'selection', 'replacement', 'replacement-failure']) {
-  // Destruction stops pairing. After adoption starts, the shared wallet keeps the new session.
+  // Destruction stops pairing, even while the previous session is revoked.
   test(`destroying during ${stage} prevents late connection publication`, async () => {
     const f = fixture(() => {}),
       observed = observe(f),
@@ -968,18 +969,18 @@ for (const stage of ['discovery', 'wallet-choice', 'selection', 'replacement', '
     assert.equal(f.ui.working, false);
     const revocations = requests.filter(({ path }) => path === '/v1/disconnect');
     assert.equal(revocations.filter(({ previous }) => previous).length, replaced ? 1 : 0);
-    assert.equal(revocations.filter(({ previous }) => !previous).length, replaced ? 0 : 1);
+    assert.equal(revocations.filter(({ previous }) => !previous).length, 1);
     assert.equal(
       requests.some(({ previous, destroyed }) => previous && destroyed),
       false,
     );
     if (replaced) {
-      // Adoption already started. The wallet keeps the new session and ends the previous one.
-      assert.equal(f.ui.wallet.client?.token, nextToken);
+      // The previous revocation had started. The wallet keeps neither session.
+      assert.equal(f.ui.wallet.client, null);
       assert.equal(previous.token, null);
       assert.deepEqual(
         observed.writes.map((write) => (write as string[])[0]),
-        ['set'],
+        ['remove'],
       );
     } else {
       assert.equal(f.ui.wallet.client, previous);
@@ -1302,4 +1303,114 @@ test('the dialog explains the grant for each wallet scope', () => {
   f.ui.wallet = vm.runInContext('new Walleterm()', f.context);
   f.ui.open();
   assert.match(f.node('description').textContent ?? '', /one wallet you choose/);
+});
+
+// Runs the real constructor with a mock element. The other tests assign component state directly.
+function constructed(f: ReturnType<typeof fixture>, options: Record<string, unknown>) {
+  const intervals: unknown[] = [];
+  const dialog = {
+    open: false,
+    addEventListener() {},
+    showModal() {
+      this.open = true;
+    },
+    close() {
+      this.open = false;
+    },
+  };
+  const element = {
+    classList: { add() {} },
+    innerHTML: '',
+    addEventListener() {},
+    contains: () => false,
+    querySelectorAll: () => [],
+    querySelector(selector: string) {
+      if (selector === '.wt-trigger') return f.node('trigger');
+      if (selector === 'dialog') return dialog;
+      const name = /^\[data-wt="([^"]+)"\]$/.exec(selector)?.[1];
+      return name ? f.node(name) : f.node(selector);
+    },
+  };
+  Object.assign(f.context, {
+    setInterval: (callback: unknown) => intervals.push(callback),
+    mountElement: element,
+    mountOptions: options,
+  });
+  const ui: ConnectUI = vm.runInContext('new WalletermConnect(mountElement, mountOptions)', f.context);
+  return { ui, intervals };
+}
+
+test('a header mounted for an already connected wallet shows that connection', async () => {
+  const f = fixture(() => {});
+  const wallet: Walleterm = vm.runInContext("new Walleterm({ walletScope: 'available' })", f.context);
+  const client = {
+    token: 'session',
+    url: 'https://bridge.example',
+    account: { address: 'GLIVE', networkPassphrase: Networks.TESTNET },
+  };
+  Object.assign(wallet, { client });
+  const changes: Change[] = [];
+  const { ui, intervals } = constructed(f, { wallet, onChange: (value: Change) => changes.push(value) });
+  assert.equal(wallet.ui, ui);
+  assert.equal(intervals.length, 1);
+  await settle();
+  assert.equal(ui.client, client);
+  assert.equal(ui.account?.address, 'GLIVE');
+  assert.equal(ui.state, 'connected');
+  assert.equal(changes.length, 1);
+  assert.equal(changes[0].wallet, wallet);
+  assert.equal(f.node('trigger').hidden, false);
+  ui.destroy();
+  assert.equal(wallet.ui, null);
+});
+
+test('a dialog-only component registers for access without header work', async () => {
+  const f = fixture(() => {});
+  const wallet: Walleterm = vm.runInContext('new Walleterm()', f.context);
+  const { ui, intervals } = constructed(f, { wallet, header: false });
+  await settle();
+  assert.equal(wallet.ui, ui);
+  assert.equal(f.node('trigger').hidden, true);
+  assert.equal(intervals.length, 0);
+  assert.equal(ui.client ?? null, null);
+});
+
+test('header Disconnect with the documented Kit hook clears the Kit side and opens no dialog', async () => {
+  const f = fixture(() => {});
+  const wallet = f.ui.wallet;
+  let revoked = 0,
+    accessRequests = 0;
+  const client = {
+    token: 'session' as string | null,
+    url: 'https://bridge.example',
+    account: { address: 'GLIVE', networkPassphrase: Networks.TESTNET },
+    async disconnect() {
+      revoked++;
+      this.token = null;
+    },
+    forgetConnection() {
+      this.token = null;
+    },
+  };
+  Object.assign(f.ui, { wallets: [], onChange() {} });
+  // The wallet publishes the connection. The header follows it.
+  await wallet.adopt(client as unknown as WalletermClient);
+  assert.equal(f.ui.client, client);
+  const requestAccess = f.ui.requestAccess.bind(f.ui);
+  f.ui.requestAccess = () => {
+    accessRequests++;
+    return requestAccess();
+  };
+  // The Kit hook calls these module methods: fetchAddress() uses getAddress(), disconnect() uses disconnect().
+  const hooked: Promise<unknown>[] = [];
+  wallet.onChange(({ address }) => void hooked.push(address ? wallet.getAddress() : wallet.disconnect()));
+  await f.ui.disconnect();
+  await settle();
+  await Promise.all(hooked);
+  assert.equal(hooked.length, 1);
+  assert.equal(revoked, 1);
+  assert.equal(accessRequests, 0);
+  assert.equal(f.ui.dialog.open, false);
+  assert.equal(f.ui.state, 'disconnected');
+  assert.equal(wallet.client, null);
 });

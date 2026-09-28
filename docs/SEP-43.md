@@ -110,6 +110,8 @@ These methods belong to the Walleterm SDK. Failures throw a `WalletermError` wit
 | `-1` | `walleterm:internal` | Any other failure. |
 
 The bridge stores the error object with each failed request. The SDK returns it unchanged.
+A 4xx answer to the first create attempt proves that no request exists. The SDK returns that error, such as `-3 not_connected`.
+A create attempt without an HTTP answer can still have reached the bridge. That outcome stays `-1` and `unknown`.
 An abort sends a cancel request. A confirmed `denied` state returns `-4`. Any other outcome returns `-1` and `unknown`.
 The SDK contract client joins `ext` with commas, so `ext` stays an array.
 
@@ -181,14 +183,18 @@ Grant IDs, selection revisions, and stale-result protection stay unchanged.
 Kit v2.7.0 defines `ModuleInterface.onChange`, but the Kit core never calls it.
 Only the Scopuly module implements it. The Kit updates its address through `authModal()` and `fetchAddress()`.
 So `WalletermModule.onChange(callback)` reports each switch with `{ address, network, networkPassphrase }`.
-A Kit website connects it once:
+A disconnection or an expired session reports an empty address with a `-3` error.
+A Kit website connects the hook once and reads the event:
 
 ```ts
-walletermModule.onChange(() => StellarWalletsKit.fetchAddress());
+walletermModule.onChange(({ address }) =>
+  address ? StellarWalletsKit.fetchAddress() : StellarWalletsKit.disconnect(),
+);
 ```
 
 `fetchAddress()` calls the module's `getAddress()`, which returns the new address without a dialog.
-A disconnection reports an empty address with a `-3` error.
+`StellarWalletsKit.disconnect()` clears the Kit address. It calls the module's `disconnect()`, which finds no session.
+A hook that always calls `fetchAddress()` would open the pairing dialog after every disconnection or expiry.
 Change events run after the switch settles. The Kit check found that an earlier event failed a `fetchAddress()` call.
 
 ### Sessions

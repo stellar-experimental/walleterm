@@ -72,6 +72,8 @@ The demo keeps its transaction recovery record separately in `localStorage`.
 
 After a pairing completes, the wallet owns the session. Destroying the component does not revoke it.
 A pairing that has not finished stops when the component closes or is destroyed.
+This includes the revocation of a replaced session. The wallet then keeps neither session.
+A component mounted for a wallet that is already connected shows that connection at once.
 
 The connection health message uses normal document flow.
 Let the host container grow when a message appears.
@@ -97,7 +99,9 @@ The component publishes the recovered account. Failed recovery disables transact
 
 The SDK defaults to the `selected` scope: one wallet for each connection. It is the least-privilege scope.
 Use `new Walleterm({ walletScope: 'available' })` only with an interface that displays the broader permission.
-`wallet.onChange(listener)` reports each switch. A Stellar Wallets Kit website can call `StellarWalletsKit.fetchAddress()` there.
+`wallet.onChange(listener)` reports each switch and disconnection.
+A Stellar Wallets Kit website connects `walletermModule.onChange(({ address }) => address ? StellarWalletsKit.fetchAddress() : StellarWalletsKit.disconnect())`.
+That hook never opens the pairing dialog after a disconnection or an expired session.
 
 Changing wallets preserves a saved demo transaction and its original signer.
 The demo enables Sign only when the connected wallet matches that signer.

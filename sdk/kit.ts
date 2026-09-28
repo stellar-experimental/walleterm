@@ -72,8 +72,9 @@ export class WalletermModule {
     return unwrap(this.wallet.getNetwork());
   }
   /**
-   * The Kit core does not call this hook. Connect it once to update the Kit after a wallet switch:
-   * `module.onChange(() => StellarWalletsKit.fetchAddress())`.
+   * The Kit core does not call this hook. Connect it once, and read the event:
+   * `module.onChange(({ address }) => (address ? StellarWalletsKit.fetchAddress() : StellarWalletsKit.disconnect()))`.
+   * A switch updates the Kit address. A disconnection or an expired session clears it without opening a dialog.
    */
   onChange(callback: (event: KitChange) => void) {
     this.wallet.onChange(({ address, network, networkPassphrase }: AddressChange) =>

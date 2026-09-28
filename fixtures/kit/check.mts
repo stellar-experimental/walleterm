@@ -40,6 +40,7 @@ if (!bound || typeof bound === 'string') throw Error('The mock bridge did not bi
 const origin = `http://127.0.0.1:${bound.port}`;
 bridge.setPublicOrigin(origin);
 const results: Record<string, string> = {};
+let dialogs = 0;
 try {
   const wallet = new Walleterm({
     walletScope: 'available',
@@ -51,16 +52,18 @@ try {
       headers.set('Origin', 'https://kit.example');
       return fetch(url, { ...options, headers });
     },
-    // Stands in for the pairing dialog.
+    // Stands in for the pairing dialog. The check counts each time it opens.
     ui: {
-      requestAccess: async (target) =>
-        (
+      requestAccess: async (target) => {
+        dialogs++;
+        return (
           await target.connect({
             url: origin,
             code: bridge.pairing.code,
             selectWallet: async () => key.publicKey(),
           })
-        ).address,
+        ).address;
+      },
     },
   });
   const module = new WalletermModule({ wallet });
@@ -125,17 +128,79 @@ try {
     networkPassphrase: Networks.TESTNET,
   });
 
-  // The Kit core does not subscribe to onChange. A website connects it to fetchAddress.
-  const updated = Promise.withResolvers<void>();
-  module.onChange(() => void StellarWalletsKit.fetchAddress().then(() => updated.resolve(), updated.reject));
+  // The Kit core does not subscribe to onChange. A website connects the documented, event-aware hook.
+  let hookFailure: unknown;
+  let events = Promise.withResolvers<void>();
+  module.onChange(
+    ({ address }) =>
+      void (address ? StellarWalletsKit.fetchAddress() : StellarWalletsKit.disconnect())
+        .then(() => events.resolve())
+        .catch((error) => {
+          hookFailure = error;
+          events.resolve();
+        }),
+  );
+  const settled = async () => {
+    await events.promise;
+    events = Promise.withResolvers<void>();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    assert.equal(hookFailure, undefined);
+  };
+  const cleared = () =>
+    assert.rejects(StellarWalletsKit.getAddress(), { code: -1, message: 'No wallet has been connected.' });
+  const pairAgain = async () => {
+    StellarWalletsKit.setWallet('walleterm');
+    assert.deepEqual(await StellarWalletsKit.fetchAddress(), { address: key.publicKey() });
+    await settled();
+  };
+
+  const paired = dialogs;
   await wallet.selectWallet(other.publicKey());
-  await updated.promise;
+  await settled();
   assert.deepEqual(await StellarWalletsKit.getAddress(), { address: other.publicKey() });
+  assert.equal(dialogs, paired);
   results.switch = 'Kit address followed onChange';
 
+  // A disconnection from the Walleterm side clears the Kit address and opens no dialog.
+  await wallet.disconnect();
+  await settled();
+  await cleared();
+  assert.equal(dialogs, paired);
+  results.wallet_disconnect = 'Kit address cleared, no dialog';
+
+  // A revoked or expired session (401) clears the Kit address and opens no dialog.
+  await pairAgain();
+  const afterPairing = dialogs;
+  const revoked = await fetch(`${origin}/v1/disconnect`, {
+    method: 'POST',
+    headers: {
+      Origin: 'https://kit.example',
+      Authorization: `Bearer ${wallet.client!.token}`,
+      'Content-Type': 'application/json',
+    },
+    body: '{}',
+  });
+  assert.equal(revoked.status, 200);
+  await assert.rejects(StellarWalletsKit.signTransaction(unsigned), {
+    code: -3,
+    ext: ['walleterm:not_connected'],
+  });
+  await settled();
+  await cleared();
+  assert.equal(dialogs, afterPairing);
+  results.expiry_401 = 'signing returned -3, Kit address cleared, no dialog';
+
+  // A disconnection from the Kit side revokes the bridge session.
+  await pairAgain();
+  const token = wallet.client!.token;
   await StellarWalletsKit.disconnect();
-  await new Promise((resolve) => setTimeout(resolve, 20));
+  await new Promise((resolve) => setTimeout(resolve, 50));
   assert.equal(wallet.address, '');
+  const stale = await fetch(`${origin}/v1/account`, {
+    headers: { Origin: 'https://kit.example', Authorization: `Bearer ${token}` },
+  });
+  assert.equal(stale.status, 401);
+  await cleared();
   results.disconnect = 'bridge session revoked';
   console.log(JSON.stringify({ kit: '2.7.0', ok: true, results }, null, 2));
 } finally {

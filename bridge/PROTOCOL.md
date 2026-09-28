@@ -180,5 +180,6 @@ The SDK retries identical request IDs after network failures and server errors.
 Retry delays increase from one second to five seconds. Successful polling uses one-second intervals.
 The SDK never retries the signer itself. It bounds cancellation checks to ten seconds and three attempts.
 Unconfirmed cancellation returns `-1` with `requestState: "unknown"`.
+A 4xx answer to the first create attempt returns that error without a cancel request, because no request exists.
 Canceled requests never expose late signatures. The bridge and SDK each verify returned signatures independently.
 The bridge exposes no arbitrary digest route and no message signing route.

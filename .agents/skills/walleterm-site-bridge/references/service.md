@@ -96,6 +96,7 @@ The first selection fixes the displayed eligible key set. Later keys need a new 
 The SDK manages grant IDs and selection revisions. Wallet changes cancel pending requests and withhold old results.
 `WalletermClient` is the single-session client under `Walleterm`. It throws instead of returning results.
 For a Stellar Wallets Kit website, use `WalletermModule` from `walleterm/kit`.
+Connect `module.onChange(({ address }) => address ? StellarWalletsKit.fetchAddress() : StellarWalletsKit.disconnect())`.
 
 ## Explicit authorization
 

@@ -284,7 +284,9 @@ export class WalletermConnect {
     if (this.client || this.working || this.destroyed) return;
     this.wallet.restore();
     const client = this.wallet.client;
-    if (!client?.token || client.account) return;
+    if (!client?.token) return;
+    // Another interface, such as getAddress() or a Kit module, can connect the wallet first.
+    if (client.account?.address) return this.walletChanged();
     this.client = client;
     this.$('url').value = client.url;
     this.phase = 'restoring';
@@ -745,7 +747,7 @@ export class WalletermConnect {
       // A failed replacement leaves the current connection usable.
       // The user explicitly replaces this connection. Automatic checks never discard credentials.
       this.notice = '';
-      const { previousRevoked } = await this.wallet.adopt(next);
+      const { previousRevoked } = await this.wallet.adopt(next, { signal });
       adopted = true;
       // The shared wallet now owns this session, even if this component closes.
       const access = this.access;

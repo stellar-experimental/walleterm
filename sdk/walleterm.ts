@@ -450,6 +450,9 @@ export class WalletermClient {
     };
     const retrying = () => notify({ state: 'retrying' });
     let result: RequestResult;
+    // A create attempt that failed without a definitive answer can still have reached the bridge.
+    let created = false,
+      uncertain = false;
     try {
       // The bridge returns the same request for a repeated ID, so a lost response is safe to resend.
       result = await this.retry(
@@ -469,8 +472,12 @@ export class WalletermClient {
         signal,
         token,
         generation,
-        retrying,
+        () => {
+          uncertain = true;
+          retrying();
+        },
       );
+      created = true;
       notify({ state: result.state, expiresAt: result.expires_at });
       while (['pending', 'approved', 'signing'].includes(result.state)) {
         await this.wait(signal);
@@ -488,6 +495,8 @@ export class WalletermClient {
         throw walletermError('conflict', 'The wallet selection changed. Build a new transaction.');
     } catch (caught) {
       const error = requestError(caught);
+      // A 4xx answer to the first create attempt proves that the bridge created no request.
+      if (!created && !uncertain && error.status && error.status >= 400 && error.status < 500) throw error;
       error.canceled = false;
       const cancellation = AbortSignal.timeout(10000);
       for (let attempt = 0; attempt < 3 && !error.canceled && !cancellation.aborted; attempt++) {
@@ -711,9 +720,10 @@ export class Walleterm {
     }
   }
   /** Use a newly paired session. The previous session is revoked, or discarded when revocation fails. */
-  async adopt(next: WalletermClient) {
+  async adopt(next: WalletermClient, { signal }: SignalOptions = {}) {
     if (!next.token || !next.account?.address)
       throw walletermError('not_connected', 'Select a wallet before using this connection.');
+    signal?.throwIfAborted();
     const previous = this.client;
     let previousRevoked = true;
     if (previous && previous !== next) {
@@ -723,6 +733,11 @@ export class Walleterm {
       } catch {
         previous.forgetConnection();
         previousRevoked = false;
+      }
+      // Revoking the previous session can take a while. A canceled pairing then keeps no session.
+      if (signal?.aborted && this.client === previous) {
+        this.#use(null);
+        signal.throwIfAborted();
       }
     }
     this.#restored = true;
@@ -743,7 +758,7 @@ export class Walleterm {
   }) {
     const next = new WalletermClient(url, this.clientOptions);
     await next.connect({ code, selectWallet, walletScope: this.walletScope, signal });
-    return this.adopt(next);
+    return this.adopt(next, { signal });
   }
   /** Open the access interface once, even for concurrent callers. */
   requestAccess() {

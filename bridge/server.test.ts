@@ -11,13 +11,13 @@ import {
   Networks,
   Operation,
   TransactionBuilder,
+  xdr,
 } from '@stellar/stellar-sdk';
 import { createBridge } from './server.ts';
 import { inspectTransaction } from './transaction.ts';
 import { WalletermClient } from '../sdk/walleterm.ts';
 import { requestError } from '../sdk/errors.ts';
 import { listeningPort, requestUrl } from './test/support.ts';
-import type { xdr } from '@stellar/stellar-sdk';
 import type { BridgeOptions } from './server.ts';
 import type { Falsy } from './test/support.ts';
 import type { Fetch, RequestState, Signer, SignalOptions } from '../sdk/types.ts';
@@ -868,6 +868,17 @@ test('structurally invalid requests never invoke review or signing', async () =>
     [{ ...input('extra'), extra: true }, 'walleterm:invalid_request'],
     [{ ...input('kindless'), kind: undefined }, 'walleterm:invalid_request'],
     [{ ...input('signed'), xdr: signedBy(input().xdr, key) }, 'walleterm:invalid_request'],
+    [{ ...input('v0'), xdr: v0Envelope(input().xdr) }, 'walleterm:invalid_request'],
+    // The fee-bump fee source signs the outer envelope. The inner source alone is not a required signer.
+    [
+      { ...input('inner-source'), xdr: feeBump(other.publicKey(), build(publicKey, [data()])) },
+      'walleterm:address_mismatch',
+    ],
+    [
+      { ...input('unbounded-inner'), xdr: feeBump(publicKey, build(other.publicKey(), [data()], '100', 0)) },
+      'walleterm:invalid_request',
+    ],
+    [{ ...input('twenty'), xdr: signedByMany(input().xdr, 20) }, 'walleterm:invalid_request'],
   ];
   for (const [item, reason] of cases) {
     const reply = await f.request('/v1/requests', item, a);
@@ -884,10 +895,25 @@ function signedBy(transactionXdr: string, signer: Keypair) {
   tx.sign(signer);
   return tx.toXDR();
 }
-function build(source: string, operations: xdr.Operation[], fee = '100') {
+function build(source: string, operations: xdr.Operation[], fee = '100', timeout = 180) {
   const tx = new TransactionBuilder(new Account(source, '10'), { fee, networkPassphrase: Networks.TESTNET });
   for (const operation of operations) tx.addOperation(operation);
-  return tx.setTimeout(180).build();
+  return tx.setTimeout(timeout).build();
+}
+const data = () => Operation.manageData({ name: 'a', value: 'b' });
+const feeBump = (feeSource: string, inner: ReturnType<typeof build>) =>
+  TransactionBuilder.buildFeeBumpTransaction(feeSource, '200', inner, Networks.TESTNET).toXDR();
+function signedByMany(transactionXdr: string, count: number) {
+  const tx = TransactionBuilder.fromXDR(transactionXdr, Networks.TESTNET);
+  for (let i = 0; i < count; i++) tx.sign(Keypair.random());
+  return tx.toXDR();
+}
+// A V0 envelope has the same bytes after its type, without the muxed key type. Time bounds encode alike.
+function v0Envelope(transactionXdr: string) {
+  const v1 = Buffer.from(transactionXdr, 'base64');
+  const encoded = Buffer.concat([Buffer.alloc(4), v1.subarray(8)]).toString('base64');
+  assert.equal(xdr.TransactionEnvelope.fromXDR(encoded, 'base64').type, 'envelopeTypeTxV0');
+  return encoded;
 }
 
 test('the bridge filters no operations and signs only for a required signer', async () => {
@@ -917,6 +943,8 @@ test('the bridge filters no operations and signs only for a required signer', as
       other,
     ),
     feeBump: TransactionBuilder.buildFeeBumpTransaction(publicKey, '200', inner, Networks.TESTNET).toXDR(),
+    // Nineteen signatures from other keys leave room for the selected key.
+    nineteen: signedByMany(build(publicKey, [Operation.manageData({ name: 'n', value: 'x' })]).toXDR(), 19),
     // A muxed source signs with its base key.
     muxed: new TransactionBuilder(new MuxedAccount(new Account(publicKey, '10'), '7'), {
       fee: '100',
