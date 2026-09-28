@@ -1,0 +1,93 @@
+{
+  "reviewer": "Claude Opus 5.5 (claude-opus-5-5), Herdr pane w44:p10",
+  "recorded_at": "2026-09-28T01:40:10Z",
+  "repository": {
+    "head": "2bd4fa7ee28ec7a8e38b564558a01e36b946c938",
+    "branch": "main",
+    "status_before_report": "clean"
+  },
+  "frozen_audit": {
+    "record": "audit/2026-09-27-remediation/checks/original-audit-sha256.json",
+    "expected_files": 568,
+    "hash_mismatches": 0,
+    "files_present_in_audit/2026-09-26": 568,
+    "command": "shasum -a 256 -c <record converted to shasum format> (run inside audit/2026-09-26)"
+  },
+  "unchanged_since_audit_baseline_40d6cca": {
+    "command": "git diff --quiet 40d6cca HEAD -- tests/contracts.ts tests/extended-contracts.ts tests/cap85.ts tests/live-utils.ts tests/live.ts",
+    "result": "no differences",
+    "meaning": "C11 and C13 source paths are the audited source."
+  },
+  "c11_current_paths": {
+    "fixture_harness_signs_before_tree_check": "tests/contracts.ts:430-464 (address match, then sdk.authorizeEntry)",
+    "demo_expected_tree": "demo/site/contracts.ts:150-163 builds the root from the local operation with no sub-invocations",
+    "demo_entry_checks": "demo/site/contracts.ts:221-260 requires one entry, exact root XDR, the expected authorizer, and an unsigned entry",
+    "demo_restore_checks": "demo/site/contracts.ts:345-372 rebuilds the same expected root when it validates a saved record",
+    "demo_live_runner": "tests/contract-auth-demo-live.ts:105-107 calls validateContractReview before each signing call",
+    "demo_negative_controls": "tests/contract-auth-demo-live.ts:175-205 reuse signed entries and record signatures_requested: 0"
+  },
+  "c13_local_checkpoint": {
+    "file": "evidence/live/cap85-state.json (ignored by Git; structure read only)",
+    "done_rows": ["X01", "X02", "X03", "X04", "X05", "X06", "X07"],
+    "inflight_marker": null,
+    "x06_steps": ["X06:deploy-target_plain", "X06:adopt-ref", "X06:adopt-wasm"],
+    "x06_done_record_fields": ["adopt_ref_by_admin_b", "adopt_wasm_by_admin_b", "after_adopt_ref", "after_adopt_wasm", "before", "target_plain", "title"],
+    "other_checkpoints": "evidence/cap85-offline-checkpoint-*.json have empty done and steps",
+    "recorded_x06_observations": {"before": "wasm v1", "after_adopt_ref": "external_ref v2", "after_adopt_wasm": "wasm v1"},
+    "recorded_x06_run": "evidence/live/cap85-run.log lines 53-61: adopt-ref and adopt-wasm passed between 2026-09-25T18:35:43Z and 18:35:53Z in one run",
+    "meaning": "No saved checkpoint needs X06 recovery now. The recorded X06 evidence came from one uninterrupted run.",
+    "code_reading_addition": "tests/cap85.ts:1196-1199 reads details.before from live state on every X06 entry. A restart after adopt-ref and before adopt-wasm would record external_ref v2 as 'before' and could still complete the row. Not reproduced. The C13 mitigation (persist the initial observation before the first change) covers it."
+  },
+  "c09_probe": {
+    "source": "audit/2026-09-26/checks/05-demo-astra/adversarial.test.ts.txt with the frozen path replaced by the current checkout; probe additions in c09-probe.ts.txt",
+    "location": "session scratchpad, outside the repository",
+    "keys": "isolated mock keys from fixed seed bytes; in-memory fetch mocks; no network",
+    "original_finding_tests": {
+      "finding: restored signed journal submits another valid envelope without checking its original hash": "fails now: 0 requests, expected 1",
+      "finding: restored unsigned envelope remains signed and can be submitted": "fails now: 0 requests, expected 1"
+    },
+    "controls": {
+      "counterevidence: fresh signing rejects changed bytes, wrong keys, and extra signatures": "pass",
+      "counterevidence: normal reload submits the exact verified envelope and confirms its original hash": "pass"
+    },
+    "probe_output": [
+      {"case": "substituted", "blockedOnRestore": false, "restoredLabelState": "signed", "requests": 0, "stateAfter": "signed", "status": "The signed transaction differs from the reviewed transaction."},
+      {"case": "unsigned", "blockedOnRestore": false, "requests": 0, "stateAfter": "signed", "status": "The signed transaction differs from the reviewed transaction."}
+    ],
+    "cause": "demo/site/app.ts:861 calls verifySignedRecord before every submission (added in 2bd4fa7); demo/site/app.ts:298-303 verifies contract records on restore",
+    "residual": "A restored classic record is not re-verified until Submit. Activity can label it 'Signature verified' (demo/site/activity.ts:181).",
+    "disposition": "Partly resolved. The demonstrated submission failure is resolved. The conditional restored-status issue remains deferred. No urgent product correction."
+  },
+  "c07_current_path": {
+    "file": "sdk/walleterm.ts:99-115",
+    "result": "unchanged behavior: JSON parsing precedes the matching-token 401 cleanup"
+  },
+  "release_identification": {
+    "version_constant": "main.go:28 version = \"0.1.0\" (unchanged since ec2ef8a, 2026-09-25)",
+    "version_output": "main.go:92-93 prints 'walleterm 0.1.0'",
+    "release_directory": "scripts/install.ts:97 uses the first 24 hex characters of a content SHA-256",
+    "manifest": "scripts/install.ts:98-101 records files and built_at, not a source revision",
+    "agent_guidance": ".agents/skills/walleterm/SKILL.md:12 tells agents to read walleterm --help for the installed command contract",
+    "git_tags": "none"
+  },
+  "demo_offer_prerequisite": {
+    "issuer": "demo/site/app.ts:93 GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+    "check": "demo/site/app.ts:593-603 requires an authorized USDC trustline with free capacity",
+    "bridge_operations": "bridge/transaction.ts allows payment, manageData, manageSellOffer, and Soroban operations; no changeTrust",
+    "docs": "docs/WEB-BRIDGE.md:59 and demo/site/index.html:23 name USDC but not the issuer or the setup command"
+  },
+  "journal_export": {
+    "blocked_journal": "demo/site/app.ts:526-530 and :999-1001 set journalBlocked and tell the user to preserve the journal",
+    "export_control": "none"
+  },
+  "checkout_typecheck": {
+    "command": "bun run typecheck",
+    "exit": 1,
+    "errors": 174,
+    "error_files": "7 ignored files under evidence/pagebook-2026-09-26/",
+    "tracked_ts_under_evidence": 0,
+    "tsconfig": "tsconfig.json include **/*.ts; exclude node_modules and dist only",
+    "ci": "Makefile:48-51 test target runs bun run typecheck; CI runs make test in a clean checkout"
+  },
+  "broad_suites_run": "none; source is unchanged since the accepted CI and Opus checks"
+}

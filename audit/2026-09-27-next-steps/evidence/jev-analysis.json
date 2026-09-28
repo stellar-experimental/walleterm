@@ -1,0 +1,84 @@
+{
+  "recorded_at": "2026-09-28T01:40:10Z",
+  "sources": {
+    "usage_record": "audit/2026-09-26/research/usage.json",
+    "archive": "audit/2026-09-26/research/evidence.tar.gz (extracted to the session scratchpad only)",
+    "other_agent_handoff": "/private/tmp/walleterm-next-review-jl0qw8kw/other-agent.txt (tail only) and the coordinator brief summary"
+  },
+  "current_usage": {
+    "attempts": 31,
+    "failed": 19,
+    "partial": 12,
+    "recorded_or_reserved_usd": 0.430850701,
+    "failed_usd": 0.165858543,
+    "partial_usd": 0.264992158,
+    "failed_share_of_recorded": "38.5%"
+  },
+  "stale_other_agent_counts": {
+    "reported": {"attempts": 28, "failed": 17, "partial": 11, "usd": 0.398445514},
+    "missing_runs": [
+      {"path": "research/09-overall-astra/jev (failed)", "usd": 0.008729397},
+      {"path": "research/09-overall-astra/jev (partial)", "usd": 0.014946393},
+      {"path": "research/09-overall-daybreak (failed)", "usd": 0.008729397}
+    ],
+    "difference_usd": 0.032405187,
+    "audit_status_claim": "stale: audit/2026-09-26/REPORT.md line 3 reads 'Status: complete on 2026-09-27'"
+  },
+  "failed_runs": {
+    "count": 19,
+    "message_in_every_failures_json": "Jev transport failed; the reservation remains charged.",
+    "cost_each_usd": 0.008729397,
+    "stderr": "empty in the checked lane (01-signer-astra/jev-stderr.log)",
+    "cause_recorded": "none; the message names no cause class",
+    "pattern": "In 11 lanes, a failed first run preceded a partial retry. 01-signer-daybreak had one partial run and no failure. Seven lanes had failures only; 08-product-daybreak failed twice. Three lanes kept files named '*permitted*' (01-signer-astra, 03-runtime-astra, 04-sdk-astra). RESEARCH.md: 'Parallel CLI initially failed under restricted network access. Its permitted retry succeeded.'",
+    "inference": "Restricted network access explains the pattern. The Jev records do not prove the cause."
+  },
+  "partial_runs_load": {
+    "central-jev": {"currentness_failures": 62, "scoring_failures": 6, "lost_evidence_reports": 68, "selected": 62},
+    "other_11_partial_runs": {"currentness_failures": 0, "scoring_failures": 0, "lost_evidence_reports_total": 11}
+  },
+  "central_run_failure_causes": {
+    "run": "central-jev/1790470394-ea614df8-cd83-4197-8cee-f00658b278bd",
+    "document_score": {"total": 6, "transport_failed": 5, "stopped_after_unresolved_paid_attempt": 1},
+    "currentness": {
+      "total": 62,
+      "all_messages": "Jev stopped after unresolved paid-attempt usage; the reservation remains charged",
+      "by_source_family": {
+        "stellarlight.research.dev-docs": 9, "stellarlight.research.sep": 8, "stellarlight.repos": 8,
+        "stellarlight.research.cap": 6, "stellarlight.research.release": 6, "stellarlight.research.repo-docs": 6,
+        "stellarlight.research.audit": 4, "stellarlight.research.sdf-blog": 4, "lumenloop.articles": 4,
+        "stellarlight.projects": 3, "lumenloop.av": 2, "lumenloop.av_passages": 1, "stellarlight.research.lumenloop-research": 1
+      }
+    },
+    "meaning": "The 62 entries are documents whose currentness Jev did not assess after five transport failures. They are not 62 claims."
+  },
+  "lanes_without_a_partial_jev_run": {
+    "lanes": ["02-bridge-daybreak", "04-sdk-daybreak", "05-demo-daybreak", "06-contracts-daybreak", "07-verification-daybreak", "08-product-daybreak", "09-overall-daybreak"],
+    "check": "Each lane keeps other source records. Example: 05-demo-daybreak/research-summary.md cites Stellar and MDN primary pages; 09-overall-daybreak/SUMMARY.md cites CAP-46-11 and four developers.stellar.org authorization pages."
+  },
+  "this_review_run": {
+    "session": "/Users/kalepail/.stellar-raven-jev/runs/1790559320-ed2bb612-5e5c-46fc-90bb-15b87a45f283",
+    "started": "2026-09-28T01:35:20Z",
+    "exit": 2,
+    "status": "partial",
+    "degraded": true,
+    "cost_usd": 0.015045232,
+    "rate_limited_requests": 0,
+    "currentness_failures": 0,
+    "scoring_failures": 0,
+    "lost_evidence_reports": 3,
+    "transport_failures": 0,
+    "failure_stages": {"query_plan": 145, "coverage": 13, "upstream": 12, "lumenloop.provenance": 12, "lumenloop.truncation": 7, "query_variant": 6, "source_limit": 4, "fetch_deadline": 3, "freshness": 3, "lumenloop.search_annotation": 3, "query_limit": 2, "original_read": 1, "search_limit": 1, "truncation": 1},
+    "cited_texts": ["search-documents/0019.txt (SEP-43)", "search-documents/0030.txt (Freighter sign-auth-entries)", "search-documents/0035.txt (js-stellar-sdk v17.0.0)"],
+    "retention": "Jev prunes run folders after 7 inactive days by default."
+  },
+  "host_context": {
+    "command": "stellar-raven-jev usage (local, no network)",
+    "window_days": 7,
+    "sessions": 1949,
+    "statuses": {"partial": 1882, "failed": 42, "busy": 17, "complete": 6, "running": 1, "unfinished": 1},
+    "scope": "All Jev sessions on this host, not only this audit.",
+    "meaning": "Partial is the ordinary Jev outcome. It does not by itself show missing evidence."
+  },
+  "rate_limits": "Recorded rate_limited_requests is 0 in the checked records. This does not prove that rate limits cannot occur."
+}
