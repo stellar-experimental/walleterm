@@ -8,8 +8,28 @@ It verifies each signature before returning it. The Go binary has no third-party
 
 ## Install
 
-Install Go, Bun 1.4.2 or later, cloudflared, the 1Password desktop app, and the Stellar CLI first.
-Enable the 1Password SSH agent in the desktop app.
+Install Homebrew and the 1Password desktop app first. Enable the SSH agent in the desktop app.
+
+```sh
+brew tap stellar-experimental/walleterm https://github.com/stellar-experimental/walleterm
+brew install --cask stellar-experimental/walleterm/walleterm
+npx skills add stellar-experimental/walleterm -g -s walleterm -s walleterm-site-bridge
+walleterm list --human
+```
+
+The cask installs `walleterm`, its `stellar-walleterm` alias, and `cloudflared`.
+It needs macOS 13 or later on Apple silicon. Go and Bun are not required.
+The release contains two binaries, signed with Developer ID and notarized by Apple.
+`walleterm` is the Go signer. It lists keys and signs digests through the 1Password SSH agent.
+`walleterm-bridge` runs `sign-auth`, `tunnel`, and `demo`. It includes its own Bun runtime and website files.
+Homebrew 6 requires trust for third-party taps. The full cask name trusts only this cask.
+Update with `brew upgrade --cask walleterm`.
+Install the Stellar CLI for transaction construction: `brew install stellar-cli`.
+The 1Password CLI is optional. Only vault filtering needs it.
+
+### Install from source
+
+Use this path for development. It needs Go, Bun 1.4.2 or later, and cloudflared.
 
 ```sh
 brew install go oven-sh/bun/bun cloudflared
@@ -19,12 +39,9 @@ walleterm --help
 stellar walleterm --help
 ```
 
-`make install` installs the binary and `stellar-walleterm` executable alias into `~/.local/bin`.
+`make install` builds the same two binaries and installs them into `~/.local/bin`.
 Keep that directory on `PATH`, including in non-interactive agent shells.
-Both commands work from any directory. They do not require a shell alias.
-Run `make install` again after source changes to update the binary and bridge files together.
-The installer prepares all dependencies before it switches the command to a complete version.
-A failed build or Bun install preserves the previous command. Existing processes keep their original files.
+Run `make install` again after source changes. A failed build preserves the previous command.
 Version directories stay under `~/.local/share/walleterm/releases` for running processes and rollback.
 Use `make build` for a build under this checkout's `bin/` directory.
 `make install-skill` links this checkout's signing and site bridge skills through `~/.agents/skills`.
@@ -83,10 +100,10 @@ walleterm demo
 
 `OP_VAULT` limits the website wallet list to SSH keys in that 1Password vault.
 Save `OP_VAULT=Private` in `.env` in the directory where you run `walleterm tunnel`.
-Bun loads this file automatically. An exported shell variable overrides the file.
+The tunnel reads only `OP_VAULT` from this file. An exported shell variable overrides the file.
 Keep `.env` local. Git ignores it, and the installer does not copy it.
 Restart the tunnel after changing the setting. Reconnect the website with the new tunnel URL and code.
-Use a vault name or ID. Vault filtering requires the 1Password CLI (`brew install 1password-cli`).
+Use a vault name or ID. Vault filtering requires the 1Password CLI (`brew install --cask 1password-cli`).
 Enable 1Password CLI integration in the desktop app, or sign in before starting the tunnel.
 The bridge reads only item metadata and public keys. It matches the full public key against the SSH agent.
 A vault lookup failure stops wallet discovery. An empty vault returns an empty list.
@@ -137,7 +154,7 @@ make test
 Tests run offline with mock keys after dependency installation and fixture compilation.
 The Bun suite needs the CAP-71 Rust fixture build shown above.
 Install Rust and its `wasm32v1-none` target for that build.
-The tunnel, demo, and test tools use Bun. The installer includes production dependencies and browser assets.
+The test tools use Bun. The installed bridge includes its own runtime and browser assets.
 See [the live test guide](docs/LIVE-TESTS.md) for fixture builds and dedicated 1Password test keys.
 Live tests request signatures and create testnet transactions and contracts.
 An unknown submission blocks further signing and submission across process restarts.
@@ -172,3 +189,24 @@ Browser integrations can copy `dist/` and `sdk/connect.css`, or import the packa
 The package remains private; this change does not publish a package.
 
 See [the Bun migration research](docs/BUN-MIGRATION.md) for tool choices and source references.
+
+## Release
+
+Releases run on the maintainer's Mac. The Developer ID signing key stays in its keychain.
+Store the notary credentials once:
+
+```sh
+xcrun notarytool store-credentials walleterm-notary --apple-id <Apple ID> --team-id T4GBHCYB7P
+```
+
+`bun scripts/release.ts 0.2.0` builds, signs, and notarizes `release/0.2.0/walleterm-0.2.0-darwin-arm64.zip`.
+It builds from a fresh worktree of `HEAD` with the Bun and Go versions that CI pins.
+It checks the Developer ID authority, the hardened runtime, and the exact entitlements of each binary.
+Add `--no-notarize` to check the build and signatures without Apple. That archive has an `-unnotarized` name.
+`bun scripts/release.ts 0.2.0 --publish` also tags the commit and creates the GitHub release.
+It requires a passing Test workflow on `HEAD`, which must equal `origin/main`.
+It downloads the uploaded archive and compares its checksum.
+It then opens a pull request that points `Casks/walleterm.rb` at the new archive. Merging it updates Homebrew users.
+The Homebrew install needs a public repository. The tap and release downloads use anonymous Git and HTTPS.
+The tap is this repository, so anyone who can merge to `main` can change the cask.
+Protect `main`, require code owner review, and turn on immutable releases.

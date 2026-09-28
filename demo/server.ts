@@ -4,11 +4,10 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AddressInfo } from 'node:net';
 const here = dirname(fileURLToPath(import.meta.url));
-const assets = join(here, '../dist');
-export function createDemoSite({ port = 8788 } = {}) {
-  let origin = `http://127.0.0.1:${port}`,
-    closing = false;
-  const files: Record<string, [string, string]> = {
+export type DemoFiles = Record<string, [path: string, type: string]>;
+// Map each public route to a source checkout file. The compiled bridge passes embedded copies instead.
+export function demoFiles(assets = join(here, '../dist')): DemoFiles {
+  const files: DemoFiles = {
     '/': [join(here, 'site/index.html'), 'text/html'],
     '/activity.js': [join(assets, 'demo/site/activity.js'), 'text/javascript'],
     '/code-view.js': [join(assets, 'demo/site/code-view.js'), 'text/javascript'],
@@ -40,6 +39,14 @@ export function createDemoSite({ port = 8788 } = {}) {
     if (/^(chunk|jsQR)-[a-z0-9]+\.js$/i.test(name))
       files[`/${name}`] = [join(assets, name), 'text/javascript'];
   }
+  return files;
+}
+export function createDemoSite({
+  port = 8788,
+  files = demoFiles(),
+}: { port?: number; files?: DemoFiles } = {}) {
+  let origin = `http://127.0.0.1:${port}`,
+    closing = false;
   const server = createServer((req, res) => {
     if (
       closing ||

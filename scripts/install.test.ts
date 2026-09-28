@@ -23,14 +23,11 @@ for (const fail of [true, false])
     mkdirSync(join(prefix, 'bin'), { recursive: true });
     mkdirSync(mock);
     writeFileSync(join(prefix, 'bin', 'walleterm'), 'old binary');
-    writeFileSync(
-      join(mock, 'go'),
-      '#!/bin/sh\nif [ "$1" = version ]; then exit 0; fi\nprintf "new binary" > "$4"\n',
-      { mode: 0o700 },
-    );
+    writeFileSync(join(mock, 'go'), '#!/bin/sh\nexit 0\n', { mode: 0o700 });
+    // The mock package step writes both binaries, then succeeds or fails.
     writeFileSync(
       join(mock, 'bun'),
-      `#!/bin/sh\nif [ "$1" = --version ]; then exit 0; fi\nif [ "$1" = run ]; then cp -R "$WALLETERM_TEST_ASSETS" dist; fi\nexit ${fail ? 1 : 0}\n`,
+      `#!/bin/sh\nmkdir -p "$2"\nprintf "new binary" > "$2/walleterm"\nprintf "new bridge" > "$2/walleterm-bridge"\nexit ${fail ? 1 : 0}\n`,
       { mode: 0o700 },
     );
     try {
@@ -38,11 +35,7 @@ for (const fail of [true, false])
         process.execPath,
         [fileURLToPath(new URL('./install.ts', import.meta.url)), prefix],
         {
-          env: {
-            ...process.env,
-            PATH: `${mock}:${process.env.PATH}`,
-            WALLETERM_TEST_ASSETS: fileURLToPath(new URL('../dist', import.meta.url)),
-          },
+          env: { ...process.env, PATH: `${mock}:${process.env.PATH}` },
           encoding: 'utf8',
         },
       );
@@ -58,32 +51,7 @@ for (const fail of [true, false])
       );
       if (!fail) {
         const binary = realpathSync(join(prefix, 'bin', 'walleterm'));
-        const release = join(binary, '..', '..');
-        assert.equal(existsSync(join(release, 'bridge', 'entry.ts')), true);
-        for (const file of [
-          'bridge/auth-cli.ts',
-          'bridge/authorization.ts',
-          'sdk/authorization.ts',
-          'sdk/transaction.ts',
-          'demo/site/contracts.ts',
-          'fixtures/wasm/walleterm_simple_account.wasm',
-          'fixtures/wasm/walleterm_auth_target.wasm',
-        ])
-          assert.equal(
-            readFileSync(join(release, file)).equals(readFileSync(new URL('../' + file, import.meta.url))),
-            true,
-          );
-        assert.equal(existsSync(join(release, 'dist/sdk/authorization.js')), true);
-        assert.equal(existsSync(join(release, 'demo', 'entry.ts')), true);
-        assert.equal(existsSync(join(release, 'demo', 'site', 'activity.css')), true);
-        for (const asset of ['app.js', 'activity.js', 'code-view.js', 'syntax.js'])
-          assert.equal(existsSync(join(release, 'dist', 'demo', 'site', asset)), true);
-        for (const asset of ['code-view.css', 'vendor/syntax.LICENSE'])
-          assert.equal(existsSync(join(release, 'demo', 'site', asset)), true);
-        assert.equal(existsSync(join(release, 'sdk', 'connect.css')), true);
-        for (const asset of ['walleterm.js', 'connect.js', 'scan.js'])
-          assert.equal(existsSync(join(release, 'dist', 'sdk', asset)), true);
-        assert.equal(existsSync(join(release, 'bridge', 'tunnel-child.ts')), true);
+        assert.equal(readFileSync(join(binary, '..', 'walleterm-bridge'), 'utf8'), 'new bridge');
         assert.equal(realpathSync(join(prefix, 'bin', 'stellar-walleterm')), binary);
       }
     } finally {

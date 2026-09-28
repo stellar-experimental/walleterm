@@ -1,8 +1,12 @@
 import { mkdir, rm } from 'node:fs/promises';
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const outdir = fileURLToPath(new URL('../dist/', import.meta.url));
+// Packaging passes a private directory. Concurrent builds then cannot mix browser chunks.
+const outdir = process.argv[2]
+  ? `${resolve(process.argv[2])}/`
+  : fileURLToPath(new URL('../dist/', import.meta.url));
 await rm(outdir, { recursive: true, force: true });
 await mkdir(outdir, { recursive: true });
 const result = await Bun.build({

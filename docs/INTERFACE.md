@@ -34,8 +34,11 @@ The demo uses the same [browser client](../sdk/walleterm.ts) that another integr
 The demo pays the source account of a recent testnet operation. It checks that this account exists.
 The review shows the selected payment recipient. Neither command accepts `--recipient`.
 
-Both commands need Bun 1.4.2 or later and the installed assets.
-`make install` builds the browser JavaScript and installs the TypeScript service files.
+Both commands run in the installed `walleterm-bridge` binary beside `walleterm`.
+That binary includes the Bun runtime and the website files.
+It ignores `bunfig.toml` and `.env` in the working directory. The tunnel reads only `OP_VAULT` from `.env`.
+`walleterm` removes `BUN_*` and `NODE_OPTIONS` variables before it starts the bridge.
+The tunnel prints its wallet filter at startup. It warns about `OP_VAULT` in other `.env.*` files, which it ignores.
 Public mode needs cloudflared. The signing bridge also needs macOS and the 1Password SSH agent.
 Each public service owns a private temporary Cloudflare configuration and a supervised child process.
 Each service checks its public URL every 15 seconds. Healthy checks produce no log output.
@@ -178,11 +181,11 @@ See [RFC 9987](https://www.rfc-editor.org/rfc/rfc9987) and [RFC 8709](https://ww
 walleterm sign-auth < request.json
 ```
 
-`sign-auth` validates one explicit authorization entry through an installed TypeScript sidecar.
+`sign-auth` validates one explicit authorization entry through the installed `walleterm-bridge` sidecar.
 The unchanged Go `sign` command handles the 1Password socket and raw digest signature.
 The sidecar never builds, simulates, deploys, or submits transactions.
-It does not load `.env` files.
-Bun 1.4.2 and installed assets are required.
+It does not load `.env` or `bunfig.toml` files.
+A missing sidecar returns `start_failed`.
 
 ```json
 {

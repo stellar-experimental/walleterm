@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"flag"
 	"io"
@@ -9,10 +8,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"syscall"
-	"time"
 )
 
 type serviceOptions struct {
@@ -47,7 +44,7 @@ func runServiceCommand(command string, args []string, out io.Writer) int {
 		if command == "tunnel" {
 			vaultHelp = "Set OP_VAULT in the shell or working directory's .env to filter website wallets by vault name or ID.\nShell values override .env. Filtering requires the 1Password CLI.\n"
 		}
-		return writeOutput(out, serviceUsage(command)+"\nRequires Bun 1.4.2 or later and cloudflared. Shows public links and QR codes.\nThe signing bridge requires macOS and the 1Password SSH agent.\n"+vaultHelp+"Press Ctrl+C to stop this service.\n")
+		return writeOutput(out, serviceUsage(command)+"\nRequires cloudflared. Shows public links and QR codes.\nThe signing bridge requires macOS and the 1Password SSH agent.\n"+vaultHelp+"Press Ctrl+C to stop this service.\n")
 	}
 	config, err := parseServiceOptions(command, args)
 	if err != nil {
@@ -56,71 +53,50 @@ func runServiceCommand(command string, args []string, out io.Writer) int {
 	if command == "tunnel" && runtime.GOOS != "darwin" {
 		return outputError(out, true, failure("unsupported_platform", "The signing bridge requires macOS."))
 	}
-	bun, err := exec.LookPath("bun")
-	if err != nil {
-		return outputError(out, true, failure("start_failed", "Install Bun 1.4.2 or later. On macOS, run: brew install bun"))
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	version, versionErr := exec.CommandContext(ctx, bun, "--version").Output()
-	if versionErr != nil || !supportedBunVersion(strings.TrimSpace(string(version))) {
-		return outputError(out, true, failure("start_failed", "Install Bun 1.4.2 or later."))
-	}
 	if _, err := exec.LookPath("cloudflared"); err != nil {
 		return outputError(out, true, failure("start_failed", "Install cloudflared. On macOS, run: brew install cloudflared"))
 	}
-	binary, err := os.Executable()
+	bridge, binary, err := bridgePath()
 	if err != nil {
 		return outputError(out, true, err)
-	}
-	binary, err = filepath.EvalSymlinks(binary)
-	if err != nil {
-		return outputError(out, true, err)
-	}
-	directory := "demo"
-	if command == "tunnel" {
-		directory = "bridge"
-	}
-	entry := filepath.Clean(filepath.Join(filepath.Dir(binary), "..", directory, "entry.ts"))
-	if info, err := os.Stat(entry); err != nil || info.IsDir() {
-		return outputError(out, true, failure("start_failed", "The service files are missing. Run make install from the bridge checkout."))
 	}
 	encoded, err := json.Marshal(config)
 	if err != nil {
 		return outputError(out, true, err)
 	}
-	environment := make([]string, 0, len(os.Environ())+1)
-	for _, value := range os.Environ() {
-		if !strings.HasPrefix(value, "WALLETERM_BINARY=") {
-			environment = append(environment, value)
-		}
-	}
-	environment = append(environment, "WALLETERM_BINARY="+binary)
-	if err := syscall.Exec(bun, []string{bun, entry, string(encoded)}, environment); err != nil {
+	environment := append(bridgeEnvironment(), "WALLETERM_BINARY="+binary)
+	if err := syscall.Exec(bridge, []string{bridge, command, string(encoded)}, environment); err != nil {
 		return outputError(out, true, failure("start_failed", "The service could not start."))
 	}
 	return 0
 }
 
-// Compare only stable releases. The web runtime uses Bun 1.4.2 APIs.
-func supportedBunVersion(version string) bool {
-	parts := strings.Split(strings.TrimPrefix(version, "v"), ".")
-	if len(parts) != 3 {
-		return false
+// Each release keeps walleterm-bridge beside the Go binary. Resolve links so the pair always matches.
+func bridgePath() (string, string, error) {
+	binary, err := os.Executable()
+	if err != nil {
+		return "", "", err
 	}
-	minimum := []int{1, 4, 2}
-	values := make([]int, 3)
-	for i, part := range parts {
-		n, err := strconv.Atoi(part)
-		if err != nil || n < 0 {
-			return false
+	binary, err = filepath.EvalSymlinks(binary)
+	if err != nil {
+		return "", "", err
+	}
+	bridge := filepath.Join(filepath.Dir(binary), "walleterm-bridge")
+	if info, err := os.Stat(bridge); err != nil || !info.Mode().IsRegular() {
+		return "", "", failure("start_failed", "The walleterm-bridge binary is missing. Reinstall walleterm.")
+	}
+	return bridge, binary, nil
+}
+
+// Bun reads BUN_OPTIONS, BUN_BE_BUN, and similar variables even in a compiled executable.
+// Drop them so the caller's environment cannot load code into the bridge.
+func bridgeEnvironment() []string {
+	environment := make([]string, 0, len(os.Environ()))
+	for _, value := range os.Environ() {
+		name, _, _ := strings.Cut(value, "=")
+		if !strings.HasPrefix(name, "BUN_") && name != "NODE_OPTIONS" && name != "WALLETERM_BINARY" {
+			environment = append(environment, value)
 		}
-		values[i] = n
 	}
-	for i, value := range values {
-		if value != minimum[i] {
-			return value > minimum[i]
-		}
-	}
-	return true
+	return environment
 }

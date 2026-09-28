@@ -1,0 +1,13 @@
+# Homebrew loads these paths from this repository as a tap.
+/Casks/ @kalepail
+/Formula/ @kalepail
+/cmd/ @kalepail
+/tap_migrations.json @kalepail
+/formula_renames.json @kalepail
+/cask_renames.json @kalepail
+
+# Release signing and packaging.
+/scripts/release.ts @kalepail
+/scripts/package.ts @kalepail
+/scripts/bridge.entitlements.plist @kalepail
+/.github/ @kalepail

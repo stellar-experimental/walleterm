@@ -6,11 +6,11 @@ SKILL_HOME ?= $(HOME)
 SKILL_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/.agents/skills)
 
 build:
-	mkdir -p bin
-	go build -o bin/walleterm .
+	bun scripts/package.ts bin
 	ln -sf walleterm bin/stellar-walleterm
 
 install:
+	bun install --frozen-lockfile --ignore-scripts
 	bun scripts/install.ts "$(PREFIX)"
 
 install-skill:

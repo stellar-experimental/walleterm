@@ -36,15 +36,19 @@ func TestSeparatedHelp(t *testing.T) {
 	}
 }
 
-func TestBunVersion(t *testing.T) {
-	for _, version := range []string{"1.4.2", "1.4.3", "1.5.0", "2.0.0", "v1.4.2"} {
-		if !supportedBunVersion(version) {
-			t.Fatalf("rejected %s", version)
+func TestBridgeEnvironment(t *testing.T) {
+	t.Setenv("BUN_OPTIONS", "--preload x.js")
+	t.Setenv("BUN_BE_BUN", "1")
+	t.Setenv("NODE_OPTIONS", "--require x.js")
+	t.Setenv("WALLETERM_BINARY", "/tmp/other")
+	t.Setenv("OP_VAULT", "Private")
+	environment := strings.Join(bridgeEnvironment(), "\n")
+	for _, name := range []string{"BUN_OPTIONS=", "BUN_BE_BUN=", "NODE_OPTIONS=", "WALLETERM_BINARY="} {
+		if strings.Contains(environment, name) {
+			t.Fatalf("kept %s", name)
 		}
 	}
-	for _, version := range []string{"", "1", "1.4", "1.4.1", "1.3.99", "0.9.0", "1.4.2-canary", "2.bad.0"} {
-		if supportedBunVersion(version) {
-			t.Fatalf("accepted %s", version)
-		}
+	if !strings.Contains(environment, "OP_VAULT=Private") {
+		t.Fatal("dropped OP_VAULT")
 	}
 }
