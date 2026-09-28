@@ -8,8 +8,8 @@ cask "walleterm" do
   homepage "https://github.com/stellar-experimental/walleterm"
 
   depends_on arch: :arm64
-  depends_on macos: ">= :ventura"
   depends_on formula: "cloudflared"
+  depends_on macos: :ventura
 
   binary "walleterm"
   binary "walleterm", target: "stellar-walleterm"
