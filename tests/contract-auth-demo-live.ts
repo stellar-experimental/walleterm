@@ -36,7 +36,7 @@ const dedicated = metadata.keys?.find((key: { name: string }) => key.name === 'w
 if (!dedicated || !/^[a-f0-9]{64}$/.test(dedicated.raw_public_key_hex))
   throw Error('The dedicated test-a public key is missing.');
 const signer = StrKey.encodeEd25519PublicKey(Buffer.from(dedicated.raw_public_key_hex, 'hex'));
-const directory = new URL('../evidence/contract-auth-live/', import.meta.url);
+const directory = Bun.pathToFileURL(join(dirname(metadataFile), 'contract-auth-live/'));
 mkdirSync(directory, { recursive: true });
 const events = new URL('events.jsonl', directory),
   resultFile = new URL('summary.json', directory);

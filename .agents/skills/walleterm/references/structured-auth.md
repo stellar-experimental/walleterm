@@ -28,6 +28,8 @@ The signature binds the complete AddressV2 payload.
 The `contract-ed25519` adapter uses raw signature bytes. Other contracts can require another format.
 The OpenZeppelin adapter also requires `verifier` and `context_rule_ids`.
 Use the pinned OpenZeppelin reference to review those fields.
+An entry rooted at `__check_auth` approves a digest for another account.
+Recompute that digest from the outer entry before signing. See [pinned OpenZeppelin auth](openzeppelin.md).
 V1, SourceAccount, and delegated credentials require another workflow.
 SourceAccount authorization remains valid inside ordinary transaction envelopes.
 Preserve an uncertain signing result until its authorization expiry passes or the outcome becomes known.

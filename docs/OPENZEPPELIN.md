@@ -14,6 +14,7 @@ deployed account instance.
 |------|-------|
 | Repository | `OpenZeppelin/stellar-contracts` |
 | Branch head | `main` at `a5bd8cbd3d0bb8efbd5cf5e2edf9734f87e47640` (2026-09-18, "better comments to prevent incorrect bug submission (#899)") |
+| Later `main` check | `b40c5eaefe6a29f0030f00bd2d730b7a91cce330` (2026-09-26, "chore: bump soroban-sdk to v28 (#866)"), checked 2026-09-28. The accounts package adds the `CreateContractExternalRef` rule type. The digest rule and the `Delegated` path do not change. |
 | Workspace version at head | `0.7.1` |
 | `soroban-sdk` at head | `27.0.2` with feature `experimental_spec_shaking_v2` |
 | Latest tag | `v0.7.2` = `a9c42169000638da937577f592ebf61a7a3c94ca` (`soroban-sdk 26.1.0`) |
@@ -356,7 +357,7 @@ OpenZeppelin consumes the resulting 32-byte host payload, then applies its addit
 |------|--------------|------------------------------|------------------|
 | `Signer::External(ed25519_verifier, pubkey32)` | verifier contract call (`storage.rs` lines 343-352) | `auth_digest`, 64-byte raw Ed25519 signature in the map | none |
 | `Signer::Delegated(G-address)` | `addr.require_auth_for_args((auth_digest,))` (`storage.rs` lines 353-356) | a nested auth entry for the G-address | yes, and simulation does not return it (`packages/accounts/README.md` line 95) |
-| `Signer::Delegated(C-address)` | same as above | that contract's own `__check_auth` | yes |
+| `Signer::Delegated(C-address)` | same as above | a nested auth entry in that contract's own `__check_auth` format (section 13) | yes, and simulation does not return it |
 
 Recommendation for the companion: use `Signer::External` with the shared
 Ed25519 verifier. It needs one auth entry and one raw signature. The same
@@ -374,7 +375,7 @@ item can serve both roles.
   not use the CAP-71 `AddressWithDelegates` credentials that `soroban-sdk`
   v27 added (Stellar docs, delegate-auth example).
 
-## 7. Passkey limits
+## 7. WebAuthn verifier source notes
 
 From `packages/accounts/src/verifiers/webauthn.rs` and the example verifier:
 
@@ -390,8 +391,8 @@ From `packages/accounts/src/verifiers/webauthn.rs` and the example verifier:
   32-byte `auth_digest` (lines 151-163).
 - Origin and rpId are not checked (lines 8-15).
 
-A passkey needs a WebAuthn ceremony from a relying party. That is out of
-scope for the macOS CLI until the separate feasibility check in AGENTS.md.
+Passkeys and WebAuthn signing are not planned and are out of scope.
+The notes above record the pinned verifier source only.
 
 ## 8. 1Password SSH agent boundary
 
@@ -475,7 +476,8 @@ Testnet acceptance, dedicated testnet keys only:
 - E01-E03 passed native G multisig, OpenZeppelin delegated G signers, and context-specific rule updates.
 - These OpenZeppelin delegation results use `require_auth_for_args`, not native CAP-71 delegate credentials.
 - See `PROTOCOL-UPDATES.md` for the subsequent native CAP-71 and CAP-85 compatibility work.
-- 7: any passkey path. Out of scope for now.
+- Passkeys and WebAuthn are not planned and are out of scope. Section 7 keeps the verifier source notes only.
+- `Delegated` C-address signers remain untested. Section 13 records the assessment.
 
 ## 12. Generic authorization API
 
@@ -497,3 +499,103 @@ Request identity includes every adapter field, including the verifier address.
 The verifier address does not enter the OpenZeppelin digest.
 Exact returned-artifact verification therefore checks the complete signature map as well as the signature.
 This validation cannot stop a signature holder from constructing another artifact that contract policy accepts.
+
+### Live acceptance runner
+
+`tests/openzeppelin-auth-live.ts` runs live acceptance for this adapter.
+It passed on 2026-09-28. See [the OpenZeppelin record](../evidence/openzeppelin-live-2026-09-28.json).
+The CLI increment `db0ac667…98055a05` confirmed in ledger 4917224. The SDK increment `09e43d99…c7ccb379` confirmed in ledger 4917226.
+The counter changed from 2 to 4. The run made four signature requests and two submissions.
+It uses the existing `oz_basic_a` account from the 2026-09-25 acceptance run. It deploys nothing.
+Rule 0 of that account holds one `External` Ed25519 signer: the dedicated key `walleterm-v2-test-a`.
+The runner reads the contract IDs from `live/contracts-state.json` beside the metadata file.
+Before each signing request, it checks the live code hashes, the rule count, and the complete rule 0.
+It record-simulates one `ping` call on `auth_target_1` and builds the expected entry locally.
+Any difference stops the run before the signing request.
+
+The runner signs once with `walleterm sign-auth` and once with the SDK `signAuthEntry` through a local bridge.
+It recomputes each digest with the SDK preimage helper and the acceptance-suite digest rule.
+It rebuilds each returned `AuthPayload` independently and verifies the signature.
+Then it enforce-simulates, submits through the shared submission guard, and checks that the counter increased by one.
+
+Three negative controls reuse the signed entry. The runner never submits them.
+It counts 1Password requests and RPC submissions around each control. Both counts must stay zero.
+Enforcing simulation must reject each control with the listed error.
+
+| Control | Change | Required error |
+|---------|--------|----------------|
+| `missing-authorization` | No authorization entry | `Error(Auth, InvalidAction)` |
+| `wrong-context-rule-id` | `context_rule_ids` of `[1]` with the same signature | `Error(Contract, #3000)` |
+| `changed-invocation` | Call and root use `n = 2` with the same credentials | `Error(Crypto, InvalidInput)` |
+
+The account has one rule. The wrong-rule control therefore shows a rule lookup failure.
+It does not show digest binding between two live rules.
+Offline tests in `tests/openzeppelin-auth-live.test.ts` cover the validation and control paths with mock keys.
+
+```sh
+WALLETERM_BINARY=/isolated/prefix/bin/walleterm \
+  bun --no-env-file tests/openzeppelin-auth-live.ts /path/to/public-test-keys.json
+```
+
+The runner writes `openzeppelin-auth-live/` beside the metadata file.
+That directory holds `events.jsonl`, `summary.json`, and the submission journals.
+The runner stops on an uncertain result and preserves the journals.
+`tests/contract-auth-demo-live.ts` also writes its `contract-auth-live/` journal beside the metadata file.
+
+## 13. `Delegated` C-address signers
+
+This assessment is from 2026-09-28. It covers the pinned commit and `main` at `b40c5ea`.
+Both commits use the same code path.
+
+### Required signing artifact
+
+For a `Delegated` signer, `authenticate` calls `addr.require_auth_for_args((auth_digest,))`.
+See `storage.rs` lines 353-356 at the pinned commit and lines 358-360 at `b40c5ea`.
+The host then requires a separate authorization entry for the delegate address.
+Its root invocation is `<account>.__check_auth(auth_digest)` with no sub-invocations.
+It has its own nonce and expiration ledger. Recording simulation does not return it.
+For a C-address delegate, the host calls the delegate's own `__check_auth` for that entry.
+The delegate signs its own host payload in its own format.
+For example, the Walleterm fixture account signs the raw payload. An OpenZeppelin delegate signs its own `auth_digest`.
+The outer `AuthPayload` holds `Delegated(C-address)` with empty signature bytes. The library ignores those bytes.
+
+### Current coverage
+
+`walleterm sign-auth` can sign the nested entry mechanically.
+That entry is an ordinary unsigned AddressV2 entry for a C-address.
+The `contract-ed25519` and `openzeppelin-ed25519` adapters accept a `__check_auth` root.
+The request then shows only `__check_auth` and an opaque 32-byte argument.
+Walleterm does not build the nested entry. It does not bind that argument to the outer entry.
+It does not show the outer action. It does not build an outer `AuthPayload` with a `Delegated` key.
+No live test covers a `Delegated` C-address signer.
+
+### Required changes
+
+A safe adapter needs these changes:
+
+1. Add a request field for the unsigned outer entry and its rule IDs.
+2. Recompute `auth_digest` from the outer entry. Require the nested root to be exactly `<outer>.__check_auth(auth_digest)`.
+3. Require AddressV2 credentials and a bounded expiry for both entries.
+4. Sign the nested entry with one existing adapter. Reject a nested `Delegated` chain.
+5. Show the outer address, invocation, and rule IDs in the review.
+6. Update the bridge request fields, `docs/INTERFACE.md`, the skill, and the offline tests.
+7. Deploy a new test account whose rule holds a `Delegated` C-address signer. Then run live acceptance.
+
+### Security review surface
+
+- Digest binding: an incorrect recomputation lets the key approve an unknown outer action.
+- Review: the person must see the outer action, not only the 32-byte digest.
+- Replay: each entry has its own nonce. The nested root binds the outer digest, and that digest includes the outer nonce.
+- Recursion: a delegate can also use `Delegated` signers. Limit the chain to one level.
+- Mixed rules: a rule with `External` and `Delegated` signers needs a multi-signer `AuthPayload`. The current adapter builds one `External` entry only.
+- Account policy: the signer makes no network calls. The caller must read the rule and enforce-simulate.
+
+### Recommendation
+
+Do not implement this adapter now.
+The change is not small. It adds a second request shape, a new review display, and a new live deployment.
+The practical value is low for a single-key signing companion.
+An `External` Ed25519 signer gives the same key-to-account control with one entry and one signature.
+Native CAP-71 delegation is a separate path. `PROTOCOL-UPDATES.md` records its fixture tests.
+Revisit this adapter when a user account lists a `Delegated` C-address signer.
+Until then, do not sign a `__check_auth` root without recomputing its digest from the outer entry.

@@ -1,0 +1,178 @@
+{
+  "observed_at": "2026-09-28",
+  "network": "testnet",
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "testnet_protocol": 28,
+  "adapter": "openzeppelin-ed25519",
+  "status": "passed",
+  "window_utc": ["2026-09-28T15:34:58Z", "2026-09-28T15:35:17Z"],
+  "runner": {
+    "command": "WALLETERM_BINARY=~/.local/bin/walleterm bun --no-env-file tests/openzeppelin-auth-live.ts <main checkout>/evidence/public-test-keys.json",
+    "file": "tests/openzeppelin-auth-live.ts",
+    "file_sha256": "383c141fa5c0952e1f9172bea0d3e91f7e552357a54d335c5ea1f608b75682d5",
+    "source": "PR #18 head 1810f0b56749b9d2108faca9fa4d281f2d40847f, run from its worktree by the coordinator. A later rebase did not change the runner file.",
+    "deploys": false
+  },
+  "install": {
+    "binary": "~/.local/bin/walleterm",
+    "release_id": "71410e0203d7e20310e52259",
+    "built_from": "main aa69fb4e889b9cdf0a6aea9c5adcb662a7ac673c",
+    "signing_source_note": "Between aa69fb4 and 1810f0b, only bridge/site.test.ts changed under sdk/ and bridge/. auth_command.go did not change. The installed sign-auth sources equal the tested branch."
+  },
+  "openzeppelin_source": {
+    "repository": "OpenZeppelin/stellar-contracts",
+    "pinned_commit": "a5bd8cbd3d0bb8efbd5cf5e2edf9734f87e47640",
+    "later_main_checked": "b40c5eaefe6a29f0030f00bd2d730b7a91cce330"
+  },
+  "deployment": {
+    "record": "evidence/live/contracts-state.json from the 2026-09-25 acceptance run",
+    "account": {
+      "name": "oz_basic_a",
+      "id": "CCTHYTKMKC3TV2ZT2ZGGGXMUKE4VROVXLKQQRCU5FRYUCRBIYX5NYYMF",
+      "wasm_sha256": "0c20d69644a16562f98a6be92101d8d95475dd3cbc45923c2a2b5f6a5126f0d0",
+      "deploy_tx": "5e035b9dc3b1aa141acd8397789dc95822e64a24b4103bff28b34fd206308439"
+    },
+    "verifier": {
+      "name": "ed25519_verifier",
+      "id": "CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR",
+      "wasm_sha256": "875b095d57291172d2f103b02240cdb72bc4157fc0d5ce7dfbc934b1d84209b4",
+      "deploy_tx": "0d1bf75d4ea4fcdc4d1bb58ea9ce4d09b5a0b75f40a0328dc718e957a36946cf"
+    },
+    "target": {
+      "name": "auth_target_1",
+      "id": "CD2AHFORL2QCB5DPZK7GEV32YJNVADNLBJQ6QZG6HMBFUAZ725IUEWRD",
+      "wasm_sha256": "04a9a33cd3f56a0f16aca0db6b18e4b624416f3393cfeb1e0ce8bcc0d47fcdf5",
+      "deploy_tx": "0bc6afced26658d32de03d59e9bf2ba06f3c1b3ab64b646b18d5eb1709e9ef2f"
+    },
+    "code_hashes_match_manifest": true,
+    "rule_count": 1,
+    "rule_0": {
+      "context_type": "Default",
+      "name": "multisig",
+      "signers": [
+        "External(CBW4YZ2CA7LBE7QYXCK7WEWLIJOQAZCHOVCFHPEMOYWJ2SI67UFHVMLR, 656f379634d0e3ef2961644b7154ec70ba3fb842b68937058f3dce5a72b5ccc3)"
+      ],
+      "policies": [],
+      "valid_until": null,
+      "xdr": "AAAAEQAAAAEAAAAIAAAADwAAAAxjb250ZXh0X3R5cGUAAAAQAAAAAQAAAAEAAAAPAAAAB0RlZmF1bHQAAAAADwAAAAJpZAAAAAAAAwAAAAAAAAAPAAAABG5hbWUAAAAOAAAACG11bHRpc2lnAAAADwAAAAhwb2xpY2llcwAAABAAAAABAAAAAAAAAA8AAAAKcG9saWN5X2lkcwAAAAAAEAAAAAEAAAAAAAAADwAAAApzaWduZXJfaWRzAAAAAAAQAAAAAQAAAAEAAAADAAAAAAAAAA8AAAAHc2lnbmVycwAAAAAQAAAAAQAAAAEAAAAQAAAAAQAAAAMAAAAPAAAACEV4dGVybmFsAAAAEgAAAAFtzGdCB9YSfhi4lfsSy0JdAGRHdURTvIx2LJ1JHv0KegAAAA0AAAAgZW83ljTQ4+8pYWRLcVTscLo/uEK2iTcFjz3OWnK1zMMAAAAPAAAAC3ZhbGlkX3VudGlsAAAAAAE="
+    },
+    "checked_before_each_signing_request": true
+  },
+  "signer": {
+    "name": "walleterm-v2-test-a",
+    "public_key": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+    "roles": ["External signer on rule 0", "transaction source and fee payer"]
+  },
+  "transactions": [
+    {
+      "method": "cli",
+      "action": "auth_target_1.ping(oz_basic_a, 1); walleterm sign-auth, then the envelope through the local bridge",
+      "hash": "db0ac667c82e64440496b2842b392d8e47bd8f40e1aabdd5f7c99f1d98055a05",
+      "ledger": 4917224,
+      "created_at": "2026-09-28T15:35:07Z",
+      "source_account_sequence": "20897180558557339",
+      "max_fee_stroops": "134519",
+      "charged_fee_stroops": "110426",
+      "successful": true,
+      "counter": [2, 3],
+      "authorization": {
+        "credential": "sorobanCredentialsAddressV2",
+        "context_rule_ids": [0],
+        "latest_ledger_at_signing": 4917222,
+        "expiration_ledger": 4917282,
+        "host_payload": "a468cab9660e76989da3d5907179f97b45581d10dca0858f9a518603d0ea33df",
+        "digest": "e60104c5e455273e8fde1729ff5b9d87168410a13e5f155acc67c5cf90871ab5"
+      }
+    },
+    {
+      "method": "sdk",
+      "action": "auth_target_1.ping(oz_basic_a, 1); SDK signAuthEntry through the local bridge, then the envelope",
+      "hash": "09e43d999c79fec2ac1046a3ea835cbfb07f5794f84e78c5efaeceb9c7ccb379",
+      "ledger": 4917226,
+      "created_at": "2026-09-28T15:35:17Z",
+      "source_account_sequence": "20897180558557340",
+      "max_fee_stroops": "26509",
+      "charged_fee_stroops": "16500",
+      "successful": true,
+      "counter": [3, 4],
+      "authorization": {
+        "credential": "sorobanCredentialsAddressV2",
+        "context_rule_ids": [0],
+        "latest_ledger_at_signing": 4917224,
+        "expiration_ledger": 4917284,
+        "host_payload": "5038ef9f37df4c80e5a75c94a19de65902ae49968286f84f2945846e153c7abc",
+        "digest": "7573408406381764024df351860ce2b8f91fb1affa648a1b1f36ffe7ed1357fa"
+      }
+    }
+  ],
+  "fee_source": "Horizon testnet /transactions/{hash}, read on 2026-09-28",
+  "counter_after_run": 4,
+  "signature_requests": {
+    "measured_total": 4,
+    "authorization": 2,
+    "envelope": 2
+  },
+  "submissions": 2,
+  "negative_controls": {
+    "per_method": ["cli", "sdk"],
+    "controls": [
+      {
+        "id": "missing-authorization",
+        "change": "No authorization entry",
+        "required_error": "Error(Auth, InvalidAction)",
+        "observed": "Unauthorized function call for address CCTHYTKMKC3TV2ZT2ZGGGXMUKE4VROVXLKQQRCU5FRYUCRBIYX5NYYMF"
+      },
+      {
+        "id": "wrong-context-rule-id",
+        "change": "context_rule_ids of [1] with the same signature",
+        "required_error": "Error(Contract, #3000)",
+        "observed": "failed account authentication with Error(Contract, #3000)"
+      },
+      {
+        "id": "changed-invocation",
+        "change": "Call and root use n = 2 with the same credentials",
+        "required_error": "Error(Crypto, InvalidInput)",
+        "observed": "failed account authentication with Error(Crypto, InvalidInput)"
+      }
+    ],
+    "rejected_by_enforcing_simulation": 6,
+    "signatures_requested": 0,
+    "submitted": 0,
+    "measurement": "Counted at the bridge signer, each sign-auth process, and the submission guard around each control."
+  },
+  "independent_checks": [
+    "Horizon reports both transactions successful from the test-a source with one ping(oz_basic_a, 1) operation.",
+    "Both returned authorization entries verify against the reviewed unsigned entries with the test-a public key.",
+    "Both envelope signatures verify with the test-a public key. Each envelope holds the verified authorization entry.",
+    "Both submission journals end in a terminal SUCCESS event. No pending gate remains.",
+    "A read-only RPC read after the run returned counter 4."
+  ],
+  "fresh_1password_prompt": {
+    "check": "fresh 1Password approval prompt",
+    "date": "2026-09-28",
+    "started_at": "2026-09-28T14:53:52Z",
+    "binary": "~/.local/bin/walleterm release 71410e0203d7e20310e52259 (main aa69fb4)",
+    "signer": "walleterm-v2-test-a GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+    "digest_source": "SHA-256 of a fixed ASCII test message; not a transaction",
+    "digest": "e80a9c47cf0fc604c21bf4092eaab49983b56c25666033648916168c0e8c45bd",
+    "precondition": "The user locked 1Password before the request.",
+    "user_observation": "1Password showed an SSH key approval prompt. The user approved it.",
+    "elapsed_seconds": 6,
+    "result": {
+      "ok": true,
+      "verified": true,
+      "independent_verification": true
+    },
+    "relation_to_run": "A separate check before the OpenZeppelin run. It signed no transaction. The run record does not state which of its four requests showed a prompt."
+  },
+  "limits": [
+    "One External Ed25519 signer on rule 0 of the pinned multisig example account.",
+    "One authorization context. Several contexts and several signers are not covered.",
+    "The account has one rule. The wrong-rule control shows rule lookup failure, not digest binding between two live rules.",
+    "The same dedicated key signs the authorization entry and the transaction envelope.",
+    "The local bridge approves requests automatically. 1Password approval is the only human prompt.",
+    "OpenZeppelin Delegated signers are not covered. See docs/OPENZEPPELIN.md section 13."
+  ],
+  "local_records": "evidence/openzeppelin-auth-live: events.jsonl, summary.json, and two submission journals",
+  "signatures_in_public_record": false
+}

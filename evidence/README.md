@@ -49,7 +49,13 @@ See [the contract authorization guide](../docs/CONTRACT-AUTHORIZATION.md) for th
 It records 26 successful testnet transactions and 30 signatures from the dedicated test keys.
 It covers the contract runner, the tunnel demo, StellarTerm, Asset Sandbox, the confidential-token demo, and Pagebook.
 The site checks reused the manual interception paths. They do not prove native website integration.
-Cached 1Password approval applied. A fresh desktop prompt was not verified.
+Cached 1Password approval applied during the rerun.
+A later check verified a fresh desktop prompt after the user locked 1Password. [The OpenZeppelin record](openzeppelin-live-2026-09-28.json) holds that result.
+
+[The OpenZeppelin record](openzeppelin-live-2026-09-28.json) also covers live acceptance of the `openzeppelin-ed25519` adapter.
+It used the existing `oz_basic_a` account and deployed nothing.
+The CLI and the SDK each signed one authorization entry. Two increments changed the counter from 2 to 4.
+Six negative controls requested no signature and were not submitted.
 
 ## Tracked summaries and local records
 

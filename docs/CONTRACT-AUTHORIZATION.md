@@ -65,6 +65,7 @@ The `contract-ed25519` adapter returns the raw signature bytes expected by the f
 Other contracts can require different signature formats or signing payloads.
 Select an adapter only after checking the contract's authorization rules.
 See [OpenZeppelin adapters](OPENZEPPELIN.md) for its pinned signature format.
+The OpenZeppelin adapter supports one `External` Ed25519 signer. It does not support `Delegated` signers.
 
 ## Use the CLI
 
@@ -128,7 +129,12 @@ The runner passed again. The CLI and SDK increments changed the counter from 4 t
 Its six negative controls requested no signatures.
 A headless Chrome demo run through public tunnels changed the counter from 6 to 7.
 It reloaded the page before and after the envelope signature. The record passed validation each time.
-The OpenZeppelin adapter still has offline validation only. A fresh 1Password prompt was not verified.
+A later check on 2026-09-28 verified a fresh 1Password approval prompt after the user locked 1Password.
+The OpenZeppelin adapter passed live acceptance on 2026-09-28 with `tests/openzeppelin-auth-live.ts`.
+The CLI and the SDK each signed one authorization entry for an existing OpenZeppelin account.
+Two increments changed its counter from 2 to 4. Six negative controls requested no signature and were not submitted.
+[The OpenZeppelin record](../evidence/openzeppelin-live-2026-09-28.json) holds both results.
+See [the runner notes](OPENZEPPELIN.md#live-acceptance-runner) for its checks, controls, and command.
 
 Protocol references:
 [Contract authorization](https://developers.stellar.org/docs/build/guides/auth/contract-authorization),
