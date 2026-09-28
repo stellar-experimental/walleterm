@@ -65,14 +65,21 @@ test:
 	bun run typecheck
 	bun run test
 
-# The release package: one binary that reports its version and rejects malformed input.
+# The release package. Two concurrent builds must give identical files. The binary runs from an unrelated
+# directory with only the system PATH: no Go, Bun, Node, Rust, or source tree.
 test-package:
 	@set -eu; dir=$$(mktemp -d); trap 'rm -rf "$$dir"' EXIT; \
-	$(TOOLS) package "$$dir" 0.0.0-test; \
-	test "$$("$$dir/walleterm" --version)" = "walleterm 0.0.0-test"; \
-	test "$$(ls "$$dir")" = "$$(printf 'NOTICES.txt\nwalleterm')"; \
-	status=0; printf '{}' | "$$dir/walleterm" sign-auth > "$$dir/out" || status=$$?; \
-	test "$$status" = 2; grep -q '"invalid_input"' "$$dir/out"; \
+	cargo build --locked -q -p walleterm-tools; \
+	target/debug/walleterm-tools package "$$dir/a" 0.0.0-test & first=$$!; \
+	target/debug/walleterm-tools package "$$dir/b" 0.0.0-test; wait $$first; \
+	cmp "$$dir/a/walleterm" "$$dir/b/walleterm"; cmp "$$dir/a/NOTICES.txt" "$$dir/b/NOTICES.txt"; \
+	test "$$(ls "$$dir/a")" = "$$(printf 'NOTICES.txt\nwalleterm')"; \
+	mkdir "$$dir/empty"; cd "$$dir/empty"; \
+	run() { env -i PATH=/usr/bin:/bin HOME="$$dir/empty" "$$dir/a/walleterm" "$$@"; }; \
+	test "$$(run --version)" = "walleterm 0.0.0-test"; \
+	status=0; printf '{}' | run sign-auth > out || status=$$?; \
+	test "$$status" = 2; grep -q '"invalid_input"' out; \
+	status=0; run demo --port 0 > out 2>&1 || status=$$?; test "$$status" = 2; grep -q "^invalid_input: " out; \
 	echo "The package check passed."
 
 # The real Stellar Wallets Kit 2.7.0 against the Rust bridge. Its dependency stays in fixtures/kit.
