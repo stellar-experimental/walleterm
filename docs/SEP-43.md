@@ -276,18 +276,18 @@ It would not remove the tunnel or make Walleterm safe for mainnet.
 
 `fixtures/kit/` pins Kit 2.7.0 in its own package and lockfile. The root package does not depend on the Kit.
 Its check type-checks the module against the Kit `ModuleInterface`.
-It then drives the real Kit SDK against an in-process bridge with random mock keys:
+It then drives the real Kit SDK against the Rust bridge in `walleterm-test-host`, with random mock keys:
 PUBLIC refusal, pairing, transaction and preimage signing, message refusal, network, switching, and disconnection.
 Run it from the repository root:
 
 ```sh
-bun install --cwd fixtures/kit --frozen-lockfile --ignore-scripts
+make test-kit
 bunx tsc --noEmit -p fixtures/kit/tsconfig.json
-bun fixtures/kit/check.mts
 ```
 
-CI does not run this check yet. The Kit tree adds about 500 MB to the fixture directory only.
-`bridge/kit.test.ts` covers the module in CI without the Kit.
+`make test-kit` builds the test host, installs the Kit fixture, and runs `fixtures/kit/check.mts`.
+CI runs it. The Kit tree adds about 500 MB to the fixture directory only.
+`tests/browser/kit.test.ts` covers the module without the Kit.
 
 ## 8. Verification
 

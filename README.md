@@ -3,8 +3,10 @@
 A small macOS signing companion for agents using Stellar and 1Password.
 
 `walleterm` lists public Ed25519 keys and signs 32-byte digests through the 1Password desktop SSH agent.
-It verifies each signature before returning it. The Go binary has no third-party dependencies.
+It verifies each signature before returning it.
 `walleterm tunnel` also lets a connected testnet website request signatures.
+`walleterm` is one Rust binary. It embeds the demo website and needs no Bun, Node, or Go at runtime.
+Its Rust dependencies are pinned in `Cargo.lock` and checked with `cargo deny`.
 
 ## Install
 
@@ -18,10 +20,9 @@ walleterm list --human
 ```
 
 The cask installs `walleterm`, its `stellar-walleterm` alias, and `cloudflared`.
-It needs macOS 13 or later on Apple silicon. Go and Bun are not required.
-The release contains two binaries, signed with Developer ID and notarized by Apple.
-`walleterm` is the Go signer. It lists keys and signs digests through the 1Password SSH agent.
-`walleterm-bridge` runs `sign-auth`, `tunnel`, and `demo`. It includes its own Bun runtime and website files.
+It needs macOS 13 or later on Apple silicon. Rust, Bun, and Node are not required.
+The release contains one binary and `NOTICES.txt`. Developer ID signs the binary, and Apple notarizes it.
+The binary runs `list`, `sign`, `sign-auth`, `tunnel`, and `demo`. It embeds the demo website files.
 Homebrew 6 requires trust for third-party taps. The full cask name trusts only this cask.
 Update with `brew upgrade --cask walleterm`.
 Install the Stellar CLI for transaction construction: `brew install stellar-cli`.
@@ -29,20 +30,24 @@ The 1Password CLI is optional. Only vault filtering needs it.
 
 ### Install from source
 
-Use this path for development. It needs Go, Bun 1.4.2 or later, and cloudflared.
+Use this path for development. It needs Rust, Bun 1.4.2 or later, and cloudflared.
+Install Rust with rustup from https://rustup.rs. `rust-toolchain.toml` pins Rust 1.93.0, and rustup installs it.
+Bun builds the embedded browser files only.
 
 ```sh
-brew install go oven-sh/bun/bun cloudflared
+brew install oven-sh/bun/bun cloudflared
 make install
 make install-skill
 walleterm --help
 stellar walleterm --help
 ```
 
-`make install` builds the same two binaries and installs them into `~/.local/bin`.
+`make install` builds the release binary and installs it into `~/.local/bin`. Set `PREFIX` for another location.
 Keep that directory on `PATH`, including in non-interactive agent shells.
 Run `make install` again after source changes. A failed build preserves the previous command.
-Version directories stay under `~/.local/share/walleterm/releases` for running processes and rollback.
+Each build goes into a new directory under `~/.local/share/walleterm/releases`, named by its content hash.
+The install then switches the `walleterm` and `stellar-walleterm` links atomically.
+Old release directories stay for running processes and rollback.
 Use `make build` for a build under this checkout's `bin/` directory.
 `make install-skill` links this checkout's signing and site bridge skills through `~/.agents/skills`.
 Claude Code and Codex use links from their own skill directories to that shared path.
@@ -147,14 +152,24 @@ Contract accounts require their exact authorization digest and signature structu
 
 ```sh
 bun install --frozen-lockfile --ignore-scripts
+rustup target add wasm32v1-none
 cargo build --locked --manifest-path fixtures/cap71/Cargo.toml --workspace --release --target wasm32v1-none
 make test
+make test-package
+make test-kit
+cargo deny --workspace --locked check advisories licenses sources
 ```
 
 Tests run offline with mock keys after dependency installation and fixture compilation.
+`make test` runs rustfmt, Clippy, the Cargo tests, the TypeScript check, and the Bun suite.
+The Cargo tests compare the Rust signer with frozen vectors and transcripts in `fixtures/parity/`.
 The Bun suite needs the CAP-71 Rust fixture build shown above.
-Install Rust and its `wasm32v1-none` target for that build.
-The test tools use Bun. The installed bridge includes its own runtime and browser assets.
+Browser tests run the real SDK against the Rust bridge in `walleterm-test-host`. `make test` builds it.
+That binary needs the `test-host` feature and never enters a release.
+`make test-package` builds the release package twice and requires identical files.
+It then runs the binary from an empty directory with only the system `PATH`.
+`make test-kit` checks Stellar Wallets Kit 2.7.0 against the Rust bridge.
+CI runs `cargo deny` with the pinned `cargo-deny` 0.20.2 binary.
 See [the live test guide](docs/LIVE-TESTS.md) for fixture builds and dedicated 1Password test keys.
 Live tests request signatures and create testnet transactions and contracts.
 An unknown submission blocks further signing and submission across process restarts.
@@ -179,7 +194,10 @@ Its illustrations come from `design/art/build.ts`. Read [the illustration standa
 
 ## TypeScript development
 
-Use Bun 1.4.2 or later. The Go binary keeps signing keys inside 1Password.
+TypeScript remains only where a browser or JavaScript runtime needs it.
+It covers the browser SDK in `sdk/`, the demo website in `demo/site/`, and the browser build in `scripts/build.ts`.
+It also covers browser and interoperability tests, two skill helpers, and the illustration generator.
+Use Bun 1.4.2 or later. The Rust binary keeps signing keys inside 1Password.
 
 ```sh
 bun install --frozen-lockfile --ignore-scripts
@@ -188,12 +206,12 @@ make test
 ```
 
 `bun run build` creates browser JavaScript and SDK declarations in `dist/`.
-TypeScript checks all source files, tests, and fixture tools in strict mode.
+TypeScript checks all TypeScript source files and tests in strict mode.
 The package exports the client, connection UI, scanner, and connection stylesheet.
 Browser integrations can copy `dist/` and `sdk/connect.css`, or import the package exports.
 The package remains private; this change does not publish a package.
 
-See [the Bun migration research](docs/BUN-MIGRATION.md) for tool choices and source references.
+[The Bun migration research](docs/BUN-MIGRATION.md) is a historical record of an earlier design.
 
 ## Release
 
@@ -204,11 +222,12 @@ Store the notary credentials once:
 xcrun notarytool store-credentials walleterm-notary --apple-id <Apple ID> --team-id T4GBHCYB7P
 ```
 
-`bun scripts/release.ts 0.2.0` builds, signs, and notarizes `release/0.2.0/walleterm-0.2.0-darwin-arm64.zip`.
-It builds from a fresh worktree of `HEAD` with the Bun and Go versions that CI pins.
-It checks the Developer ID authority, the hardened runtime, and the exact entitlements of each binary.
-Add `--no-notarize` to check the build and signatures without Apple. That archive has an `-unnotarized` name.
-`bun scripts/release.ts 0.2.0 --publish` also tags the commit and creates the GitHub release.
+`make release VERSION=0.2.0` builds, signs, and notarizes `release/0.2.0/walleterm-0.2.0-darwin-arm64.zip`.
+It builds from a fresh worktree of `HEAD` with the Rust and Bun versions that CI pins.
+It checks the Developer ID authority and the hardened runtime. The binary must have no entitlements.
+It also runs the signed binary's version and input checks.
+Add `NOTARIZE=0` to check the build and signature without Apple. That archive has an `-unnotarized` name.
+`make release VERSION=0.2.0 PUBLISH=1` also tags the commit and creates the GitHub release.
 It requires a passing Test workflow on `HEAD`, which must equal `origin/main`.
 It downloads the uploaded archive and compares its checksum.
 It then opens a pull request that points `Casks/walleterm.rb` at the new archive. Merging it updates Homebrew users.

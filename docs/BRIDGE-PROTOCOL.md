@@ -1,7 +1,7 @@
 # Walleterm bridge protocol version 3
 
 The bridge signs testnet transaction envelopes and authorization payloads. It never builds or submits transactions.
-The browser SDK exposes this protocol through a SEP-43 wallet. See [the SEP-43 design](../docs/SEP-43.md).
+The browser SDK exposes this protocol through a SEP-43 wallet. See [the SEP-43 design](SEP-43.md).
 All routes return JSON. Errors contain `{ "error": { "code": -3, "message": "...", "ext": ["walleterm:..."] } }`.
 `code` is a SEP-43 error code. `ext[0]` is a stable reason. The HTTP status stays meaningful.
 The public bridge URL contains no credential. The website exchanges the connection code for an origin-bound session token.
@@ -156,7 +156,7 @@ A preimage cannot show the credential variant or the contract's policy. The sign
 It accepts an unsigned AddressV2 entry with `auth_address` and one adapter:
 `account`, `contract-ed25519`, or `openzeppelin-ed25519` with `verifier` and `context_rule_ids`.
 It rejects V1, SourceAccount, and delegated credentials. The signer never converts credential variants.
-The expiry window is 60 ledgers. See [the CLI interface](../docs/INTERFACE.md) for schemas and helpers.
+The expiry window is 60 ledgers. See [the CLI interface](INTERFACE.md) for schemas and helpers.
 C-account policy and ownership checks remain the website's responsibility.
 
 ## Trusted ledger

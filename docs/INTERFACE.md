@@ -18,7 +18,7 @@ walleterm --version
 `tunnel` starts the independent signing bridge and its Cloudflare Quick Tunnel.
 It needs no recipient, demo, or website build.
 Authorization signing uses a fixed testnet RPC endpoint for current ledger evidence.
-It accepts supported unsigned testnet XDR through the [bridge protocol](../bridge/PROTOCOL.md).
+It accepts supported unsigned testnet XDR through the [bridge protocol](BRIDGE-PROTOCOL.md).
 It returns signed XDR to the requesting website. It never builds or submits transactions.
 A website connects with a single-use eight-digit code and selects a 1Password key.
 The default connection stays fixed to that key.
@@ -34,10 +34,8 @@ The demo uses the same [browser client](../sdk/walleterm.ts) that another integr
 The demo pays the source account of a recent testnet operation. It checks that this account exists.
 The review shows the selected payment recipient. Neither command accepts `--recipient`.
 
-Both commands run in the installed `walleterm-bridge` binary beside `walleterm`.
-That binary includes the Bun runtime and the website files.
-It ignores `bunfig.toml` and `.env` in the working directory. The tunnel reads only `OP_VAULT` from `.env`.
-`walleterm` removes `BUN_*` and `NODE_OPTIONS` variables before it starts the bridge.
+Both commands run inside the one `walleterm` binary. It embeds the demo website files.
+No JavaScript runtime starts. The tunnel reads only `OP_VAULT` from `.env` in the working directory.
 The tunnel prints its wallet filter at startup. It warns about `OP_VAULT` in other `.env.*` files, which it ignores.
 Public mode needs cloudflared. The signing bridge also needs macOS and the 1Password SSH agent.
 Each public service owns a private temporary Cloudflare configuration and a supervised child process.
@@ -63,7 +61,8 @@ These interactive commands have no `--human` or `--public` flag.
 The public URL and connection code can go to a website. The connected website can then request signatures.
 A connected website can list available 1Password Ed25519 public keys, with their comments and fingerprints.
 Set `OP_VAULT` to a vault name or ID to limit website wallets to that vault.
-Bun loads `.env` from the command's working directory. An exported shell variable overrides the file.
+The tunnel reads `.env` from the command's working directory with Bun's `.env` syntax rules.
+An exported shell variable overrides the file.
 Restart the tunnel after changing this setting. The installer does not copy `.env`.
 Vault filtering requires the 1Password CLI. The bridge reads only item metadata and public key fields.
 It matches full public keys against the agent list. Comments never establish vault membership.
@@ -84,7 +83,7 @@ A 1Password prompt can still require the Mac. Cached 1Password approval can supp
 Use only dedicated testnet keys. Any website that holds a valid session can request signatures.
 
 The bridge filters no operations. It signs testnet V1 or fee-bump envelopes that need the selected key.
-Time bounds must be valid now and end within five minutes. See [the protocol](../bridge/PROTOCOL.md) for the structural rules.
+Time bounds must be valid now and end within five minutes. See [the protocol](BRIDGE-PROTOCOL.md) for the structural rules.
 An integration adapter is required. An unchanged website does not automatically discover Walleterm.
 
 `list` returns the Ed25519 public identities exposed by the explicit 1Password socket.
@@ -181,11 +180,10 @@ See [RFC 9987](https://www.rfc-editor.org/rfc/rfc9987) and [RFC 8709](https://ww
 walleterm sign-auth < request.json
 ```
 
-`sign-auth` validates one explicit authorization entry through the installed `walleterm-bridge` sidecar.
-The unchanged Go `sign` command handles the 1Password socket and raw digest signature.
-The sidecar never builds, simulates, deploys, or submits transactions.
-It does not load `.env` or `bunfig.toml` files.
-A missing sidecar returns `start_failed`.
+`sign-auth` validates one explicit authorization entry and signs it inside the `walleterm` binary.
+It uses the same 1Password socket and raw digest signature as `sign`.
+It never builds, simulates, deploys, or submits transactions.
+It does not load `.env` files.
 
 ```json
 {
@@ -243,6 +241,7 @@ Invocation trees permit 256 contexts and 32 levels.
 Unknown fields, duplicate JSON fields, malformed XDR, noncanonical XDR, and existing signatures fail before signing.
 The command permits 120 seconds, including input and signing.
 Invalid input exits with code 2. Other failures exit with code 1.
+On SIGINT or SIGTERM, the command exits by the signal and prints no JSON line, as `sign` does.
 The command never retries signing.
 
 ### Browser authorization API

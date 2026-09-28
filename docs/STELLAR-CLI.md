@@ -1,7 +1,7 @@
 # Stellar CLI integration
 
 This file records how `walleterm` works with the official Stellar CLI.
-The runtime core is a Go standard-library binary with two commands: `list` and `sign`.
+The runtime core is the `list` and `sign` commands of the Rust `walleterm` binary.
 See `INTERFACE.md` for the exact input, output, and error contract.
 The core signs one 32-byte digest. It does not parse XDR, build transactions, or know contract formats.
 Scripts, examples, and test helpers compute digests and assemble signatures with the Stellar CLI.

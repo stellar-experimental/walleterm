@@ -10,7 +10,7 @@ See [the acceptance summary](../evidence/acceptance-summary.json) for coverage a
 - Provide `list` and `sign`, with JSON output and optional `--human` formatting.
 - Require one explicit public key and one 32-byte digest per signature.
 - Verify each returned signature before reporting success.
-- Keep network calls, XDR assembly, and contract adapters outside the Go binary.
+- Keep network calls, XDR assembly, and contract adapters outside the `list` and `sign` commands.
 - Keep the testnet website bridge in `tunnel` and `demo`. See [the web bridge](WEB-BRIDGE.md).
   These commands do not change `list`, `sign`, or their byte contract.
 
