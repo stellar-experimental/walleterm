@@ -198,11 +198,12 @@ test('another tab reporting the revoked session does not disconnect a tab that r
   const release = f.hold();
   const replacing = f.pair(first.wallet);
   // The bridge revoked the previous session. The second tab finds that out and removes the saved session.
-  await until(() => f.paths.includes('/v1/disconnect'), 'the revocation');
-  await new Promise((resolve) => setTimeout(resolve, 20));
-  expect((await second.wallet.getAddress({ skipRequestAccess: true })).error?.ext).toEqual([
-    'walleterm:not_connected',
-  ]);
+  await until(() => f.paths.includes('/v1/disconnect'), 'the revocation request');
+  let found;
+  for (let attempt = 0; attempt < 200 && !found?.error; attempt++)
+    found = await second.wallet.getAddress({ skipRequestAccess: true });
+  expect(found?.error?.ext).toEqual(['walleterm:not_connected']);
+  // The removal reaches the first tab one task later, before this timer ends.
   await new Promise((resolve) => setTimeout(resolve, 20));
   release();
   await replacing;
