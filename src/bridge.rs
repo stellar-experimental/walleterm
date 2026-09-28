@@ -470,6 +470,7 @@ impl Bridge {
     }
 
     /// The terminal records each produced or withheld signature once per state.
+    /// A signature that the bridge already sent was not withheld. Its later ending prints no line.
     fn log_result(&self, r: &mut Record) {
         if r.logged == Some(r.state) {
             return;
@@ -491,7 +492,7 @@ impl Bridge {
         };
         match r.state {
             RequestState::Signed => self.log(&format!("Signed {about} for {}.\n", r.origin)),
-            RequestState::Unknown => {
+            RequestState::Unknown if !r.delivered => {
                 let message = r.error.as_ref().and_then(|e| e["message"].as_str()).unwrap_or_default();
                 self.log(&format!("Signature withheld or stopped for {about}: {message}\n"));
             }

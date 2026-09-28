@@ -807,64 +807,119 @@ async fn closing_the_bridge_aborts_signing_and_reports_it() {
     assert!(logs[0].starts_with("Signature withheld or stopped for "));
 }
 
-async fn withhold_undelivered(ending: &str) {
+/// main #27: the terminal reports a withheld signature only when the bridge never sent it.
+async fn ended_signature(ending: &str, delivered: bool) {
     let f = Fixture::new(Options { review: false, ..Options::default() }).await;
-    let a = f.connect(SITE).await;
-    let request = transaction_request("undelivered", &f);
+    *f.controls.signers.lock().unwrap() = Ok(both(&f));
+    let a = scoped(&f, SITE).await;
+    let request = with_revision(transaction_request("ended", &f), 1);
     assert_eq!(f.post("/v1/requests", request.clone(), &a).await.status, 201);
-    // The website never polls, so the bridge has not delivered the signature.
     until(|| f.controls.logs().len() == 1).await;
     let envelope =
         TransactionEnvelope::from_xdr_base64(request["xdr"].as_str().unwrap(), Limits::none()).unwrap();
     let hash = walleterm::util::hex(&support::tx::hash(&envelope));
     let about = format!("{hash} (account {}, sequence 11)", f.public_key);
-    assert_eq!(f.controls.logs()[0], format!("Signed {about} for {SITE}.\n"));
-    if ending == "disconnect" {
-        assert_eq!(f.post("/v1/disconnect", json!({}), &a).await.status, 200);
-    } else {
-        f.controls.advance(3_600_001);
+    let signed = format!("Signed {about} for {SITE}.\n");
+    assert_eq!(f.controls.logs()[0], signed);
+    if delivered {
+        let sent = f.get("/v1/requests/ended", &a).await;
+        assert_eq!(sent.body["state"], "signed");
+        assert!(sent.body["signed_tx_xdr"].is_string());
     }
-    let read = f.get("/v1/requests/undelivered", &a).await;
-    assert_eq!(read.status, 401);
+    match ending {
+        "switch" => assert_eq!(select(&f, &a, &address(&mock_key(9)), 1).await.status, 200),
+        "disconnect" => assert_eq!(f.post("/v1/disconnect", json!({}), &a).await.status, 200),
+        _ => f.controls.advance(3_600_001),
+    }
+    let read = f.get("/v1/requests/ended", &a).await;
     assert!(read.body.get("signed_tx_xdr").is_none());
-    // After signing, the outcome is unknown. A denied state would print no line.
-    assert_eq!(
-        f.controls.logs(),
-        vec![
-            format!("Signed {about} for {SITE}.\n"),
-            format!("Signature withheld or stopped for {about}: The website connection was revoked.\n"),
-        ]
-    );
+    if ending == "switch" {
+        assert_eq!(read.status, 200);
+        assert_eq!(read.body["state"], "unknown");
+        assert_eq!(read.body["error"]["code"], -1);
+        let message = if delivered {
+            "The bridge sent the signature before the wallet changed."
+        } else {
+            "The active wallet changed."
+        };
+        assert_eq!(read.body["error"]["message"], message);
+    } else {
+        assert_eq!(read.status, 401);
+    }
+    let reason =
+        if ending == "switch" { "The active wallet changed." } else { "The website connection was revoked." };
+    let mut want = vec![signed];
+    if !delivered {
+        want.push(format!("Signature withheld or stopped for {about}: {reason}\n"));
+    }
+    assert_eq!(f.controls.logs(), want, "{ending}, delivered {delivered}");
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
     f.close().await;
 }
 
 #[tokio::test]
-async fn disconnect_withholds_a_signed_undelivered_result_as_unknown() {
-    withhold_undelivered("disconnect").await;
+async fn endings_of_a_signed_request_log_a_withheld_line_only_when_undelivered() {
+    for ending in ["switch", "disconnect", "expiry"] {
+        for delivered in [false, true] {
+            ended_signature(ending, delivered).await;
+        }
+    }
 }
 
 #[tokio::test]
-async fn expiry_withholds_a_signed_undelivered_result_as_unknown() {
-    withhold_undelivered("expiry").await;
-}
-
-#[tokio::test]
-async fn canceling_a_signed_request_withholds_its_result() {
-    let f = Fixture::new(Options::default()).await;
-    let a = f.connect(SITE).await;
-    f.post("/v1/requests", transaction_request("request-1", &f), &a).await;
-    f.controls.decide(true).await;
-    assert_eq!(f.result(&a, "request-1").await.body["state"], "signed");
-    let canceled = f.post("/v1/requests/request-1/cancel", json!({}), &a).await;
-    assert_eq!(canceled.body["state"], "unknown");
-    assert!(canceled.body.get("signed_tx_xdr").is_none());
-    assert_eq!(
-        canceled.body["error"]["message"],
-        "The bridge sent the signature, then the website canceled."
-    );
-    assert!(f.controls.logs().last().unwrap().starts_with("Signature withheld or stopped"));
+async fn a_repeated_create_delivers_a_signature_and_a_later_switch_prints_no_withheld_line() {
+    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    *f.controls.signers.lock().unwrap() = Ok(both(&f));
+    let a = scoped(&f, SITE).await;
+    let request = with_revision(transaction_request("repeated", &f), 1);
+    assert_eq!(f.post("/v1/requests", request.clone(), &a).await.status, 201);
+    until(|| f.controls.logs().len() == 1).await;
+    // The website never polls. The repeated create alone returns the signature.
+    let repeated = f.post("/v1/requests", request, &a).await;
+    assert_eq!(repeated.status, 200);
+    assert_eq!(repeated.body["state"], "signed");
+    assert!(repeated.body["signed_tx_xdr"].is_string());
+    assert_eq!(select(&f, &a, &address(&mock_key(9)), 1).await.status, 200);
+    let read = f.get("/v1/requests/repeated", &a).await;
+    assert_eq!(read.body["state"], "unknown");
+    assert!(read.body.get("signed_tx_xdr").is_none());
+    assert_eq!(read.body["error"]["message"], "The bridge sent the signature before the wallet changed.");
+    let logs = f.controls.logs();
+    assert_eq!(logs.len(), 1, "{logs:?}");
+    assert!(logs[0].starts_with("Signed "));
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
     f.close().await;
+}
+
+#[tokio::test]
+async fn canceling_a_signed_request_logs_a_withheld_line_only_when_undelivered() {
+    for delivered in [false, true] {
+        let f = Fixture::new(Options::default()).await;
+        let a = f.connect(SITE).await;
+        f.post("/v1/requests", transaction_request("request-1", &f), &a).await;
+        f.controls.decide(true).await;
+        until(|| f.controls.logs().len() == 1).await;
+        if delivered {
+            assert_eq!(f.result(&a, "request-1").await.body["state"], "signed");
+        }
+        let canceled = f.post("/v1/requests/request-1/cancel", json!({}), &a).await;
+        assert_eq!(canceled.body["state"], "unknown");
+        assert!(canceled.body.get("signed_tx_xdr").is_none());
+        let message = if delivered {
+            "The bridge sent the signature, then the website canceled."
+        } else {
+            "The website canceled this request."
+        };
+        assert_eq!(canceled.body["error"]["message"], message);
+        let logs = f.controls.logs();
+        assert_eq!(logs.len(), if delivered { 1 } else { 2 }, "{logs:?}");
+        assert!(logs[0].starts_with("Signed "));
+        if !delivered {
+            assert!(logs[1].starts_with("Signature withheld or stopped for "));
+            assert!(logs[1].ends_with(": The website canceled this request.\n"), "{}", logs[1]);
+        }
+        f.close().await;
+    }
 }
 
 #[tokio::test]
