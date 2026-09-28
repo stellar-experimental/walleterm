@@ -228,6 +228,7 @@ pub struct Fixture {
     stop: Cancel,
 }
 
+#[derive(Clone)]
 pub struct Site {
     pub origin: String,
     pub token: Option<String>,

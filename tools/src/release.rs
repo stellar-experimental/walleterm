@@ -180,10 +180,20 @@ fn build_sign_publish(
         &env,
     )?;
     run("codesign", &["--verify", "--strict", &path], root, &env)?;
-    let details = Command::new("codesign").args(["-dvv", &path]).output().map_err(|e| e.to_string())?;
+    // Both inspections must succeed. An empty entitlement list is valid only from a successful read.
+    let inspection = || "The signature inspection failed. Nothing was archived or published.".to_owned();
+    let details = Command::new("codesign")
+        .args(["-dvv", &path])
+        .env_clear()
+        .envs(env.iter().map(|(k, v)| (k, v)))
+        .output()
+        .map_err(|_| inspection())?;
+    if !details.status.success() {
+        return Err(inspection());
+    }
     let details = String::from_utf8_lossy(&details.stderr).to_string();
-    let entitlements =
-        run("codesign", &["-d", "--entitlements", "-", "--xml", &path], root, &env).unwrap_or_default();
+    let entitlements = run("codesign", &["-d", "--entitlements", "-", "--xml", &path], root, &env)
+        .map_err(|_| inspection())?;
     if !details.contains("Authority=Developer ID Application:")
         || !details.contains(&format!("TeamIdentifier={TEAM_ID}"))
         || !details.contains("flags=0x10000(runtime)")

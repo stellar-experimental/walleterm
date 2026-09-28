@@ -693,3 +693,148 @@ fn the_tunnel_command_reports_a_busy_port_without_starting_cloudflared() {
     drop(busy);
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// ---------- Review P4: supervisor generations, shutdown during startup, and bounded output ----------
+
+/// A cloudflared stand-in that ignores SIGTERM. Runs listed in `url_runs` (from 1) print a Quick Tunnel URL.
+fn scripted_cloudflared(dir: &std::path::Path, url_runs: &str) {
+    let script = format!(
+        "#!/bin/sh\ntrap '' TERM\necho $$ >> '{d}/tunnels'\nrun=$(wc -l < '{d}/tunnels' | tr -d ' ')\n\
+         case \" {url_runs} \" in *\" $run \"*) echo https://mock-tunnel.trycloudflare.com ;; esac\n\
+         while :; do sleep 1; done\n",
+        d = dir.display()
+    );
+    std::fs::write(dir.join("cloudflared"), script).unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(dir.join("cloudflared"), std::fs::Permissions::from_mode(0o700)).unwrap();
+}
+
+/// Launcher dependencies that start the real supervisor. Returns each supervisor's working directory.
+fn real_supervisor(deps: &mut LaunchDeps, dir: &std::path::Path) -> Arc<Mutex<Vec<PathBuf>>> {
+    let cwds: Arc<Mutex<Vec<PathBuf>>> = Arc::default();
+    let (seen, binary) = (cwds.clone(), PathBuf::from(env!("CARGO_BIN_EXE_walleterm")));
+    deps.spawn_tunnel = Box::new(move |args, env, cwd| {
+        seen.lock().unwrap().push(cwd.clone());
+        walleterm::tunnel::spawn_supervisor_from(&binary, args, env, cwd)
+    });
+    deps.environment = vec![("PATH".into(), format!("{}:/bin:/usr/bin", dir.display()))];
+    cwds
+}
+
+fn record(cwd: &std::path::Path) -> Value {
+    serde_json::from_str(&std::fs::read_to_string(cwd.join("child.json")).unwrap()).unwrap()
+}
+
+#[tokio::test]
+async fn a_replacement_supervisor_records_its_own_processes_and_stays_alive() {
+    let dir = scratch();
+    scripted_cloudflared(&dir, "1 2");
+    let (h, mut deps) = harness(Plan { health: Duration::from_millis(20), ..Plan::default() });
+    let cwds = real_supervisor(&mut deps, &dir);
+    let running = launch("Walleterm tunnel", 8793, h.service.clone(), deps).await.map_err(|e| e.0).unwrap();
+    let first = tunnels(&dir)[0];
+    // The first tunnel dies. Recovery starts a second supervisor in the same launcher lifetime.
+    // SAFETY: a test-owned mock process.
+    unsafe { libc::kill(first, libc::SIGKILL) };
+    until_for(|| h.output.text().contains("Reconnect the website with the current code."), 2000).await;
+    let cwds = cwds.lock().unwrap().clone();
+    assert_eq!(cwds.len(), 2);
+    assert_ne!(cwds[0], cwds[1], "each supervisor owns its directory");
+    let (old, new) = (record(&cwds[0]), record(&cwds[1]));
+    let second = tunnels(&dir)[1];
+    assert_eq!(old["cloudflared_pid"], json!(first));
+    assert_eq!(new["cloudflared_pid"], json!(second));
+    let supervisor = new["supervisor_pid"].as_i64().unwrap() as i32;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(alive(supervisor) && alive(second), "the replacement stays alive");
+    assert_eq!(running.stop(0).await, 0);
+    until(|| !alive(second) && !alive(supervisor)).await;
+    assert!(!cwds[0].parent().unwrap().exists(), "shutdown removes the private directory");
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn shutdown_before_the_first_url_stops_the_starting_tunnel_first() {
+    let dir = scratch();
+    scripted_cloudflared(&dir, "");
+    let (h, mut deps) = harness(Plan::default());
+    let cwds = real_supervisor(&mut deps, &dir);
+    let (stop, service) = (h.stop.clone(), h.service.clone());
+    let launching = tokio::spawn(async move {
+        launch("Walleterm tunnel", 8794, service, deps).await.map(|_| ()).map_err(|e| e.1)
+    });
+    until_for(|| tunnels(&dir).len() == 1, 1000).await;
+    stop.abort();
+    assert_eq!(launching.await.unwrap(), Err(0));
+    // Shutdown returned only after the stubborn tunnel stopped and its directory went away.
+    let child = tunnels(&dir)[0];
+    until_for(|| !alive(child), 50).await;
+    assert!(!cwds.lock().unwrap()[0].exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn shutdown_before_a_replacement_url_stops_the_replacement_first() {
+    let dir = scratch();
+    scripted_cloudflared(&dir, "1");
+    let (h, mut deps) = harness(Plan { health: Duration::from_millis(20), ..Plan::default() });
+    let cwds = real_supervisor(&mut deps, &dir);
+    let running = launch("Walleterm tunnel", 8795, h.service.clone(), deps).await.map_err(|e| e.0).unwrap();
+    // SAFETY: a test-owned mock process.
+    unsafe { libc::kill(tunnels(&dir)[0], libc::SIGKILL) };
+    until_for(|| tunnels(&dir).len() == 2, 2000).await;
+    assert_eq!(running.stop(0).await, 0);
+    let replacement = tunnels(&dir)[1];
+    until_for(|| !alive(replacement), 50).await;
+    assert!(!cwds.lock().unwrap()[1].exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn tunnel_output_after_the_url_is_discarded_and_shutdown_stays_normal() {
+    let dir = scratch();
+    let body = "#!/bin/sh\necho https://mock-tunnel.trycloudflare.com\nsleep 0.2\n\
+                dd if=/dev/zero bs=4096 count=1024 2>/dev/null\nwhile :; do sleep 1; done\n";
+    std::fs::write(dir.join("cloudflared"), body).unwrap();
+    use std::os::unix::fs::PermissionsExt;
+    std::fs::set_permissions(dir.join("cloudflared"), std::fs::Permissions::from_mode(0o700)).unwrap();
+    let env = vec![("PATH".into(), format!("{}:/bin:/usr/bin", dir.display()))];
+    let binary = PathBuf::from(env!("CARGO_BIN_EXE_walleterm"));
+    let mut tunnel = walleterm::tunnel::spawn_supervisor_from(&binary, vec![], env, dir.clone()).unwrap();
+    wait_for_tunnel(&mut tunnel, Duration::from_secs(5), &Cancel::new()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(900)).await;
+    let mut queued = 0;
+    while let Ok(text) = tunnel.output.try_recv() {
+        queued += text.len();
+    }
+    assert_eq!(queued, 0, "4 MiB after the URL must not wait in memory");
+    assert!(tunnel.exited.borrow().is_none(), "draining keeps the tunnel running");
+    assert!((tunnel.stop)().await);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[tokio::test]
+async fn closed_output_keeps_the_url_deadline_and_the_stop_request() {
+    let (mock, mut tunnel) = MockTunnel::new();
+    drop(mock.output);
+    let started = std::time::Instant::now();
+    let never = Cancel::new();
+    let waiting = wait_for_tunnel(&mut tunnel, Duration::from_millis(80), &never);
+    let e = tokio::time::timeout(Duration::from_secs(5), waiting)
+        .await
+        .expect("the URL deadline holds")
+        .unwrap_err();
+    assert_eq!(e.message, "The tunnel did not return a URL within 30 seconds.");
+    assert!(started.elapsed() < Duration::from_secs(2));
+    let (mock, mut tunnel) = MockTunnel::new();
+    drop(mock.output);
+    let stop = Cancel::new();
+    stop.abort();
+    let waiting = wait_for_tunnel(&mut tunnel, Duration::from_secs(30), &stop);
+    let e = tokio::time::timeout(Duration::from_secs(5), waiting)
+        .await
+        .expect("the stop request holds")
+        .unwrap_err();
+    assert_eq!(e.code, "service_stopped");
+    drop(mock.exit);
+}

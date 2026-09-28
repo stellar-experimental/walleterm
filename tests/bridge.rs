@@ -1218,3 +1218,20 @@ async fn shutdown_waits_for_signer_discovery_to_finish_its_cleanup() {
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
     f.close().await;
 }
+
+/// Review P4-S5. A website's wallet lookup also finishes its cleanup before shutdown returns.
+#[tokio::test]
+async fn shutdown_waits_for_a_website_lookup_to_finish_its_cleanup() {
+    let f = std::sync::Arc::new(Fixture::new(Options::default()).await);
+    let site = f.connect(SITE).await;
+    let before = f.controls.listings.load(Ordering::SeqCst);
+    let _release = f.controls.hold_listing();
+    let lookup = {
+        let (f, site) = (f.clone(), site.clone());
+        tokio::spawn(async move { f.get("/v1/signers", &site).await.status })
+    };
+    until(|| f.controls.listings.load(Ordering::SeqCst) > before).await;
+    f.bridge.close().await;
+    assert_eq!(f.controls.listing_cleanups.load(Ordering::SeqCst), 1, "close returned before cleanup ended");
+    assert_ne!(lookup.await.unwrap(), 200);
+}

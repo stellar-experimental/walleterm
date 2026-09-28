@@ -91,6 +91,7 @@ pub fn tunnel_origin(output: &str) -> Option<String> {
 }
 
 /// Read the tunnel output until it names a Quick Tunnel URL. Keep the last 16384 characters only.
+/// After the URL, a background task reads and discards later output, so it never accumulates.
 pub async fn wait_for_tunnel(tunnel: &mut Tunnel, timeout: Duration, stop: &Cancel) -> Result<String> {
     let mut seen = String::new();
     let deadline = Instant::now() + timeout;
@@ -101,7 +102,15 @@ pub async fn wait_for_tunnel(tunnel: &mut Tunnel, timeout: Duration, stop: &Canc
         tokio::select! {
             chunk = tunnel.output.recv() => {
                 let Some(chunk) = chunk else {
-                    let code = tunnel.exited.wait_for(Option::is_some).await.ok().and_then(|c| *c).unwrap_or(1);
+                    // The output closed. Wait for the exit code, but keep the deadline and the stop request.
+                    let exited = tunnel.exited.wait_for(Option::is_some);
+                    let code = tokio::select! {
+                        code = exited => code.ok().and_then(|c| *c).unwrap_or(1),
+                        () = tokio::time::sleep_until(deadline) => {
+                            return Err(Error::new("internal", "The tunnel did not return a URL within 30 seconds."));
+                        }
+                        () = stop.cancelled() => return Err(stopped()),
+                    };
                     return Err(Error::new("internal", format!("The tunnel exited before startup ({code}).")));
                 };
                 seen.push_str(&chunk);
@@ -111,6 +120,9 @@ pub async fn wait_for_tunnel(tunnel: &mut Tunnel, timeout: Duration, stop: &Canc
                     seen.drain(..cut);
                 }
                 if let Some(origin) = tunnel_origin(&seen) {
+                    let (_, closed) = mpsc::unbounded_channel();
+                    let mut rest = std::mem::replace(&mut tunnel.output, closed);
+                    tokio::spawn(async move { while rest.recv().await.is_some() {} });
                     return Ok(origin);
                 }
             }
@@ -289,8 +301,10 @@ pub async fn launch(
     let finished = Arc::new(Notify::new());
     let code: Arc<Mutex<Option<i32>>> = Arc::default();
     let stopping: Arc<tokio::sync::OnceCell<i32>> = Arc::default();
+    // Held while a tunnel starts. Shutdown takes it after cancellation, so it stops the tunnel that started.
+    let starting: Arc<tokio::sync::Mutex<()>> = Arc::default();
     let stop_all: Arc<dyn Fn(i32) -> BoxFuture<i32> + Send + Sync> = {
-        let (controller, shared, service, temporary, finished, code, stopping) = (
+        let (controller, shared, service, temporary, finished, code, stopping, starting) = (
             controller.clone(),
             shared.clone(),
             service.clone(),
@@ -298,9 +312,10 @@ pub async fn launch(
             finished.clone(),
             code.clone(),
             stopping.clone(),
+            starting.clone(),
         );
         Arc::new(move |requested: i32| {
-            let (controller, shared, service, temporary, finished, code, stopping) = (
+            let (controller, shared, service, temporary, finished, code, stopping, starting) = (
                 controller.clone(),
                 shared.clone(),
                 service.clone(),
@@ -308,12 +323,15 @@ pub async fn launch(
                 finished.clone(),
                 code.clone(),
                 stopping.clone(),
+                starting.clone(),
             );
             Box::pin(async move {
                 *stopping
                     .get_or_init(|| async {
                         controller.cancel(stopped());
                         let mut result = requested;
+                        // A start in progress sees the cancellation, stores its tunnel, and releases this.
+                        let _started = starting.lock().await;
                         let tunnel = shared.tunnel.lock().unwrap().take();
                         let stop_tunnel = async {
                             match tunnel {
@@ -384,7 +402,7 @@ pub async fn launch(
     let env = filtered_env(&deps.environment);
     let args = tunnel_args(&config_file, port);
     let connect = {
-        let (deps, shared, service, controller, env, args, cwd) = (
+        let (deps, shared, service, controller, env, args, cwd, starting) = (
             deps.clone(),
             shared.clone(),
             service.clone(),
@@ -392,10 +410,11 @@ pub async fn launch(
             env.clone(),
             args.clone(),
             cwd.clone(),
+            starting.clone(),
         );
         let stop_all = stop_all.clone();
         Arc::new(move || -> BoxFuture<Result<()>> {
-            let (deps, shared, service, controller, env, args, cwd, stop_all) = (
+            let (deps, shared, service, controller, env, args, cwd, stop_all, starting) = (
                 deps.clone(),
                 shared.clone(),
                 service.clone(),
@@ -404,16 +423,36 @@ pub async fn launch(
                 args.clone(),
                 cwd.clone(),
                 stop_all.clone(),
+                starting.clone(),
             );
             Box::pin(async move {
+                let _starting = starting.lock().await;
+                if controller.is_cancelled() {
+                    return Err(stopped());
+                }
                 shared.lost.store(false, Ordering::SeqCst);
-                shared.spawns.fetch_add(1, Ordering::SeqCst);
-                let mut tunnel = (deps.spawn_tunnel)(args, env, cwd)?;
-                let origin = wait_for_tunnel(&mut tunnel, URL_TIMEOUT, &controller).await;
-                // Watch this tunnel's exit for the rest of its life.
+                let generation = shared.spawns.fetch_add(1, Ordering::SeqCst) + 1;
+                // Each supervisor gets a new private directory for its process record.
+                let run = cwd.join(format!("run-{generation}"));
+                {
+                    use std::os::unix::fs::DirBuilderExt;
+                    std::fs::DirBuilder::new()
+                        .mode(0o700)
+                        .create(&run)
+                        .map_err(|_| Error::new("internal", "The tunnel directory could not be created."))?;
+                }
+                let mut tunnel = (deps.spawn_tunnel)(args, env, run)?;
+                // Shutdown can now find and stop this tunnel during every later await.
+                let (_, mut output) = mpsc::unbounded_channel();
+                std::mem::swap(&mut output, &mut tunnel.output);
                 let mut exited = tunnel.exited.clone();
+                let mut reader = Tunnel {
+                    output,
+                    exited: exited.clone(),
+                    stop: Box::new(|| -> BoxFuture<bool> { Box::pin(async { true }) }),
+                };
                 *shared.tunnel.lock().unwrap() = Some(tunnel);
-                let origin = origin?;
+                let origin = wait_for_tunnel(&mut reader, URL_TIMEOUT, &controller).await?;
                 {
                     let (shared, controller) = (shared.clone(), controller.clone());
                     tokio::spawn(async move {

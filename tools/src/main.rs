@@ -90,7 +90,8 @@ or cap85-manifest <fixtures/cap85 directory>.";
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
-    let root = repository();
+    // Tests point WALLETERM_TOOLS_ROOT at a scratch copy with fake external programs.
+    let root = std::env::var_os("WALLETERM_TOOLS_ROOT").map_or_else(repository, PathBuf::from);
     let result = match args.as_slice() {
         ["package", out] => {
             package::package(&root, Path::new(out), None).map(|v| format!("Built walleterm {v} in {out}."))

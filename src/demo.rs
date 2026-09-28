@@ -167,3 +167,48 @@ impl crate::tunnel::Service for DemoService {
     }
     fn on_pairing_changed(&self, _callback: Box<dyn Fn() + Send + Sync>) {}
 }
+
+#[cfg(test)]
+#[path = "../build/manifest.rs"]
+mod manifest;
+
+#[cfg(test)]
+mod tests {
+    use super::manifest::verify;
+
+    fn digest(bytes: &[u8]) -> String {
+        crate::util::hex(&crate::util::sha256(bytes))
+    }
+
+    /// Review P4-S6: the build embeds a file only when it still matches its manifest digest.
+    #[test]
+    fn the_build_manifest_rejects_changed_missing_and_malformed_assets() {
+        let files = |name: &str| match name {
+            "/a/index.html" => Ok(b"<html>built</html>".to_vec()),
+            _ => Err(std::io::Error::from(std::io::ErrorKind::NotFound)),
+        };
+        let good = format!("/\ttext/html\t{}\t/a/index.html\n", digest(b"<html>built</html>"));
+        let entries = verify(&good, files).unwrap();
+        assert_eq!(entries.len(), 1);
+        let entry = &entries[0].0;
+        assert_eq!(
+            (entry.route.as_str(), entry.mime.as_str(), entry.path.as_str()),
+            ("/", "text/html", "/a/index.html")
+        );
+        assert_eq!(entry.sha256, digest(b"<html>built</html>"));
+        assert_eq!(entries[0].1, b"<html>built</html>");
+
+        let stale = format!("/\ttext/html\t{}\t/a/index.html\n", digest(b"<html>older</html>"));
+        assert!(verify(&stale, files).unwrap_err().contains("changed after its manifest was written"));
+        let missing = format!("/\ttext/html\t{}\t/a/other.html\n", digest(b""));
+        assert!(verify(&missing, files).unwrap_err().contains("is unreadable"));
+        for bad in [
+            "/\ttext/html\t/a/index.html\n".to_owned(),
+            format!("index\ttext/html\t{}\t/a/index.html\n", digest(b"<html>built</html>")),
+            format!("/\ttext/html\t{}\t/a/index.html\n", digest(b"<html>built</html>").to_uppercase()),
+        ] {
+            assert!(verify(&bad, files).unwrap_err().contains("malformed"), "{bad}");
+        }
+        assert_eq!(verify("\n", files).unwrap_err(), "routes.tsv lists no demo files");
+    }
+}

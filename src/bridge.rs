@@ -657,6 +657,9 @@ impl Bridge {
         if slot.as_ref().is_some_and(|current| Arc::ptr_eq(current, &cell)) {
             *slot = None;
         }
+        drop(slot);
+        // Shutdown waits for this lookup and its cleanup to end.
+        self.idle.notify_waiters();
         result
     }
 
@@ -1483,6 +1486,7 @@ impl Bridge {
     }
 
     /// Stop admitting requests, abort active work, and wait for queued jobs to end.
+    /// Stop the bridge. It returns after the signing worker and any website lookup finish their cleanup.
     pub async fn close(&self) {
         self.state.lock().unwrap().closing = true;
         self.global.abort();
@@ -1490,7 +1494,7 @@ impl Bridge {
             let idle = self.idle.notified();
             tokio::pin!(idle);
             idle.as_mut().enable();
-            if self.pending_jobs.load(Ordering::SeqCst) == 0 {
+            if self.pending_jobs.load(Ordering::SeqCst) == 0 && self.listing.lock().await.is_none() {
                 return;
             }
             idle.await;
