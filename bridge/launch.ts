@@ -201,7 +201,7 @@ function startTunnel(_command: string, args: string[], options: SpawnOptions) {
       try {
         process.kill(-group, 'SIGKILL');
       } catch {
-        // ESRCH: the group has no member.
+        // ESRCH or EPERM: the group has no live member.
       }
     });
   return child;

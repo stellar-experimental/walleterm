@@ -175,6 +175,7 @@ It does not inherit Cloudflare routing or credential environment settings or cha
 The server and metrics bind loopback.
 The supervisor starts cloudflared. Both run in a new process group, outside the caller's terminal group.
 Terminal signals such as Ctrl+C reach only the command. Normal shutdown or the parent pipe then stops the tunnel.
+Ctrl+Z suspends only the command. The public URL stays open but does not respond. Use Ctrl+C to stop the service.
 A parent pipe lets the supervisor stop cloudflared after a command crash.
 When the supervisor exits, the command sends one SIGKILL to the supervisor's process group.
 After a normal supervisor exit, the group is empty, and the signal has no effect.
