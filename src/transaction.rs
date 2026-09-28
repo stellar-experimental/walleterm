@@ -1,5 +1,5 @@
 //! V1 and fee-bump envelopes: structural checks, the network-bound hash, and one appended signature.
-//! The bridge filters no operations. A review of each request decides its content.
+//! Operations are not filtered. The caller reviews the content.
 
 use serde_json::{Value, json};
 use stellar_xdr::{
@@ -11,15 +11,12 @@ use stellar_xdr::{
 use crate::authorization::verify;
 use crate::error::{Result, fail};
 use crate::stellar::{self, Decode};
-use crate::util::{hex, lower_hex, sha256, valid_passphrase};
+use crate::util::{hex, sha256, valid_passphrase};
 
 pub const TESTNET: &str = "Test SDF Network ; September 2015";
 pub const MAX_TRANSACTION_XDR: usize = 262144;
 /// The protocol permits 20 envelope signatures. The selected key adds one.
 const MAX_EXISTING_SIGNATURES: usize = 19;
-/// A returned signature stays usable for at most five minutes.
-const MAX_LIFETIME_MS: i128 = 300_000;
-const MAX_SAFE_INTEGER: u64 = (1 << 53) - 1;
 
 fn invalid<T>(message: &str) -> Result<T> {
     fail("invalid_request", message)
@@ -73,8 +70,8 @@ fn signature_bytes(signature: &Signature) -> Option<[u8; 64]> {
     signature.0.as_slice().try_into().ok()
 }
 
-fn envelope(encoded: &str, extra: usize) -> Result<TransactionEnvelope> {
-    if encoded.is_empty() || encoded.len() > MAX_TRANSACTION_XDR + extra {
+fn envelope(encoded: &str) -> Result<TransactionEnvelope> {
+    if encoded.is_empty() || encoded.len() > MAX_TRANSACTION_XDR {
         return invalid("The transaction XDR is invalid or too large.");
     }
     let value: TransactionEnvelope = match stellar::decode(encoded) {
@@ -88,50 +85,63 @@ fn envelope(encoded: &str, extra: usize) -> Result<TransactionEnvelope> {
     Ok(value)
 }
 
-/// Structural checks only: a canonical V1 or fee-bump envelope that needs the selected key.
-/// The key must be the transaction source, an operation source, or the fee-bump fee source.
-pub fn inspect_transaction_request(
+/// The shared checks: a canonical V1 or fee-bump envelope that the key has not signed yet.
+/// The only time rule: a nonzero `max_time` at or before now fails. A fee bump uses its inner bounds.
+pub fn inspect(
     transaction_xdr: &str,
-    public_key: &str,
+    key: &[u8; 32],
     network_passphrase: &str,
+    now_ms: u64,
 ) -> Result<CheckedTransaction> {
-    let Some(key) = stellar::account_key(public_key) else {
-        return fail("address_mismatch", "Select a valid G-address.");
-    };
     if !valid_passphrase(network_passphrase) {
         return invalid("Provide the exact network passphrase.");
     }
-    let envelope = envelope(transaction_xdr, 0)?;
+    let envelope = envelope(transaction_xdr)?;
     let network_id = Hash(sha256(network_passphrase.as_bytes()));
-    let (signers, tagged, signatures) = match &envelope {
+    let (tagged, signatures) = match &envelope {
         TransactionEnvelope::Tx(TransactionV1Envelope { tx, signatures }) => {
-            let sources = tx.operations.iter().filter_map(|op| op.source_account.as_ref());
-            let signers: Vec<[u8; 32]> =
-                std::iter::once(&tx.source_account).chain(sources).map(base_key).collect();
-            (signers, TransactionSignaturePayloadTaggedTransaction::Tx(tx.clone()), signatures)
+            (TransactionSignaturePayloadTaggedTransaction::Tx(tx.clone()), signatures)
         }
         TransactionEnvelope::TxFeeBump(fee_bump) => (
-            vec![base_key(&fee_bump.tx.fee_source)],
             TransactionSignaturePayloadTaggedTransaction::TxFeeBump(fee_bump.tx.clone()),
             &fee_bump.signatures,
         ),
         TransactionEnvelope::TxV0(_) => unreachable!("envelope rejects V0"),
     };
-    if !signers.contains(&key) {
-        return fail("address_mismatch", "The selected account does not need to sign this transaction.");
-    }
     let payload = TransactionSignaturePayload { network_id, tagged_transaction: tagged };
     let hash = sha256(&stellar::xdr_bytes(&payload));
     if signatures.len() > MAX_EXISTING_SIGNATURES {
         return invalid("The transaction has too many signatures.");
     }
     let signed = signatures.iter().any(|s| {
-        s.hint.0 == hint(&key) && signature_bytes(&s.signature).is_some_and(|sig| verify(&key, &hash, &sig))
+        s.hint.0 == hint(key) && signature_bytes(&s.signature).is_some_and(|sig| verify(key, &hash, &sig))
     });
     if signed {
         return invalid("The selected account already signed this transaction.");
     }
-    Ok(CheckedTransaction { envelope, hash, key })
+    let checked = CheckedTransaction { envelope, hash, key: *key };
+    let max_time = time_bounds(checked.inner()).map_or(0, |b| b.max_time.0);
+    if max_time != 0 && u128::from(max_time) * 1000 <= u128::from(now_ms) {
+        return invalid("The transaction expired. Its max_time is at or before the current time.");
+    }
+    Ok(checked)
+}
+
+/// The bridge rule: the key is the transaction source, an operation source, or the fee-bump fee source.
+/// The CLI does not apply it, because a multisig co-signer signs for another account.
+pub fn signer_role(transaction_xdr: &str, key: &[u8; 32]) -> Result<()> {
+    let signers: Vec<[u8; 32]> = match &envelope(transaction_xdr)? {
+        TransactionEnvelope::Tx(v1) => {
+            let sources = v1.tx.operations.iter().filter_map(|op| op.source_account.as_ref());
+            std::iter::once(&v1.tx.source_account).chain(sources).map(base_key).collect()
+        }
+        TransactionEnvelope::TxFeeBump(fee_bump) => vec![base_key(&fee_bump.tx.fee_source)],
+        TransactionEnvelope::TxV0(_) => unreachable!("inspect rejects V0 envelopes"),
+    };
+    if !signers.contains(key) {
+        return fail("address_mismatch", "The selected account does not need to sign this transaction.");
+    }
+    Ok(())
 }
 
 fn time_bounds(tx: &Transaction) -> Option<&TimeBounds> {
@@ -175,35 +185,10 @@ pub fn operation_type(body: &OperationBody) -> &'static str {
     }
 }
 
-/// The bridge admission check: testnet only, the selected account, and bounded signature lifetime.
-/// Returns the checked envelope, the review details, and the expiry in Unix milliseconds.
-pub fn inspect_transaction(
-    transaction_xdr: &str,
-    network_passphrase: &str,
-    address: &str,
-    public_key: &str,
-    now_ms: u64,
-) -> Result<(CheckedTransaction, Value, u64)> {
-    if network_passphrase != TESTNET {
-        return fail("network_unsupported", "Walleterm signs only on Stellar testnet.");
-    }
-    if address != public_key {
-        return fail("address_mismatch", "The requested account differs from the selected account.");
-    }
-    let checked = inspect_transaction_request(transaction_xdr, public_key, TESTNET)?;
+/// The review details. A missing time bound reads as 0, as in XDR.
+pub fn details(checked: &CheckedTransaction, transaction_xdr: &str, network_passphrase: &str) -> Value {
     let inner = checked.inner();
-    let window = time_bounds(inner).and_then(|b| {
-        let (min, max) = (b.min_time.0, b.max_time.0);
-        (min <= MAX_SAFE_INTEGER && max <= MAX_SAFE_INTEGER).then_some((b, min, max))
-    });
-    let now = i128::from(now_ms);
-    let valid = window.is_some_and(|(_, min, max)| {
-        let (min, max) = (i128::from(min) * 1000, i128::from(max) * 1000);
-        min <= now && max > now && max <= now + MAX_LIFETIME_MS
-    });
-    let Some((bounds, _, max)) = window.filter(|_| valid) else {
-        return invalid("Use time bounds that are valid now and end within five minutes.");
-    };
+    let bounds = time_bounds(inner);
     let source = inner.source_account.to_string();
     let operations: Vec<Value> = inner
         .operations
@@ -213,9 +198,10 @@ pub fn inspect_transaction(
             json!({ "type": operation_type(&op.body), "source": source })
         })
         .collect();
+    let network = if network_passphrase == TESTNET { "TESTNET" } else { network_passphrase };
     let mut details = json!({
         "kind": "transaction",
-        "network": "TESTNET",
+        "network": network,
         "envelope_type": if checked.fee_bump() { "fee_bump" } else { "transaction" },
         "source": source,
     });
@@ -226,26 +212,22 @@ pub fn inspect_transaction(
     let extra = json!({
         "fee_stroops": inner.fee.to_string(),
         "sequence": inner.seq_num.0.to_string(),
-        "min_time": bounds.min_time.0.to_string(),
-        "max_time": bounds.max_time.0.to_string(),
+        "min_time": bounds.map_or(0, |b| b.min_time.0).to_string(),
+        "max_time": bounds.map_or(0, |b| b.max_time.0).to_string(),
         "operations": operations,
         "existing_signatures": checked.signature_count(),
         "transaction_xdr": transaction_xdr,
         "hash": hex(&checked.hash),
     });
     details.as_object_mut().unwrap().extend(extra.as_object().unwrap().clone());
-    Ok((checked, details, max * 1000))
+    details
 }
 
-/// Verify the raw signature, then append it to the outer envelope.
-pub fn attach_signature(checked: &CheckedTransaction, signature: &str) -> Result<String> {
-    let raw = lower_hex::<64>(signature).filter(|raw| verify(&checked.key, &checked.hash, raw));
-    let Some(raw) = raw else {
-        return fail("internal", "The signing response failed independent signature verification.");
-    };
+/// Append one verified signature to the outer envelope. No other byte changes.
+pub fn attach_signature(checked: &CheckedTransaction, signature: &[u8; 64]) -> String {
     let decorated = DecoratedSignature {
         hint: SignatureHint(hint(&checked.key)),
-        signature: Signature(raw.to_vec().try_into().expect("64 bytes")),
+        signature: Signature(signature.to_vec().try_into().expect("64 bytes")),
     };
     let mut envelope = checked.envelope.clone();
     let signatures = match &mut envelope {
@@ -256,5 +238,5 @@ pub fn attach_signature(checked: &CheckedTransaction, signature: &str) -> Result
     let mut list = signatures.to_vec();
     list.push(decorated);
     *signatures = list.try_into().expect("inspect allows at most 19 existing signatures");
-    Ok(stellar::encode(&envelope))
+    stellar::encode(&envelope)
 }

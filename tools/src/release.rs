@@ -205,7 +205,7 @@ fn build_sign_publish(
         return Err("The version check failed.".into());
     }
     let check = Command::new(&binary)
-        .arg("sign-auth")
+        .arg("sign")
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()

@@ -1,11 +1,6 @@
 import { Networks } from '@stellar/stellar-sdk';
 import { inspectTransactionRequest, verifyTransactionSignature } from './transaction.js';
-import {
-  addressCredentials,
-  parseAuthEntry,
-  inspectAuthEntry,
-  verifyAuthEntrySignature,
-} from './authorization.js';
+import { inspectAuthEntry, verifyAuthEntrySignature } from './authorization.js';
 import { inspectAuthPreimage, verifyPreimageSignature } from './preimage.js';
 import type { AuthAdapter, AuthSignOptions } from './authorization.js';
 export * from './authorization.js';
@@ -391,10 +386,7 @@ export class WalletermClient {
       public_key: signer,
       network_passphrase: networkPassphrase,
     };
-    // Local verification checks exact artifacts. Only the bridge supplies trusted current-ledger evidence.
-    const expiration = addressCredentials(parseAuthEntry(authEntryXdr)).signatureExpirationLedger;
-    const structuralLedger = Math.max(1, expiration - 60);
-    inspectAuthEntry(input, signer, structuralLedger);
+    inspectAuthEntry(input, signer);
     const signed = await this.signArtifact(
       {
         kind: 'authorization',
@@ -405,7 +397,7 @@ export class WalletermClient {
       { signal: options.signal, onProgress: options.onProgress, address: signer, networkPassphrase },
     );
     try {
-      verifyAuthEntrySignature(input, signed, structuralLedger);
+      verifyAuthEntrySignature(input, signed);
     } catch (error) {
       throw unverifiedResult(error);
     }

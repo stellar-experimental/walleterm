@@ -32,7 +32,6 @@ const reasons = {
   expired: [-3, 409],
   rejected: [-4, 409],
   bridge_unavailable: [-2, 503],
-  ledger_unavailable: [-2, 503],
   result_unknown: [-1, 502],
   internal: [-1, 500],
 } as const satisfies Record<string, readonly [Sep43Code, number]>;

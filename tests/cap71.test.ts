@@ -91,10 +91,11 @@ function context(): TestContext {
     record(id, status, details) {
       events.push({ id, status, ...details });
     },
-    async signDigest(key, payload) {
+    async signPreimage(key, preimage) {
       assert.equal(last().status, 'signing_requested');
-      assert.equal(last().digest, Buffer.from(payload).toString('hex'));
-      assert.equal(digest(Buffer.from(String(last().preimage_xdr), 'base64')).toString('hex'), last().digest);
+      assert.equal(last().preimage_xdr, preimage.toXdr('base64'));
+      const payload = digest(preimage.toXdr());
+      assert.equal(payload.toString('hex'), last().digest);
       return pairs[key.name].sign(payload);
     },
     rpc: {
@@ -337,7 +338,7 @@ async function pairedFixture({ mode = 'duplicate', nested = false, control, muta
   };
   ctx.sign =
     ctx.send =
-    ctx.signDigest =
+    ctx.signPreimage =
       async () => {
         throw new Error('Paired comparisons must not sign or submit');
       };
@@ -500,7 +501,7 @@ test('interrupted rows label saved checks separately from the current protocol w
       getAccount: deny('getAccount'),
       simulateTransaction: deny('simulateTransaction'),
     };
-    ctx.signDigest = deny('signDigest');
+    ctx.signPreimage = deny('signPreimage');
     ctx.sign = deny('sign');
     ctx.send = deny('send');
     const result = await runCap71(ctx);
@@ -580,7 +581,7 @@ test('unknown row IDs fail before RPC, signing, or checkpoint access', async () 
   ctx.record = () => {
     throw new Error('Must not record evidence');
   };
-  ctx.signDigest = unavailable('digest signer');
+  ctx.signPreimage = unavailable('preimage signer');
   await assert.rejects(runCap71(ctx), /Unknown CAP71 row: CAP71-1/);
 });
 
@@ -736,10 +737,10 @@ describe('mocked CAP71 run', () => {
     const checkpoint = ctx.cap71Checkpoint;
     assert.ok(checkpoint);
     const savedState = JSON.stringify(result);
-    let signDigestCalls = 0;
+    let signPreimageCalls = 0;
     let envelopeCalls = 0;
-    ctx.signDigest = async () => {
-      signDigestCalls++;
+    ctx.signPreimage = async () => {
+      signPreimageCalls++;
       throw new Error('Must not sign malicious auth');
     };
     ctx.sign = async () => {
@@ -787,7 +788,7 @@ describe('mocked CAP71 run', () => {
           return simulation;
         };
         await assert.rejects(runCap71(ctx), /unexpected recorded authorization tree/, `${row}: ${mutation}`);
-        assert.equal(signDigestCalls, 0);
+        assert.equal(signPreimageCalls, 0);
         assert.equal(envelopeCalls, 0);
         assert.equal(sends, 12);
       }

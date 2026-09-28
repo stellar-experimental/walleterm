@@ -60,7 +60,7 @@ The bridge filters no operations. Review each request against the user's grant.
 It accepts canonical testnet V1 and fee-bump envelopes. V0 envelopes fail.
 The selected G-address must be the transaction source, an operation source, or the fee-bump fee source.
 Existing signatures from other keys stay in place. The selected key must not have signed already.
-Time bounds must be valid now and end within five minutes. A fee bump uses its inner bounds.
+A nonzero `max_time` at or before now fails. A fee bump uses its inner bounds. Time bounds are otherwise optional.
 The bridge does not cap fees or inspect embedded authorization entries.
 Mainnet fails before signing. A setOptions, changeTrust, or merge operation is signable. Review it with care.
 
@@ -106,12 +106,12 @@ SEP-43 `wallet.signAuthEntry(preimageXdr)` signs an address-bound authorization 
 Build it with `buildAuthorizationEntryPreimage(entry, expirationLedger, networkPassphrase)`.
 The result `signedAuthEntry` is a Base64 64-byte signature. Attach it with `authorizeEntry` in the account's format.
 The preimage must be `envelopeTypeSorobanAuthorizationWithAddress` on testnet. V1 preimages return `-3`.
-The bound address must be the selected G-address or a C-address. Expiry must be 1–120 ledgers after the trusted ledger.
+The bound address must be the selected G-address or a C-address. Expiration ledger 0 fails.
 For an adapter digest, use `wallet.signAuthorization(entryXdr, { address, adapter })`.
-Its result contains `signedAuthEntryXdr` and `signerAddress`. Its expiry window is 60 ledgers.
+Its result contains `signedAuthEntryXdr` and `signerAddress`.
 Supported adapters are `account`, `contract-ed25519`, and the pinned `openzeppelin-ed25519` adapter.
 Review the contract's signature format before selecting an adapter or attaching a signature.
-The bridge obtains current ledger evidence from its fixed testnet RPC endpoint.
+The bridge reads no ledger and applies no expiry window. The network enforces expiry.
 The website builds entries, checks invocation trees, and chooses expiry before requesting a signature.
 Attach the signed entry, run enforcing simulation, and assemble the final transaction before requesting its envelope signature.
 Invalid returned artifacts preserve `requestState: 'unknown'`. Keep the original request and expiry protected.

@@ -62,11 +62,13 @@ function setup(fault: Fault = 'none') {
       b: key,
       c: { name: 'recipient', publicKey: recipient.publicKey(), rawPublicKey: recipient.rawPublicKey() },
     },
-    async signDigest(selected, digest) {
+    // Mock `walleterm sign` with the transaction shape: it appends one signature to the same envelope.
+    async sign(unsigned, selected) {
       calls.signs++;
       assert.equal(selected, key);
-      assert.deepEqual(Buffer.from(digest), Buffer.from(tx.hash()));
-      return signer.sign(Buffer.from(digest));
+      assert.equal(unsigned.toXDR(), tx.toXDR());
+      unsigned.addSignature(key.publicKey, Buffer.from(signer.sign(unsigned.hash())).toString('base64'));
+      return unsigned;
     },
     rpc: {
       async getTransaction(value) {
@@ -89,20 +91,6 @@ function setup(fault: Fault = 'none') {
         return Buffer.from(sdk.TransactionBuilder.fromXDR(input, sdk.Networks.TESTNET).hash()).toString(
           'hex',
         );
-      case 'decode':
-        assert.equal(input, tx.toXDR());
-        return JSON.stringify({ tx: { signatures: [] } });
-      case 'encode': {
-        assert.ok(input);
-        const decoded: { tx: { signatures: { hint: string; signature: string }[] } } = JSON.parse(input);
-        assert.equal(decoded.tx.signatures.length, 1);
-        const signature = decoded.tx.signatures[0];
-        assert.equal(signature.hint, Buffer.from(signer.rawPublicKey()).subarray(-4).toString('hex'));
-        assert.ok(signer.verify(tx.hash(), Buffer.from(signature.signature, 'hex')));
-        const signed = sdk.TransactionBuilder.fromXDR(tx.toXDR(), sdk.Networks.TESTNET);
-        signed.addSignature(key.publicKey, Buffer.from(signature.signature, 'hex').toString('base64'));
-        return signed.toXDR();
-      }
       case 'send': {
         calls.sends++;
         assert.ok(input);
@@ -184,7 +172,7 @@ for (const fault of ['send-timeout', 'lookup-lost', 'not-found'] as const) {
       let signs = 0, commands = 0;
       try {
         await runCliPipeline({ networkPassphrase: ${JSON.stringify(sdk.Networks.TESTNET)}, record() {},
-          rpc: {}, signDigest() { signs++; } },
+          rpc: {}, sign() { signs++; } },
           { directory: process.argv[1], stellar() { commands++; } });
         process.exitCode = 2;
       } catch (error) {
@@ -226,7 +214,7 @@ test('CLI01 confirms SUCCESS through original-hash lookup and retains CLI output
   assert.equal(outcome.sent.cli_output, 'mock CLI output');
   assert.equal(f.calls.signs, 1);
   assert.equal(f.calls.sends, 1);
-  assert.deepEqual(f.calls.commands, ['new', 'hash', 'decode', 'encode', 'hash', 'send']);
+  assert.deepEqual(f.calls.commands, ['new', 'hash', 'hash', 'send']);
   assert.deepEqual(f.calls.lookups, [f.hash]);
   assert.equal(f.events().find((event) => event.stage === 'sent')?.response?.cli_output, 'mock CLI output');
   const row = f.records.find((row) => row.id === 'CLI01');

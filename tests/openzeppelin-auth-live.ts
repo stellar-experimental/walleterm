@@ -27,7 +27,6 @@ import type { Transaction } from '@stellar/stellar-sdk';
 import { createHost, type Host } from './browser/host.ts';
 import { WalletermClient } from '../sdk/walleterm.ts';
 import {
-  MAX_AUTH_LEDGER_WINDOW,
   OPENZEPPELIN_AUTH_COMMIT,
   addressCredentials,
   createAuthEntry,
@@ -42,9 +41,10 @@ import type { AuthEntryInput } from '../sdk/authorization.ts';
 import type { ContractsState, Manifest } from './contracts.ts';
 
 // The runner's read-only RPC surface. It has no submission method; the guard owns submission.
-export interface OzRpc extends Pick<rpc.Server, 'getAccount' | 'getLedgerEntries' | 'simulateTransaction'> {
-  getLatestLedger(): Promise<{ sequence: number }>;
-}
+export type OzRpc = Pick<rpc.Server, 'getAccount' | 'getLedgerEntries' | 'simulateTransaction'>;
+// More than the removed 120-ledger bridge window. Each run shows that no expiry window applies.
+// The network enforces expiry. Walleterm refuses only expiration ledger 0.
+export const EXPIRY_LEDGERS = 200;
 export interface OzDeployment {
   account: string;
   verifier: string;
@@ -201,7 +201,7 @@ export async function prepareIncrement(server: OzRpc, d: OzDeployment): Promise<
   if (entries?.length !== 1) throw Error('The simulation returned unexpected authorization entries.');
   if (entries[0].credentials.type !== 'sorobanCredentialsAddressV2')
     throw Error('Live acceptance requires explicit AddressV2 authorization.');
-  const expiration = recorded.latestLedger + MAX_AUTH_LEDGER_WINDOW;
+  const expiration = recorded.latestLedger + EXPIRY_LEDGERS;
   const unsignedXdr = createAuthEntry({
     address: d.account,
     invocation: pingInvocation(d),
@@ -214,10 +214,10 @@ export async function prepareIncrement(server: OzRpc, d: OzDeployment): Promise<
 }
 
 /** Recompute the digest with the SDK preimage helper and the acceptance-suite digest rule. */
-export function reviewRequest(d: OzDeployment, prepared: OzPrepared, latestLedger: number) {
+export function reviewRequest(d: OzDeployment, prepared: OzPrepared) {
   if (JSON.stringify(prepared.input) !== JSON.stringify(requestFor(d, prepared.unsignedXdr)))
     throw Error('The authorization request differs from the verified account rule.');
-  const checked = inspectAuthEntry(prepared.input, d.signer, latestLedger);
+  const checked = inspectAuthEntry(prepared.input, d.signer);
   if (checked.entry.rootInvocation.toXDR('base64') !== pingInvocation(d).toXDR('base64'))
     throw Error('The authorization invocation differs from the reviewed increment.');
   const preimage = buildAuthorizationEntryPreimage(checked.entry, prepared.expiration, Networks.TESTNET);
@@ -255,9 +255,9 @@ const payloadWith = (d: OzDeployment, signature: Uint8Array, ids: number[]) =>
   );
 
 /** Check the returned artifact with walleterm's verifier, then rebuild it independently. */
-export function verifySignedEntry(d: OzDeployment, prepared: OzPrepared, signedXdr: string, latest: number) {
-  verifyAuthEntrySignature(prepared.input, signedXdr, latest);
-  const { digest } = reviewRequest(d, prepared, latest);
+export function verifySignedEntry(d: OzDeployment, prepared: OzPrepared, signedXdr: string) {
+  verifyAuthEntrySignature(prepared.input, signedXdr);
+  const { digest } = reviewRequest(d, prepared);
   const signature = signatureOf(signedXdr);
   if (signature.length !== 64 || !Keypair.fromPublicKey(d.signer).verify(digest, signature))
     throw Error('The returned signature does not verify over the OpenZeppelin digest.');
@@ -267,7 +267,7 @@ export function verifySignedEntry(d: OzDeployment, prepared: OzPrepared, signedX
   return hex(signature);
 }
 
-export type AuthSigner = (input: AuthEntryInput, latestLedger: number) => Promise<string>;
+export type AuthSigner = (input: AuthEntryInput) => Promise<string>;
 /** One signing request, only after the live deployment and the complete request pass review. */
 export async function authorizeIncrement(
   server: OzRpc,
@@ -276,14 +276,12 @@ export async function authorizeIncrement(
   sign: AuthSigner,
 ) {
   await verifyDeployment(server, d);
-  const latestLedger = (await server.getLatestLedger()).sequence;
-  const review = reviewRequest(d, prepared, latestLedger);
-  const signedXdr = await sign(structuredClone(prepared.input), latestLedger);
-  const signature = verifySignedEntry(d, prepared, signedXdr, latestLedger);
+  const review = reviewRequest(d, prepared);
+  const signedXdr = await sign(structuredClone(prepared.input));
+  const signature = verifySignedEntry(d, prepared, signedXdr);
   return {
     signedXdr,
     signature,
-    latestLedger,
     digest: hex(review.digest),
     host_payload: review.host_payload,
   };
@@ -436,20 +434,29 @@ async function main() {
     ).signatureExpirationLedger;
   };
 
-  const cliSign: AuthSigner = async (input, latestLedger) => {
+  const cliSign: AuthSigner = async (input) => {
     guard.assertClear();
-    record('cli-auth-request', 'requested', { input, latest_ledger: latestLedger });
+    // The entry shape of `walleterm sign`. The CLI names the signer with public_key.
+    const request = {
+      public_key: input.public_key,
+      network_passphrase: input.network_passphrase,
+      auth_entry_xdr: input.auth_entry_xdr,
+      address: input.address,
+      adapter: input.adapter,
+    };
+    record('cli-auth-request', 'requested', { input: request });
     requested(input);
-    // One sign-auth process makes one 1Password request.
+    // One sign process makes one 1Password request.
     usage.signatures++;
     const signed = await new Promise<{
       ok: boolean;
       public_key: string;
       digest: string;
+      signature: string;
       verified: boolean;
       signed_auth_entry_xdr: string;
     }>((resolve, reject) => {
-      const child = spawn(binary, ['sign-auth'], { stdio: ['pipe', 'pipe', 'inherit'] });
+      const child = spawn(binary, ['sign'], { stdio: ['pipe', 'pipe', 'inherit'] });
       let output = '';
       const timer = setTimeout(() => child.kill('SIGTERM'), 125000);
       child.stdout.on('data', (data) => {
@@ -468,11 +475,13 @@ async function main() {
           reject(error);
         }
       });
-      child.stdin.end(JSON.stringify({ ...input, latest_ledger: latestLedger }));
+      child.stdin.end(JSON.stringify(request));
     });
-    const checked = inspectAuthEntry(input, signer, latestLedger);
+    const checked = inspectAuthEntry(input, signer);
     if (signed.public_key !== signer || signed.digest !== checked.details.hash || signed.verified !== true)
       throw Error('The CLI returned a different signer or digest.');
+    if (hex(signatureOf(signed.signed_auth_entry_xdr)) !== signed.signature)
+      throw Error('The CLI returned a different raw signature.');
     return signed.signed_auth_entry_xdr;
   };
   const sdkSign: AuthSigner = async (input) => {
@@ -559,7 +568,7 @@ async function main() {
       const authorized = await authorizeIncrement(server, d, prepared, method === 'cli' ? cliSign : sdkSign);
       record(`${method}-auth-result`, 'passed', {
         method,
-        latest_ledger: authorized.latestLedger,
+        expiration_ledger: prepared.expiration,
         host_payload: authorized.host_payload,
         digest: authorized.digest,
         signed_auth_entry_xdr: authorized.signedXdr,

@@ -30,7 +30,6 @@ async function fixture(options: HostOptions = {}, walletScope: 'selected' | 'ava
     requests = 0;
   const bridge = await createHost({
     listSigners: async () => [key, other].map((k) => ({ public_key: k.publicKey() })),
-    latestLedger: async () => 100,
     sign: async (publicKey, digest) => {
       calls++;
       const signer = publicKey === key.publicKey() ? key : other;
@@ -217,13 +216,14 @@ test('the wallet satisfies the Stellar SDK contract Signer shape', async () => {
   expect('signTransaction' in signer && typeof signer.signAuthEntry).toBe('function');
 });
 
-test('invalid preimages and trusted-ledger failures never reach the signer', async () => {
+test('invalid preimages never reach the signer, and no expiry window applies', async () => {
   const f = await fixture({ review: undefined });
   await f.wallet.getAddress();
   for (const [encoded, reason] of [
     [preimage(contractId, { v1: true }), 'walleterm:unsupported'],
     [preimage(contractId, { network: Networks.PUBLIC }), 'walleterm:network_unsupported'],
     [preimage(other.publicKey()), 'walleterm:address_mismatch'],
+    [preimage(contractId, { expiration: 0 }), 'walleterm:invalid_request'],
     [transaction(), 'walleterm:invalid_request'],
   ] as const) {
     const result = await f.wallet.signAuthEntry(encoded);
@@ -233,24 +233,10 @@ test('invalid preimages and trusted-ledger failures never reach the signer', asy
       error: expect.objectContaining({ code: -3, ext: [reason] }),
     });
   }
-  // The trusted ledger is 100. The window is 120 ledgers.
-  expect((await f.wallet.signAuthEntry(preimage(contractId, { expiration: 220 }))).error).toBeUndefined();
-  const late = await f.wallet.signAuthEntry(preimage(contractId, { expiration: 221 }));
-  expect(late.error).toMatchObject({ code: -3, ext: ['walleterm:invalid_request'], requestState: 'denied' });
-  expect(f.calls()).toBe(1);
-  const offline = await fixture({
-    review: undefined,
-    latestLedger: async () => {
-      throw Error('Offline');
-    },
-  });
-  await offline.wallet.getAddress();
-  expect((await offline.wallet.signAuthEntry(preimage(contractId))).error).toMatchObject({
-    code: -2,
-    ext: ['walleterm:ledger_unavailable'],
-    requestState: 'denied',
-  });
-  expect(offline.calls()).toBe(0);
+  // No request reads a ledger. The network enforces expiry.
+  for (const expiration of [1, 221, 0xffffffff])
+    expect((await f.wallet.signAuthEntry(preimage(contractId, { expiration }))).error).toBeUndefined();
+  expect(f.calls()).toBe(3);
 });
 
 test('bridge outcomes map to SEP-43 codes and keep unknown signing outcomes', async () => {

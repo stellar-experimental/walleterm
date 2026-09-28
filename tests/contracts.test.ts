@@ -24,6 +24,7 @@ import {
   type KnownContextRule,
 } from './extended-contracts.ts';
 import { simulationError, simulationSuccess } from './simulations.ts';
+import { inspectAuthEntry } from '../sdk/authorization.ts';
 import type { AnyTransaction, SigningContext, TestKey } from './types.ts';
 
 const pairs = [21, 22, 23].map((n) => sdk.Keypair.fromRawEd25519Seed(Buffer.alloc(32, n)));
@@ -104,11 +105,43 @@ function mock(recorded: xdr.SorobanAuthorizationEntry[], { enforceError }: { enf
     sdk,
     networkPassphrase: sdk.Networks.TESTNET,
     keys,
-    async signDigest(key, digest) {
+    // Mock `walleterm sign`: the preimage shape signs SHA-256 of the preimage.
+    async signPreimage(key, preimage) {
       calls.digests += 1;
       const pair = pairs.find((p) => p.publicKey() === key.publicKey);
-      assert.ok(pair, 'The digest request names a mock key.');
-      return pair.sign(Buffer.from(digest));
+      assert.ok(pair, 'The signing request names a mock key.');
+      return pair.sign(sdk.hash(preimage.toXDR()));
+    },
+    // The entry shape: the SDK module computes the adapter digest, independently of the harness.
+    async signEntry(key, preimage, adapter) {
+      calls.digests += 1;
+      const pair = pairs.find((p) => p.publicKey() === key.publicKey);
+      assert.ok(pair, 'The signing request names a mock key.');
+      assert.equal(preimage.type, 'envelopeTypeSorobanAuthorizationWithAddress');
+      if (preimage.type !== 'envelopeTypeSorobanAuthorizationWithAddress') throw Error();
+      const value = preimage.sorobanAuthorizationWithAddress;
+      const entry = new sdk.xdr.SorobanAuthorizationEntry({
+        credentials: sdk.xdr.SorobanCredentials.sorobanCredentialsAddressV2(
+          new sdk.xdr.SorobanAddressCredentials({
+            address: value.address,
+            nonce: value.nonce,
+            signatureExpirationLedger: value.signatureExpirationLedger,
+            signature: sdk.xdr.ScVal.scvVoid(),
+          }),
+        ),
+        rootInvocation: value.invocation,
+      });
+      const { digest } = inspectAuthEntry(
+        {
+          auth_entry_xdr: entry.toXDR('base64'),
+          network_passphrase: sdk.Networks.TESTNET,
+          public_key: key.publicKey,
+          address: sdk.Address.fromScAddress(value.address).toString(),
+          adapter,
+        },
+        key.publicKey,
+      );
+      return { digest, signature: pair.sign(Buffer.from(digest)) };
     },
     async sign(tx) {
       calls.envelopes += 1;

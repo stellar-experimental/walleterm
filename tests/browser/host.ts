@@ -15,7 +15,6 @@ type Options = { signal: AbortSignal };
 export interface HostOptions {
   listSigners?: (options: Options) => Promise<Signer[]>;
   sign?: (publicKey: string, digest: string, options: Options) => Promise<string>;
-  latestLedger?: (options: Options) => Promise<number>;
   /** Present: every request waits for this review. Absent: the bridge approves valid requests. */
   review?: (request: ReviewRequest, options: Options) => Promise<boolean>;
   log?: (line: string) => unknown;
@@ -24,8 +23,8 @@ export interface HostOptions {
   /** Also serve the embedded demo website. Its origin is `demoOrigin`. */
   demo?: boolean;
   /**
-   * Live harnesses only: the real 1Password signer, `OP_VAULT` discovery, and testnet ledger, as `walleterm
-   * tunnel` wires them, on loopback. The mock dependencies above are ignored. Never use it in offline tests.
+   * Live harnesses only: the real 1Password signer and `OP_VAULT` discovery, as `walleterm tunnel` wires them,
+   * on loopback. The mock dependencies above are ignored. Never use it in offline tests.
    */
   production?: boolean;
 }
@@ -109,7 +108,6 @@ export async function createHost(options: HostOptions = {}): Promise<Host> {
           if (!options.sign) throw Error('This test host has no signer.');
           return options.sign(args.public_key, args.digest, { signal });
         }
-        if (message.dep === 'latest_ledger') return (await options.latestLedger?.({ signal })) ?? 100;
         if (message.dep === 'review') return options.review!(args, { signal });
         throw Error(`Unknown dependency ${message.dep}`);
       };

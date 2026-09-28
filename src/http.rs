@@ -1,5 +1,5 @@
 //! The loopback HTTP/1 server shared by the bridge and the demo. Handlers receive a small request view
-//! and a lazy, bounded body reader; they never see Hyper types.
+//! and a lazy, bounded body reader; they never see Hyper types. The HTTPS client probes the public URL.
 
 use std::convert::Infallible;
 use std::sync::Arc;
@@ -13,16 +13,51 @@ use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::{Request, Response};
-use hyper_util::rt::{TokioIo, TokioTimer};
+use hyper_tls::HttpsConnector;
+use hyper_util::client::legacy::Client;
+use hyper_util::client::legacy::connect::HttpConnector;
+use hyper_util::rt::{TokioExecutor, TokioIo, TokioTimer};
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
 use tokio::net::{TcpListener, TcpStream};
 
 use crate::bridge::{BodyReader, BoxFuture, Fail, HttpRequest, Reply, fail};
 use crate::cancel::Cancel;
+use crate::error::{Error, Result};
 
 pub const MAX_BODY: usize = 393_216;
 pub const HEADER_TIMEOUT: Duration = Duration::from_secs(10);
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
+
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+pub type HttpsClient = Client<HttpsConnector<HttpConnector>, Full<Bytes>>;
+
+/// An HTTPS-only client with platform certificate and hostname checks. Hyper follows no redirects and reads no proxy settings.
+pub fn https_client() -> Result<HttpsClient> {
+    let mut http = HttpConnector::new();
+    http.enforce_http(false);
+    http.set_connect_timeout(Some(CONNECT_TIMEOUT));
+    let tls = native_tls::TlsConnector::new().map_err(|_| Error::new("internal", "TLS is unavailable."))?;
+    let mut https = HttpsConnector::from((http, tls.into()));
+    https.https_only(true);
+    Ok(Client::builder(TokioExecutor::new()).pool_timer(TokioTimer::new()).build(https))
+}
+
+/// Read a response body, counting each frame before it enters the buffer. `Err(true)` means too large.
+pub async fn capped(body: Incoming, cap: usize) -> std::result::Result<Vec<u8>, bool> {
+    let mut body = body;
+    let mut bytes = Vec::new();
+    while let Some(frame) = body.frame().await {
+        let frame = frame.map_err(|_| false)?;
+        if let Ok(data) = frame.into_data() {
+            if data.len() > cap - bytes.len() {
+                return Err(true);
+            }
+            bytes.extend_from_slice(&data);
+        }
+    }
+    Ok(bytes)
+}
 
 /// A service: one reply for each request. Errors are already replies.
 pub type Handler = Arc<dyn Fn(HttpRequest, BodyReader) -> BoxFuture<Reply> + Send + Sync>;

@@ -42,13 +42,8 @@ function input(adapter: AuthAdapter = { type: 'account' }): AuthEntryInput {
   };
 }
 function signed(request: AuthEntryInput) {
-  const checked = inspectAuthEntry(request, key.publicKey(), 100);
-  return attachAuthSignature(
-    request,
-    key.publicKey(),
-    100,
-    Buffer.from(key.sign(checked.digest)).toString('hex'),
-  );
+  const checked = inspectAuthEntry(request, key.publicKey());
+  return attachAuthSignature(request, key.publicKey(), Buffer.from(key.sign(checked.digest)).toString('hex'));
 }
 function mutate(request: AuthEntryInput, changes: Partial<xdr.SorobanAddressCredentials>) {
   const entry = parseAuthEntry(request.auth_entry_xdr);
@@ -68,9 +63,9 @@ for (const adapter of [
 ] satisfies AuthAdapter[]) {
   test(`auth ${adapter.type}: exact fields, nested calls, independent SDK preimage`, async () => {
     const request = input(adapter),
-      checked = inspectAuthEntry(request, key.publicKey(), 100);
+      checked = inspectAuthEntry(request, key.publicKey());
     const result = signed(request);
-    expect(verifyAuthEntrySignature(request, result, 100)).toBe(true);
+    expect(verifyAuthEntrySignature(request, result)).toBe(true);
     const after = parseAuthEntry(result);
     expect(after.credentials.type).toBe(checked.entry.credentials.type);
     expect(after.rootInvocation.toXDR('base64')).toBe(checked.entry.rootInvocation.toXDR('base64'));
@@ -94,16 +89,11 @@ for (const adapter of [
       160,
       Networks.TESTNET,
     );
-    expect(() => attachAuthSignature(request, key.publicKey(), 100, '00'.repeat(64))).toThrow('verification');
+    expect(() => attachAuthSignature(request, key.publicKey(), '00'.repeat(64))).toThrow('verification');
     expect(() =>
-      attachAuthSignature(
-        request,
-        key.publicKey(),
-        100,
-        Buffer.from(other.sign(checked.digest)).toString('hex'),
-      ),
+      attachAuthSignature(request, key.publicKey(), Buffer.from(other.sign(checked.digest)).toString('hex')),
     ).toThrow('verification');
-    expect(() => inspectAuthEntry({ ...request, auth_entry_xdr: result }, key.publicKey(), 100)).toThrow(
+    expect(() => inspectAuthEntry({ ...request, auth_entry_xdr: result }, key.publicKey())).toThrow(
       'unsigned',
     );
   });
@@ -116,7 +106,7 @@ test('V1 entries stay readable but are never rebuilt or signed', () => {
     credentials: xdr.SorobanCredentials.sorobanCredentialsAddress(addressCredentials(entry)),
   }).toXDR('base64');
   expect(parseAuthEntry(v1).credentials.type).toBe('sorobanCredentialsAddress');
-  expect(() => inspectAuthEntry({ ...request, auth_entry_xdr: v1 }, key.publicKey(), 100)).toThrow('V2');
+  expect(() => inspectAuthEntry({ ...request, auth_entry_xdr: v1 }, key.publicKey())).toThrow('V2');
   expect(() => setAuthEntryExpiration(v1, 150)).toThrow('V2');
 });
 test('binding mutations invalidate signatures', () => {
@@ -138,20 +128,25 @@ test('binding mutations invalidate signatures', () => {
     },
     { ...request, public_key: other.publicKey() },
   ])
-    expect(() => verifyAuthEntrySignature(changed, result, 100)).toThrow();
-  expect(() => inspectAuthEntry({ ...request, address: contract(9) }, key.publicKey(), 100)).toThrow(
-    'address',
-  );
-  expect(() => inspectAuthEntry({ ...request, public_key: other.publicKey() }, key.publicKey(), 100)).toThrow(
+    expect(() => verifyAuthEntrySignature(changed, result)).toThrow();
+  expect(() => inspectAuthEntry({ ...request, address: contract(9) }, key.publicKey())).toThrow('address');
+  expect(() => inspectAuthEntry({ ...request, public_key: other.publicKey() }, key.publicKey())).toThrow(
     'signer',
   );
-  expect(() => inspectAuthEntry({ ...input(), address: contract(1) }, key.publicKey(), 100)).toThrow();
+  expect(() => inspectAuthEntry({ ...input(), address: contract(1) }, key.publicKey())).toThrow();
 });
 test('expiry, unsigned canonical bounded XDR, variants and adapters fail closed', () => {
   const request = input(),
     entry = parseAuthEntry(request.auth_entry_xdr);
-  for (const current of [0, 99, 160, 161, NaN, 1.5, 0x100000000])
-    expect(() => inspectAuthEntry(request, key.publicKey(), current)).toThrow();
+  // No check reads a ledger. Expiration ledger 0 fails. The network enforces every other expiry.
+  expect(() => inspectAuthEntry(mutate(request, { signatureExpirationLedger: 0 }), key.publicKey())).toThrow(
+    'Ledger 0',
+  );
+  for (const expiration of [1, 0xffffffff])
+    expect(
+      inspectAuthEntry(mutate(request, { signatureExpirationLedger: expiration }), key.publicKey()).details
+        .expiration_ledger,
+    ).toBe(expiration);
   for (const encoded of [
     '',
     'AA==',
@@ -186,21 +181,18 @@ test('expiry, unsigned canonical bounded XDR, variants and adapters fail closed'
     inspectAuthEntry(
       { ...request, adapter: { type: 'unknown' } } as unknown as AuthEntryInput,
       key.publicKey(),
-      100,
     ),
   ).toThrow('adapter');
   expect(() =>
     inspectAuthEntry(
       { ...request, adapter: { type: 'account', digest: '00' } } as unknown as AuthEntryInput,
       key.publicKey(),
-      100,
     ),
   ).toThrow('fields');
   expect(() =>
     inspectAuthEntry(
       input({ type: 'openzeppelin-ed25519', verifier: contract(3), context_rule_ids: [0] }),
       key.publicKey(),
-      100,
     ),
   ).toThrow('rule');
   expect(() => setAuthEntryExpiration(signed(request), 150)).toThrow('unsigned');
@@ -224,12 +216,12 @@ test('OZ adds its custom digest and binds context rule IDs', () => {
       context_rule_ids: [0, 4],
     } satisfies AuthAdapter,
   };
-  const host = inspectAuthEntry(raw, key.publicKey(), 100),
-    custom = inspectAuthEntry(oz, key.publicKey(), 100);
+  const host = inspectAuthEntry(raw, key.publicKey()),
+    custom = inspectAuthEntry(oz, key.publicKey());
   expect(host.details.hash).not.toBe(custom.details.hash);
   expect(() =>
-    attachAuthSignature(oz, key.publicKey(), 100, Buffer.from(key.sign(host.digest)).toString('hex')),
+    attachAuthSignature(oz, key.publicKey(), Buffer.from(key.sign(host.digest)).toString('hex')),
   ).toThrow('verification');
   const changed = { ...oz, adapter: { ...oz.adapter, context_rule_ids: [0, 5] } };
-  expect(() => verifyAuthEntrySignature(changed, signed(oz), 100)).toThrow();
+  expect(() => verifyAuthEntrySignature(changed, signed(oz))).toThrow();
 });

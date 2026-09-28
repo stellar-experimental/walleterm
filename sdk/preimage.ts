@@ -4,8 +4,6 @@ import { walletermError } from './errors.js';
 
 /** SEP-43 `signAuthEntry` input: a CAP-71 address-bound authorization preimage. */
 export const MAX_PREIMAGE_XDR = 32768;
-// The SDK contract client defaults to the latest ledger plus 100. Keep slack for RPC differences.
-export const MAX_PREIMAGE_LEDGER_WINDOW = 120;
 const invalid = (message: string) => walletermError('invalid_request', message);
 const hex = (bytes: Uint8Array) => Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 export const base64 = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes));
@@ -13,15 +11,10 @@ const equalBytes = (a: Uint8Array, b: Uint8Array) =>
   a.length === b.length && a.every((byte, i) => byte === b[i]);
 
 /**
- * Validate one preimage and compute the digest that the key signs.
- * Without `latestLedger`, only the structure is checked. The bridge supplies a trusted ledger.
+ * Validate one preimage and compute the digest that the key signs. No check reads a ledger.
+ * Expiration ledger 0 fails, because ledger 0 is always in the past. The network enforces every other expiry.
  */
-export function inspectAuthPreimage(
-  preimageXdr: string,
-  publicKey: string,
-  networkPassphrase: string,
-  latestLedger?: number,
-) {
+export function inspectAuthPreimage(preimageXdr: string, publicKey: string, networkPassphrase: string) {
   if (!StrKey.isValidEd25519PublicKey(publicKey))
     throw walletermError('address_mismatch', 'Select a valid G-address.');
   if (typeof preimageXdr !== 'string' || !preimageXdr || preimageXdr.length > MAX_PREIMAGE_XDR)
@@ -54,11 +47,8 @@ export function inspectAuthPreimage(
     );
   countAuthContexts(value.invocation);
   const expiration = value.signatureExpirationLedger;
-  if (
-    latestLedger !== undefined &&
-    (expiration <= latestLedger || expiration > latestLedger + MAX_PREIMAGE_LEDGER_WINDOW)
-  )
-    throw invalid(`The authorization must expire within the next ${MAX_PREIMAGE_LEDGER_WINDOW} ledgers.`);
+  if (expiration === 0)
+    throw invalid('Set the authorization expiration ledger. Ledger 0 is always in the past.');
   const digest = hash(Uint8Array.from(atob(preimageXdr), (c) => c.charCodeAt(0)));
   return {
     digest,

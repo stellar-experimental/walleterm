@@ -7,8 +7,7 @@ The binary name is `walleterm`. A `stellar-walleterm` alias enables Stellar CLI 
 
 ```text
 walleterm list [--human]
-walleterm sign [--human] < request.json
-walleterm sign-auth < request.json
+walleterm sign < request.json
 walleterm tunnel [--port 8787]
 walleterm demo [--port 8788]
 walleterm --help
@@ -17,7 +16,6 @@ walleterm --version
 
 `tunnel` starts the independent signing bridge and its Cloudflare Quick Tunnel.
 It needs no recipient, demo, or website build.
-Authorization signing uses a fixed testnet RPC endpoint for current ledger evidence.
 It accepts supported unsigned testnet XDR through the [bridge protocol](BRIDGE-PROTOCOL.md).
 It returns signed XDR to the requesting website. It never builds or submits transactions.
 A website connects with a single-use eight-digit code and selects a 1Password key.
@@ -83,7 +81,7 @@ A 1Password prompt can still require the Mac. Cached 1Password approval can supp
 Use only dedicated testnet keys. Any website that holds a valid session can request signatures.
 
 The bridge filters no operations. It signs testnet V1 or fee-bump envelopes that need the selected key.
-Time bounds must be valid now and end within five minutes. See [the protocol](BRIDGE-PROTOCOL.md) for the structural rules.
+It refuses a nonzero `max_time` at or before now. No other time rule applies. See [the protocol](BRIDGE-PROTOCOL.md).
 An integration adapter is required. An unchanged website does not automatically discover Walleterm.
 
 `list` returns the Ed25519 public identities exposed by the explicit 1Password socket.
@@ -95,43 +93,145 @@ A fingerprint is `SHA256:` followed by unpadded Base64 of SHA-256 over the SSH p
 {"ok":true,"signers":[{"public_key":"G...","fingerprint":"SHA256:...","comment":"display metadata"}]}
 ```
 
-`sign` accepts exactly one JSON object with two required string fields.
+## Sign
+
+`sign` reads one JSON object from standard input. It takes no flags. The fields select one of four shapes.
+
+| Shape | Exact key set |
+| --- | --- |
+| Transaction | `public_key`, `network_passphrase`, `transaction_xdr` |
+| Authorization preimage | `public_key`, `network_passphrase`, `preimage_xdr` |
+| Authorization entry | `public_key`, `network_passphrase`, `auth_entry_xdr`, `address`, `adapter` |
+| Message | `public_key`, `message` |
 
 ```json
-{"public_key":"G...","digest":"64 lowercase hexadecimal characters"}
+{"public_key":"G...","network_passphrase":"Test SDF Network ; September 2015","transaction_xdr":"AAAAAgAAAA..."}
+{"public_key":"G...","network_passphrase":"Test SDF Network ; September 2015","preimage_xdr":"AAAACs7gMC1Z..."}
+{"public_key":"G...","network_passphrase":"Test SDF Network ; September 2015","auth_entry_xdr":"AAAAAg...","address":"C...","adapter":{"type":"contract-ed25519"}}
+{"public_key":"G...","message":"example.com asks GABC... to prove key control. Nonce: 5f1c. Expires: 2026-09-28T19:00:00Z."}
 ```
+
+The parser applies these rules in order:
+
+1. Read at most 393216 bytes, then require EOF.
+2. Require valid UTF-8. The parser never replaces invalid bytes.
+3. Parse exactly one JSON object. Permit only whitespace after it.
+4. Reject duplicate keys at every depth, including inside `adapter`.
+5. Require exactly one artifact key: `transaction_xdr`, `preimage_xdr`, `auth_entry_xdr`, or `message`.
+6. Require the exact key set of that shape. A missing, extra, or unknown key fails. `latest_ledger` is an unknown key.
+7. Require JSON strings for text fields and a JSON object for `adapter`.
+8. Reject empty strings.
 
 `public_key` must be a canonical checksummed Ed25519 G-address.
-`digest` must contain exactly 64 lowercase hexadecimal characters.
-Reject unknown fields, duplicate fields, trailing JSON, empty input, and input above 4096 bytes.
-Decode the digest to 32 bytes. Send those bytes directly to the SSH agent with flags zero.
-Do not hash the digest again. Do not use SSHSIG or `ssh-keygen -Y sign`.
-Match the full public key against agent identities before signing.
+`network_passphrase` must contain 1–256 UTF-16 units and more than whitespace.
+The CLI accepts any network. It hashes the exact passphrase bytes. A message binds no network, so it has no passphrase.
+Every rule failure returns `invalid_input` with exit code 2. It makes no agent connection.
+
+| Shape | Rules | Signed digest |
+| --- | --- | --- |
+| Transaction | Canonical Base64 V1 or fee-bump envelope of 262144 characters or fewer. V0 fails. At most 19 existing signatures. The selected key has no valid signature yet. A nonzero `max_time` at or before now fails. A fee bump uses its inner bounds. | SHA-256 of XDR `TransactionSignaturePayload`. A fee bump uses the outer payload. |
+| Preimage | Canonical `HashIdPreimage` of 32768 characters or fewer. Only `envelopeTypeSorobanAuthorizationWithAddress`. Its network ID equals SHA-256 of the passphrase. The bound address is any G- or C-address. | SHA-256 of the preimage bytes. |
+| Entry | Canonical `SorobanAuthorizationEntry` of 32768 characters or fewer with `sorobanCredentialsAddressV2`. Its signature is `scvVoid`. `address` equals the credential address. | The adapter digest. |
+| Message | UTF-8 text of 1–1024 bytes. No binary input, no precomputed hash, and no Unicode normalization. | SEP-53: SHA-256 of `"Stellar Signed Message:\n"` followed by the text bytes. |
+
+Preimages and entries permit 256 invocation contexts and 32 levels.
+No shape reads a ledger. The network refuses an expired authorization.
+Expiration ledger 0 is the only expiry rule. Simulation leaves it at 0 when the caller never sets it.
+
+The CLI checks no transaction signer role and no preimage bound address.
+A multisig co-signer signs envelopes and entries for another account. The calling agent checks account signers and thresholds.
+The bridge keeps both rules, because a connected website is less trusted than the local agent.
+
+The entry shape rejects SourceAccount, delegated, and legacy V1 credentials.
+V1 lacks address binding and permits signature reuse across addresses.
+The SDK helpers can parse a V1 entry, because a transaction can carry signed V1 entries from other signers.
+They never create, rebuild, or sign a V1 entry.
+
+Adapters for the entry shape:
+
+- `{"type":"account"}` signs for a native G-address. `address` must equal `public_key`.
+- `{"type":"contract-ed25519"}` produces an `scvBytes` raw signature for a C-account.
+- `{"type":"openzeppelin-ed25519","verifier":"C...","context_rule_ids":[0]}` uses the pinned external Ed25519 schema.
+
+The OpenZeppelin adapter requires one uint32 rule ID per invocation context.
+It signs the additional digest described in [OPENZEPPELIN.md](OPENZEPPELIN.md).
+The caller selects the contract adapter and verifies the account's deployed policy and ownership.
+A C-address and public key declaration cannot establish ownership.
+The signer validates the requested binding and signature format without querying contract state.
+Enforce-simulate before submission.
+
+Walleterm sends the 32 digest bytes directly to the SSH agent with flags zero.
+It does not hash them again. It does not use SSHSIG or `ssh-keygen -Y sign`.
+It matches the full public key against agent identities before signing.
+It verifies the signature strictly before it attaches or returns it. The command returns one signature per invocation.
+
+Every success has `ok`, `public_key`, `digest`, `signature`, and `verified: true`.
+`digest` is the 32 bytes that the key signed. `signature` is the raw 64-byte Ed25519 signature.
+Both use lowercase hexadecimal.
+
+| Shape | Added field |
+| --- | --- |
+| Transaction | `signed_transaction_xdr`: the input envelope with one appended signature. |
+| Preimage | None. |
+| Entry | `signed_auth_entry_xdr`: the input entry with only its signature value changed. |
+| Message | None. |
 
 ```json
-{"ok":true,"public_key":"G...","digest":"...","signature":"128 lowercase hexadecimal characters","verified":true}
+{"ok":true,"public_key":"G...","digest":"<64 hex>","signature":"<128 hex>","signed_transaction_xdr":"AAAAAgAAAA...","verified":true}
 ```
 
-The signature contains raw Ed25519 bytes after removal of the SSH response wrapper.
-Verify the signature independently before returning it.
-The command returns one signature per invocation.
+The entry shape returns `signature` too. A 2-of-3 OpenZeppelin account and a G-account multisig need several raw signatures in one credential.
+Each call returns one signer, so the caller merges the raw signatures.
+
+Verify a message signature with one of these checks:
+
+- SDK: `Keypair.fromPublicKey(G).verifyMessage(message, Buffer.from(signature, 'hex'))`.
+- Stellar CLI: `stellar message verify "<message>" --signature <Base64> --public-key G...`. Convert the hexadecimal signature to Base64.
+  Pass the message as an argument. Standard input loses one trailing newline.
+- Any Ed25519 library: verify the signature over the SEP-53 digest.
+
+A SEP-53 signature is a permanent, portable proof that the key approved the text.
+It binds no network, site, nonce, or expiry, unless the text contains them.
+Never use a Walleterm key as an identity or a key-derivation source for another service.
+
+| Limit | Value |
+| --- | --- |
+| Standard input | 393216 bytes |
+| `transaction_xdr` | 262144 characters |
+| `preimage_xdr`, `auth_entry_xdr` | 32768 characters |
+| `message` | 1–1024 UTF-8 bytes |
+| `network_passphrase` | 1–256 UTF-16 units |
+| Invocation tree | 256 contexts and 32 levels |
+| Deadline | One 120-second absolute deadline for input, agent connection, listing, and signing |
+
+Before the agent request, the CLI writes one notice line to standard error:
+
+```text
+Sign transaction <digest> on testnet with G....
+Sign authorization preimage <digest> for C... on testnet with G..., expiring at ledger 123500.
+Sign authorization entry <digest> for C... (contract-ed25519) on testnet with G..., expiring at ledger 123500.
+Sign SEP-53 message <digest> with G... (43 bytes, no network, site, or expiry binding): "example.com asks..."
+```
+
+The notice names `testnet`, `pubnet`, and `futurenet` for their exact passphrases. It quotes any other passphrase.
+The message text uses Go `strconv.Quote` escapes. Control, format, bidirectional, separator, and private-use characters appear as escapes.
 
 ## Errors and output
 
 Return one JSON object on standard output and exit nonzero on failure.
 
 ```json
-{"ok":false,"error":{"code":"invalid_input","message":"The digest must contain 64 lowercase hexadecimal characters."}}
+{"ok":false,"error":{"code":"invalid_input","message":"Provide exactly one of transaction_xdr, preimage_xdr, auth_entry_xdr, or message."}}
 ```
 
 Use stable codes: `invalid_input`, `unsupported_platform`, `agent_unavailable`, `agent_protocol`, `key_not_found`, `signing_refused`, `timeout`, `invalid_signature`, `output_error`.
 Use exit code 2 for invalid input and exit code 1 for other failures.
 Use exit code 0 for success, help, and version.
-Help, version, tunnel, and demo use readable text. List and sign default to JSON.
-`--human` applies to list and sign and changes formatting only. It does not change signing behavior or error status.
-Print a concise key and digest notice to standard error before requesting a signature.
-If that notice fails, return `output_error` without requesting a signature.
+Help, version, tunnel, and demo use readable text. List and sign return JSON.
+`list --human` prints one readable line for each signer. `sign` has no readable format.
+If the notice fails, return `output_error` without requesting a signature.
 If a result cannot be written, exit nonzero without retrying signing or output.
+On SIGINT or SIGTERM, `sign` exits by the signal and prints no JSON line.
 Never claim that 1Password displays or approves Stellar transaction details.
 
 ## Runtime limits
@@ -153,8 +253,9 @@ Never claim that 1Password displays or approves Stellar transaction details.
 
 ## Deliberate limits
 
-The command signs a digest. It cannot determine that digest's network, amount, destination, or contract policy.
-The caller must inspect and approve the exact source artifact before computing the digest.
+Walleterm computes the digest from the artifact. 1Password signs only those 32 bytes.
+1Password does not display the network, amount, destination, or contract policy.
+The caller must review the exact artifact before it requests a signature.
 The signature proves possession of the selected key. It does not attest the key's creation or storage history.
 The fixed socket and filesystem checks do not defeat a compromised local user account.
 
@@ -174,77 +275,7 @@ Response type 5 reports generic agent failure. It does not prove that the user s
 One signing connection handles listing and signing. It closes after the command.
 See [RFC 9987](https://www.rfc-editor.org/rfc/rfc9987) and [RFC 8709](https://www.rfc-editor.org/rfc/rfc8709).
 
-## Structured authorization signing
-
-```text
-walleterm sign-auth < request.json
-```
-
-`sign-auth` validates one explicit authorization entry and signs it inside the `walleterm` binary.
-It uses the same 1Password socket and raw digest signature as `sign`.
-It never builds, simulates, deploys, or submits transactions.
-It does not load `.env` files.
-
-```json
-{
-  "auth_entry_xdr": "canonical Base64 SorobanAuthorizationEntry",
-  "network_passphrase": "Test SDF Network ; September 2015",
-  "public_key": "selected G-address",
-  "address": "authorized G-address or C-address",
-  "adapter": { "type": "contract-ed25519" },
-  "latest_ledger": 12345
-}
-```
-
-The entry contains its final nonce, invocation tree, and expiration ledger.
-Its signature must be `scvVoid`.
-Expiration must exceed `latest_ledger` by 1–60 ledgers.
-The local caller supplies trusted, current ledger evidence.
-The CLI cannot establish its freshness without network access.
-The bridge obtains its own trusted ledger instead.
-
-The new signing APIs require `sorobanCredentialsAddressV2`.
-They reject SourceAccount, delegated credentials, and legacy V1 credentials.
-V1 lacks address binding and permits signature reuse across addresses.
-The helpers can parse a V1 entry, because a transaction can carry signed V1 entries from other signers.
-They never create, rebuild, or sign a V1 entry.
-
-Adapters:
-
-- `{"type":"account"}` signs for the selected native G-address.
-- `{"type":"contract-ed25519"}` produces an `scvBytes` raw signature for a C-account.
-- `{"type":"openzeppelin-ed25519","verifier":"C...","context_rule_ids":[0]}` uses the pinned external Ed25519 schema.
-
-The OpenZeppelin adapter requires one uint32 rule ID per invocation context.
-It signs the additional digest described in [OPENZEPPELIN.md](OPENZEPPELIN.md).
-The caller selects the contract adapter and verifies the account's deployed policy and ownership.
-A C-address and public key declaration cannot establish ownership.
-The signer validates the requested binding and signature format without querying contract state.
-The website must enforce-simulate before submission.
-
-The command returns:
-
-```json
-{
-  "ok": true,
-  "public_key": "G...",
-  "digest": "64 lowercase hexadecimal characters",
-  "signed_auth_entry_xdr": "canonical Base64 SorobanAuthorizationEntry",
-  "verified": true
-}
-```
-
-Only the signature field changes.
-Independent verification checks the exact digest before output.
-The input limit is 49152 bytes. The authorization XDR limit is 32768 Base64 characters.
-Invocation trees permit 256 contexts and 32 levels.
-Unknown fields, duplicate JSON fields, malformed XDR, noncanonical XDR, and existing signatures fail before signing.
-The command permits 120 seconds, including input and signing.
-Invalid input exits with code 2. Other failures exit with code 1.
-On SIGINT or SIGTERM, the command exits by the signal and prints no JSON line, as `sign` does.
-The command never retries signing.
-
-### Browser authorization API
+## Browser authorization API
 
 The browser SDK is a [SEP-43](SEP-43.md) wallet. SEP-43 `signAuthEntry` signs an address-bound preimage:
 
@@ -255,7 +286,8 @@ const { signedAuthEntry, signerAddress, error } = await wallet.signAuthEntry(pre
 ```
 
 The website attaches that signature in its account's format, for example with SDK `authorizeEntry`.
-The preimage must be `envelopeTypeSorobanAuthorizationWithAddress`. Its expiry window is 120 ledgers.
+The preimage must be `envelopeTypeSorobanAuthorizationWithAddress`.
+The bridge requires the selected G-address or a C-address as its bound address.
 
 For an adapter digest, the Walleterm extension signs a complete AddressV2 entry:
 
@@ -271,10 +303,10 @@ const result = await wallet.signAuthorization(authEntryXdr, {
 ```
 
 `address` identifies the authorization address. `signerAddress` identifies the selected G-key.
-Omitting `adapter` selects `{ type: 'account' }`. Its expiry window is 60 ledgers.
+Omitting `adapter` selects `{ type: 'account' }`.
 The SDK copies the adapter before asynchronous work.
 It verifies the entire returned artifact before exposing it.
-The bridge supplies ledger freshness. SDK verification does not independently query the network.
+No check reads a ledger. The network enforces expiry. Expiration ledger 0 fails.
 
 Portable exports from `sdk/walleterm.ts` and `sdk/authorization.ts`:
 
@@ -283,11 +315,11 @@ Portable exports from `sdk/walleterm.ts` and `sdk/authorization.ts`:
 - `parseAuthEntry(authEntryXdr)` returns the canonical, bounded XDR entry.
 - `addressCredentials(entry)` returns explicit V1/V2 address credentials without conversion.
 - `countAuthContexts(invocation)` counts the complete bounded invocation tree.
-- `inspectAuthEntry(input, selectedPublicKey, latestLedger)` validates the request and computes the digest.
-- `attachAuthSignature(input, publicKey, latestLedger, signatureHex)` verifies and attaches one signature.
-- `verifyAuthEntrySignature(input, signedAuthEntryXdr, latestLedger)` returns `true` or throws.
+- `inspectAuthEntry(input, selectedPublicKey)` validates the request and computes the digest.
+- `attachAuthSignature(input, publicKey, signatureHex)` verifies and attaches one signature.
+- `verifyAuthEntrySignature(input, signedAuthEntryXdr)` returns `true` or throws.
 
-`input` contains the six CLI fields except `latest_ledger`.
+`input` contains the five entry shape fields: `auth_entry_xdr`, `network_passphrase`, `public_key`, `address`, and `adapter`.
 These helpers do not contact an RPC server or a signer.
 
 Both SDK signing methods verify the returned artifact before exposing it.

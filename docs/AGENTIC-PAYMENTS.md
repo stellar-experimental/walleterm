@@ -11,7 +11,7 @@ MPP Charge can work after a V2-capable `@stellar/mpp` release, or through a sync
 MPP Session does not fit. Do not build it without an accepted use case.
 
 The signing primitive is not the blocker. Both protocols sign Soroban authorization entries.
-Their digest is `SHA-256(XDR(HashIdPreimage))`, which `walleterm sign` accepts.
+Their digest is `SHA-256(XDR(HashIdPreimage))`. The preimage shape of `walleterm sign` accepts the V2 preimage and computes it.
 The blockers are client library defaults and non-digest messages.
 
 ## Sources
@@ -80,9 +80,9 @@ MPP is a 402 protocol for many payment networks. The Stellar method has no facil
 
 ### Why V1 matters
 
-walleterm rejects V1 `sorobanCredentialsAddress` in `sign-auth`, the bridge, and the SEP-43 design.
+walleterm rejects V1 `sorobanCredentialsAddress` in `walleterm sign`, the bridge, and the SEP-43 design.
 V1 has no address binding, so a signature can serve another address (CAP-71-02).
-Raw `walleterm sign` can sign a V1 digest. Do not use that path to bypass the V1 rule.
+`walleterm sign` has no raw digest input, so no path signs a V1 payload.
 Request V2 credentials from simulation instead.
 
 SDK 16.3.0 sets `useUpgradedAuth` to `false` by default (`rpc/server.js:1056`).
@@ -129,7 +129,7 @@ The hosted facilitators' deployed versions were not confirmed.
   Its `sign()` received only 32-byte inputs for envelope and V2 entry signing.
 - `sign()` is synchronous. A walleterm proxy would need a synchronous child process call. This is inferred and untested.
 - Sponsored pull expiry is `latest + ceil(secondsUntilExpiry / 5)`. The 300-second default gives about 60 ledgers.
-  That value is at the limit of `sign-auth`.
+  `walleterm sign` applies no expiry window. The network enforces expiry.
 - Version 0.7.1 signs and verifies only V1 (`dist/charge/client/Charge.js:176-180`, `dist/shared/verify-auth.js:26`).
 - Push signs `` Buffer.from(`${challenge.id}:${canonicalHash}`) `` with raw Ed25519 (`Charge.ts:409-410`).
 - The client sets `from` to the Keypair's G-address. The server rejects contract authorizers.
@@ -151,7 +151,7 @@ The client calls `commitmentKey.sign(Buffer.from(commitmentBytes))` (`sdk/src/ch
 Each paid request needs one new commitment signature.
 
 The commitment key is a raw Ed25519 public key. A 1Password G-account key could serve as that key.
-A walleterm path would need to sign 192 raw bytes, not a 32-byte digest.
+A walleterm path would need to sign 192 raw bytes. `walleterm sign` has no shape for them.
 The funder opens the channel through `__constructor`, which calls `from.require_auth()`.
 The funder refunds through `close_start` and `refund`. walleterm can sign these transactions today.
 
@@ -170,16 +170,15 @@ Follow the [development plan](PLAN.md) change process for each item.
 ### 1. Local SEP-43 signer for agents
 
 Add one small export, for example `createWalletermSigner({ publicKey })`. It returns `{ address, signAuthEntry }`.
-It adds no CLI command and does not change the digest contract.
+It adds no CLI command. It uses the preimage shape of `walleterm sign`.
 
 `signAuthEntry` should:
 
 1. Parse the preimage. Require the V2 type `envelopeTypeSorobanAuthorizationWithAddress`, the expected network, and the selected G-address.
-2. Check the expiry against a trusted current ledger.
-3. Decode the invocation tree. Require one SAC `transfer` from the selected address, with no sub-invocations.
-4. Match the asset, recipient, and amount against the payment the caller approved.
-5. Compute `sha256(preimage)`, call `walleterm sign`, and check `ok` and `verified`.
-6. Return `{ signedAuthEntry: <Base64 signature>, signerAddress }`.
+2. Decode the invocation tree. Require one SAC `transfer` from the selected address, with no sub-invocations.
+3. Match the asset, recipient, and amount against the payment the caller approved.
+4. Send the preimage to `walleterm sign` with the preimage shape. Check `ok`, `verified`, and the digest.
+5. Return `{ signedAuthEntry: <Base64 signature>, signerAddress }`.
 
 Reuse the preimage validation from the SEP-43 branch (`docs/sep-43-design`, `sdk/preimage.ts`) when it merges.
 The signer also serves any `AssembledTransaction.signAuthEntries` caller.

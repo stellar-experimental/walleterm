@@ -7,12 +7,14 @@ See [the acceptance summary](../evidence/acceptance-summary.json) for coverage a
 
 - Support macOS and the 1Password desktop SSH agent.
 - Keep key creation, storage, and signing inside 1Password.
-- Provide `list` and `sign`, with JSON output and optional `--human` formatting.
-- Require one explicit public key and one 32-byte digest per signature.
+- Provide `list` and `sign` with JSON output. Only `list` has optional `--human` formatting.
+- Require one explicit public key and exactly one artifact per signature: a transaction, an authorization
+  preimage, an authorization entry, or a SEP-53 message. Walleterm computes the digest. It never accepts one.
 - Verify each returned signature before reporting success.
-- Keep network calls, XDR assembly, and contract adapters outside the `list` and `sign` commands.
+- Keep network calls, transaction construction, and submission outside the `list` and `sign` commands.
+- Share one core for each artifact between `sign` and the bridge: inspect, sign 32 bytes, finish.
 - Keep the testnet website bridge in `tunnel` and `demo`. See [the web bridge](WEB-BRIDGE.md).
-  These commands do not change `list`, `sign`, or their byte contract.
+  The bridge adds only its website rules.
 
 The [interface](INTERFACE.md) defines the input, output, socket checks, and limits.
 Use Stellar CLI or the official SDK to build and inspect transactions.

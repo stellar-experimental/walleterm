@@ -192,12 +192,11 @@ function fixture(options: Options = {}) {
       }
       return options.enforce?.() ?? host(op);
     },
-    getLatestLedger: async () => ({ sequence: 105 }),
   };
   // Mock signer: the same artifact the CLI and bridge return, from the isolated mock key.
-  const sign: AuthSigner = async (input, latestLedger) => {
-    const checked = inspectAuthEntry(input, input.public_key, latestLedger);
-    const result = attachAuthSignature(input, input.public_key, latestLedger, hex(key.sign(checked.digest)));
+  const sign: AuthSigner = async (input) => {
+    const checked = inspectAuthEntry(input, input.public_key);
+    const result = attachAuthSignature(input, input.public_key, hex(key.sign(checked.digest)));
     signed.push(result);
     return result;
   };
@@ -350,7 +349,7 @@ test('one signing request follows the complete review and returns an independent
   const f = fixture();
   const prepared = await prepareIncrement(f.server, f.d);
   assert.equal(prepared.before, 7);
-  assert.equal(prepared.expiration, 160);
+  assert.equal(prepared.expiration, 300);
   assert.deepEqual(prepared.input.adapter, {
     type: 'openzeppelin-ed25519',
     verifier: f.d.verifier,
@@ -636,9 +635,9 @@ test('negative controls change one element, request no signature, and require th
 test('controls measure zero signature requests and submissions at the boundaries', async () => {
   const f = fixture();
   const usage: Usage = { signatures: 0, submissions: 0 };
-  const sign: AuthSigner = async (input, latestLedger) => {
+  const sign: AuthSigner = async (input) => {
     usage.signatures++;
-    return f.sign(input, latestLedger);
+    return f.sign(input);
   };
   const { signedXdr } = await authorizeIncrement(f.server, f.d, await prepareIncrement(f.server, f.d), sign);
   assert.deepEqual(usage, { signatures: 1, submissions: 0 });

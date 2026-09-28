@@ -1,6 +1,7 @@
 //! Walleterm: a Stellar signing companion for agents. Private keys stay inside 1Password.
 
 pub mod agent;
+pub mod artifact;
 pub mod authorization;
 pub mod bridge;
 pub mod cancel;
@@ -10,7 +11,7 @@ pub mod demo;
 pub mod error;
 pub mod http;
 pub mod json;
-pub mod ledger;
+pub mod message;
 pub mod platform;
 pub mod preimage;
 pub mod process;

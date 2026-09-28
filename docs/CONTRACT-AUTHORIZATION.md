@@ -63,7 +63,7 @@ const signed = await authorizeEntry(
 
 A native G-account uses `{ signature, publicKey }` in the callback instead.
 The SDK checks the preimage before sending it and verifies the returned signature.
-The bridge accepts an expiry 1–120 ledgers after its trusted ledger.
+No check reads a ledger. The network enforces expiry. Expiration ledger 0 fails.
 Attach the signed entry to the invocation operation.
 Run enforcing simulation and assemble the final resources and fee.
 Then request the envelope signature with `wallet.signTransaction(transaction.toXDR())`.
@@ -72,7 +72,7 @@ The application owns submission and result checks.
 Some contracts sign a digest other than the preimage hash.
 The Walleterm extension `wallet.signAuthorization(entryXdr, { address, adapter })` signs a complete entry through an adapter.
 Supported adapters are `account`, `contract-ed25519`, and `openzeppelin-ed25519`.
-Its expiry window is 60 ledgers. It returns `{ signedAuthEntryXdr, signerAddress }`, or `error`.
+It returns `{ signedAuthEntryXdr, signerAddress }`, or `error`.
 Other contracts can require different signature formats or signing payloads.
 Select a format or adapter only after checking the contract's authorization rules.
 See [OpenZeppelin adapters](OPENZEPPELIN.md) for its pinned signature format.
@@ -80,26 +80,24 @@ The OpenZeppelin adapter supports one `External` Ed25519 signer. It does not sup
 
 ## Use the CLI
 
-`walleterm sign-auth < request.json` accepts the following fields:
+The authorization entry shape of `walleterm sign < request.json` accepts these fields:
 
 ```json
 {
-  "auth_entry_xdr": "base64 AddressV2 authorization entry",
-  "network_passphrase": "Test SDF Network ; September 2015",
   "public_key": "selected G-address",
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "auth_entry_xdr": "base64 AddressV2 authorization entry",
   "address": "authorizing G-address or C-address",
-  "adapter": { "type": "contract-ed25519" },
-  "latest_ledger": 123456
+  "adapter": { "type": "contract-ed25519" }
 }
 ```
 
 The CLI validates the complete entry before requesting a signature.
-It returns `digest`, `signed_auth_entry_xdr`, `public_key`, and `verified` in JSON.
-The CLI uses caller-provided `latest_ledger` and performs no network calls.
-The caller must obtain current ledger evidence from a trusted source.
-The browser bridge obtains ledger evidence from its fixed testnet RPC endpoint.
+It returns `digest`, `signature`, `signed_auth_entry_xdr`, `public_key`, and `verified` in JSON.
+The CLI performs no network calls. No check reads a ledger, and expiration ledger 0 fails.
+The preimage shape signs a `buildAuthorizationEntryPreimage` result instead. See [the CLI interface](INTERFACE.md#sign).
 
-The signer sends exactly 32 decoded digest bytes to the 1Password agent.
+Walleterm computes the digest and sends exactly those 32 bytes to the 1Password agent.
 Private keys stay inside 1Password.
 The CLI, SDK, and bridge never submit transactions.
 The demo owns contract discovery, setup, simulation, submission, and counter checks.
@@ -117,7 +115,7 @@ WALLETERM_BINARY=/isolated/prefix/bin/walleterm \
 ```
 
 The SDK half uses the Rust bridge on loopback through the test host's production mode.
-That mode uses the real 1Password signer, `OP_VAULT` discovery, and testnet ledger, as `walleterm tunnel` does.
+That mode uses the real 1Password signer and `OP_VAULT` discovery, as `walleterm tunnel` does.
 
 The runner records reviewed entries, transaction hashes, ledgers, and counter values.
 It checks missing authorization, changed nonces, and changed calls through enforcing simulation.
@@ -130,8 +128,8 @@ At that time, all 270 offline tests passed. The independent Astra review reporte
 The CLI and SDK each signed a C-account entry before a separate envelope signature.
 The accepted transactions changed the counter from 0 to 3 across the recorded runs.
 The first run found a ledger-response size limit before SDK authorization signing.
-The bridge now reads `getHealth.latestLedger` and requires healthy status.
-The final live run passed after that fix.
+The bridge then read `getHealth.latestLedger`, and the final live run passed.
+The bridge no longer reads a ledger (2026-09-28). The records above predate that change.
 
 A later visible Chrome test used freshly rebuilt tunnel and demo services.
 It signed the explicit C-account authorization, then signed the transaction separately.

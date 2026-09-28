@@ -75,7 +75,7 @@ test-package:
 	mkdir "$$dir/empty"; cd "$$dir/empty"; \
 	run() { env -i PATH=/usr/bin:/bin HOME="$$dir/empty" "$$dir/a/walleterm" "$$@"; }; \
 	test "$$(run --version)" = "walleterm 0.0.0-test"; \
-	status=0; printf '{}' | run sign-auth > out || status=$$?; \
+	status=0; printf '{}' | run sign > out || status=$$?; \
 	test "$$status" = 2; grep -q '"invalid_input"' out; \
 	status=0; run demo --port 0 > out 2>&1 || status=$$?; test "$$status" = 2; grep -q "^invalid_input: " out; \
 	echo "The package check passed."

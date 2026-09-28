@@ -1012,3 +1012,18 @@ async fn shutdown_during_retirement_cancels_bridge_signing_first() {
         "closing {closing}, canceled {canceled}, delivered {delivered}"
     );
 }
+
+#[test]
+fn the_production_client_is_https_only() {
+    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
+    runtime.block_on(async {
+        let client = walleterm::http::https_client().unwrap();
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let origin = format!("http://{}", listener.local_addr().unwrap());
+        assert!(walleterm::tunnel::public_probe(&client, &origin, &Cancel::new()).await.is_err());
+        assert!(
+            tokio::time::timeout(Duration::from_millis(100), listener.accept()).await.is_err(),
+            "no plain HTTP connection"
+        );
+    });
+}

@@ -1,7 +1,8 @@
 # Protocol compatibility work
 
 This work started on 2026-09-25. It extends the existing Ed25519 testnet acceptance suite.
-The production signing interface remains one selected public key and one 32-byte digest.
+The production signing interface is one selected public key and one artifact per signature.
+On 2026-09-28, `walleterm sign` replaced its 32-byte digest input with artifacts. Walleterm now computes each digest.
 
 ## Acceptance
 

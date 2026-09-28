@@ -43,7 +43,7 @@ cargo)
   case "$1" in
   build)
     mkdir -p "$CARGO_TARGET_DIR/release"
-    printf '#!/bin/sh\ncase "$1" in\n--version) echo "walleterm %s" ;;\nsign-auth) cat >/dev/null; echo %s; exit 2 ;;\n*) exit 99 ;;\nesac\n' \
+    printf '#!/bin/sh\ncase "$1" in\n--version) echo "walleterm %s" ;;\nsign) cat >/dev/null; echo %s; exit 2 ;;\n*) exit 99 ;;\nesac\n' \
       "$WALLETERM_VERSION" "'{\"ok\":false,\"error\":{\"code\":\"invalid_input\"}}'" > "$CARGO_TARGET_DIR/release/walleterm"
     chmod 700 "$CARGO_TARGET_DIR/release/walleterm" ;;
   metadata)

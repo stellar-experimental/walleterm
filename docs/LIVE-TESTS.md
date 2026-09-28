@@ -57,7 +57,9 @@ Run `contracts` before `extended` or `cap85`; they need its deployment checkpoin
 The `contracts` and `extended` runners check each recorded authorization entry against the expected tree of its row.
 A mismatch stops the row before any signing request.
 Review [the test matrix](TEST-MATRIX.md) and the relevant fixture README before selecting individual rows.
-The core signs digests only. These runners construct, sign, submit, and check the test transactions.
+These runners construct, submit, and check the test transactions. They send each artifact to `walleterm sign`:
+transactions with the transaction shape, host payloads with the preimage shape, and OpenZeppelin entries with the entry shape.
+Walleterm computes every digest. The runners check each returned signature independently.
 
 ## Recover an interrupted run
 

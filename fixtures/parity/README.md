@@ -1,16 +1,16 @@
 # Parity fixtures
 
 These files freeze the behavior of the accepted Go signer and TypeScript sidecar at
-`52a7fc388e93e19482a9cc2a96408ac4328c526e`. The Rust host must reproduce every case exactly.
+`52a7fc388e93e19482a9cc2a96408ac4328c526e`. The Rust host must reproduce every case exactly,
+except the reviewed changes in [One sign command](#one-sign-command).
 
 | File | Producer | Cases | SHA-256 |
 | --- | --- | --- | --- |
 | `vectors.json` | `sdk/authorization.ts`, `sdk/preimage.ts`, `bridge/authorization.ts`, `bridge/transaction.ts`; JS SDK 17.1.0 on Bun 1.4.2 | 99 | `5cacc734b910b20ea4f0e9822af7138260853c57df2700f096079bda247ca799` |
 | `cli.json` | `main.go` `run()` against scripted mock agents; Go 1.27.1 | 58 | `1c8bb6d80bf8158a5f88cb3ce9fc5f023037497cc41f1d30c131786ec67dd14a` |
-| `sign-auth.json` | `bridge/auth-cli.ts` through `bridge/main.ts sign-auth`, with a fake `walleterm sign` | 26 | `6383b913b38d0a2035d03863e2dc8aa68987a0efacc90ea51bbe5ec163024ce7` |
 | `dotenv.json` | `dotenv.ts`: Bun 1.4.2 `node:util.parseEnv`, the legacy tunnel's `.env` parser | 2106 | `42ab2525d78d06f31cb4b10b048b1abcb29cff78b2848c1e9ace590c33addee8` |
 
-All four were produced on 2026-09-28. `dotenv.json` was added after the Phase 3 review found `.env` inputs
+All were produced on 2026-09-28. `dotenv.json` was added after the Phase 3 review found `.env` inputs
 that removed the vault filter. It holds the review cases, fuzzing edge cases, and 2000 seeded random inputs.
 Before the freeze, three seeds with 120,000 inputs of up to 120 characters matched Bun exactly.
 Six `vectors.json` cases were added after the Phase 1 review:
@@ -23,8 +23,6 @@ before `bridge/soroban-transaction.test.ts` was removed. The first 87 cases are 
   SEP-43 preimages, and bridge v3 transactions.
 - `cli.json`: arguments, standard input, the mock agent's replies, the exit code, standard output and
   error bytes, and every raw request frame that reached the agent.
-- `sign-auth.json`: standard input, the exit code, and standard output and error bytes. The fake signer
-  signs with the mock seed or returns the Go signer's error JSON.
 
 The mock keys come from fixed seeds (07 and 09 repeated; 08 for an unlisted key). Use them only offline.
 Never import, fund, or use them for live signing.
@@ -44,9 +42,22 @@ The Rust host differs from the old code in these places. Only the first one acce
 - XDR decoding stops at depth 500, the Soroban host limit. A deeper value cannot run on chain.
 - `--human` output escapes control, format (Cf), separator, and private-use characters as Go does.
   Go also escapes unassigned code points; Rust prints an unassigned letter-like character. JSON output is byte-identical.
-- `sign` input with an escaped lone surrogate (`\ud800`) fails as invalid JSON. Go decodes it to U+FFFD.
-- `sign-auth` input that JavaScript parses but `serde_json` refuses (lone surrogates, numbers beyond f64) fails as
-  `Send one JSON object.` Both reject the request.
-- `sign-auth` has no sidecar, so `start_failed` no longer occurs. On SIGINT or SIGTERM it exits by the signal
-  without a JSON line, as `sign` does.
 - `tunnel` and `demo` accept only decimal `--port` values. Go's `flag` package also accepts hexadecimal and octal.
+
+## One sign command
+
+The approved design in `audit/2026-09-28-sign-design/DESIGN.md` (PR A) changed these behaviors on 2026-09-28.
+The frozen files stay unchanged. The tests record each change.
+
+- `walleterm sign-auth` is gone, so `sign-auth.json` was removed. `tests/cli.rs` and `tests/vectors.rs` sign the same
+  entries through `walleterm sign` and the shared core, and they reproduce the frozen JS results.
+- `walleterm sign` no longer accepts a digest or `--human`. The `sign-*` and `input-*` cases in `cli.json` record the
+  removed digest input. `tests/cli.rs` replays only the `list` cases byte for byte.
+  It replays the recorded agent failure replies with the message shape. Each failure keeps its code and message.
+- The help and usage text changed. The `help`, `help-short`, and `usage-*` cases record the old text.
+- No request reads a ledger. The `latest_ledger` window and value checks are gone. Expiration ledger 0 fails.
+- A transaction needs no time bounds. Only a nonzero `max_time` at or before now fails. A fee bump uses its inner bounds.
+  The bridge request expiry is five minutes, or the transaction's `max_time` when that is sooner.
+- The shared core accepts a preimage bound to any G- or C-address. The bridge still requires the selected G-address
+  or a C-address.
+- `tests/vectors.rs` lists each changed vector in `CHANGED`.

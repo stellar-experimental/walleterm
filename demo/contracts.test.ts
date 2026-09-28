@@ -225,9 +225,9 @@ test('explicit authorization signing precedes enforcing simulation and outer tra
     network_passphrase: Networks.TESTNET,
     adapter: { type: 'contract-ed25519' as const },
   };
-  const checked = inspectAuthEntry(input, f.signer, 100);
+  const checked = inspectAuthEntry(input, f.signer);
   assert.notEqual(hex(checked.digest), hex(transaction.hash()));
-  authorization.xdr = attachAuthSignature(input, f.signer, 100, hex(f.key.sign(checked.digest)));
+  authorization.xdr = attachAuthSignature(input, f.signer, hex(f.key.sign(checked.digest)));
   authorization.signed = true;
   const final = await assembleAuthorizedContract(f.server, transaction.toXDR(), review);
   review.authorizationReady = true;

@@ -34,7 +34,7 @@ export interface Cap71Rpc {
 }
 export type Cap71Context = Pick<
   LiveContext,
-  'sdk' | 'networkPassphrase' | 'keys' | 'signDigest' | 'record' | 'assertClear' | 'rows'
+  'sdk' | 'networkPassphrase' | 'keys' | 'signPreimage' | 'record' | 'assertClear' | 'rows'
 > & {
   rpc: Cap71Rpc;
   sign(tx: Transaction, key: TestKey): Promise<Transaction>;
@@ -44,7 +44,7 @@ export type Cap71Context = Pick<
 };
 type SigningTreeContext = Pick<
   Cap71Context,
-  'sdk' | 'keys' | 'networkPassphrase' | 'signDigest' | 'record' | 'assertClear'
+  'sdk' | 'keys' | 'networkPassphrase' | 'signPreimage' | 'record' | 'assertClear'
 >;
 export interface Binding {
   network: string;
@@ -237,7 +237,8 @@ export async function signTree(
         assert.equal(Buffer.from(payload).length, 32);
         assert.equal(sha(preimage.toXdr()).toString('hex'), info.digest);
         ctx.record(`${label}:auth`, 'signing_requested', info); // Durable before the approval prompt.
-        const signature = await ctx.signDigest(key, Buffer.from(payload));
+        // The preimage shape, bound to the top-level address. Walleterm computes the payload itself.
+        const signature = await ctx.signPreimage(key, preimage);
         assert(sdk.Keypair.fromPublicKey(address).verify(payload, signature), 'Invalid delegate signature');
         evidence.push({ ...info, signature_hex: Buffer.from(signature).toString('hex') });
         return { signatureScVal: accountSignature(sdk, [{ rawKey: key.rawPublicKey, signature }]) };
@@ -675,7 +676,7 @@ export async function runCap71(ctx: Cap71Context) {
             assert.equal(preimage.type, 'envelopeTypeSorobanAuthorizationWithAddress');
             ctx.assertClear();
             ctx.record(`${label}:auth`, 'signing_requested', info);
-            const signature = await ctx.signDigest(keys.a, Buffer.from(payload));
+            const signature = await ctx.signPreimage(keys.a, preimage);
             assert(sdk.Keypair.fromPublicKey(keys.a.publicKey).verify(payload, signature));
             signatures.push({ ...info, signature_hex: Buffer.from(signature).toString('hex') });
             return { signatureScVal: sdk.xdr.ScVal.scvBytes(signature) };

@@ -81,7 +81,7 @@ impl Rpc {
 }
 
 fn deps(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
-    let (a, b, c, d) = (rpc.clone(), rpc.clone(), rpc.clone(), rpc.clone());
+    let (a, b, c) = (rpc.clone(), rpc.clone(), rpc.clone());
     Deps {
         list_signers: Box::new(move |cancel| -> BoxFuture<Result<Vec<SignerInfo>>> {
             let rpc = a.clone();
@@ -106,18 +106,9 @@ fn deps(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
                 Ok(value.as_str().unwrap_or_default().to_owned())
             })
         }),
-        latest_ledger: Box::new(move |cancel| -> BoxFuture<Result<u32>> {
-            let rpc = c.clone();
-            Box::pin(async move {
-                let value = rpc.call("latest_ledger", Value::Null, cancel).await?;
-                value.as_u64().and_then(|v| u32::try_from(v).ok()).ok_or_else(|| {
-                    Error::new("ledger_unavailable", "The trusted testnet ledger is unavailable.")
-                })
-            })
-        }),
         review: std::env::var_os("WALLETERM_TEST_HOST_REVIEW").map(|_| {
             Box::new(move |request, cancel| -> BoxFuture<Result<bool>> {
-                let rpc = d.clone();
+                let rpc = c.clone();
                 Box::pin(async move {
                     let value = rpc.call("review", serde_json::to_value(request).unwrap(), cancel).await?;
                     Ok(value.as_bool().unwrap_or(false))
@@ -131,8 +122,8 @@ fn deps(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
     }
 }
 
-/// With WALLETERM_TEST_HOST_PRODUCTION, the live harnesses get the production signer, `OP_VAULT` discovery,
-/// and ledger, as `walleterm tunnel` wires them, on loopback without a tunnel. Log lines still reach the harness.
+/// With WALLETERM_TEST_HOST_PRODUCTION, the live harnesses get the production signer and `OP_VAULT` discovery,
+/// as `walleterm tunnel` wires them, on loopback without a tunnel. Log lines still reach the harness.
 fn dependencies(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
     if std::env::var_os("WALLETERM_TEST_HOST_PRODUCTION").is_none() {
         return deps(rpc, offset);
@@ -141,8 +132,7 @@ fn dependencies(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
     let directory = std::env::current_dir().expect("a working directory");
     let vault =
         walleterm::config::load_vault(&directory, std::env::var("OP_VAULT").ok()).expect("a readable .env");
-    let client = walleterm::ledger::https_client().expect("an HTTPS client");
-    let mut production = walleterm::bridge::production(socket, vault.vault, client);
+    let mut production = walleterm::bridge::production(socket, vault.vault);
     production.log = Box::new(|line| send(&json!({ "log": line })));
     production
 }

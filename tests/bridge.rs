@@ -259,7 +259,8 @@ async fn structurally_invalid_requests_never_invoke_review_or_signing() {
     with("network_passphrase", json!("Public Global Stellar Network ; September 2015"), 400);
     with("address", json!(address(&mock_key(9))), 400);
     with("xdr", json!("AAAA"), 400);
-    with("xdr", json!(transaction(&f.key, f.controls.now(), 400)), 400);
+    // The only time rule: a max_time at or before now. Here it ended 220 seconds ago.
+    with("xdr", json!(transaction(&f.key, f.controls.now() - 400_000, 180)), 400);
     with("xdr", json!(transaction(&mock_key(9), f.controls.now(), 180)), 400);
     with("kind", json!("message"), 400);
     with("id", json!("bad id"), 400);
@@ -569,11 +570,7 @@ async fn invalid_requests_report_their_exact_reason_and_never_reach_review() {
     mainnet["network_passphrase"] = json!("Public Global Stellar Network ; September 2015");
     cases.push((mainnet, "network_unsupported"));
     cases.push((
-        request_with(&f, "no-expiry", text(&build(ed(&key), vec![data("a", None)], 100, now, 0))),
-        "invalid_request",
-    ));
-    cases.push((
-        request_with(&f, "long", text(&build(ed(&key), vec![data("a", None)], 100, now, 600))),
+        request_with(&f, "ended", text(&build(ed(&key), vec![data("a", None)], 100, now - 10_000, 10))),
         "invalid_request",
     ));
     cases.push((
@@ -594,9 +591,9 @@ async fn invalid_requests_report_their_exact_reason_and_never_reach_review() {
     cases.push((request_with(&f, "v0", v0(&valid())), "invalid_request"));
     // The fee-bump fee source signs the outer envelope. The inner source alone is not a required signer.
     cases.push((request_with(&f, "inner-source", text(&fee_bump(ed(&other), valid()))), "address_mismatch"));
-    let unbounded = build(ed(&other), vec![data("a", None)], 100, now, 0);
-    cases
-        .push((request_with(&f, "unbounded-inner", text(&fee_bump(ed(&key), unbounded))), "invalid_request"));
+    // A fee bump uses its inner time bounds.
+    let ended = build(ed(&other), vec![data("a", None)], 100, now - 10_000, 10);
+    cases.push((request_with(&f, "ended-inner", text(&fee_bump(ed(&key), ended))), "invalid_request"));
     cases.push((request_with(&f, "twenty", text(&sign_many(valid(), 20))), "invalid_request"));
     for (item, reason) in cases {
         let r = f.post("/v1/requests", item.clone(), &a).await;
@@ -639,6 +636,10 @@ async fn the_bridge_filters_no_operations_and_signs_only_for_a_required_signer()
         ("nineteen", sign_many(build(ed(&key), vec![data("n", None)], 100, now, 180), 19)),
         ("muxed", build(muxed(&key, 7), vec![data("m", None)], 100, now, 180)),
         ("muxed-operation-source", build(ed(&other), vec![data("m", Some(muxed(&key, 9)))], 100, now, 180)),
+        // No time bounds and a long lifetime both sign. The network enforces max_time.
+        ("no-time-bounds", build(ed(&key), vec![data("u", None)], 100, now, 0)),
+        ("long", build(ed(&key), vec![data("l", None)], 100, now, 86_400)),
+        ("unbounded-inner", fee_bump(ed(&key), build(ed(&other), vec![data("i", None)], 100, now, 0))),
     ];
     for (id, envelope) in envelopes {
         assert_eq!(
@@ -701,6 +702,35 @@ async fn expiry_before_review_never_signs() {
     f.controls.decide(true).await;
     assert_eq!(f.result(&a, "expired").await.body["state"], "expired");
     assert_eq!(f.result(&a, "first").await.body["state"], "expired");
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+    f.close().await;
+}
+
+/// A request lasts at most five minutes, also when the transaction has no bounds or a distant max_time.
+#[tokio::test]
+async fn a_request_lasts_at_most_five_minutes_without_a_nearer_max_time() {
+    use support::tx::*;
+    let f = Fixture::new(Options::default()).await;
+    let a = f.connect(SITE).await;
+    let (key, now) = (f.key.clone(), f.controls.now());
+    let requests = [
+        request_with(&f, "no-bounds", text(&build(ed(&key), vec![data("u", None)], 100, now, 0))),
+        request_with(&f, "one-day", text(&build(ed(&key), vec![data("d", None)], 100, now, 86_400))),
+        preimage_request(&f, "preimage", 220),
+    ];
+    let cap = walleterm::util::iso_millis((now + 300_000) as i64);
+    for request in &requests {
+        let r = f.post("/v1/requests", request.clone(), &a).await;
+        assert_eq!(r.status, 201, "{}: {}", request["id"], r.body);
+        assert_eq!(r.body["expires_at"], json!(cap), "{}", request["id"]);
+    }
+    f.controls.advance(300_001);
+    // The first request is in review. The queue expires the others before their review starts.
+    f.controls.decide(true).await;
+    for request in &requests {
+        let id = request["id"].as_str().unwrap();
+        assert_eq!(f.result(&a, id).await.body["state"], "expired", "{id}");
+    }
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
     f.close().await;
 }
@@ -999,32 +1029,35 @@ fn preimage_request(f: &Fixture, id: &str, expiration: u32) -> Value {
     })
 }
 
-/// The expected signed entry, attached independently with the mock key at `ledger`.
-fn expected_entry(f: &Fixture, request: &Value, ledger: u32) -> String {
+/// The expected signed entry, attached independently through the shared core with the mock key.
+fn expected_entry(f: &Fixture, request: &Value) -> String {
     use ed25519_dalek::Signer;
-    let input = walleterm::authorization::AuthEntryInput {
-        auth_entry_xdr: request["auth_entry_xdr"].as_str().unwrap().into(),
-        network_passphrase: TESTNET.into(),
-        public_key: f.public_key.clone(),
+    use walleterm::artifact::{self, Artifact, Scope, Signed};
+    let artifact = Artifact::Authorization {
+        entry_xdr: request["auth_entry_xdr"].as_str().unwrap().into(),
         address: request["auth_address"].as_str().unwrap().into(),
         adapter: request["adapter"].clone(),
     };
-    let checked = walleterm::authorization::inspect_auth_entry(&input, &f.public_key, Some(ledger)).unwrap();
-    let signature = walleterm::util::hex(&f.key.sign(&checked.digest).to_bytes());
-    walleterm::authorization::attach_auth_signature(&input, &f.public_key, Some(ledger), &signature).unwrap()
+    let scope = Scope { key: &f.public_key, passphrase: Some(TESTNET), now_ms: 0 };
+    let checked = artifact::inspect(&artifact, &scope).unwrap();
+    let Signed::AuthEntry(xdr) =
+        artifact::finish(&artifact, &scope, &f.key.sign(&checked.digest).to_bytes()).unwrap()
+    else {
+        panic!("an entry")
+    };
+    xdr
 }
 
 #[tokio::test]
 async fn authorization_signs_once_binds_adapters_on_retries_and_rejects_extra_fields() {
     let f = Fixture::new(Options { review: false, ..Options::default() }).await;
-    *f.controls.ledger.lock().unwrap() = Ok(100);
     let a = scoped(&f, SITE).await;
     let adapter = json!({"type": "openzeppelin-ed25519", "verifier": support::auth::contract(3), "context_rule_ids": [0]});
     let body = with_revision(authorization_request(&f, "one", adapter.clone(), 160), 1);
     assert_eq!(f.post("/v1/requests", body.clone(), &a).await.status, 201);
     let signed = f.result(&a, "one").await;
     assert_eq!(signed.body["state"], "signed", "{}", signed.body);
-    assert_eq!(signed.body["signed_auth_entry_xdr"], json!(expected_entry(&f, &body, 100)));
+    assert_eq!(signed.body["signed_auth_entry_xdr"], json!(expected_entry(&f, &body)));
     assert_eq!(
         f.post("/v1/requests", body.clone(), &a).await.body["signed_auth_entry_xdr"],
         signed.body["signed_auth_entry_xdr"]
@@ -1049,49 +1082,60 @@ async fn authorization_signs_once_binds_adapters_on_retries_and_rejects_extra_fi
     f.close().await;
 }
 
+/// No request reads a ledger: the dependencies have no ledger function, and the network enforces expiry.
+/// Expiration ledger 0 is the only expiry rule, because ledger 0 is always in the past.
 #[tokio::test]
-async fn authorization_expires_by_trusted_ledger_before_and_after_signing() {
+async fn authorization_has_no_expiry_window_and_refuses_only_expiration_zero() {
     let f = Fixture::new(Options { review: false, ..Options::default() }).await;
     let a = f.connect(SITE).await;
     let adapter = json!({"type": "contract-ed25519"});
-    *f.controls.ledger.lock().unwrap() = Ok(160);
-    f.post("/v1/requests", authorization_request(&f, "before", adapter.clone(), 160), &a).await;
-    let r = f.result(&a, "before").await;
-    assert_eq!(r.body["state"], "denied");
-    assert!(r.body["error"]["message"].as_str().unwrap().contains("60 ledgers"), "{}", r.body);
+    for (id, expiration) in [("next", 1), ("far", 100_000), ("max", u32::MAX)] {
+        let request = authorization_request(&f, id, adapter.clone(), expiration);
+        assert_eq!(f.post("/v1/requests", request.clone(), &a).await.status, 201, "{id}");
+        let r = f.result(&a, id).await;
+        assert_eq!(r.body["state"], "signed", "{id}: {}", r.body);
+        assert_eq!(r.body["signed_auth_entry_xdr"], json!(expected_entry(&f, &request)), "{id}");
+    }
+    for (id, request) in [
+        ("entry-zero", authorization_request(&f, "entry-zero", adapter.clone(), 0)),
+        ("preimage-zero", preimage_request(&f, "preimage-zero", 0)),
+    ] {
+        let r = f.post("/v1/requests", request, &a).await;
+        assert_eq!(r.status, 400, "{id}: {}", r.body);
+        assert_eq!(r.body["error"]["ext"], json!(["walleterm:invalid_request"]), "{id}");
+        assert_eq!(
+            r.body["error"]["message"],
+            "Set the authorization expiration ledger. Ledger 0 is always in the past.",
+            "{id}"
+        );
+    }
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 3);
+    f.close().await;
+}
+
+/// The account adapter signs only for the selected G-address. Another G-account entry could be valid on chain
+/// when the selected key is one of its co-signers, so the bridge refuses it before review.
+#[tokio::test]
+async fn the_account_adapter_refuses_another_g_address() {
+    let f = Fixture::new(Options::default()).await;
+    let a = f.connect(SITE).await;
+    let other = address(&mock_key(9));
+    let mut request = authorization_request(&f, "other-account", json!({"type": "account"}), 160);
+    request["auth_entry_xdr"] = json!(support::auth::entry(&other, 160));
+    request["auth_address"] = json!(other);
+    let r = f.post("/v1/requests", request, &a).await;
+    assert_eq!(r.status, 400, "{}", r.body);
+    assert_eq!(r.body["error"]["ext"], json!(["walleterm:invalid_request"]));
+    assert_eq!(r.body["error"]["message"], "The account authorization must match the selected G-address.");
+    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 0);
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
-    *f.controls.ledger.lock().unwrap() = Ok(100);
-    let release = f.controls.hold_signing();
-    f.post("/v1/requests", authorization_request(&f, "after", adapter, 160), &a).await;
-    until(|| f.controls.signs.load(Ordering::SeqCst) == 1).await;
-    *f.controls.ledger.lock().unwrap() = Ok(160);
-    let _ = release.send(());
-    let r = f.result(&a, "after").await;
-    assert_eq!(r.body["state"], "unknown", "{}", r.body);
-    assert!(r.body.get("signed_auth_entry_xdr").is_none());
-    assert_eq!(f.controls.ledger_calls.load(Ordering::SeqCst), 3);
     f.close().await;
 }
 
 #[tokio::test]
-async fn ledger_failure_and_malformed_signatures_produce_no_authorization() {
+async fn malformed_signatures_produce_no_authorization() {
     let f = Fixture::new(Options { review: false, ..Options::default() }).await;
     let a = f.connect(SITE).await;
-    *f.controls.ledger.lock().unwrap() = Err(walleterm::error::Error::new("internal", "Offline"));
-    f.post(
-        "/v1/requests",
-        authorization_request(&f, "missing", json!({"type": "contract-ed25519"}), 160),
-        &a,
-    )
-    .await;
-    let r = f.result(&a, "missing").await;
-    assert_eq!(r.body["state"], "denied");
-    assert_eq!(
-        r.body["error"],
-        json!({"code": -2, "message": "The trusted testnet ledger is unavailable.", "ext": ["walleterm:ledger_unavailable"], "requestState": "denied"})
-    );
-    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
-    *f.controls.ledger.lock().unwrap() = Ok(100);
     *f.controls.sign_result.lock().unwrap() = Some("00".repeat(64));
     f.post("/v1/requests", authorization_request(&f, "bad", json!({"type": "contract-ed25519"}), 160), &a)
         .await;
@@ -1106,7 +1150,6 @@ async fn authorization_cancel_and_switch_withhold_a_late_signature() {
     for action in ["cancel", "switch", "revoke"] {
         let f = Fixture::new(Options { review: false, ..Options::default() }).await;
         *f.controls.signers.lock().unwrap() = Ok(both(&f));
-        *f.controls.ledger.lock().unwrap() = Ok(100);
         let a = scoped(&f, SITE).await;
         let release = f.controls.hold_signing();
         f.post(
@@ -1137,31 +1180,40 @@ async fn authorization_cancel_and_switch_withhold_a_late_signature() {
 }
 
 #[tokio::test]
-async fn preimages_sign_within_the_120_ledger_window() {
+async fn preimages_sign_without_a_window_for_the_selected_account_or_a_contract() {
     use base64::Engine as _;
     use ed25519_dalek::Signer;
     let f = Fixture::new(Options { review: false, ..Options::default() }).await;
-    *f.controls.ledger.lock().unwrap() = Ok(100);
     let a = f.connect(SITE).await;
-    let request = preimage_request(&f, "preimage", 220);
-    f.post("/v1/requests", request.clone(), &a).await;
-    let r = f.result(&a, "preimage").await;
-    assert_eq!(r.body["state"], "signed", "{}", r.body);
-    let raw =
-        base64::engine::general_purpose::STANDARD.decode(request["preimage_xdr"].as_str().unwrap()).unwrap();
-    let digest = walleterm::util::sha256(&raw);
-    assert_eq!(r.body["hash"], json!(walleterm::util::hex(&digest)));
-    let expected = base64::engine::general_purpose::STANDARD.encode(f.key.sign(&digest).to_bytes());
-    assert_eq!(r.body["signed_auth_entry"], json!(expected));
-    f.post("/v1/requests", preimage_request(&f, "late-window", 221), &a).await;
-    let r = f.result(&a, "late-window").await;
-    assert_eq!(r.body["state"], "denied");
-    assert_eq!(r.body["error"]["message"], "The authorization must expire within the next 120 ledgers.");
+    let contract = preimage_request(&f, "contract", 220);
+    let mut bound_to_contract = contract.clone();
+    bound_to_contract["preimage_xdr"] = json!(support::auth::preimage(&support::auth::contract(1), 220));
+    for (id, request) in [
+        ("preimage", preimage_request(&f, "preimage", 220)),
+        ("far", preimage_request(&f, "far", u32::MAX)),
+        ("contract", bound_to_contract),
+    ] {
+        f.post("/v1/requests", request.clone(), &a).await;
+        let r = f.result(&a, id).await;
+        assert_eq!(r.body["state"], "signed", "{id}: {}", r.body);
+        let raw = base64::engine::general_purpose::STANDARD
+            .decode(request["preimage_xdr"].as_str().unwrap())
+            .unwrap();
+        let digest = walleterm::util::sha256(&raw);
+        assert_eq!(r.body["hash"], json!(walleterm::util::hex(&digest)));
+        let expected = base64::engine::general_purpose::STANDARD.encode(f.key.sign(&digest).to_bytes());
+        assert_eq!(r.body["signed_auth_entry"], json!(expected));
+    }
+    // The CLI signs a preimage bound to another G-address, for a multisig co-signer. The bridge does not.
     let mut other_signer = preimage_request(&f, "other", 220);
     other_signer["preimage_xdr"] = json!(support::auth::preimage(&address(&mock_key(9)), 220));
     let r = f.post("/v1/requests", other_signer, &a).await;
     assert_eq!(r.body["error"]["ext"], json!(["walleterm:address_mismatch"]));
-    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        r.body["error"]["message"],
+        "The authorization address must be the selected G-address or a C-address."
+    );
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 3);
     f.close().await;
 }
 

@@ -31,21 +31,22 @@ Live tests covered `External` signers and one `Delegated(G-address)` signer with
 ## Digest and order
 
 1. Simulate the call and retain the C-account auth entry, invocation tree, nonce, and credential variant.
-   Read the latest ledger and choose a bounded future expiration. Use it in both the preimage and credential.
-2. Build the host auth preimage described in [classic and native G auth](classic-native.md). Use the C-address for `address_v2`.
-3. Compute `signature_payload = SHA-256(XDR(HashIdPreimage))`.
-4. Select one context rule ID for each auth context. Encode those IDs as `ScVal::Vec<U32>`.
-5. Compute `auth_digest = SHA-256(signature_payload || XDR(ScVal::Vec<U32>))`.
-6. Check the digest deterministically. Compare CLI and SDK encodings of the frozen preimage and rule-ID vector, then recompute both hashes.
-7. Sign `auth_digest` with each selected external Ed25519 key. Signatures over `signature_payload` alone fail.
-8. Put the same IDs and signatures in `AuthPayload`. Insert it into the auth credential.
-9. Re-simulate in enforce mode. Compute and sign the final G-account transaction envelope separately.
+   Use `address_v2`. Choose an expiration ledger and put it in the credential. Walleterm refuses only ledger 0.
+2. Select one context rule ID for each auth context.
+3. Send the unsigned entry to `walleterm sign` with the entry shape and the `openzeppelin-ed25519` adapter:
+   `{"public_key":"G...","network_passphrase":"...","auth_entry_xdr":"...","address":"C...","adapter":{"type":"openzeppelin-ed25519","verifier":"C...","context_rule_ids":[0]}}`.
+4. Walleterm computes `signature_payload = SHA-256(XDR(HashIdPreimage))` for the C-address.
+   It then signs `auth_digest = SHA-256(signature_payload || XDR(ScVal::Vec<U32>))`.
+5. Check the returned `digest` deterministically. Recompute both hashes from CLI or SDK encodings of the preimage and the rule-ID vector.
+6. For one signer, `signed_auth_entry_xdr` already holds the `AuthPayload`.
+   For several signers, send the same entry once for each selected key. Merge the raw `signature` values into one `AuthPayload`.
+7. Re-simulate in enforce mode. Sign the final G-account transaction envelope separately with the transaction shape.
 
 Inspect the final envelope fee after enforce simulation. Repeated CLI 27.1.0 simulations can increase it.
 For a confirmed return value, decode `resultMetaXdr`; `getTransaction` may not include `returnValue`.
 
 A zero-signature enforce simulation may expose the host payload and verifier digest for comparison.
-Treat that output as an optional diagnostic. The deterministic XDR and hash calculation defines the requested digest.
+Treat that output as an optional diagnostic. The deterministic XDR and hash calculation defines the signed digest.
 
 The pinned digest rule appears in [`storage.rs`](https://github.com/OpenZeppelin/stellar-contracts/blob/a5bd8cbd3d0bb8efbd5cf5e2edf9734f87e47640/packages/accounts/src/smart_account/storage.rs#L492-L504).
 For IDs `[0]`, `XDR(ScVal::Vec<U32>)` is `0000001000000001000000010000000300000000`.
@@ -64,8 +65,8 @@ The [acceptance snapshot](acceptance.md) lists live coverage at the pinned code.
 The pinned account calls `delegate.require_auth_for_args((auth_digest,))` inside `__check_auth`.
 Place the delegated G-address in `AuthPayload.signers` with empty signature bytes.
 Add a separate G-account auth entry rooted at the account's `__check_auth` with `[auth_digest]` arguments.
-Use a fresh nonce, a bounded expiration, and the correct preimage for that entry's credential variant.
-Sign that entry's host payload with the authorized G-account signers.
+Use a fresh nonce, a set expiration, and `address_v2` credentials.
+Sign that entry with the authorized G-account signers: the entry shape with `account`, or the preimage shape for several signers.
 Keep the account's rule IDs bound to the original host payload through `auth_digest`.
 Live tests accepted both a single context and a nested two-context tree.
 Wrong roots, wrong bound digests, and missing delegate entries failed enforce simulation.
@@ -75,7 +76,7 @@ This is OpenZeppelin's nested authorization scheme. For CAP-71 delegate credenti
 
 A `Delegated` C-address signer also needs a separate entry rooted at `<account>.__check_auth(auth_digest)`.
 Sign that entry in the delegate contract's own format. Check its code first with [contract code](contract-code.md).
-`walleterm sign-auth` accepts that entry with the `contract-ed25519` or `openzeppelin-ed25519` adapter.
+The entry shape of `walleterm sign` accepts that entry with the `contract-ed25519` or `openzeppelin-ed25519` adapter.
 The request then shows only an opaque 32-byte digest. Walleterm does not check what that digest approves.
 Before signing, recompute `auth_digest` from the reviewed outer entry and its rule IDs. Require an exact match.
 No live test covers this path.

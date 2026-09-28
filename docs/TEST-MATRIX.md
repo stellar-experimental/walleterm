@@ -18,11 +18,11 @@ Use the CLI under test for all live signer signatures.
 | L03 | Fragmented response headers and bodies | Correct bounded reconstruction |
 | L04 | Oversized, truncated, empty, or trailing frames | Error without signing success |
 | L05 | Unknown key and duplicate identities | Explicit deterministic handling |
-| L06 | Invalid JSON, unknown fields, invalid G-address, invalid digest | Rejected before socket signing |
+| L06 | Invalid JSON, unknown or missing fields, several artifacts, the old digest input, `latest_ledger`, invalid G-address | Rejected before any agent connection |
 | L07 | Refused request, locked app, timeout, closed socket | Structured error and nonzero exit |
 | L08 | Wrong response algorithm, wrong key, wrong signature length | Rejected |
 | L09 | Valid signature and changed payload | Original verifies; changed payload fails |
-| L10 | JSON output, human output, help, plugin alias | Stable output and working command examples |
+| L10 | JSON output, `list --human`, help, plugin alias | Stable output and working command examples |
 | L11 | Apple SSH_AUTH_SOCK and missing 1Password socket | No fallback to another agent |
 | L12 | Concurrent callers and repeated requests | Separate bounded requests; no key or payload mix-up |
 
@@ -46,7 +46,7 @@ Use the CLI under test for all live signer signatures.
 | G05 | Different transaction and operation sources | Missing source authorization fails; complete set passes |
 | G06 | Several operations with several sources | All required accounts authorize their operations |
 | G07 | Fee-bump inner and outer signatures | Each envelope uses its own hash and authorized signers |
-| G08 | Wrong network, altered body, stale sequence, expired bounds | Expected protocol rejection |
+| G08 | Wrong network, altered body, stale sequence, expired bounds | Expected protocol rejection; walleterm refuses the expired `max_time` before any 1Password request |
 | G09 | Duplicate signature and unrelated signature | Insufficient duplicate weight returns `txBadAuth`; an unrelated extra signature returns `txBadAuthExtra` |
 | G10 | Signer rotation | Old signer fails after removal; replacement signer passes |
 

@@ -62,9 +62,17 @@ const guard = createSubmissionGuard({ rpc: server, directory, networkPassphrase:
 let bridge: Host | undefined;
 let client: WalletermClient | undefined;
 
-async function cliAuth(input: AuthEntryInput, latestLedger: number) {
+async function cliAuth(input: AuthEntryInput) {
   guard.assertClear();
-  record('cli-auth-request', 'requested', { input, latest_ledger: latestLedger });
+  // The entry shape of `walleterm sign`. The CLI names the signer with public_key.
+  const request = {
+    public_key: input.public_key,
+    network_passphrase: input.network_passphrase,
+    auth_entry_xdr: input.auth_entry_xdr,
+    address: input.address,
+    adapter: input.adapter,
+  };
+  record('cli-auth-request', 'requested', { input: request });
   const signed = await new Promise<{
     ok: boolean;
     public_key: string;
@@ -72,7 +80,7 @@ async function cliAuth(input: AuthEntryInput, latestLedger: number) {
     verified: boolean;
     signed_auth_entry_xdr: string;
   }>((resolve, reject) => {
-    const child = spawn(binary!, ['sign-auth'], { stdio: ['pipe', 'pipe', 'inherit'] });
+    const child = spawn(binary!, ['sign'], { stdio: ['pipe', 'pipe', 'inherit'] });
     let output = '';
     const timer = setTimeout(() => child.kill('SIGTERM'), 125000);
     child.stdout.on('data', (data) => {
@@ -91,12 +99,12 @@ async function cliAuth(input: AuthEntryInput, latestLedger: number) {
         reject(error);
       }
     });
-    child.stdin.end(JSON.stringify({ ...input, latest_ledger: latestLedger }));
+    child.stdin.end(JSON.stringify(request));
   });
-  const checked = inspectAuthEntry(input, signer, latestLedger);
+  const checked = inspectAuthEntry(input, signer);
   if (signed.public_key !== signer || signed.digest !== checked.details.hash || signed.verified !== true)
     throw Error('The CLI returned a different signer or digest.');
-  verifyAuthEntrySignature(input, signed.signed_auth_entry_xdr, latestLedger);
+  verifyAuthEntrySignature(input, signed.signed_auth_entry_xdr);
   record('cli-auth-result', 'passed', {
     digest: signed.digest,
     signed_auth_entry_xdr: signed.signed_auth_entry_xdr,
@@ -108,7 +116,6 @@ async function authorize(prepared: ContractPreparation, method: 'cli' | 'sdk') {
   guard.assertClear();
   validateContractReview(prepared.transaction.toXDR(), signer, prepared.review);
   for (const authorization of prepared.review.authorizations) {
-    const latestLedger = (await server.getLatestLedger()).sequence;
     const input: AuthEntryInput = {
       auth_entry_xdr: authorization.xdr,
       public_key: signer,
@@ -124,14 +131,14 @@ async function authorize(prepared: ContractPreparation, method: 'cli' | 'sdk') {
     record('explicit-auth', 'reviewed', { method, input, stage: prepared.review.stage });
     const signed =
       method === 'cli'
-        ? await cliAuth(input, latestLedger)
+        ? await cliAuth(input)
         : (
             await client!.signAuthorization(authorization.xdr, {
               address: authorization.address,
               adapter: input.adapter,
             })
           ).signedAuthEntryXdr;
-    verifyAuthEntrySignature(input, signed, latestLedger);
+    verifyAuthEntrySignature(input, signed);
     authorization.xdr = signed;
     authorization.signed = true;
   }

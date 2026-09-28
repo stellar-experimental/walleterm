@@ -11,7 +11,6 @@ const key = Keypair.random(),
   other = Keypair.random();
 const site = 'https://tabs.example';
 const bridge = await createHost({
-  latestLedger: async () => 100,
   listSigners: async () => [key, other].map((k) => ({ public_key: k.publicKey() })),
   sign: async (publicKey, digest) =>
     Buffer.from((publicKey === key.publicKey() ? key : other).sign(Buffer.from(digest, 'hex'))).toString(

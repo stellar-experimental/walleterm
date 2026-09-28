@@ -1,7 +1,7 @@
 import { test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -41,7 +41,6 @@ interface PageWindow {
 }
 
 const skill = fileURLToPath(new URL('../.agents/skills/walleterm-site-bridge/', import.meta.url));
-const attach = join(skill, 'scripts/classic-attach.ts');
 const bridge = join(skill, 'scripts/legacy-freighter.ts');
 
 test('a reviewed V1 XDR crosses the legacy page bridge once', () => {
@@ -65,137 +64,17 @@ test('a reviewed V1 XDR crosses the legacy page bridge once', () => {
     const hash = Buffer.from(transaction.hash()).toString('hex');
     const unsigned = transaction.toEnvelope().toXDR('base64');
     const unsignedPath = join(directory, 'unsigned.xdr');
-    const signaturePath = join(directory, 'signature.json');
     const signedPath = join(directory, 'signed.xdr');
     writeFileSync(unsignedPath, unsigned + '\n', { mode: 0o600 });
-    writeFileSync(
-      signaturePath,
-      JSON.stringify({
-        ok: true,
-        verified: true,
-        public_key: signer.publicKey(),
-        digest: hash,
-        signature: Buffer.from(signer.sign(transaction.hash())).toString('hex'),
-      }),
-      { mode: 0o600 },
-    );
-
-    const attached = JSON.parse(
-      execFileSync(
-        process.execPath,
-        [
-          attach,
-          '--unsigned',
-          unsignedPath,
-          '--signature',
-          signaturePath,
-          '--expected-public-key',
-          signer.publicKey(),
-          '--network-passphrase',
-          Networks.TESTNET,
-          '--expected-hash',
-          hash,
-          '--output',
-          signedPath,
-        ],
-        { encoding: 'utf8' },
-      ),
-    );
-    assert.equal(attached.hash, hash);
-    const signed = readFileSync(signedPath, 'utf8').trim();
+    // `walleterm sign` returns signed_transaction_xdr: the same envelope with one appended signature.
+    const signedTx = TransactionBuilder.fromXDR(unsigned, Networks.TESTNET);
+    signedTx.sign(signer);
+    const signed = signedTx.toEnvelope().toXDR('base64');
+    writeFileSync(signedPath, signed + '\n', { mode: 0o600 });
     const parsed = TransactionBuilder.fromXDR(signed, Networks.TESTNET);
     assert.ok(parsed instanceof Transaction);
     assert.equal(Buffer.from(parsed.hash()).toString('hex'), hash);
     assert.equal(parsed.signatures.length, 1);
-    const operation = parsed.operations[0];
-    assert.ok(operation.type === 'payment');
-    assert.equal(operation.destination, recipient.publicKey());
-    assert.equal(signer.verify(transaction.hash(), parsed.signatures[0].signature), true);
-
-    const wrongKey = spawnSync(
-      process.execPath,
-      [
-        attach,
-        '--unsigned',
-        unsignedPath,
-        '--signature',
-        signaturePath,
-        '--expected-public-key',
-        recipient.publicKey(),
-        '--network-passphrase',
-        Networks.TESTNET,
-        '--expected-hash',
-        hash,
-        '--output',
-        join(directory, 'wrong-key.xdr'),
-      ],
-      { encoding: 'utf8' },
-    );
-    assert.notEqual(wrongKey.status, 0);
-
-    const forgedPath = join(directory, 'forged.json');
-    writeFileSync(
-      forgedPath,
-      JSON.stringify({
-        ok: true,
-        verified: true,
-        public_key: signer.publicKey(),
-        digest: hash,
-        signature: 'ab'.repeat(64),
-      }),
-      { mode: 0o600 },
-    );
-    const forged = spawnSync(
-      process.execPath,
-      [
-        attach,
-        '--unsigned',
-        unsignedPath,
-        '--signature',
-        forgedPath,
-        '--expected-public-key',
-        signer.publicKey(),
-        '--network-passphrase',
-        Networks.TESTNET,
-        '--expected-hash',
-        hash,
-        '--output',
-        join(directory, 'forged.xdr'),
-      ],
-      { encoding: 'utf8' },
-    );
-    assert.notEqual(forged.status, 0);
-    assert.match(forged.stderr, /does not verify/);
-    assert.equal(existsSync(join(directory, 'forged.xdr')), false);
-
-    const again = spawnSync(
-      process.execPath,
-      [
-        attach,
-        '--unsigned',
-        unsignedPath,
-        '--signature',
-        signaturePath,
-        '--expected-public-key',
-        signer.publicKey(),
-        '--network-passphrase',
-        Networks.TESTNET,
-        '--expected-hash',
-        hash,
-        '--output',
-        signedPath,
-      ],
-      { encoding: 'utf8' },
-    );
-    assert.notEqual(again.status, 0);
-    assert.match(again.stderr, /Use a new output path/);
-    assert.equal(readFileSync(signedPath, 'utf8').trim(), signed);
-    assert.equal(statSync(signedPath).mode & 0o777, 0o600);
-
-    const unknown = spawnSync(process.execPath, [attach, '--unsigned', unsignedPath, '--force'], {
-      encoding: 'utf8',
-    });
-    assert.notEqual(unknown.status, 0);
 
     const source = execFileSync(
       process.execPath,

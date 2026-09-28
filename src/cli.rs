@@ -1,44 +1,46 @@
 //! Command dispatch, strict JSON input, and JSON or readable output with exact exit codes.
 
-use std::cell::Cell;
-use std::fmt;
 use std::io::{self, Read, Write};
 use std::path::Path;
 use std::time::{Duration, Instant};
 
-use serde::Serialize;
-use serde::de::{self, DeserializeSeed, Deserializer, MapAccess, Visitor};
-use serde_json::{Map, Value};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 
 use crate::agent::{Agent, Signer};
-use crate::authorization::{AuthEntryInput, attach_auth_signature, inspect_auth_entry, json_u32};
+use crate::artifact::{self, Artifact, Checked, Scope, Signed};
 use crate::error::{Error, Result};
 use crate::stellar::account_key;
-use crate::util::{hex, lower_hex};
+use crate::transaction::TESTNET;
+use crate::util::{hex, now_ms, valid_passphrase};
 
 pub const VERSION: &str = match option_env!("WALLETERM_VERSION") {
     Some(v) => v,
     None => "dev",
 };
-const MAX_INPUT: usize = 4096;
-const MAX_AUTH_INPUT: usize = 49152;
+/// Equal to the bridge body limit.
+const MAX_INPUT: usize = crate::http::MAX_BODY;
 /// One absolute deadline covers input, connection, listing, and signing.
 pub const DEADLINE: Duration = Duration::from_secs(120);
 
 pub const HELP: &str = r#"walleterm list [--human]
-walleterm sign [--human] < request.json
-walleterm sign-auth < request.json
+walleterm sign < request.json
 walleterm tunnel [--port 8787]
 walleterm demo [--port 8788]
 walleterm --help
 walleterm --version
 
-List and sign return JSON by default. --human changes their output format.
+List and sign return JSON. list --human prints one readable line for each signer.
 Tunnel and demo print readable public links and QR codes.
 List output: {"ok":true,"signers":[{"public_key":"G...","fingerprint":"SHA256:...","comment":"..."}]}
-Sign input:  {"public_key":"G...","digest":"64 lowercase hexadecimal characters"}
+Sign input: one JSON object with public_key and exactly one artifact. Finish it with EOF.
+  {"public_key":"G...","network_passphrase":"...","transaction_xdr":"..."}
+  {"public_key":"G...","network_passphrase":"...","preimage_xdr":"..."}
+  {"public_key":"G...","network_passphrase":"...","auth_entry_xdr":"...","address":"G... or C...","adapter":{"type":"account"}}
+  {"public_key":"G...","message":"SEP-53 text of 1 to 1024 UTF-8 bytes"}
 Sign output: {"ok":true,"public_key":"G...","digest":"...","signature":"128 lowercase hexadecimal characters","verified":true}
-Finish sign input with EOF.
+A transaction adds signed_transaction_xdr. An authorization entry adds signed_auth_entry_xdr.
+Adapters: account, contract-ed25519, and openzeppelin-ed25519 with verifier and context_rule_ids.
 
 Use 1Password desktop to create, manage, and approve signers.
 Tunnel starts the testnet signing bridge. It prints a connection code and QR code for websites.
@@ -46,8 +48,8 @@ OP_VAULT limits website wallets to a 1Password vault name or ID. Filtering requi
 OP_VAULT does not filter the local list or sign commands.
 A connected website approves its own requests. 1Password can still ask for approval on the Mac.
 Demo starts an independent example website with its own temporary public URL and QR code.
-The agent signs the 32 digest bytes. It cannot inspect the network, amount, destination, or contract policy.
-Inspect the source transaction before you compute the digest. 1Password does not display Stellar transaction details.
+Walleterm computes the digest from the artifact. 1Password signs only those 32 bytes.
+1Password does not display the network, amount, destination, or contract policy. Review the artifact first.
 Use Stellar CLI to construct, inspect, and submit transactions.
 Use Stellar Raven for protocol research and contract discovery.
 Companion skill: ~/.agents/skills/walleterm/SKILL.md (install with make install-skill).
@@ -169,63 +171,6 @@ fn printable(c: char) -> bool {
     !(c.is_control() || c.is_whitespace() || format || private || noncharacter)
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum Phase {
-    Open,
-    Key,
-    Value,
-}
-
-/// The `sign` input as Go's token decoder reads it: one object with two string fields.
-/// `phase` records where a syntax error occurred; `rejected` holds a field-level message.
-struct SignInput<'a> {
-    phase: &'a Cell<Phase>,
-    rejected: &'a Cell<Option<&'static str>>,
-}
-
-impl<'de> DeserializeSeed<'de> for SignInput<'_> {
-    type Value = (Option<String>, Option<String>);
-
-    fn deserialize<D: Deserializer<'de>>(
-        self,
-        deserializer: D,
-    ) -> std::result::Result<Self::Value, D::Error> {
-        deserializer.deserialize_map(self)
-    }
-}
-
-impl<'de> Visitor<'de> for SignInput<'_> {
-    type Value = (Option<String>, Option<String>);
-
-    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("one JSON object")
-    }
-
-    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> std::result::Result<Self::Value, A::Error> {
-        let (mut public_key, mut digest) = (None, None);
-        loop {
-            self.phase.set(Phase::Key);
-            let Some(name) = map.next_key::<String>()? else { break };
-            let slot = match name.as_str() {
-                "public_key" => &mut public_key,
-                "digest" => &mut digest,
-                _ => {
-                    self.rejected.set(Some("The input contains an unknown field."));
-                    return Err(de::Error::custom("unknown field"));
-                }
-            };
-            if slot.is_some() {
-                self.rejected.set(Some("The input contains a duplicate field."));
-                return Err(de::Error::custom("duplicate field"));
-            }
-            self.phase.set(Phase::Value);
-            *slot = Some(map.next_value::<String>()?);
-        }
-        self.phase.set(Phase::Open);
-        Ok((public_key, digest))
-    }
-}
-
 fn invalid(message: &str) -> Error {
     Error::new("invalid_input", message)
 }
@@ -236,40 +181,119 @@ fn read_limited(input: &mut dyn Read, limit: usize) -> std::result::Result<Vec<u
     Ok(bytes)
 }
 
-/// Parse `sign` input with Go's messages. Invalid UTF-8 inside strings becomes U+FFFD, as in Go.
-fn parse_sign_input(input: &mut dyn Read) -> Result<([u8; 32], String, [u8; 32])> {
-    let bytes = match read_limited(input, MAX_INPUT) {
-        Err(e) if e.kind() == io::ErrorKind::TimedOut => {
-            return Err(Error::new("timeout", "The input read timed out."));
+const ARTIFACT_KEYS: [&str; 4] = ["transaction_xdr", "preimage_xdr", "auth_entry_xdr", "message"];
+
+/// The exact key set of each shape, named by its artifact key.
+fn shape(artifact_key: &str) -> (&'static str, &'static [&'static str]) {
+    match artifact_key {
+        "transaction_xdr" => ("transaction", &["public_key", "network_passphrase", "transaction_xdr"]),
+        "preimage_xdr" => ("preimage", &["public_key", "network_passphrase", "preimage_xdr"]),
+        "auth_entry_xdr" => {
+            ("entry", &["public_key", "network_passphrase", "auth_entry_xdr", "address", "adapter"])
         }
-        Err(_) => return Err(invalid("The input must be at most 4096 bytes.")),
-        Ok(b) if b.len() > MAX_INPUT => return Err(invalid("The input must be at most 4096 bytes.")),
-        Ok(b) => b,
+        _ => ("message", &["public_key", "message"]),
+    }
+}
+
+/// One `sign` request: the selected key, its network, and exactly one artifact.
+struct SignRequest {
+    public_key: String,
+    passphrase: Option<String>,
+    artifact: Artifact,
+}
+
+/// Parse `sign` input strictly. Every failure is `invalid_input`, before any agent connection.
+fn parse_sign_request(bytes: &[u8]) -> Result<SignRequest> {
+    if bytes.len() > MAX_INPUT {
+        return Err(invalid("The input must be at most 393216 bytes."));
+    }
+    // A lossy conversion would change message bytes without an error.
+    let Ok(text) = std::str::from_utf8(bytes) else {
+        return Err(invalid("The input must be valid UTF-8."));
     };
-    let text = String::from_utf8_lossy(&bytes);
-    let (phase, rejected) = (Cell::new(Phase::Open), Cell::new(None));
-    let mut deserializer = serde_json::Deserializer::from_str(&text);
-    let result = SignInput { phase: &phase, rejected: &rejected }.deserialize(&mut deserializer);
-    let (public_key, digest) = match result {
-        Ok(fields) => fields,
-        Err(_) if rejected.get().is_some() => return Err(invalid(rejected.get().unwrap())),
-        Err(_) if phase.get() == Phase::Value => {
-            return Err(invalid("The input must contain string fields."));
-        }
-        Err(_) => return Err(invalid("The input must be one JSON object.")),
+    let mut deserializer = serde_json::Deserializer::from_str(text);
+    let Ok(Value::Object(object)) = Value::deserialize(&mut deserializer) else {
+        return Err(invalid("The input must be one JSON object."));
     };
     if deserializer.end().is_err() {
         return Err(invalid("The input must contain no trailing JSON."));
     }
-    let public_key = public_key.unwrap_or_default();
-    let Some(key) = account_key(&public_key) else {
+    if !crate::json::no_duplicates(text) {
+        return Err(invalid("The input contains a duplicate field."));
+    }
+    let present: Vec<&str> = ARTIFACT_KEYS.into_iter().filter(|k| object.contains_key(*k)).collect();
+    let [artifact_key] = present.as_slice() else {
+        return Err(invalid(
+            "Provide exactly one of transaction_xdr, preimage_xdr, auth_entry_xdr, or message.",
+        ));
+    };
+    let (name, fields) = shape(artifact_key);
+    if object.len() != fields.len() || !fields.iter().all(|f| object.contains_key(*f)) {
+        return Err(invalid(&format!("The {name} shape has exactly these fields: {}.", fields.join(", "))));
+    }
+    for (field, value) in &object {
+        match (field.as_str(), value) {
+            ("adapter", Value::Object(_)) => {}
+            ("adapter", _) => return Err(invalid("The adapter must be a JSON object.")),
+            (_, Value::String(text)) if text.is_empty() => {
+                return Err(invalid(&format!("The {field} field must not be empty.")));
+            }
+            (_, Value::String(_)) => {}
+            _ => return Err(invalid(&format!("The {field} field must be a JSON string."))),
+        }
+    }
+    let text = |name: &str| object.get(name).and_then(Value::as_str).map(str::to_owned);
+    let public_key = text("public_key").unwrap_or_default();
+    if account_key(&public_key).is_none() {
         return Err(invalid("The public key must be a canonical Ed25519 G-address."));
+    }
+    let passphrase = text("network_passphrase");
+    if passphrase.as_deref().is_some_and(|p| !valid_passphrase(p)) {
+        return Err(invalid("Provide the exact network passphrase."));
+    }
+    let artifact = match *artifact_key {
+        "transaction_xdr" => Artifact::Transaction(text("transaction_xdr").unwrap()),
+        "preimage_xdr" => Artifact::Preimage(text("preimage_xdr").unwrap()),
+        "auth_entry_xdr" => Artifact::Authorization {
+            entry_xdr: text("auth_entry_xdr").unwrap(),
+            address: text("address").unwrap(),
+            adapter: object["adapter"].clone(),
+        },
+        _ => Artifact::Message(text("message").unwrap()),
     };
-    let digest_text = digest.unwrap_or_default();
-    let Some(digest) = lower_hex::<32>(&digest_text) else {
-        return Err(invalid("The digest must contain 64 lowercase hexadecimal characters."));
-    };
-    Ok((key, digest_text, digest))
+    Ok(SignRequest { public_key, passphrase, artifact })
+}
+
+/// The notice name of a public network. Any other passphrase is quoted.
+fn network_name(passphrase: &str) -> String {
+    match passphrase {
+        TESTNET => "testnet".into(),
+        "Public Global Stellar Network ; September 2015" => "pubnet".into(),
+        "Test SDF Future Network ; October 2022" => "futurenet".into(),
+        other => format!("network {}", go_quote(other)),
+    }
+}
+
+/// The one line that the CLI writes to standard error before the agent request.
+fn notice(request: &SignRequest, checked: &Checked) -> String {
+    let (key, digest, d) = (&request.public_key, hex(&checked.digest), &checked.details);
+    let network = request.passphrase.as_deref().map(network_name).unwrap_or_default();
+    let (address, expiration) = (d["address"].as_str().unwrap_or_default(), &d["expiration_ledger"]);
+    match &request.artifact {
+        Artifact::Transaction(_) => format!("Sign transaction {digest} on {network} with {key}.\n"),
+        Artifact::Preimage(_) => format!(
+            "Sign authorization preimage {digest} for {address} on {network} with {key}, expiring at ledger {expiration}.\n"
+        ),
+        Artifact::Authorization { adapter, .. } => format!(
+            "Sign authorization entry {digest} for {address} ({}) on {network} with {key}, expiring at ledger {expiration}.\n",
+            adapter["type"].as_str().unwrap_or_default()
+        ),
+        Artifact::Message(text) => format!(
+            "Sign SEP-53 message {digest} with {key} ({} bytes, no network, site, or expiry binding): {}\n",
+            text.len(),
+            go_quote(text)
+        ),
+    }
 }
 
 #[derive(Serialize)]
@@ -282,206 +306,120 @@ struct ListOutput<'a> {
 struct SignOutput<'a> {
     ok: bool,
     public_key: &'a str,
-    digest: &'a str,
+    digest: String,
     signature: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    signed_transaction_xdr: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    signed_auth_entry_xdr: Option<String>,
     verified: bool,
 }
 
-fn list_or_sign(command: &str, human: bool, io: &mut Io) -> i32 {
-    let mut request = None;
-    if command == "sign" {
-        match parse_sign_input(io.input) {
-            Ok(value) => request = Some(value),
-            Err(e) => return output_error(io.out, human, &e),
-        }
-    }
-    let Some(socket) = io.socket else {
-        let e = Error::new("unsupported_platform", "The 1Password socket is available only on macOS.");
-        return output_error(io.out, human, &e);
-    };
-    let mut agent = match Agent::connect(socket, io.deadline) {
-        Ok(agent) => agent,
-        Err(e) => return output_error(io.out, human, &e),
-    };
-    let signers = match agent.list() {
+fn list(human: bool, io: &mut Io) -> i32 {
+    let signers = match connect(io).and_then(|mut agent| agent.list()) {
         Ok(signers) => signers,
         Err(e) => return output_error(io.out, human, &e),
     };
-    let Some((key, digest_text, digest)) = request else {
-        if !human {
-            return write_output(io.out, &json_line(&ListOutput { ok: true, signers: &signers }));
-        }
-        for s in &signers {
-            let line = format!("{} {} {}\n", s.public_key, s.fingerprint, go_quote(&s.comment));
-            if write_output(io.out, &line) != 0 {
-                return 1;
-            }
-        }
-        return 0;
-    };
-    let Some(selected) = signers.iter().find(|s| s.key == key) else {
-        let e = Error::new("key_not_found", "The selected public key is not available from the agent.");
-        return output_error(io.out, human, &e);
-    };
-    let notice =
-        format!("Request a signature for public key {} and digest {digest_text}.\n", selected.public_key);
-    if write_output(io.diagnostic, &notice) != 0 {
-        return output_error(
-            io.out,
-            human,
-            &Error::new("output_error", "The signing notice could not be written."),
-        );
+    if !human {
+        return write_output(io.out, &json_line(&ListOutput { ok: true, signers: &signers }));
     }
-    let signature = match agent.sign(selected, &digest) {
-        Ok(signature) => signature,
-        Err(e) => return output_error(io.out, human, &e),
-    };
-    let signature = hex(&signature);
-    if human {
-        let text = format!(
-            "Public key: {}\nDigest: {digest_text}\nSignature: {signature}\nVerified: true\n",
-            selected.public_key
-        );
-        return write_output(io.out, &text);
+    for s in &signers {
+        let line = format!("{} {} {}\n", s.public_key, s.fingerprint, go_quote(&s.comment));
+        if write_output(io.out, &line) != 0 {
+            return 1;
+        }
     }
-    let output = SignOutput {
-        ok: true,
-        public_key: &selected.public_key,
-        digest: &digest_text,
-        signature,
-        verified: true,
-    };
-    write_output(io.out, &json_line(&output))
+    0
 }
 
-const AUTH_FIELDS: [&str; 6] =
-    ["auth_entry_xdr", "public_key", "network_passphrase", "address", "adapter", "latest_ledger"];
-
-/// The `sign-auth` request with the legacy TS command's messages and order of checks.
-pub fn parse_auth_input(bytes: &[u8]) -> Result<Map<String, Value>> {
-    if bytes.len() > MAX_AUTH_INPUT {
-        return Err(invalid("The authorization request is too large."));
-    }
-    let Ok(text) = std::str::from_utf8(bytes) else {
-        return Err(invalid("Use valid UTF-8 JSON."));
-    };
-    let Ok(Value::Object(object)) = serde_json::from_str::<Value>(text) else {
-        return Err(invalid("Send one JSON object."));
-    };
-    if !crate::json::no_duplicates(text) {
-        return Err(invalid("Duplicate JSON fields are not supported."));
-    }
-    if object.len() != AUTH_FIELDS.len() || !AUTH_FIELDS.iter().all(|f| object.contains_key(*f)) {
-        return Err(invalid("The authorization request fields are invalid."));
-    }
-    Ok(object)
-}
-
-#[derive(Serialize)]
-struct AuthOutput<'a> {
-    ok: bool,
-    public_key: &'a str,
-    digest: String,
-    signed_auth_entry_xdr: String,
-    verified: bool,
-}
-
-/// Validate one explicit authorization entry, sign its adapter digest, and attach the signature.
-fn sign_auth(io: &mut Io) -> i32 {
-    let fail = |out: &mut dyn Write, e: &Error| output_error(out, false, e);
-    let bytes = match read_limited(io.input, MAX_AUTH_INPUT) {
-        Ok(bytes) => bytes,
-        Err(e) if e.kind() == io::ErrorKind::TimedOut => {
-            return fail(io.out, &Error::new("timeout", "The authorization request stopped or timed out."));
-        }
-        Err(_) => {
-            return fail(
-                io.out,
-                &Error::new("signing_failed", "The authorization request could not be read."),
-            );
-        }
-    };
-    let object = match parse_auth_input(&bytes) {
-        Ok(object) => object,
-        Err(e) => return fail(io.out, &e),
-    };
-    let input = AuthEntryInput::from_json(&object);
-    let latest = json_u32(&object["latest_ledger"]);
-    let checked = match inspect_auth_entry(&input, &input.public_key, latest) {
-        Ok(checked) => checked,
-        Err(e) => return fail(io.out, &e),
-    };
-    let digest = hex(&checked.digest);
-    let notice = format!("Sign authorization {} with {}: {digest}\n", input.address, input.public_key);
-    if write_output(io.diagnostic, &notice) != 0 {
-        return fail(io.out, &Error::new("output_error", "The signing notice could not be written."));
-    }
-    // The agent's own failure codes collapse into signing_failed, as the legacy TS command reported them.
-    let signed = sign_digest(io, &checked.key, &checked.digest).map_err(|e| match e.code {
-        "timeout" | "unsupported_platform" => e,
-        _ => Error::new("signing_failed", e.message),
-    });
-    let signature = match signed {
-        Ok(signature) => hex(&signature),
-        Err(e) => return fail(io.out, &e),
-    };
-    let signed = match attach_auth_signature(&input, &input.public_key, latest, &signature) {
-        Ok(signed) => signed,
-        Err(e) => return fail(io.out, &e),
-    };
-    let output = AuthOutput {
-        ok: true,
-        public_key: &input.public_key,
-        digest,
-        signed_auth_entry_xdr: signed,
-        verified: true,
-    };
-    write_output(io.out, &json_line(&output))
-}
-
-fn sign_digest(io: &Io, key: &[u8; 32], digest: &[u8; 32]) -> Result<[u8; 64]> {
+fn connect(io: &Io) -> Result<Agent> {
     let socket = io.socket.ok_or_else(|| {
         Error::new("unsupported_platform", "The 1Password socket is available only on macOS.")
     })?;
-    let mut agent = Agent::connect(socket, io.deadline)?;
-    let signers = agent.list()?;
-    let Some(signer) = signers.iter().find(|s| &s.key == key) else {
-        return Err(Error::new("key_not_found", "The selected public key is not available from the agent."));
+    Agent::connect(socket, io.deadline)
+}
+
+/// Inspect one artifact, sign its digest once, then verify and attach the signature.
+fn sign(io: &mut Io) -> i32 {
+    let fail = |out: &mut dyn Write, e: &Error| output_error(out, false, e);
+    let bytes = match read_limited(io.input, MAX_INPUT) {
+        Ok(bytes) => bytes,
+        Err(e) if e.kind() == io::ErrorKind::TimedOut => {
+            return fail(io.out, &Error::new("timeout", "The input read timed out."));
+        }
+        Err(_) => return fail(io.out, &invalid("The input could not be read.")),
     };
-    agent.sign(signer, digest)
+    let request = match parse_sign_request(&bytes) {
+        Ok(request) => request,
+        Err(e) => return fail(io.out, &e),
+    };
+    let scope =
+        Scope { key: &request.public_key, passphrase: request.passphrase.as_deref(), now_ms: now_ms() };
+    // Every rule failure is invalid input and happens before the agent connection.
+    let checked = match artifact::inspect(&request.artifact, &scope) {
+        Ok(checked) => checked,
+        Err(e) => return fail(io.out, &invalid(&e.message)),
+    };
+    let signature = match connect(io).and_then(|mut agent| {
+        let signers = agent.list()?;
+        let Some(signer) = signers.iter().find(|s| s.key == checked.key) else {
+            return Err(Error::new(
+                "key_not_found",
+                "The selected public key is not available from the agent.",
+            ));
+        };
+        if write_output(io.diagnostic, &notice(&request, &checked)) != 0 {
+            return Err(Error::new("output_error", "The signing notice could not be written."));
+        }
+        agent.sign(signer, &checked.digest)
+    }) {
+        Ok(signature) => signature,
+        Err(e) => return fail(io.out, &e),
+    };
+    // The same scope as inspection: the result depends only on the reviewed request.
+    let signed = match artifact::finish(&request.artifact, &scope, &signature) {
+        Ok(signed) => signed,
+        Err(e) => return fail(io.out, &Error::new("invalid_signature", e.message)),
+    };
+    let (signed_transaction_xdr, signed_auth_entry_xdr) = match signed {
+        Signed::Transaction(xdr) => (Some(xdr), None),
+        Signed::AuthEntry(xdr) => (None, Some(xdr)),
+        Signed::Raw => (None, None),
+    };
+    let output = SignOutput {
+        ok: true,
+        public_key: &request.public_key,
+        digest: hex(&checked.digest),
+        signature: hex(&signature),
+        signed_transaction_xdr,
+        signed_auth_entry_xdr,
+        verified: true,
+    };
+    write_output(io.out, &json_line(&output))
 }
 
 /// Run one command. Returns the process exit code.
 pub fn run(args: &[String], io: &mut Io) -> i32 {
     let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let human = args.len() == 2 && args[1] == "--human";
     match args.as_slice() {
-        ["--help" | "-h"] => return write_output(io.out, HELP),
-        ["--version"] => return write_output(io.out, &format!("walleterm {VERSION}\n")),
-        ["sign-auth", "--help" | "-h"] => {
-            let help = "walleterm sign-auth < request.json\nSign one explicit authorization entry. See docs/INTERFACE.md.\n";
-            return write_output(io.out, help);
-        }
-        ["sign-auth"] => return sign_auth(io),
-        ["sign-auth", ..] => {
-            return output_error(io.out, false, &invalid("Use walleterm sign-auth < request.json."));
-        }
-        [command @ ("tunnel" | "demo"), rest @ ..] => return crate::service::run(command, rest, io.out),
+        ["--help" | "-h"] => write_output(io.out, HELP),
+        ["--version"] => write_output(io.out, &format!("walleterm {VERSION}\n")),
+        ["list"] | ["list", "--human"] => list(human, io),
+        ["sign"] => sign(io),
+        [command @ ("tunnel" | "demo"), rest @ ..] => crate::service::run(command, rest, io.out),
         // The private supervisor mode of `walleterm tunnel`. It is not part of the public interface.
         ["tunnel-child", rest @ ..] => {
             let args = rest.iter().map(|s| s.to_string()).collect();
             let Ok(runtime) = tokio::runtime::Builder::new_current_thread().enable_all().build() else {
                 return 1;
             };
-            return runtime.block_on(crate::tunnel::run_supervisor(args));
+            runtime.block_on(crate::tunnel::run_supervisor(args))
         }
-        _ => {}
-    }
-    let human = args.len() == 2 && args[1] == "--human";
-    let usage = invalid("Use list or sign with an optional --human flag.");
-    match args.as_slice() {
-        [command @ ("list" | "sign")] | [command @ ("list" | "sign"), "--human"] => {
-            list_or_sign(command, human, io)
-        }
-        _ => output_error(io.out, human, &usage),
+        _ => output_error(
+            io.out,
+            human,
+            &invalid("Use walleterm list [--human] or walleterm sign < request.json."),
+        ),
     }
 }

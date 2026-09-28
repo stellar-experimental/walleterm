@@ -454,9 +454,14 @@ export async function runClassic(ctx: LiveContext) {
     });
     await authorize('G08-stale-sequence', stale, ['a']);
     await submit('G08-stale-sequence', stale, 'txBadSeq');
+    // Walleterm refuses an expired max_time before any 1Password request, so nothing reaches the network.
     const expired = await build('a', [payment('c')], { expired: true });
-    await authorize('G08-expired', expired, ['a']);
-    await submit('G08-expired', expired, 'txTooLate');
+    prepared('G08-expired', expired, ['a']);
+    const refusal = await ctx.sign(expired, keys.a).then(
+      () => 'signed',
+      (error: unknown) => String(error),
+    );
+    check('Walleterm refuses the expired max_time', refusal.includes('The transaction expired.'), true);
     check('All negative cases moved no recipient funds', (await state('c')).native, before.native);
   });
   try {

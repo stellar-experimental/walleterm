@@ -12,7 +12,6 @@ import type { BridgeRequest } from './negatives.mts';
 const key = Keypair.random();
 let signatures = 0;
 const bridge = await createHost({
-  latestLedger: async () => 100,
   listSigners: async () => [{ public_key: key.publicKey() }],
   sign: async (_publicKey, digest) => {
     signatures++;

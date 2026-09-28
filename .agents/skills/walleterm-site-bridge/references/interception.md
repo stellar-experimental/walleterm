@@ -46,18 +46,16 @@ XDR alone does not identify the network. Check the material terms against the us
 For Soroban transactions, inspect every authorization invocation tree, including nested token transfers.
 Read the matching core `walleterm` reference for its signing format.
 
-For V1 envelopes, [classic-attach.ts](../scripts/classic-attach.ts) verifies and attaches one raw Ed25519 signature.
-It preserves the body and existing signatures. It refuses an existing output file.
-It needs Bun and Stellar CLI. It verifies the signature with `node:crypto`, separately from the signer.
-Use it only after reviewing the transaction. It does not check ledger state, signer thresholds, or user authority.
-It preserves Soroban bodies in V1 envelopes too. Review their contract effects and authorization separately.
+The transaction shape of `walleterm sign` returns `signed_transaction_xdr`: the same envelope with one appended signature.
+It keeps the body and existing signatures. It does not check ledger state, signer thresholds, or user authority.
+Review Soroban contract effects and authorization separately.
 
 Before signing, recheck the live pending request, exact unsigned XDR, selected key, network, and expiry.
 Record the original hash and selected key in a durable attempt before calling the signer.
 Use that attempt for recovery. A new page capture can reuse a local request number.
 Unsigned cancellation must stop before signing begins. Later cancellation cannot undo a signature.
-Send one `walleterm sign` request. Require a successful exit, `ok: true`, and `verified: true`.
-Require the same public key and digest in the response. Decode the final envelope and verify its body and hash.
+Send one `walleterm sign` request with the transaction shape. Require a successful exit, `ok: true`, and `verified: true`.
+Require the same public key and the reviewed hash as `digest`. Decode `signed_transaction_xdr` and verify its body and hash.
 Return the signature only to its pending request. The website can submit immediately after receiving it.
 Record the original hash before that return. Query it after any uncertain result before a replacement request.
 Verify ledger acceptance and resulting state. Close the manual browser bridge after all requests settle.

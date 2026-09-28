@@ -14,32 +14,37 @@ Check current CLI output and network protocol before adapting the examples.
 1. Build with `stellar tx new <op> --build-only --source-account G...`, or use the relevant build-only contract command.
 2. Decode with `stellar tx decode unsigned.xdr` or standard input. The file is positional; `--input` selects a format.
 3. Inspect the network, source, sequence, fee, operations, operation sources, and `tx.tx.cond`.
-4. If `cond` is `none`, set a suitable finite `max_time` before signing. For time bounds, use `{"time":{"min_time":"0","max_time":"<Unix seconds>"}}`.
-5. Re-encode the edited envelope and decode it again. Confirm the exact bounds and every other field before hashing.
-6. For a V1 envelope, run `stellar tx hash --network-passphrase "$PASSPHRASE" unsigned.xdr`.
-7. Sign that lowercase 64-character digest with the exact authorized G-address.
-8. Decode the public key with `stellar strkey decode G...`. Use its last four raw bytes as the eight-character signature hint.
-9. Add `{"hint":"<8 hex>","signature":"<128 hex>"}` to `tx.signatures`. Re-encode with `stellar tx encode`.
-10. Collect all signatures over the same transaction body. Check each source account's weights and thresholds.
-11. Submit with `stellar tx send`. Fetch the result and state before claiming success.
+4. Choose the time bounds that the grant needs. Walleterm refuses only a nonzero `max_time` at or before now.
+   Without time bounds, an envelope stays valid until its sequence is consumed. A finite `max_time` limits that.
+   For time bounds, use `{"time":{"min_time":"0","max_time":"<Unix seconds>"}}`, then re-encode and decode again.
+5. Send the transaction shape to `walleterm sign`:
+   `{"public_key":"G...","network_passphrase":"...","transaction_xdr":"<unsigned XDR>"}`.
+6. Compare the returned `digest` with `stellar tx hash --network-passphrase "$PASSPHRASE" unsigned.xdr`.
+7. `signed_transaction_xdr` is the same envelope with one appended signature. Send it to the next signer, if any.
+   Check each source account's weights and thresholds. The CLI does not check the signer role, so a co-signer can sign.
+8. Submit with `stellar tx send`. Fetch the result and state before claiming success.
 
-CLI 27.1.0 cannot inject an external signature through `stellar tx sign`. Check the current command before adapting this procedure.
-Use decoded envelope JSON and re-encode it. The XDR envelope permits at most 20 signatures.
-The envelope digest authorizes transaction and operation sources. It does not replace Soroban auth-entry signatures.
-Without time bounds, an envelope can stay valid until its sequence is consumed.
+The XDR envelope permits at most 20 signatures. Walleterm refuses a key that already signed.
+The envelope signature authorizes transaction and operation sources. It does not replace Soroban auth-entry signatures.
 
 ## Native G-account Soroban authorization
 
 1. Simulate the built transaction to collect authorization entries, invocation trees, nonces, and resources.
-2. Keep the simulated credential variant, `address` or `address_v2`, unless you deliberately choose the other arm.
-3. For `address`, encode `HashIdPreimage.soroban_authorization` with network ID, nonce, expiration ledger, and invocation.
-4. For `address_v2`, encode `HashIdPreimage.soroban_authorization_with_address` with those fields and the G-address.
-5. Read the latest ledger with `stellar ledger latest` or RPC `getLatestLedger`. Choose a bounded future expiration ledger.
-6. Copy the nonce and invocation exactly. Put that same expiration ledger in the preimage and credential.
-7. Compute `SHA-256(XDR(HashIdPreimage))`; for example, use `stellar xdr encode --type HashIdPreimage preimage.json | base64 -d | shasum -a 256`.
-8. Sign that digest. Put each raw signature in a map with `public_key` bytes32 and `signature` bytes64.
-9. Put the maps in the credential `signature.vec`, sorted by increasing raw public key.
-10. Re-simulate with `stellar tx simulate --auth-mode enforce`. Then compute and sign the final envelope digest.
+2. Use `address_v2` credentials. Walleterm signs only `soroban_authorization_with_address` payloads (CAP-71-02).
+   SDK 17.1.0 `simulateTransaction` records `address_v2` unless `useUpgradedAuth` is `false`.
+   Stellar CLI 27.1.0 record simulation returned `address` in a 2026-09-25 check. Check the current CLI first.
+3. Choose an expiration ledger. Read the latest ledger with `stellar ledger latest` or RPC `getLatestLedger`.
+   Walleterm reads no ledger and applies no window. It refuses only ledger 0. The network refuses an expired entry.
+   Use the shortest expiry that fits the flow.
+4. Put that expiration in the credential. Copy the nonce and invocation exactly from simulation.
+5. For one signer that owns the address, send the entry shape with the `account` adapter:
+   `{"public_key":"G...","network_passphrase":"...","auth_entry_xdr":"...","address":"<same G...>","adapter":{"type":"account"}}`.
+   `signed_auth_entry_xdr` holds the credential `signature.vec` with one `{public_key, signature}` map.
+6. For a multisig account, build `HashIdPreimage.soroban_authorization_with_address` with the same fields and the G-address.
+   Send it to each co-signer with the preimage shape: `{"public_key":"G...","network_passphrase":"...","preimage_xdr":"..."}`.
+   Put each raw `signature` in a map with `public_key` bytes32 and `signature` bytes64.
+   Sort the maps by increasing raw public key in the credential `signature.vec`.
+7. Re-simulate with `stellar tx simulate --auth-mode enforce`. Then sign the final envelope with the transaction shape.
 
 CLI 27.1.0 can add a resource fee to the existing fee during repeated simulation. Inspect the final fee and limit before envelope signing.
 After confirmation, decode `resultMetaXdr` to check contract return values. RPC `getTransaction` may omit `returnValue`.
@@ -50,10 +55,9 @@ The credential shape is:
 {"credentials":{"address_v2":{"address":"G...","nonce":"<i64>","signature_expiration_ledger":123,"signature":{"vec":[{"map":[{"key":{"symbol":"public_key"},"val":{"bytes":"<64 hex>"}},{"key":{"symbol":"signature"},"val":{"bytes":"<128 hex>"}}]}]}}},"root_invocation":{"...":"copy from simulation"}}
 ```
 
-The simulation request sets the variant. SDK 17.1.0 `simulateTransaction` records `address_v2` unless `useUpgradedAuth` is `false`.
-Stellar CLI 27.1.0 record simulation returned `address` in a 2026-09-25 check.
-Both arms are valid from protocol 27. They carry the same fields, but their preimages differ.
-`address_v2` binds the credential address into the payload (CAP-71-02). Sign the preimage for the arm that you submit.
+Both credential arms are valid from protocol 27. They carry the same fields, but their preimages differ.
+The legacy `address` arm omits the credential address from its payload and permits cross-address replay.
+Walleterm refuses it. Simulate again with upgraded auth, or rebuild the entry as `address_v2`.
 Do not sign an auth entry for the transaction source as if it were a separate non-invoker.
 The host requires ordered public keys for multisig auth; see [`account_contract.rs`](https://github.com/stellar/rs-soroban-env/blob/v27.0.0/soroban-env-host/src/builtin_contracts/account_contract.rs).
 
