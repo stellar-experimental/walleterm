@@ -7,7 +7,8 @@
 /cask_renames.json @kalepail
 
 # Release signing and packaging.
-/scripts/release.ts @kalepail
-/scripts/package.ts @kalepail
-/scripts/bridge.entitlements.plist @kalepail
+/tools/ @kalepail
+/build.rs @kalepail
+/deny.toml @kalepail
+/rust-toolchain.toml @kalepail
 /.github/ @kalepail

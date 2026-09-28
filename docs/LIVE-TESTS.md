@@ -7,6 +7,7 @@ Run one live suite at a time.
 ## Prepare
 
 1. Run `make build` and `bun install --frozen-lockfile --ignore-scripts`.
+   The runners sign through `bin/walleterm`.
 2. Create three Ed25519 SSH keys inside the 1Password desktop app.
 3. Enable only the intended test items in the 1Password SSH agent configuration.
 4. Use `walleterm list` to identify each key by its full G-address.

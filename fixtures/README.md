@@ -8,7 +8,8 @@ No signature was made. No network state was changed by the build.
 - `build.sh` fetches OpenZeppelin/stellar-contracts at commit
   `a5bd8cbd3d0bb8efbd5cf5e2edf9734f87e47640` into `.oz-src/` (one shallow git fetch) and builds
   four example packages with `stellar contract build`. It then builds the two
-  local contracts in `contracts/` and writes `wasm/manifest.json`.
+  local contracts in `contracts/` and writes `wasm/manifest.json` with
+  `cargo run -q -p walleterm-tools -- fixture-manifest`.
 - `contracts/` is a small Cargo workspace with two fixture contracts.
 - `wasm/` holds the six artifacts and the manifest.
 - `.oz-src/` is a build cache. It is not vendored source. Delete it freely.

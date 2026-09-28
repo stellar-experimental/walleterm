@@ -99,7 +99,7 @@ The CLI uses caller-provided `latest_ledger` and performs no network calls.
 The caller must obtain current ledger evidence from a trusted source.
 The browser bridge obtains ledger evidence from its fixed testnet RPC endpoint.
 
-The Go signer sends exactly 32 decoded digest bytes to the 1Password agent.
+The signer sends exactly 32 decoded digest bytes to the 1Password agent.
 Private keys stay inside 1Password.
 The CLI, SDK, and bridge never submit transactions.
 The demo owns contract discovery, setup, simulation, submission, and counter checks.
@@ -111,9 +111,13 @@ Offline tests use isolated mock keys and make no live signing requests.
 The explicit live runner uses existing dedicated testnet 1Password keys:
 
 ```sh
+cargo build --locked --features test-host --bin walleterm-test-host
 WALLETERM_BINARY=/isolated/prefix/bin/walleterm \
   bun --no-env-file tests/contract-auth-demo-live.ts /path/to/public-test-keys.json
 ```
+
+The SDK half uses the Rust bridge on loopback through the test host's production mode.
+That mode uses the real 1Password signer, `OP_VAULT` discovery, and testnet ledger, as `walleterm tunnel` does.
 
 The runner records reviewed entries, transaction hashes, ledgers, and counter values.
 It checks missing authorization, changed nonces, and changed calls through enforcing simulation.

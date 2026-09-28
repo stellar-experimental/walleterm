@@ -79,7 +79,7 @@ The attach helper supports V1 envelopes, including Soroban bodies. It does not r
 
 ```sh
 walleterm sign < sign-request.json > signature.json
-python3 scripts/classic-attach.py \
+bun scripts/classic-attach.ts \
   --unsigned unsigned.xdr \
   --signature signature.json \
   --expected-public-key "$SELECTED_G_ADDRESS" \

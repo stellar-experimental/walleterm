@@ -1,7 +1,14 @@
 {
   "extends": "../../tsconfig.json",
   "compilerOptions": {
-    "typeRoots": ["../../node_modules/@types"]
+    "typeRoots": [
+      "../../node_modules/@types"
+    ]
   },
-  "include": ["check.mts"]
+  "include": [
+    "check.mts",
+    "tab.mts",
+    "tabs.mts",
+    "live/*.mts"
+  ]
 }

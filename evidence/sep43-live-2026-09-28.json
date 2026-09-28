@@ -1,0 +1,360 @@
+{
+  "observed_at": "2026-09-28",
+  "network": "testnet",
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "subject": "SEP-43 wallet API, bridge protocol version 3, and the Stellar Wallets Kit module",
+  "status": "passed_with_findings",
+  "window_utc": {
+    "approximate": ["2026-09-28T17:20Z", "2026-09-28T17:45Z"],
+    "first_transaction": "2026-09-28T17:29:22Z",
+    "last_page_result": "2026-09-28T17:40:00Z"
+  },
+  "operator": "The coordinator ran every live step. The worker wrote the procedure and this summary and ran no live step.",
+  "source": {
+    "revision": "a9450672ad6e8e7ff4c9dfb7843d372d7208c519",
+    "branch": "test/sep43-live-acceptance (PR #25)",
+    "base": "main f19eecc1e312d4d223135f9379b7f63b7c8e4192, which includes #22 c2167fb396ebedd06e41a8296008dcb359d5636b",
+    "worktree": "sep43-live",
+    "rebase_note": "PR #25 was later rebased onto main 52a7fc388e93e19482a9cc2a96408ac4328c526e (#24). #24 changed no file under sdk/, bridge/, fixtures/, or the Go source."
+  },
+  "install": {
+    "kind": "temporary prefix built from the sep43-live worktree"
+  },
+  "vault_filter": {
+    "variable": "OP_VAULT",
+    "value": "the dedicated test vault; its identifier stays in the local records",
+    "reason": "The unfiltered wallet list included a non-test signing key from another vault.",
+    "filtered_wallet_list": "only the four dedicated test keys"
+  },
+  "components": {
+    "sep43": "1.2.1",
+    "bridge_protocol_version": 3,
+    "stellar_wallets_kit": "2.7.0",
+    "stellar_sdk": "17.1.0",
+    "acceptance_page": "fixtures/kit/live/ on http://127.0.0.1:8790",
+    "demo": "walleterm demo through the walleterm tunnel Quick Tunnel origin; the host names expired"
+  },
+  "accounts": {
+    "test-a": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+    "test-b": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+    "smart_account": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+    "counter_contract": "CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E"
+  },
+  "steps": [
+    {
+      "step": 1,
+      "name": "Demo pairing through getAddress, reload restore, a payment, a header switch, and a second payment",
+      "origin": "demo",
+      "status": "passed",
+      "pair": { "method": "Walleterm.getAddress with walletScope available", "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA" },
+      "restore": { "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA", "network": "TESTNET" },
+      "switch": { "method": "header wallet menu", "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5", "new_pairing": false },
+      "transactions": [
+        {
+          "label": "PAY_A",
+          "hash": "63281fbe8e1270d918e7a226eac69c852b83837a4dff16e146f8a3bc9241cb6b",
+          "ledger": 4918595,
+          "created_at": "2026-09-28T17:29:22Z",
+          "source": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+          "source_sequence": "20897180558557341",
+          "max_fee_stroops": "100",
+          "charged_fee_stroops": "100",
+          "operation": "payment 0.0100000 XLM to GBGV3GJA62QZV5NKOZQSJGV3ATEJSGYOT4AYSDSHXTV3JFHJIKBP4EJP",
+          "successful": true
+        },
+        {
+          "label": "PAY_B",
+          "hash": "4c6fb50316be73733c051f54c1c6225a9fb92e2b5b1e0d30c0765f1b2f74d58d",
+          "ledger": 4918611,
+          "created_at": "2026-09-28T17:30:42Z",
+          "source": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+          "source_sequence": "20897184853524501",
+          "max_fee_stroops": "100",
+          "charged_fee_stroops": "100",
+          "operation": "payment 0.0100000 XLM to GAPNX3Q6WZ5JN7OO2WHZ52ZCPZ6US4NYXB4EW6I7NMVIU6FT7TZIUOXH",
+          "successful": true
+        }
+      ]
+    },
+    {
+      "step": 2,
+      "name": "Demo contract increment through signAuthEntry, then signTransaction",
+      "origin": "demo",
+      "status": "passed",
+      "authorization": {
+        "request_kind": "auth_entry",
+        "credential": "address_v2",
+        "digest": "93453bccd60bac0ad06f39feb51244405433dfe6f1bd670e1f5d7a41c170ea4d",
+        "signer": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+        "authorization_address": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+        "signature_expiration_ledger": 4918729
+      },
+      "transactions": [
+        {
+          "label": "INCREMENT",
+          "hash": "7faa82963d2d7f1ec20397e04d504a3d9f0b428cf7077ee4a78ddb182c2aff97",
+          "ledger": 4918684,
+          "created_at": "2026-09-28T17:36:47Z",
+          "source": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+          "source_sequence": "20897180558557342",
+          "max_fee_stroops": "23796",
+          "charged_fee_stroops": "13787",
+          "operation": "invoke_host_function on CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E",
+          "successful": true
+        }
+      ],
+      "counter": { "contract": "CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E", "who": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD", "before": 7, "after": 8 }
+    },
+    {
+      "step": "3a",
+      "name": "Kit authModal pairing through WalletermModule.getAddress",
+      "origin": "http://127.0.0.1:8790",
+      "status": "passed",
+      "window_utc": ["2026-09-28T17:37:05.341Z", "2026-09-28T17:37:40.145Z"],
+      "kit_address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+      "walleterm_address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"
+    },
+    {
+      "step": "3b",
+      "name": "Kit signTransaction for a manageData note",
+      "origin": "http://127.0.0.1:8790",
+      "status": "passed",
+      "signer_address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+      "transactions": [
+        {
+          "label": "NOTE",
+          "hash": "c262fae04cdc8f75fd8e80f7ff7860b0a300fda64e3ddd2e57a8d2ef6d2367b5",
+          "ledger": 4918698,
+          "created_at": "2026-09-28T17:37:57Z",
+          "source": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+          "source_sequence": "20897180558557343",
+          "max_fee_stroops": "100",
+          "charged_fee_stroops": "100",
+          "operation": "manage_data sep43-kit",
+          "successful": true
+        }
+      ]
+    },
+    {
+      "step": "3c",
+      "name": "Kit signAuthEntries for a SAC transfer, a Walleterm switch that moves the Kit, then envelope signing by the new wallet",
+      "origin": "http://127.0.0.1:8790",
+      "status": "passed",
+      "authorization": {
+        "request_kind": "auth_entry",
+        "credential": "address_v2",
+        "digest": "e992b59afc763f849b6ced005f75532c0209fea0ffdef27e9c55634e02a68169",
+        "signer": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+        "authorization_address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+        "signature_expiration_ledger": 4918800,
+        "needs_non_invoker_signing_by": ["GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"]
+      },
+      "switch": {
+        "to": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+        "kit_address_after": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+        "wallet_scope": "available",
+        "hook_events": [
+          { "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA", "active": true },
+          { "address": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5", "active": true }
+        ],
+        "hook_errors": 0,
+        "bridge_requests_so_far": 12
+      },
+      "transactions": [
+        {
+          "label": "TRANSFER",
+          "hash": "6b10a2cd2655c406a1b00d8114e6678684978bec561015e5c1f1f0358aa0ab8c",
+          "ledger": 4918703,
+          "created_at": "2026-09-28T17:38:22Z",
+          "source": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+          "source_sequence": "20897184853524502",
+          "max_fee_stroops": "61418",
+          "charged_fee_stroops": "20612",
+          "operation": "invoke_host_function: native SAC transfer of 1.0000000 XLM from test-a to test-b",
+          "rpc_status": "SUCCESS",
+          "successful": true
+        }
+      ]
+    },
+    {
+      "step": "3d",
+      "name": "Guarded onChange hook while another Kit wallet is selected",
+      "origin": "http://127.0.0.1:8790",
+      "status": "passed",
+      "other_wallet_calls_before": { "getAddress": 1, "disconnect": 0 },
+      "other_wallet_calls_after": { "getAddress": 1, "disconnect": 0 },
+      "kit_address_while_other_selected": "the other wallet's random address (unchanged)",
+      "walleterm_switched_to": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+      "kit_address_after_reselect": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+      "signature_lines": 0
+    },
+    {
+      "step": 4,
+      "name": "Requests that must reach no signer",
+      "origin": "http://127.0.0.1:8790",
+      "status": "passed",
+      "signature_lines": 0,
+      "cases": {
+        "public_network_transaction": {
+          "sdk": { "code": -3, "ext": ["walleterm:network_unsupported"], "bridge_requests": 0 },
+          "raw_bridge": { "status": 400, "code": -3, "ext": ["walleterm:network_unsupported"] }
+        },
+        "v1_preimage": {
+          "sdk": { "code": -3, "ext": ["walleterm:unsupported"], "bridge_requests": 0 },
+          "raw_bridge": { "status": 400, "code": -3, "ext": ["walleterm:unsupported"] }
+        },
+        "sign_message": {
+          "sdk": { "code": -3, "ext": ["walleterm:unsupported"], "bridge_requests": 0 },
+          "raw_bridge": { "status": 400, "code": -3, "ext": ["walleterm:invalid_request"] }
+        },
+        "submit_true": {
+          "sdk": { "code": -3, "ext": ["walleterm:unsupported"], "bridge_requests": 0 },
+          "raw_bridge": { "status": 400, "code": -3, "ext": ["walleterm:invalid_request"] }
+        }
+      }
+    },
+    {
+      "step": 5,
+      "name": "changeTrust, which the removed operation allowlist refused, through plain SEP-43 signTransaction",
+      "origin": "http://127.0.0.1:8790",
+      "status": "passed",
+      "transactions": [
+        {
+          "label": "TRUST_ADD",
+          "hash": "16fadcad94350dca727a812e3e4a9b4e290312bcb999f01c3d80b779c81661c1",
+          "ledger": 4918718,
+          "created_at": "2026-09-28T17:39:37Z",
+          "source": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+          "source_sequence": "20897180558557344",
+          "max_fee_stroops": "100",
+          "charged_fee_stroops": "100",
+          "operation": "change_trust SEP43ACC issued by test-b",
+          "trustline_after": { "asset_code": "SEP43ACC", "asset_issuer": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5", "balance": "0.0000000", "limit": "922337203685.4775807" },
+          "successful": true
+        },
+        {
+          "label": "TRUST_REMOVE",
+          "hash": "2d8d1c01f0f7b85ceffcb34bbc2c47cfa8140be524ce50213cc68ddc5c8fe3e0",
+          "ledger": 4918719,
+          "created_at": "2026-09-28T17:39:42Z",
+          "source": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+          "source_sequence": "20897180558557345",
+          "max_fee_stroops": "100",
+          "charged_fee_stroops": "100",
+          "operation": "change_trust SEP43ACC issued by test-b, limit 0",
+          "trustline_after": null,
+          "successful": true
+        }
+      ]
+    },
+    {
+      "step": "3e",
+      "name": "Kit disconnect revokes the Walleterm bridge session (run after steps 4 and 5)",
+      "origin": "http://127.0.0.1:8790",
+      "status": "passed",
+      "window_utc": ["2026-09-28T17:39:59.225Z", "2026-09-28T17:40:00.352Z"],
+      "walleterm_address": "",
+      "kit_address": null,
+      "old_token_status": 401
+    }
+  ],
+  "totals": {
+    "signed_lines": 9,
+    "signed_transactions": 7,
+    "signed_authorization_entries": 2,
+    "successful_transactions": 7,
+    "step_4_signature_lines": 0,
+    "counter": [7, 8]
+  },
+  "accounts_before": [
+    {
+      "account": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+      "sequence": "20897180558557340",
+      "balances": [
+        { "asset": "USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5", "balance": "2.1191369" },
+        { "asset": "XLM", "balance": "19955.7975305" }
+      ]
+    },
+    {
+      "account": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+      "sequence": "20897184853524500",
+      "balances": [{ "asset": "XLM", "balance": "10000.0195230" }]
+    }
+  ],
+  "accounts_after": [
+    {
+      "account": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+      "sequence": "20897180558557345",
+      "subentry_count": 3,
+      "balances": [
+        { "asset": "USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5", "balance": "2.1191369" },
+        { "asset": "XLM", "balance": "19954.7861118" }
+      ]
+    },
+    {
+      "account": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+      "sequence": "20897184853524502",
+      "subentry_count": 0,
+      "balances": [{ "asset": "XLM", "balance": "10001.0074518" }]
+    }
+  ],
+  "balance_check": {
+    "test-a_xlm_change": "-1.0114187 = -0.0100000 payment - 1.0000000 transfer - 0.0014187 fees (100 + 13787 + 100 + 100 + 100 stroops)",
+    "test-b_xlm_change": "+0.9879288 = +1.0000000 transfer - 0.0100000 payment - 0.0020712 fees (100 + 20612 stroops)",
+    "sequences": "test-a used 5 sequence numbers and test-b used 2, one for each submitted transaction",
+    "trustlines_left": "none added; SEP43ACC was removed"
+  },
+  "findings": [
+    {
+      "id": "delivered-signature-reported-withheld",
+      "area": "bridge terminal audit log (bridge/server.ts)",
+      "severity": "audit accuracy; no extra signature and no lost transaction",
+      "observed": "After each wallet switch or revoke, the tunnel printed \"Signature withheld or stopped for <hash> ...\" for records that it had already delivered. All seven such records were on chain or used on chain.",
+      "lines": [
+        { "hash": "63281fbe8e1270d918e7a226eac69c852b83837a4dff16e146f8a3bc9241cb6b", "trigger": "step 1 switch to test-b", "reason": "The bridge sent the signature before the wallet changed." },
+        { "hash": "4c6fb50316be73733c051f54c1c6225a9fb92e2b5b1e0d30c0765f1b2f74d58d", "trigger": "step 2 switch to test-a", "reason": "The bridge sent the signature before the wallet changed." },
+        { "hash": "c262fae04cdc8f75fd8e80f7ff7860b0a300fda64e3ddd2e57a8d2ef6d2367b5", "trigger": "step 3c switch to test-b", "reason": "The bridge sent the signature before the wallet changed." },
+        { "digest": "e992b59afc763f849b6ced005f75532c0209fea0ffdef27e9c55634e02a68169", "trigger": "step 3c switch to test-b", "reason": "The bridge sent the signature before the wallet changed." },
+        { "hash": "6b10a2cd2655c406a1b00d8114e6678684978bec561015e5c1f1f0358aa0ab8c", "trigger": "step 3d switch to test-a", "reason": "The bridge sent the signature before the wallet changed." },
+        { "hash": "16fadcad94350dca727a812e3e4a9b4e290312bcb999f01c3d80b779c81661c1", "trigger": "step 3e revoke", "reason": "The website connection was revoked." },
+        { "hash": "2d8d1c01f0f7b85ceffcb34bbc2c47cfa8140be524ce50213cc68ddc5c8fe3e0", "trigger": "step 3e revoke", "reason": "The website connection was revoked." }
+      ],
+      "cause": "The switch, cancel, and revoke paths end a signed record as unknown and log it as withheld, even when the bridge already delivered its signature.",
+      "follow_up": "PR #27 (fix/sep43-live-findings)"
+    },
+    {
+      "id": "header-menu-empty-after-restore",
+      "area": "connection component (sdk/connect.ts)",
+      "severity": "user experience",
+      "observed": "After a reload restored the session, the header wallet menu showed only Copy, Refresh, and Disconnect. The wallet list appeared only after Refresh.",
+      "follow_up": "PR #27 (fix/sep43-live-findings)"
+    },
+    {
+      "id": "unfiltered-wallet-list-included-non-test-key",
+      "area": "live test setup",
+      "severity": "test setup",
+      "observed": "The unfiltered wallet list included a non-test signing key from another vault. The run used OP_VAULT, and the filtered list showed only the four test keys.",
+      "follow_up": "Keep the vault filter set for every live run."
+    }
+  ],
+  "limits": [
+    "Cached 1Password approval can suppress a prompt. The tunnel Signed lines count signatures, not prompts.",
+    "Steps 1 and 2 ran on the demo through a Quick Tunnel origin. Steps 3 to 5 ran on the loopback acceptance page. No third-party website was tested.",
+    "The Kit fixture uses a second test module for the guard. It does not prove behavior with other real Kit wallets.",
+    "Step 4 checks four refusal paths only. Other refusal paths rely on offline tests.",
+    "The run used one macOS install and one desktop browser session. It did not test mobile browsers.",
+    "The audit-line finding affects the terminal text only. The page results and the chain state agree with the Signed lines."
+  ],
+  "independent_checks": [
+    "A read-only Horizon query after the run matched every hash, ledger, source, fee, and the final account state.",
+    "Decoded INCREMENT and TRANSFER envelopes each hold one address_v2 credential for the listed authorization address."
+  ],
+  "public_record_excludes": [
+    "connection codes",
+    "bearer tokens",
+    "signatures and signed envelopes",
+    "tunnel host names",
+    "vault identifiers and 1Password item names"
+  ],
+  "local_records": "evidence/site-live/sep43-live-2026-09-28 in the main checkout (ignored)"
+}

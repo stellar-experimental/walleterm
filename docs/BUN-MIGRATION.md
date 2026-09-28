@@ -1,5 +1,9 @@
 # Bun and TypeScript migration
 
+> **Historical.** This record describes the 2026-09-26 Bun sidecar design. The Rust binary replaced that sidecar.
+> Bun now builds only the browser SDK and demo files, and it runs browser tests.
+> See [the README](../README.md) for the current build, install, and test commands.
+
 Research date: 2026-09-26. Base: PR #5, commit `ab467edd34a35636689691c951560f655bc33b17`, including loading PR #3.
 Research used `parallel-cli` and primary documentation. The implementation uses Bun 1.4.2 and TypeScript 7.0.2.
 

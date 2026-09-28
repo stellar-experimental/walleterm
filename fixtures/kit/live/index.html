@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Walleterm SEP-43 acceptance</title>
+    <link rel="stylesheet" href="/connect.css">
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 16px; color: #202637; background: #fff; }
+      header { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
+      pre { white-space: pre-wrap; overflow-wrap: anywhere; background: #f4f5f8; padding: 12px; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Walleterm SEP-43 acceptance</h1>
+      <div id="wallet-connection"></div>
+    </header>
+    <main>
+      <p>Stellar testnet only. Each action writes its result to <code>window.acceptance.results</code>.</p>
+      <button id="kit-connect" type="button">Connect with the Stellar Wallets Kit</button>
+      <pre id="log" aria-live="polite"></pre>
+    </main>
+    <script type="module" src="/page.js"></script>
+  </body>
+</html>
