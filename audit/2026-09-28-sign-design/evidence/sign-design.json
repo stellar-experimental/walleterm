@@ -155,7 +155,8 @@
     "precomputed_hash": {
       "testnet_transaction_hash": "e73804551639230dc03821cfd5c11b8067d8951bf6ebc1da2326fef62c0cb4df",
       "signature_over_hash_is_valid_envelope_signature": true,
-      "sep53_digest_of_hash_hex_text": "3a1b824a9f4684e13bf266b5b585dd1a5bb1cfa944ee444a24e010e884ebb246"
+      "sep53_digest_of_hash_hex_text": "e52151175cbac29a9dc6406729c2a173369ace8c532b361a1ced3f95b843683d",
+      "correction": "2026-09-28: the probe recorded 3a1b824a9f4684e13bf266b5b585dd1a5bb1cfa944ee444a24e010e884ebb246, which does not reproduce. The value above is SHA-256 of the 24-byte prefix 'Stellar Signed Message:\\n' followed by the 64 lowercase hexadecimal characters of testnet_transaction_hash. shasum -a 256, Python hashlib, and SDK 17.1.0 Keypair.signMessage with Keypair.verify agree. The PR A tests pin it."
     },
     "javascript_lone_surrogate": {
       "input": "a\\ud800b",

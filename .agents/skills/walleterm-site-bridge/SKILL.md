@@ -16,8 +16,8 @@ An unchanged website needs an integration or a compatible wallet adapter.
 - For service setup, the demo, or website integration, read [the service reference](references/service.md).
 - For an unchanged website, read [manual interception](references/interception.md).
 - For Soroban envelopes and explicit contract authorization, read the service reference and its authorization section.
-- For fee bumps or delegated authorization, use the direct `walleterm` skill.
-  The public bridge does not support those formats.
+- For a fee bump, the bridge signs the outer envelope when the selected key is its fee source. Read the service reference.
+- For CAP-71 delegated authorization, use the direct `walleterm` skill. The public bridge does not support that format.
 
 Resolve references and scripts from this skill's directory. Keep the caller directory unchanged.
 Use browser automation when the task needs it. Load `agent-browser` guidance if that tool is available.

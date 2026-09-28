@@ -20,7 +20,8 @@ It captures signing requests without signing them.
 The helper's `reply` command supports `SUBMIT_TRANSACTION` only.
 Use [message signing](message-signing.md) for `SUBMIT_BLOB`.
 For `SUBMIT_AUTH_ENTRY`, decode the preimage and review its network, bound address, expiry, and invocation tree.
-Sign the SHA-256 digest of its bytes with `walleterm sign` only after that review. Refuse a V1 preimage.
+Only after that review, send the preimage to `walleterm sign` with `preimage_xdr`. Walleterm computes the SHA-256 digest.
+It refuses a V1 preimage.
 Inspect the helper's unsupported-request list when the client needs another method.
 Choose another adapter when the confirmed transport differs.
 

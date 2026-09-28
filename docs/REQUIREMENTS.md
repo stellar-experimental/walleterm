@@ -3,7 +3,7 @@
 ## Confirmed
 
 - Build a minimal signing companion for the official Stellar CLI.
-- Target agents. Return JSON by default and provide `--human`.
+- Target agents. Return JSON by default. Provide `--human` for `list`. `sign` lost `--human` on 2026-09-28.
 - Target macOS first.
 - Permit 1Password approval prompts, including Touch ID.
 - Keep private keys within 1Password throughout generation, storage, and signing.

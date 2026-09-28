@@ -37,7 +37,7 @@ Require a successful exit, `ok: true`, `verified: true`, and the same public key
 Check that `digest` equals the SEP-53 digest of the reviewed text.
 Independently verify the raw 64-byte Ed25519 signature, for example with `stellar message verify`.
 Use the exact response encoding and field names required by the confirmed wallet transport.
-Freighter and Stellar CLI use Base64. The CLI returns lowercase hexadecimal.
+Freighter and Stellar CLI use Base64. `walleterm sign` returns lowercase hexadecimal.
 Bind the reply to the unchanged payload, original request ID, selected key, and exact website origin.
 Return it only once. Record delivery separately from login or application acceptance.
 

@@ -307,7 +307,10 @@ The raw digest shape could satisfy any such payload. Its removal closes that pat
 - A precomputed-hash path is the attack. A site sends a transaction hash as the "message hash" and receives a valid envelope signature.
   A probe signed a testnet transaction hash, and the envelope signature verified.
 - When Walleterm hashes the text itself, the same attempt signs SHA-256 of the prefix and the hash text.
-  The probe got `3a1b824a…b246`, which differs from the transaction hash.
+  The digest is `e5215117…683d`, which differs from the transaction hash.
+  Correction, 2026-09-28: the probe recorded `3a1b824a…b246`, and that value does not reproduce.
+  SHA-256 of the 24-byte prefix and the 64 lowercase hexadecimal characters of `e7380455…b4df` is
+  `e52151175cbac29a9dc6406729c2a173369ace8c532b361a1ced3f95b843683d`. `shasum`, Python `hashlib`, and SDK 17.1.0 agree.
 - This is the second reason to remove the raw digest shape.
 
 ### 4.4 Encoding, limits, and display
