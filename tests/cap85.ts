@@ -1562,6 +1562,13 @@ async function selfTest() {
   const broken = pathToFileURL(join(dir, 'broken.json'));
   write(broken, '{');
   throws(() => loadState(ctx, base, manifest, broken), /cannot read/, 'parse error not defaulted');
+  const partial = pathToFileURL(join(dir, 'partial.json'));
+  write(partial, JSON.stringify({ contracts: {}, wasm: {}, done: {} }));
+  throws(
+    () => loadState(ctx, base, manifest, partial),
+    /lacks contracts, wasm, done, or steps/,
+    'missing checkpoint field rejected',
+  );
   throws(() => loadBase(pathToFileURL(join(dir, 'nobase.json'))), /cannot read/, 'missing baseline rejected');
   throws(() => selectRows({ rows: ['X01', 'E01'] }), /unknown cap85 row ids: E01/, 'unknown row rejected');
   const h = 'ab'.repeat(32);
