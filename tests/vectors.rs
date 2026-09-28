@@ -130,10 +130,13 @@ fn a_changed_signature_fails_independent_verification() {
 }
 
 #[test]
-fn the_vector_file_matches_its_recorded_hash() {
+fn every_parity_file_matches_its_recorded_hash() {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/parity");
-    let bytes = std::fs::read(format!("{dir}/vectors.json")).unwrap();
     let readme = std::fs::read_to_string(format!("{dir}/README.md")).unwrap();
-    let recorded = readme.split("File SHA-256: `").nth(1).and_then(|s| s.get(..64)).unwrap();
-    assert_eq!(hex(&walleterm::util::sha256(&bytes)), recorded, "vectors.json changed without review");
+    for name in ["vectors.json", "cli.json", "sign-auth.json"] {
+        let bytes = std::fs::read(format!("{dir}/{name}")).unwrap();
+        let row = readme.lines().find(|l| l.starts_with(&format!("| `{name}`"))).unwrap();
+        let recorded = row.trim_end_matches(" |").rsplit('`').nth(1).unwrap();
+        assert_eq!(hex(&walleterm::util::sha256(&bytes)), recorded, "{name} changed without review");
+    }
 }

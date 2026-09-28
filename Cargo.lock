@@ -418,6 +418,7 @@ version = "0.0.0"
 dependencies = [
  "base64",
  "ed25519-dalek",
+ "libc",
  "serde",
  "serde_json",
  "sha2",
