@@ -8,7 +8,7 @@ The connection component requests an explicit grant for its displayed eligible w
 The server pins the reviewed public keys at the first selection.
 Wallet changes use the same session and preserve its one-hour expiry.
 New keys require a new connection. Fresh discovery still enforces removal and OP_VAULT membership.
-The default SDK connection retains the legacy fixed-wallet grant.
+The default SDK connection uses the `selected` scope: one fixed wallet, the least-privilege grant.
 
 Selection revisions reject stale requests, including a change from A to B and back to A.
 A wallet change cancels unfinished requests and withholds old bridge results.

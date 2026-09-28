@@ -1,3 +1,4 @@
+import { Networks } from '@stellar/stellar-sdk';
 import { inspectTransactionRequest, verifyTransactionSignature } from './transaction.js';
 import {
   addressCredentials,
@@ -5,25 +6,36 @@ import {
   inspectAuthEntry,
   verifyAuthEntrySignature,
 } from './authorization.js';
-import type { AuthSignOptions } from './authorization.js';
+import { inspectAuthPreimage, verifyPreimageSignature } from './preimage.js';
+import type { AuthAdapter, AuthSignOptions } from './authorization.js';
 export * from './authorization.js';
-import { requestError } from './errors.js';
-// Browser adapter for Walleterm bridge protocol v2. Credentials remain in memory.
+export * from './preimage.js';
+import { requestError, sep43Error, walletermError, WalletermError } from './errors.js';
+export { WalletermError };
+export type { Sep43Code, Sep43Error, Sep43Reason } from './errors.js';
+// Browser adapter for Walleterm bridge protocol version 3.
 import type {
   Account,
   BridgeResponse,
   ConnectOptions,
   Fetch,
+  Progress,
   RequestPath,
+  RequestResult,
   SignalOptions,
   SignOptions,
+  Signer,
+  WalletPicker,
   WalletScope,
 } from './types.js';
+import type { Sep43Error } from './errors.js';
 export type {
   Account,
   Connection,
   ConnectOptions,
   Fetch,
+  Progress,
+  RequestState,
   SignalOptions,
   Signer,
   SignOptions,
@@ -35,7 +47,22 @@ export type {
 function unverifiedResult(caught: unknown) {
   return Object.assign(requestError(caught), { requestState: 'unknown' as const, canceled: false });
 }
+interface ClientOptions {
+  fetch?: Fetch;
+  pollInterval?: number;
+  page?: Pick<EventTarget, 'addEventListener' | 'removeEventListener'> | null;
+}
+type Artifact =
+  | { kind: 'transaction'; xdr: string }
+  | { kind: 'auth_entry'; preimage_xdr: string }
+  | { kind: 'authorization'; auth_entry_xdr: string; auth_address: string; adapter: AuthAdapter };
+const resultField = {
+  transaction: 'signed_tx_xdr',
+  auth_entry: 'signed_auth_entry',
+  authorization: 'signed_auth_entry_xdr',
+} as const;
 
+/** One bridge session. Failures throw. `Walleterm` wraps it with the SEP-43 surface. */
 export class WalletermClient {
   readonly url: string;
   readonly fetch: Fetch;
@@ -50,17 +77,15 @@ export class WalletermClient {
   selecting = false;
   selectionUncertain: { revision: number; publicKey: string } | null = null;
   grant?: string;
+  /** Called after each account or credential change. `Walleterm` uses it. */
+  onAccountChange?: () => void;
   constructor(
     bridgeUrl: string,
     {
       fetch: fetcher = globalThis.fetch.bind(globalThis),
       pollInterval = 1000,
       page = globalThis,
-    }: {
-      fetch?: Fetch;
-      pollInterval?: number;
-      page?: Pick<EventTarget, 'addEventListener' | 'removeEventListener'> | null;
-    } = {},
+    }: ClientOptions = {},
   ) {
     const url = new URL(bridgeUrl);
     if (
@@ -70,11 +95,19 @@ export class WalletermClient {
         (url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))
       )
     )
-      throw Error('Use the public bridge origin, without a path.');
+      throw walletermError('invalid_request', 'Use the public bridge origin, without a path.');
     this.url = url.origin;
     this.fetch = fetcher;
     this.pollInterval = pollInterval;
     this.page = page;
+  }
+  setAccount(account: Account | null) {
+    this.account = account;
+    try {
+      this.onAccountChange?.();
+    } catch {
+      /* Observers must not change the connection. */
+    }
   }
   async request<P extends RequestPath>(
     path: P,
@@ -108,10 +141,13 @@ export class WalletermClient {
       // An old response must not clear a newer connection.
       if (response.status === 401 && this.token === token) {
         this.token = null;
-        this.account = null;
+        this.setAccount(null);
       }
-      throw Object.assign(Error(result.error?.message || `Bridge request failed (${response.status}).`), {
+      const error: Partial<Sep43Error> = result?.error || {};
+      throw Object.assign(Error(error.message || `Bridge request failed (${response.status}).`), {
         status: response.status,
+        ...(typeof error.code === 'number' ? { code: error.code } : {}),
+        ...(Array.isArray(error.ext) ? { ext: error.ext.filter((v) => typeof v === 'string') } : {}),
       });
     }
     return result;
@@ -136,11 +172,13 @@ export class WalletermClient {
     walletScope = 'selected',
     signal = AbortSignal.timeout(300000),
   }: ConnectOptions) {
-    if (!['selected', 'available'].includes(walletScope)) throw Error('The wallet scope is invalid.');
-    if (typeof selectWallet !== 'function') throw Error('Provide a wallet picker.');
+    if (!['selected', 'available'].includes(walletScope))
+      throw walletermError('invalid_request', 'The wallet scope is invalid.');
+    if (typeof selectWallet !== 'function')
+      throw walletermError('invalid_request', 'Provide a wallet picker.');
     if (this.token) {
       try {
-        const account = await this.getAddress();
+        const account = await this.getAccount();
         if (account.address) return account;
       } catch (errorValue) {
         const error = requestError(errorValue);
@@ -149,56 +187,49 @@ export class WalletermClient {
     }
     if (!this.token) {
       if (typeof code !== 'string' || !/^\d{8}$/.test(code))
-        throw Error('Enter the eight-digit code from the tunnel terminal.');
-      const result = await this.request(
-        '/v1/connect',
-        { code, ...(walletScope === 'available' ? { wallet_scope: walletScope } : {}) },
-        signal,
-      );
+        throw walletermError('invalid_request', 'Enter the eight-digit code from the tunnel terminal.');
+      const result = await this.request('/v1/connect', { code, wallet_scope: walletScope }, signal);
       this.token = result.token;
-      this.account = null;
       this.selecting = false;
       this.selectionUncertain = null;
-      this.walletScope = walletScope;
+      this.walletScope = result.wallet_scope;
       this.revision = 0;
       this.generation++;
-      if (walletScope === 'available' && result.wallet_scope !== walletScope) {
-        await this.disconnect().catch(() => {});
-        throw Error('This bridge does not support wallet switching. Update the bridge.');
-      }
+      this.setAccount(null);
     }
     try {
       const signers = await this.listWallets({ signal });
       const publicKey = await selectWallet(signers, { signal });
       signal.throwIfAborted();
       const result = await this.selectWallet(publicKey, { signal });
-      this.account = result;
-      return { ...this.account };
+      this.setAccount(result);
+      return { ...result };
     } catch (errorValue) {
       const error = requestError(errorValue);
       await this.disconnect().catch(() => {});
       this.token = null;
-      this.account = null;
+      this.setAccount(null);
       throw error;
     }
   }
   async listWallets({ signal }: SignalOptions = {}) {
-    if (!this.token) throw Error('Connect the website first.');
+    if (!this.token) throw walletermError('not_connected', 'Connect the website first.');
     const token = this.token,
       generation = this.generation;
     const { signers, grant_id } = await this.request('/v1/signers', undefined, signal, { token });
     if (token !== this.token || generation !== this.generation)
-      throw Error('The website connection changed.');
+      throw walletermError('conflict', 'The website connection changed.');
     this.grant = grant_id;
     return signers;
   }
   async selectWallet(publicKey: string, { signal }: SignalOptions = {}) {
-    if (!this.token) throw Error('Connect the website first.');
-    if (this.selecting) throw Error('A wallet selection is already in progress.');
-    if (this.selectionUncertain) throw Error('Recover the account or reconnect before changing wallets.');
+    if (!this.token) throw walletermError('not_connected', 'Connect the website first.');
+    if (this.selecting) throw walletermError('conflict', 'A wallet selection is already in progress.');
+    if (this.selectionUncertain)
+      throw walletermError('conflict', 'Recover the account or reconnect before changing wallets.');
     if (this.account?.address === publicKey) return { ...this.account };
     if (this.account && this.walletScope !== 'available')
-      throw Error('Connect again with wallet switching enabled.');
+      throw walletermError('conflict', 'Connect again with wallet switching enabled.');
     const token = this.token,
       scoped = this.walletScope === 'available',
       priorRevision = this.revision ?? 0;
@@ -218,21 +249,21 @@ export class WalletermClient {
         { token },
       );
       if (token !== this.token || generation !== this.generation)
-        throw Error('The website connection changed.');
+        throw walletermError('conflict', 'The website connection changed.');
       if (scoped && (!Number.isSafeInteger(result.selection_revision) || result.selection_revision < 1))
-        throw Error('The bridge returned an invalid wallet selection.');
+        throw walletermError('internal', 'The bridge returned an invalid wallet selection.');
       this.selectionUncertain = null;
       this.revision = result.selection_revision;
-      this.account = { address: result.public_key, networkPassphrase: result.network_passphrase };
-      return { ...this.account };
+      this.setAccount({ address: result.address, networkPassphrase: result.network_passphrase });
+      return { ...this.account! };
     } catch (errorValue) {
       const error = requestError(errorValue);
       // Selection can succeed while its response is lost. Reconcile before permitting another signature.
       if (token === this.token && generation === this.generation) {
-        this.account = null;
         this.revision = null;
         this.selectionUncertain =
           !error.status || error.status >= 500 ? { revision: priorRevision, publicKey } : null;
+        this.setAccount(null);
         try {
           await this.readAccount(token, generation);
         } catch {
@@ -244,36 +275,42 @@ export class WalletermClient {
       if (generation === this.generation) this.selecting = false;
     }
   }
-  async getAddress() {
-    if (this.selecting) throw Error('Wait for the wallet selection to finish.');
+  /** Read the connected account from the bridge. */
+  async getAccount() {
+    if (this.selecting) throw walletermError('conflict', 'Wait for the wallet selection to finish.');
     return this.readAccount(this.token, this.generation);
   }
   async readAccount(token: string | null, generation: number) {
     const result = await this.request('/v1/account', undefined, undefined, { token });
     if (token !== this.token || generation !== this.generation)
-      throw Error('The website connection changed.');
+      throw walletermError('conflict', 'The website connection changed.');
     if (
-      this.walletScope === 'available' &&
+      result.wallet_scope === 'available' &&
       (!Number.isSafeInteger(result.selection_revision) || result.selection_revision < 0)
     )
-      throw Error('The bridge returned an invalid wallet selection.');
+      throw walletermError('internal', 'The bridge returned an invalid wallet selection.');
     if (
       this.revision !== null &&
       Number.isSafeInteger(this.revision) &&
       result.selection_revision < this.revision
     )
-      throw Error('The wallet account response is stale.');
+      throw walletermError('conflict', 'The wallet account response is stale.');
     if (
       this.selectionUncertain &&
       (result.selection_revision <= this.selectionUncertain.revision ||
-        result.public_key !== this.selectionUncertain.publicKey)
+        result.address !== this.selectionUncertain.publicKey)
     )
-      throw Error('The wallet selection is not confirmed. Reconnect or recover the account later.');
+      throw walletermError(
+        'conflict',
+        'The wallet selection is not confirmed. Reconnect or recover the account later.',
+      );
+    if (result.network_passphrase !== Networks.TESTNET)
+      throw walletermError('network_unsupported', 'The bridge reported a network other than testnet.');
     this.selectionUncertain = null;
     this.revision = result.selection_revision;
-    this.walletScope = result.wallet_scope || this.walletScope;
-    this.account = { address: result.public_key, networkPassphrase: result.network_passphrase };
-    return { ...this.account };
+    this.walletScope = result.wallet_scope;
+    this.setAccount({ address: result.address, networkPassphrase: result.network_passphrase });
+    return { ...this.account! };
   }
   // Retry after a network error or a 5xx response. Stop when the connection changes.
   async retry<T>(
@@ -293,96 +330,104 @@ export class WalletermClient {
         onRetry?.();
         await this.wait(signal, Math.min(this.pollInterval * 2 ** Math.min(failures++, 3), 5000));
         if (this.token !== token || this.generation !== generation)
-          throw Error('The website connection changed. Build a new transaction.');
+          throw walletermError('conflict', 'The website connection changed. Build a new transaction.');
       }
     }
   }
-  // Address and network default to the connected account, as in SEP-43.
+  /** The selected account, network, and signer for one request. Defaults follow SEP-43. */
+  signer({ address, networkPassphrase }: Pick<SignOptions, 'address' | 'networkPassphrase'>) {
+    const selected = this.account;
+    if (!selected?.address || !this.token || this.selecting)
+      throw walletermError('not_connected', 'Connect and select a wallet first.');
+    const passphrase = networkPassphrase ?? selected.networkPassphrase;
+    if (passphrase !== selected.networkPassphrase)
+      throw walletermError('network_unsupported', 'Walleterm signs only on Stellar testnet.');
+    if (address != null && address !== selected.address)
+      throw walletermError('address_mismatch', 'The requested signer differs from the selected account.');
+    return { address: selected.address, networkPassphrase: passphrase };
+  }
   // An abort, a rejection, or leaving the page cancels the bridge request. Build a new transaction to try again.
   // error.canceled reports cancellation or lost session access. It does not prove that signing stopped.
   // requestState stays unknown when cancellation cannot determine whether a signature was produced.
   async signTransaction(transactionXdr: string, options: SignOptions = {}) {
-    const selected = this.account;
-    if (!selected?.address || !this.token || this.selecting)
-      throw Error('Connect and select a wallet first.');
-    const {
-      address = selected.address,
-      networkPassphrase = selected.networkPassphrase,
-      signal,
-      onProgress,
-    } = options;
-    if (address !== selected.address) throw Error('The requested signer differs from the selected account.');
-    if (networkPassphrase !== selected.networkPassphrase)
-      throw Error('The requested network differs from the selected network.');
+    const { address, networkPassphrase } = this.signer(options);
     inspectTransactionRequest(transactionXdr, address, networkPassphrase);
-    const result = await this.signArtifact(
-      { transaction_xdr: transactionXdr },
-      { address, networkPassphrase, signal, onProgress },
+    const signed = await this.signArtifact(
+      { kind: 'transaction', xdr: transactionXdr },
+      { ...options, address, networkPassphrase },
     );
     try {
-      verifyTransactionSignature(transactionXdr, result.signedXdr, address, networkPassphrase);
+      verifyTransactionSignature(transactionXdr, signed, address, networkPassphrase);
     } catch (error) {
       throw unverifiedResult(error);
     }
-    return { signedTxXdr: result.signedXdr, signerAddress: address };
+    return { signedTxXdr: signed, signerAddress: address };
   }
-
-  async signAuthEntry(authEntryXdr: string, options: AuthSignOptions) {
-    const publicKey = this.account?.address;
-    if (!publicKey) throw Error('Connect and select a wallet first.');
-    const {
-      address,
-      adapter = { type: 'account' },
-      networkPassphrase = this.account?.networkPassphrase,
-      signal,
-      onProgress,
-    } = options;
+  /** SEP-43: sign SHA-256 of an address-bound authorization preimage. Returns Base64 signature bytes. */
+  async signAuthEntry(preimageXdr: string, options: SignOptions = {}) {
+    const { address, networkPassphrase } = this.signer(options);
+    const { digest } = inspectAuthPreimage(preimageXdr, address, networkPassphrase);
+    const signed = await this.signArtifact(
+      { kind: 'auth_entry', preimage_xdr: preimageXdr },
+      { ...options, address, networkPassphrase },
+    );
+    try {
+      verifyPreimageSignature(digest, address, signed);
+    } catch (error) {
+      throw unverifiedResult(error);
+    }
+    return { signedAuthEntry: signed, signerAddress: address };
+  }
+  /** Walleterm extension: sign a complete AddressV2 entry through an adapter. */
+  async signAuthorization(authEntryXdr: string, options: AuthSignOptions) {
+    const { address: signer, networkPassphrase } = this.signer({
+      networkPassphrase: options.networkPassphrase,
+    });
     const input = {
       auth_entry_xdr: authEntryXdr,
-      address,
-      adapter: structuredClone(adapter),
-      public_key: publicKey,
-      network_passphrase: networkPassphrase!,
+      address: options.address,
+      adapter: structuredClone(options.adapter ?? { type: 'account' as const }),
+      public_key: signer,
+      network_passphrase: networkPassphrase,
     };
     // Local verification checks exact artifacts. Only the bridge supplies trusted current-ledger evidence.
     const expiration = addressCredentials(parseAuthEntry(authEntryXdr)).signatureExpirationLedger;
     const structuralLedger = Math.max(1, expiration - 60);
-    inspectAuthEntry(input, publicKey, structuralLedger);
-    const result = await this.signArtifact(
+    inspectAuthEntry(input, signer, structuralLedger);
+    const signed = await this.signArtifact(
       {
         kind: 'authorization',
         auth_entry_xdr: input.auth_entry_xdr,
-        address: input.address,
+        auth_address: input.address,
         adapter: input.adapter,
       },
-      { address: publicKey, networkPassphrase: input.network_passphrase, signal, onProgress },
+      { signal: options.signal, onProgress: options.onProgress, address: signer, networkPassphrase },
     );
     try {
-      verifyAuthEntrySignature(input, result.signedXdr, structuralLedger);
+      verifyAuthEntrySignature(input, signed, structuralLedger);
     } catch (error) {
       throw unverifiedResult(error);
     }
-    return { signedAuthEntryXdr: result.signedXdr, signerAddress: result.signerAddress };
+    return { signedAuthEntryXdr: signed, signerAddress: signer };
   }
 
   private async signArtifact(
-    artifact:
-      | { transaction_xdr: string }
-      | {
-          kind: 'authorization';
-          auth_entry_xdr: string;
-          address: string;
-          adapter: import('./authorization.js').AuthAdapter;
-        },
+    artifact: Artifact,
     {
-      networkPassphrase = this.account?.networkPassphrase,
-      address = this.account?.address,
+      networkPassphrase,
+      address,
       signal = AbortSignal.timeout(300000),
       onProgress,
-    }: SignOptions = {},
+    }: {
+      networkPassphrase: string;
+      address: string;
+      signal?: AbortSignal;
+      onProgress?: SignOptions['onProgress'];
+    },
   ) {
     const token = this.token;
-    if (!token || !this.account?.address || this.selecting) throw Error('Connect and select a wallet first.');
+    if (!token || !this.account?.address || this.selecting)
+      throw walletermError('not_connected', 'Connect and select a wallet first.');
     const generation = this.generation,
       revision = this.revision;
     const id = crypto.randomUUID(),
@@ -396,7 +441,7 @@ export class WalletermClient {
     };
     this.page?.addEventListener?.('pagehide', leave);
     // Observers must not interrupt signing or alter cancellation behavior.
-    const notify = (progress: Parameters<NonNullable<SignOptions['onProgress']>>[0]) => {
+    const notify = (progress: Progress) => {
       try {
         onProgress?.(progress);
       } catch {
@@ -404,7 +449,10 @@ export class WalletermClient {
       }
     };
     const retrying = () => notify({ state: 'retrying' });
-    let result;
+    let result: RequestResult;
+    // A create attempt that failed without a definitive answer can still have reached the bridge.
+    let created = false,
+      uncertain = false;
     try {
       // The bridge returns the same request for a repeated ID, so a lost response is safe to resend.
       result = await this.retry(
@@ -415,7 +463,7 @@ export class WalletermClient {
               id,
               ...artifact,
               network_passphrase: networkPassphrase,
-              public_key: address,
+              address,
               ...(this.walletScope === 'available' ? { selection_revision: revision } : {}),
             },
             signal,
@@ -424,8 +472,12 @@ export class WalletermClient {
         signal,
         token,
         generation,
-        retrying,
+        () => {
+          uncertain = true;
+          retrying();
+        },
       );
+      created = true;
       notify({ state: result.state, expiresAt: result.expires_at });
       while (['pending', 'approved', 'signing'].includes(result.state)) {
         await this.wait(signal);
@@ -440,9 +492,11 @@ export class WalletermClient {
       }
       signal.throwIfAborted();
       if (this.token !== token || this.generation !== generation || this.revision !== revision)
-        throw Error('The wallet selection changed. Build a new transaction.');
+        throw walletermError('conflict', 'The wallet selection changed. Build a new transaction.');
     } catch (caught) {
       const error = requestError(caught);
+      // A 4xx answer to the first create attempt proves that the bridge created no request.
+      if (!created && !uncertain && error.status && error.status >= 400 && error.status < 500) throw error;
       error.canceled = false;
       const cancellation = AbortSignal.timeout(10000);
       for (let attempt = 0; attempt < 3 && !error.canceled && !cancellation.aborted; attempt++) {
@@ -463,13 +517,16 @@ export class WalletermClient {
       this.signings.delete(stop);
       this.page?.removeEventListener?.('pagehide', leave);
     }
-    if (result.state !== 'signed')
-      throw Object.assign(Error(result.message || `The signing request is ${result.state}.`), {
+    if (result.state !== 'signed') {
+      const bridge = result.error;
+      throw Object.assign(Error(bridge?.message || `The signing request is ${result.state}.`), {
         requestState: result.state,
+        ...(bridge && typeof bridge.code === 'number' ? { code: bridge.code, ext: bridge.ext } : {}),
       });
-    if (typeof result.signed_xdr !== 'string')
-      throw unverifiedResult(Error('The bridge returned no signed artifact.'));
-    return { signedXdr: result.signed_xdr, signerAddress: address };
+    }
+    const signed = result[resultField[artifact.kind]];
+    if (typeof signed !== 'string') throw unverifiedResult(Error('The bridge returned no signed artifact.'));
+    return signed;
   }
   async disconnect() {
     const token = this.token;
@@ -489,10 +546,318 @@ export class WalletermClient {
   // Local discard cannot prove that the bridge revoked its session.
   forgetConnection() {
     this.token = null;
-    this.account = null;
     this.generation++;
     this.selecting = false;
     this.selectionUncertain = null;
     for (const stop of this.signings) stop.abort(Error('The website disconnected.'));
+    this.setAccount(null);
+  }
+}
+
+/** A SEP-43 result. As in Freighter, a failure returns empty strings and `error`. */
+export type Result<T> = T & { error?: Sep43Error };
+export interface SignRequestOptions extends SignalOptions {
+  networkPassphrase?: string;
+  address?: string;
+  onProgress?: (progress: Progress) => void;
+}
+export interface AddressChange {
+  address: string | null;
+  network: 'TESTNET';
+  networkPassphrase: string;
+}
+/** The interface that obtains access. `WalletermConnect` implements it. */
+export interface AccessInterface {
+  requestAccess(wallet: Walleterm): Promise<string>;
+}
+export interface WalletermOptions extends ClientOptions {
+  walletScope?: WalletScope;
+  /** Per-tab reload recovery. `null` keeps credentials in memory only. */
+  sessionStorageKey?: string | null;
+  ui?: AccessInterface | null;
+}
+async function settle<T extends Record<string, string>>(
+  empty: T,
+  work: () => Promise<T>,
+): Promise<Result<T>> {
+  try {
+    return await work();
+  } catch (error) {
+    return { ...empty, error: sep43Error(error) };
+  }
+}
+const emptyAddress = { address: '' },
+  emptyTransaction = { signedTxXdr: '', signerAddress: '' },
+  emptyAuthEntry = { signedAuthEntry: '', signerAddress: '' };
+async function defaultInterface(wallet: Walleterm): Promise<AccessInterface> {
+  if (typeof document === 'undefined')
+    throw walletermError('not_connected', 'Walleterm needs a page with a document to connect.');
+  const { WalletermConnect } = await import('./connect.js');
+  const host = document.createElement('div');
+  document.body.append(host);
+  return new WalletermConnect(host, { wallet, header: false });
+}
+
+/**
+ * SEP-43 wallet. The five SEP-43 methods resolve results and never reject.
+ * Native methods manage pairing, switching, and disconnection. They throw `WalletermError`.
+ */
+export class Walleterm {
+  readonly walletScope: WalletScope;
+  readonly sessionStorageKey: string | null;
+  readonly clientOptions: ClientOptions;
+  ui: AccessInterface | null;
+  client: WalletermClient | null = null;
+  #listeners = new Set<(change: AddressChange) => void>();
+  #published: string | null = null;
+  #restored = false;
+  #queued = false;
+  #access?: Promise<string>;
+  constructor({
+    walletScope = 'selected',
+    sessionStorageKey = 'walleterm:session',
+    ui = null,
+    ...clientOptions
+  }: WalletermOptions = {}) {
+    if (!['selected', 'available'].includes(walletScope))
+      throw walletermError('invalid_request', 'The wallet scope is invalid.');
+    this.walletScope = walletScope;
+    this.sessionStorageKey = sessionStorageKey;
+    this.ui = ui;
+    this.clientOptions = clientOptions;
+  }
+  /** The selected G-address, or an empty string. The Stellar SDK contract client reads this property. */
+  get address(): string {
+    return (this.client?.token && this.client.account?.address) || '';
+  }
+  get url(): string | null {
+    return this.client?.url ?? null;
+  }
+  /** Report each address change. A disconnection reports `null`. */
+  onChange(listener: (change: AddressChange) => void) {
+    this.#listeners.add(listener);
+    return () => void this.#listeners.delete(listener);
+  }
+  #publish() {
+    const address = this.address || null;
+    if (address === this.#published) return;
+    this.#published = address;
+    for (const listener of this.#listeners)
+      try {
+        listener({ address, network: 'TESTNET', networkPassphrase: Networks.TESTNET });
+      } catch {
+        /* Observers must not change the connection. */
+      }
+  }
+  #storage(): Storage | null {
+    try {
+      return this.sessionStorageKey ? globalThis.sessionStorage : null;
+    } catch {
+      return null;
+    }
+  }
+  #save() {
+    const storage = this.#storage();
+    if (!storage) return;
+    try {
+      const client = this.client;
+      if (client?.token && client.account?.address)
+        storage.setItem(
+          this.sessionStorageKey!,
+          JSON.stringify({ version: 3, url: client.url, token: client.token }),
+        );
+      else if (!client?.token) storage.removeItem(this.sessionStorageKey!);
+    } catch {
+      /* Unavailable storage leaves the connection in memory. */
+    }
+  }
+  #use(client: WalletermClient | null) {
+    if (this.client && this.client !== client) this.client.onAccountChange = undefined;
+    this.client = client;
+    if (client)
+      client.onAccountChange = () => {
+        if (this.client !== client) return;
+        this.#save();
+        // Publish after the client operation settles. A listener can then read the account at once.
+        if (this.#queued) return;
+        this.#queued = true;
+        queueMicrotask(() => {
+          this.#queued = false;
+          this.#publish();
+        });
+      };
+    this.#save();
+    this.#publish();
+  }
+  /** Load a saved session once. The bridge, not storage, supplies its scope and revision. */
+  restore() {
+    if (this.#restored) return;
+    this.#restored = true;
+    const storage = this.#storage();
+    if (!storage || this.client) return;
+    try {
+      const saved = storage.getItem(this.sessionStorageKey!);
+      if (!saved) return;
+      const value = JSON.parse(saved);
+      if (
+        value?.version !== 3 ||
+        typeof value.url !== 'string' ||
+        typeof value.token !== 'string' ||
+        !/^[A-Za-z0-9_-]{43}$/.test(value.token)
+      )
+        throw Error('The saved connection is invalid.');
+      const client = new WalletermClient(value.url, this.clientOptions);
+      client.token = value.token;
+      client.walletScope = this.walletScope;
+      client.revision = null;
+      this.#use(client);
+    } catch {
+      try {
+        storage.removeItem(this.sessionStorageKey!);
+      } catch {
+        /* Storage can fail. */
+      }
+    }
+  }
+  /** Use a newly paired session. The previous session is revoked, or discarded when revocation fails. */
+  async adopt(next: WalletermClient, { signal }: SignalOptions = {}) {
+    if (!next.token || !next.account?.address)
+      throw walletermError('not_connected', 'Select a wallet before using this connection.');
+    signal?.throwIfAborted();
+    const previous = this.client;
+    let previousRevoked = true;
+    if (previous && previous !== next) {
+      previous.onAccountChange = undefined;
+      try {
+        await previous.disconnect();
+      } catch {
+        previous.forgetConnection();
+        previousRevoked = false;
+      }
+      // Revoking the previous session can take a while. A canceled pairing then keeps no session.
+      if (signal?.aborted) {
+        if (this.client === previous) this.#use(null);
+        signal.throwIfAborted();
+      }
+    }
+    this.#restored = true;
+    this.#use(next);
+    return { address: next.account.address, previousRevoked };
+  }
+  /** Pair a tunnel without the dialog. A failure keeps the current session. */
+  async connect({
+    url,
+    code,
+    selectWallet,
+    signal,
+  }: {
+    url: string;
+    code: string;
+    selectWallet: WalletPicker;
+    signal?: AbortSignal;
+  }) {
+    const next = new WalletermClient(url, this.clientOptions);
+    await next.connect({ code, selectWallet, walletScope: this.walletScope, signal });
+    return this.adopt(next, { signal });
+  }
+  /** Open the access interface once, even for concurrent callers. */
+  requestAccess() {
+    this.#access ??= (async () => (this.ui ?? (await defaultInterface(this))).requestAccess(this))().finally(
+      () => (this.#access = undefined),
+    );
+    return this.#access;
+  }
+  #connected() {
+    this.restore();
+    const client = this.client;
+    if (!client?.token) throw walletermError('not_connected', 'Connect Walleterm first.');
+    return client;
+  }
+  async #ready(options: SignRequestOptions) {
+    if ((options.networkPassphrase ?? Networks.TESTNET) !== Networks.TESTNET)
+      throw walletermError(
+        'network_unsupported',
+        'Walleterm signs only on Stellar testnet. Use Networks.TESTNET.',
+      );
+    const client = this.#connected();
+    if (!client.account?.address) await client.getAccount();
+    return client;
+  }
+
+  // SEP-43 methods.
+  getAddress({ skipRequestAccess = false }: { skipRequestAccess?: boolean } = {}) {
+    return settle(emptyAddress, async () => {
+      this.restore();
+      const client = this.client;
+      if (client?.token) {
+        try {
+          const account = await client.getAccount();
+          if (account.address) return { address: account.address };
+        } catch (errorValue) {
+          if (requestError(errorValue).status !== 401) throw errorValue;
+        }
+      }
+      if (skipRequestAccess) throw walletermError('not_connected', 'Connect Walleterm first.');
+      return { address: await this.requestAccess() };
+    });
+  }
+  signTransaction(xdr: string, options: SignRequestOptions & { submit?: boolean; submitUrl?: string } = {}) {
+    return settle(emptyTransaction, async () => {
+      if (options.submit || options.submitUrl !== undefined)
+        throw walletermError(
+          'unsupported',
+          'Walleterm does not submit transactions. Submit the signed transaction.',
+        );
+      const client = await this.#ready(options);
+      return client.signTransaction(xdr, options);
+    });
+  }
+  signAuthEntry(authEntry: string, options: SignRequestOptions = {}) {
+    return settle(emptyAuthEntry, async () => (await this.#ready(options)).signAuthEntry(authEntry, options));
+  }
+  signMessage(_message: string, _options: SignRequestOptions = {}) {
+    return settle({ signedMessage: '', signerAddress: '' }, async () => {
+      throw walletermError('unsupported', 'Walleterm does not sign messages yet. See docs/SEP-43.md.');
+    });
+  }
+  getNetwork() {
+    return settle({ network: '', networkPassphrase: '' }, async () => ({
+      network: 'TESTNET',
+      networkPassphrase: Networks.TESTNET,
+    }));
+  }
+
+  // Walleterm extensions.
+  signAuthorization(authEntryXdr: string, options: AuthSignOptions) {
+    return settle({ signedAuthEntryXdr: '', signerAddress: '' }, async () =>
+      (await this.#ready(options)).signAuthorization(authEntryXdr, options),
+    );
+  }
+  async listWallets(options: SignalOptions = {}): Promise<Signer[]> {
+    return this.#connected().listWallets(options);
+  }
+  async selectWallet(publicKey: string, options: SignalOptions = {}) {
+    return this.#connected().selectWallet(publicKey, options);
+  }
+  async disconnect() {
+    this.restore();
+    const client = this.client;
+    if (!client) return;
+    // Publish one disconnection after revocation, not an intermediate expiry.
+    client.onAccountChange = undefined;
+    try {
+      await client.disconnect();
+    } catch (error) {
+      if (this.client === client) this.#use(client);
+      throw error;
+    }
+    if (this.client === client) this.#use(null);
+  }
+  forgetConnection() {
+    const client = this.client;
+    if (!client) return;
+    client.onAccountChange = undefined;
+    client.forgetConnection();
+    if (this.client === client) this.#use(null);
   }
 }

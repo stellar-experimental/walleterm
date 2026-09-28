@@ -76,7 +76,16 @@ async function fixture(options: BridgeOptions = {}) {
 test('auth lifecycle signs once, binds adapters on retries, and verifies complete results', async () => {
   const f = await fixture(),
     input = request({ type: 'openzeppelin-ed25519', verifier: contract(3), context_rule_ids: [0] });
-  const body = { ...input, kind: 'authorization', id: 'one', selection_revision: f.client.revision };
+  const body = {
+    id: 'one',
+    kind: 'authorization',
+    auth_entry_xdr: input.auth_entry_xdr,
+    auth_address: input.address,
+    adapter: input.adapter,
+    network_passphrase: input.network_passphrase,
+    address: input.public_key,
+    selection_revision: f.client.revision,
+  };
   await f.client.request('/v1/requests', body);
   await until(() => f.calls() === 1);
   let reply;
@@ -86,8 +95,10 @@ test('auth lifecycle signs once, binds adapters on retries, and verifies complet
     await pause();
   }
   expect(reply?.state).toBe('signed');
-  expect(verifyAuthEntrySignature(input, reply!.signed_xdr!, 100)).toBe(true);
-  expect((await f.client.request('/v1/requests', body)).signed_xdr).toBe(reply!.signed_xdr);
+  expect(verifyAuthEntrySignature(input, reply!.signed_auth_entry_xdr!, 100)).toBe(true);
+  expect((await f.client.request('/v1/requests', body)).signed_auth_entry_xdr).toBe(
+    reply!.signed_auth_entry_xdr,
+  );
   await expect(
     f.client.request('/v1/requests', { ...body, adapter: { ...input.adapter, verifier: contract(4) } }),
   ).rejects.toThrow('different');
@@ -113,7 +124,7 @@ for (const action of ['cancel', 'pagehide', 'switch', 'revoke'] as const) {
     });
     const stop = new AbortController(),
       input = request();
-    const promise = f.client.signAuthEntry(input.auth_entry_xdr, {
+    const promise = f.client.signAuthorization(input.auth_entry_xdr, {
       address,
       adapter: input.adapter,
       signal: stop.signal,
@@ -135,13 +146,13 @@ test('auth expires by trusted ledger before signing and after a slow signature',
   const first = await fixture({ latestLedger: async () => 160 });
   const input = request();
   await expect(
-    first.client.signAuthEntry(input.auth_entry_xdr, { address, adapter: input.adapter }),
+    first.client.signAuthorization(input.auth_entry_xdr, { address, adapter: input.adapter }),
   ).rejects.toThrow('60 ledgers');
   expect(first.calls()).toBe(0);
   let reads = 0;
   const second = await fixture({ latestLedger: async () => (++reads === 1 ? 100 : 160) });
   await expect(
-    second.client.signAuthEntry(input.auth_entry_xdr, { address, adapter: input.adapter }),
+    second.client.signAuthorization(input.auth_entry_xdr, { address, adapter: input.adapter }),
   ).rejects.toThrow('60 ledgers');
   expect(second.calls()).toBe(1);
 });
@@ -153,12 +164,12 @@ test('ledger failure and malformed signer output cannot produce an authorization
     },
   });
   await expect(
-    missing.client.signAuthEntry(input.auth_entry_xdr, { address, adapter: input.adapter }),
+    missing.client.signAuthorization(input.auth_entry_xdr, { address, adapter: input.adapter }),
   ).rejects.toThrow('unavailable');
   expect(missing.calls()).toBe(0);
   const bad = await fixture({ sign: async () => '00'.repeat(64) });
   await expect(
-    bad.client.signAuthEntry(input.auth_entry_xdr, { address, adapter: input.adapter }),
+    bad.client.signAuthorization(input.auth_entry_xdr, { address, adapter: input.adapter }),
   ).rejects.toThrow('verification');
 });
 test('SDK freezes adapter options and rejects a substituted signed artifact', async () => {
@@ -170,7 +181,14 @@ test('SDK freezes adapter options and rejects a substituted signed artifact', as
   const client = new WalletermClient('https://bridge.example', {
     page: null,
     fetch: async (_url, options) => {
-      captured = JSON.parse(String(options?.body));
+      const wire = JSON.parse(String(options?.body));
+      captured = {
+        auth_entry_xdr: wire.auth_entry_xdr,
+        network_passphrase: wire.network_passphrase,
+        public_key: wire.address,
+        address: wire.auth_address,
+        adapter: wire.adapter,
+      };
       await wait;
       const checked = inspectAuthEntry(captured!, key.publicKey(), 100);
       const signed = attachAuthSignature(
@@ -179,12 +197,12 @@ test('SDK freezes adapter options and rejects a substituted signed artifact', as
         100,
         Buffer.from(key.sign(checked.digest)).toString('hex'),
       );
-      return Response.json({ state: 'signed', signed_xdr: signed });
+      return Response.json({ kind: 'authorization', state: 'signed', signed_auth_entry_xdr: signed });
     },
   });
   client.token = 'token';
   client.account = { address: key.publicKey(), networkPassphrase: Networks.TESTNET };
-  const promise = client.signAuthEntry(input.auth_entry_xdr, { address, adapter: input.adapter });
+  const promise = client.signAuthorization(input.auth_entry_xdr, { address, adapter: input.adapter });
   if (input.adapter.type !== 'openzeppelin-ed25519') throw Error();
   input.adapter.context_rule_ids[0] = 9;
   input.adapter.verifier = contract(4);
@@ -197,8 +215,9 @@ test('SDK freezes adapter options and rejects a substituted signed artifact', as
     fetch: async () => {
       const checked = inspectAuthEntry(wrong, key.publicKey(), 100);
       return Response.json({
+        kind: 'authorization',
         state: 'signed',
-        signed_xdr: attachAuthSignature(
+        signed_auth_entry_xdr: attachAuthSignature(
           wrong,
           key.publicKey(),
           100,
@@ -210,6 +229,6 @@ test('SDK freezes adapter options and rejects a substituted signed artifact', as
   fake.token = 'token';
   fake.account = client.account;
   await expect(
-    fake.signAuthEntry(input.auth_entry_xdr, { address, adapter: input.adapter }),
+    fake.signAuthorization(input.auth_entry_xdr, { address, adapter: input.adapter }),
   ).rejects.toThrow();
 });

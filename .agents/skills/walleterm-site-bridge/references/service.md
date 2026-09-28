@@ -1,6 +1,6 @@
 # Tunnel service and browser SDK
 
-This reference matches bridge protocol v2 in Walleterm source on 2026-09-26.
+This reference matches bridge protocol version 3 in Walleterm source on 2026-09-28.
 The project uses Bun 1.4.2 or later and Stellar SDK 17.1.0.
 Check `walleterm --help` for the installed command interface.
 Installing this skill does not install the binary, service assets, or dependencies.
@@ -21,7 +21,7 @@ walleterm tunnel
 Run the command in a persistent terminal. Keep it running while the website uses the bridge.
 The default local port is 8787. Use `--port` only when another local process occupies it.
 The terminal prints the bridge URL, an eight-digit code, and a QR code when the terminal is wide enough.
-The QR payload is `{"walleterm":2,"url":"...","code":"...","expires_at":"..."}`.
+The QR payload is `{"walleterm":3,"url":"...","code":"...","expires_at":"..."}`.
 A code works once and expires after five minutes. A selected website session lasts one hour.
 The website origin must use HTTPS, or loopback HTTP for development. It must differ from the bridge origin.
 Cloudflare terminates TLS and can read the XDR and credentials. This bridge supports testnet only.
@@ -50,88 +50,84 @@ Review the permission for the displayed wallets before selection.
 Create and review a supported transaction. Choose **Sign**, then approve 1Password on the Mac if it asks.
 Submit separately from the demo. Verify the original hash on testnet.
 The sell-offer action needs an authorized trustline to `USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`.
-The bridge cannot sign `changeTrust`. Create the trustline with the direct `walleterm` skill first.
+The demo has no trustline action. Create the trustline with the direct `walleterm` skill first.
 The demo uses Friendbot for new testnet accounts and selects an existing payment recipient.
 Inspect the displayed recipient and offer terms before approving the action.
 
 ## Supported XDR
 
-The bridge accepts canonical unsigned V1 testnet envelopes with exactly one operation.
-Classic operations include:
-
-- A native XLM payment to a G-address.
-- A `manageData` operation to set or delete a data entry.
-- A `manageSellOffer` operation with explicit assets and a positive rational price.
-  A zero amount cancels the named offer. A nonzero amount can trade immediately.
-
-The transaction source and any operation source must match the selected G-address.
-Classic fees must be 100–100000 stroops. Soroban fees must be 100–100000000 stroops.
-The positive sequence must come from live account state.
-Only time preconditions are accepted. The transaction must be valid now and expire within five minutes.
-Soroban operations include invocation, upload, deployment, TTL extension, and restoration.
-Fee bumps, existing envelope signatures, additional preconditions, and unsupported operations fail before signing.
-Use direct `walleterm sign` with the matching core reference when an authorized task needs another format.
-Do not expand the public bridge's limits to work around a rejected transaction.
+The bridge filters no operations. Review each request against the user's grant.
+It accepts canonical testnet V1 and fee-bump envelopes. V0 envelopes fail.
+The selected G-address must be the transaction source, an operation source, or the fee-bump fee source.
+Existing signatures from other keys stay in place. The selected key must not have signed already.
+Time bounds must be valid now and end within five minutes. A fee bump uses its inner bounds.
+The bridge does not cap fees or inspect embedded authorization entries.
+Mainnet fails before signing. A setOptions, changeTrust, or merge operation is signable. Review it with care.
 
 ## Integrate a website
 
-Use the local `WalletermClient` browser module. This private package is not a published npm wallet module.
+Walleterm is a SEP-43 wallet. This private package is not a published npm wallet module.
 From the source checkout, `bun run build` produces `dist/` JavaScript and declarations.
 Copy the full `dist/` tree to the website. Preserve the shared chunks beside the SDK modules.
-Copy `sdk/connect.css` too when using `WalletermConnect` from `dist/sdk/connect.js`.
-The package also provides exports for the client, connection component, scanner, and stylesheet.
+Copy `sdk/connect.css` too. The pairing dialog needs it.
+The package also provides exports for the wallet, connection component, Kit module, scanner, and stylesheet.
 
 ```js
-import { WalletermClient } from './dist/sdk/walleterm.js';
+import { Walleterm } from './dist/sdk/walleterm.js';
 
-const wallet = new WalletermClient(bridgeUrl); // Exact origin, without a trailing slash or path.
-const { address, networkPassphrase } = await wallet.connect({
-  code,
-  selectWallet: async signers => chooseWallet(signers), // Return a displayed full public_key.
-});
-// Build and review the unsigned supported transaction for address and networkPassphrase.
-const { signedTxXdr, signerAddress } = await wallet.signTransaction(unsignedXdr);
+const wallet = new Walleterm(); // One fixed wallet. Use { walletScope: 'available' } for switching.
+const { address, error } = await wallet.getAddress(); // Opens the pairing dialog without a session.
+// Build and review the unsigned transaction for address on testnet.
+const result = await wallet.signTransaction(unsignedXdr, { networkPassphrase: 'Test SDF Network ; September 2015' });
+if (result.error) throw result.error; // { code, message, ext, requestState? }
 // Verify the signed body, hash, and signature. Submit only within the user's grant.
 await wallet.disconnect();
 ```
 
-`connect` and `getAddress` return `{address, networkPassphrase}`.
-`signTransaction` returns `{signedTxXdr, signerAddress}`. It does not submit.
-The SDK independently verifies the unchanged body and selected key's signature.
-`listWallets`, `selectWallet`, and `disconnect` manage the connection.
+SEP-43 methods resolve results and never reject. A failure returns empty fields and `error`.
+`getAddress` returns `{address}`. `getNetwork` returns testnet. `signMessage` returns `-3`.
+`signTransaction` returns `{signedTxXdr, signerAddress}`. It does not submit. `submit: true` returns `-3`.
+The SDK independently verifies the unchanged body and the selected key's appended signature.
+`listWallets`, `selectWallet`, `onChange`, and `disconnect` manage the connection. They throw on failure.
 The default `walletScope` is `selected`. It fixes one wallet for that connection.
 For wallet switching, request `walletScope: 'available'` explicitly and explain that permission before selection.
-`WalletermConnect` uses this broader scope and displays the grant explanation.
+`WalletermConnect` displays the grant explanation and the wallet menu.
 The first selection fixes the displayed eligible key set. Later keys need a new connection.
 The SDK manages grant IDs and selection revisions. Wallet changes cancel pending requests and withhold old results.
+`WalletermClient` is the single-session client under `Walleterm`. It throws instead of returning results.
+For a Stellar Wallets Kit website, use `WalletermModule` from `walleterm/kit`.
+Connect `module.onChange` once. Act only when `StellarWalletsKit.selectedModule.productId === WALLETERM_ID`.
+Then call `StellarWalletsKit.fetchAddress()` for an address, or `StellarWalletsKit.disconnect()` for none.
+The guarded hook is in `docs/SEP-43.md`. Without the guard, the hook acts on another selected Kit wallet.
 
 ## Explicit authorization
 
-Use `client.signAuthEntry(entryXdr, { address, adapter })` for an unsigned AddressV2 entry.
-The result contains `signedAuthEntryXdr` and `signerAddress`.
-The bridge obtains current ledger evidence from its fixed testnet RPC endpoint.
-The SDK independently verifies the exact returned entry and signature.
+SEP-43 `wallet.signAuthEntry(preimageXdr)` signs an address-bound authorization preimage.
+Build it with `buildAuthorizationEntryPreimage(entry, expirationLedger, networkPassphrase)`.
+The result `signedAuthEntry` is a Base64 64-byte signature. Attach it with `authorizeEntry` in the account's format.
+The preimage must be `envelopeTypeSorobanAuthorizationWithAddress` on testnet. V1 preimages return `-3`.
+The bound address must be the selected G-address or a C-address. Expiry must be 1–120 ledgers after the trusted ledger.
+For an adapter digest, use `wallet.signAuthorization(entryXdr, { address, adapter })`.
+Its result contains `signedAuthEntryXdr` and `signerAddress`. Its expiry window is 60 ledgers.
 Supported adapters are `account`, `contract-ed25519`, and the pinned `openzeppelin-ed25519` adapter.
-Review the contract's signature format before selecting an adapter.
+Review the contract's signature format before selecting an adapter or attaching a signature.
+The bridge obtains current ledger evidence from its fixed testnet RPC endpoint.
 The website builds entries, checks invocation trees, and chooses expiry before requesting a signature.
 Attach the signed entry, run enforcing simulation, and assemble the final transaction before requesting its envelope signature.
-Standalone signing rejects V1, SourceAccount, and delegated credentials.
-General transaction envelopes permit normal SourceAccount authorization.
 Invalid returned artifacts preserve `requestState: 'unknown'`. Keep the original request and expiry protected.
 Switching away and back does not restore a canceled request or undo a delivered signature.
 Use the SDK instead of duplicating its session, revision, request-ID, and cancellation logic.
 
 ## Preserve unknown results
 
-The standalone SDK keeps credentials in memory.
-The connection component can enable reload recovery with a website-specific `sessionStorageKey`.
-The demo saves its bridge URL and session token in `sessionStorage` and checks `/v1/account` after reload.
+The wallet saves its bridge URL and session token in `sessionStorage` under `walleterm:session`.
+`sessionStorageKey: null` keeps them in memory only. A reload checks `/v1/account` before it publishes an address.
 Recovery never repeats signing or submission. Disconnect and 401 responses clear the saved session.
 Network failures retain the saved session. Expired sessions require a new connection code.
 Restarting the bridge ends sessions and requests. It never retries signing.
 The SDK retries transport errors with the same request ID while that session remains valid.
-`error.requestState === 'unknown'` does not prove that no signature exists.
-`error.canceled` describes cancellation or lost session access. It does not prove that signing stopped.
+`error.requestState === 'unknown'` (code `-1`) does not prove that no signature exists.
+Code `-4` means a confirmed cancellation, a denial, or an ended session. It does not undo a delivered signature.
 The demo keeps signed XDR and submission hashes in browser local storage and uses Web Locks across tabs.
 Do not clear an unresolved journal or replace its transaction automatically.
 A new demo hostname has different storage. Keep the original tab and hash during recovery.

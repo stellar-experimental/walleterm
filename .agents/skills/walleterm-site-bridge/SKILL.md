@@ -8,6 +8,7 @@ description: Connect or test Stellar testnet websites through walleterm tunnel, 
 `walleterm tunnel` runs the signing bridge and a temporary public HTTPS tunnel.
 `walleterm demo` runs an independent example website and its own tunnel.
 The bridge returns signed XDR. The website builds, reviews, and submits transactions.
+The browser SDK is a SEP-43 wallet and a Stellar Wallets Kit module.
 An unchanged website needs an integration or a compatible wallet adapter.
 
 ## Choose the path

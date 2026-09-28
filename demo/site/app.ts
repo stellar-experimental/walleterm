@@ -1,4 +1,5 @@
 import { requestError } from '../../sdk/errors.ts';
+import type { RequestError } from '../../sdk/errors.ts';
 import { createCodeView, highlightConnectionCommand } from './code-view.js';
 import { WalletermConnect } from '../../sdk/connect.ts';
 import { createActivityLog } from './activity.ts';
@@ -8,13 +9,15 @@ import {
   demoRpc,
   hex as contractHex,
   prepareContract,
+  signDemoAuthorization,
   validateContractReview,
   verifyContractResult,
 } from './contracts.ts';
 import type { ContractReview } from './contracts.ts';
 import type { Horizon, Transaction } from '@stellar/stellar-sdk';
 import type { Account as WalletAccount } from '../../sdk/types.ts';
-import type { WalletermClient } from '../../sdk/walleterm.ts';
+import type { Sep43Error } from '../../sdk/errors.ts';
+import type { Walleterm } from '../../sdk/walleterm.ts';
 
 declare global {
   var StellarSdk: typeof import('@stellar/stellar-sdk');
@@ -105,7 +108,7 @@ const activity = createActivityLog($('activity'), {
 });
 if (globalThis.fetch)
   globalThis.fetch = Object.assign(activity.wrapFetch(globalThis.fetch.bind(globalThis)), globalThis.fetch);
-let wallet: WalletermClient | null = null;
+let wallet: Walleterm | null = null;
 let account: WalletAccount | null = null;
 let pending: Journal | null = null;
 let signingController: AbortController | null = null;
@@ -115,13 +118,13 @@ let busy = false,
   journalBlocked = false,
   actionPhase = '',
   actionProgress = '';
+// The connection component saves its session per tab and checks it after reload.
 const connection = new WalletermConnect($('wallet-connection'), {
-  sessionStorageKey: 'walleterm-demo-connection-v1',
   onBusyChange: () => render(),
   onStateChange: () => render(),
   onChange(value) {
     const previousAddress = account?.address;
-    wallet = value.client;
+    wallet = value.wallet;
     account = value.account;
     activity.record(
       'walleterm',
@@ -351,7 +354,7 @@ function hasFinishedTransaction() {
   return !!pending && ['submitted', 'canceled', 'denied', 'expired', 'failed'].includes(pending.state);
 }
 function connectedTo(address: string) {
-  return !!wallet?.token && account?.address === address;
+  return !!wallet?.address && account?.address === address;
 }
 function render() {
   connection.sync();
@@ -367,7 +370,7 @@ function render() {
   ] as const)
     $(name).disabled =
       !account ||
-      !wallet?.token ||
+      !wallet?.address ||
       connection.state === 'unreachable' ||
       busy ||
       connection.working ||
@@ -669,6 +672,10 @@ $('sign').onclick = () =>
     status('Signing. Respond to 1Password on your Mac if it asks.');
     await requestSignature();
   }, 'signing');
+// SEP-43 results carry a plain error object. Keep its code and request state for the journal.
+function signingFailure(error: Sep43Error) {
+  return Object.assign(Error(error.message), { sep43: error.code, requestState: error.requestState });
+}
 async function requestSignature() {
   if (!pending || !wallet) throw Error('Connect and prepare a transaction first.');
   const record = pending,
@@ -713,20 +720,21 @@ async function requestSignature() {
     if (record.contract && !record.contract.authorizationReady) {
       for (const authorization of record.contract.authorizations) {
         if (authorization.signed) continue;
-        const result = await client.signAuthEntry(authorization.xdr, {
-          ...options,
-          address: authorization.address,
-          adapter: { type: authorization.adapter },
+        // SEP-43 signs the address-bound preimage. The demo attaches its account's signature format.
+        const signedXdr = await signDemoAuthorization(authorization, async (preimageXdr) => {
+          const result = await client.signAuthEntry(preimageXdr, options);
+          if (result.error) throw signingFailure(result.error);
+          return result;
         });
         if (pending !== record || signingController !== controller)
           throw Error('The contract record changed during authorization signing.');
-        authorization.xdr = result.signedAuthEntryXdr;
+        authorization.xdr = signedXdr;
         authorization.signed = true;
         save();
         activity.record('authorization', 'Contract authorization signed', {
           authorizer: authorization.address,
           signer: record.address,
-          signed_auth_entry_xdr: result.signedAuthEntryXdr,
+          signed_auth_entry_xdr: signedXdr,
         });
       }
       actionProgress = 'Checking the signed contract authorization…';
@@ -743,6 +751,7 @@ async function requestSignature() {
       return;
     }
     const result = await client.signTransaction(record.xdr, options);
+    if (result.error) throw signingFailure(result.error);
     if (pending !== record || signingController !== controller)
       throw Error('The transaction record changed during signing.');
     const signed = TransactionBuilder.fromXDR(result.signedTxXdr, Networks.TESTNET);
@@ -758,18 +767,18 @@ async function requestSignature() {
     save();
     status('Signature verified. Review the transaction, then submit it when ready.');
   } catch (errorValue) {
-    const error = requestError(errorValue);
+    const error: RequestError & { sep43?: number } = requestError(errorValue);
     if (pending !== record || signingController !== controller) throw error;
     pending.state =
-      error.canceled === false || error.requestState === 'unknown'
+      error.requestState === 'unknown'
         ? 'signing_unknown'
-        : controller.signal.aborted || error.canceled === true
+        : controller.signal.aborted && error.sep43 === -4
           ? 'canceled'
           : error.requestState === 'denied' || error.requestState === 'expired'
             ? error.requestState
             : 'failed';
     save();
-    if (error.canceled === false)
+    if (error.requestState === 'unknown' && controller.signal.aborted)
       error.message +=
         ' The bridge did not confirm the cancellation. Decline the 1Password prompt if it appears.';
     throw error;

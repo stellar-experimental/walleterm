@@ -36,6 +36,10 @@
       "types": "./dist/types/connect.d.ts",
       "import": "./dist/sdk/connect.js"
     },
+    "./kit": {
+      "types": "./dist/types/kit.d.ts",
+      "import": "./dist/sdk/kit.js"
+    },
     "./scan": {
       "types": "./dist/types/scan.d.ts",
       "import": "./dist/sdk/scan.js"

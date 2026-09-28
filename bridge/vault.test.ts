@@ -27,7 +27,13 @@ interface VaultState {
 }
 interface Reply {
   status: number;
-  data: { token?: string; signers?: Signer[]; state?: string; message?: string; signed_xdr?: string };
+  data: {
+    token?: string;
+    signers?: Signer[];
+    state?: string;
+    error?: { message: string };
+    signed_tx_xdr?: string;
+  };
 }
 function fixture() {
   const directory = mkdtempSync(join(tmpdir(), 'walleterm-vault-test-'));
@@ -210,7 +216,7 @@ test('bridge discovery, selection, and signing rechecks enforce the vault throug
     });
     return { status: response.status, data: await response.json() };
   };
-  token = (await request('/v1/connect', { code: bridge.pairing.code })).data.token;
+  token = (await request('/v1/connect', { code: bridge.pairing.code, wallet_scope: 'selected' })).data.token;
   const listings = await Promise.all(Array.from({ length: 8 }, () => request('/v1/signers')));
   assert.ok(
     listings.every(
@@ -230,17 +236,18 @@ test('bridge discovery, selection, and signing rechecks enforce the vault throug
     .build();
   const input = {
     id: 'allowed',
-    public_key: f.inside.publicKey(),
+    kind: 'transaction',
+    address: f.inside.publicKey(),
     network_passphrase: Networks.TESTNET,
-    transaction_xdr: tx.toXDR(),
+    xdr: tx.toXDR(),
   };
   assert.equal((await request('/v1/requests', input)).status, 201);
   const signed = await until(async () => {
     const result = await request('/v1/requests/allowed');
     return !['pending', 'approved', 'signing'].includes(result.data.state ?? '') && result;
   });
-  assert.equal(signed.data.state, 'signed', signed.data.message ?? 'The bridge returned no message.');
-  const signedXdr = signed.data.signed_xdr;
+  assert.equal(signed.data.state, 'signed', signed.data.error?.message ?? 'The bridge returned no error.');
+  const signedXdr = signed.data.signed_tx_xdr;
   assert.ok(signedXdr);
   const envelope = TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET);
   assert.ok(f.inside.verify(envelope.hash(), envelope.signatures[0].signature.toBytes()));
@@ -255,7 +262,7 @@ test('bridge discovery, selection, and signing rechecks enforce the vault throug
       const result = await request(`/v1/requests/${id}`);
       return result.data.state === 'denied' && result;
     });
-    assert.equal(denied.data.signed_xdr, undefined);
+    assert.equal(denied.data.signed_tx_xdr, undefined);
     assert.equal(signs, 1);
     assert.ok(!JSON.stringify(denied.data).includes('CANARY'));
   }
@@ -287,9 +294,10 @@ test(
               });
             }
             if (url.endsWith('/v1/signers')) return Response.json({ signers: [{ public_key: publicKey }] });
-            if (url.endsWith('/v1/connect')) return Response.json({ token: 'mock-token' });
+            if (url.endsWith('/v1/connect'))
+              return Response.json({ token: 'mock-token', wallet_scope: 'selected', selection_revision: 0 });
             if (url.endsWith('/v1/select'))
-              return Response.json({ public_key: publicKey, network_passphrase: Networks.TESTNET });
+              return Response.json({ address: publicKey, network_passphrase: Networks.TESTNET });
             return Response.json({ disconnected: true });
           },
         });

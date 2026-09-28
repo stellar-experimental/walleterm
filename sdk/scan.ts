@@ -9,7 +9,7 @@ export function parseConnection(value: string): Connection {
   } catch {
     throw Error('Scan a Walleterm tunnel QR code.');
   }
-  if (!data || data.walleterm !== 2 || typeof data.code !== 'string' || !/^\d{8}$/.test(data.code))
+  if (!data || data.walleterm !== 3 || typeof data.code !== 'string' || !/^\d{8}$/.test(data.code))
     throw Error('Scan a Walleterm tunnel QR code.');
   const url = new URL(data.url);
   if (

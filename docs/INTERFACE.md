@@ -72,15 +72,16 @@ The SDK permits 135 seconds for discovery and selection. Caller cancellation sti
 CLI child cleanup escalates from SIGTERM to SIGKILL after 1.5 seconds when needed.
 Each code works once and expires after five minutes. Five incorrect codes replace the code and pause connection for one minute.
 A website session lasts one hour after the first key selection. Wallet changes do not renew it. Restart the tunnel to revoke all sessions.
-Bridge sessions remain in memory. The standalone SDK keeps credentials in memory by default.
-The demo saves its bridge URL and session token in `sessionStorage` for reload recovery.
+Bridge sessions remain in memory. The browser SDK saves its bridge URL and session token in `sessionStorage` for the current tab.
+`sessionStorageKey: null` keeps them in memory only.
 Reload checks the session before enabling transaction actions. Expired sessions require a new code.
 Disconnect clears the saved session. Recovery never repeats signing or submission.
 The bridge signs each valid request without a terminal step. Ctrl+C stops the tunnel.
 A 1Password prompt can still require the Mac. Cached 1Password approval can suppress a fresh desktop prompt.
 Use only dedicated testnet keys. Any website that holds a valid session can request signatures.
 
-The bridge supports one classic or Soroban testnet operation per transaction. See [the protocol](../bridge/PROTOCOL.md) for limits.
+The bridge filters no operations. It signs testnet V1 or fee-bump envelopes that need the selected key.
+Time bounds must be valid now and end within five minutes. See [the protocol](../bridge/PROTOCOL.md) for the structural rules.
 An integration adapter is required. An unchanged website does not automatically discover Walleterm.
 
 `list` returns the Ed25519 public identities exposed by the explicit 1Password socket.
@@ -243,19 +244,32 @@ The command never retries signing.
 
 ### Browser authorization API
 
+The browser SDK is a [SEP-43](SEP-43.md) wallet. SEP-43 `signAuthEntry` signs an address-bound preimage:
+
 ```ts
-const result = await client.signAuthEntry(authEntryXdr, {
+const preimage = buildAuthorizationEntryPreimage(entry, expirationLedger, Networks.TESTNET);
+const { signedAuthEntry, signerAddress, error } = await wallet.signAuthEntry(preimage.toXDR('base64'));
+// signedAuthEntry: Base64 Ed25519 signature bytes over SHA-256 of the preimage.
+```
+
+The website attaches that signature in its account's format, for example with SDK `authorizeEntry`.
+The preimage must be `envelopeTypeSorobanAuthorizationWithAddress`. Its expiry window is 120 ledgers.
+
+For an adapter digest, the Walleterm extension signs a complete AddressV2 entry:
+
+```ts
+const result = await wallet.signAuthorization(authEntryXdr, {
   address: contractId,
   adapter: { type: 'contract-ed25519' },
   networkPassphrase: Networks.TESTNET,
   signal,
   onProgress,
 });
-// result: { signedAuthEntryXdr, signerAddress }
+// result: { signedAuthEntryXdr, signerAddress }, or empty fields with error.
 ```
 
 `address` identifies the authorization address. `signerAddress` identifies the selected G-key.
-Omitting `adapter` selects `{ type: 'account' }`.
+Omitting `adapter` selects `{ type: 'account' }`. Its expiry window is 60 ledgers.
 The SDK copies the adapter before asynchronous work.
 It verifies the entire returned artifact before exposing it.
 The bridge supplies ledger freshness. SDK verification does not independently query the network.
@@ -276,7 +290,8 @@ These helpers do not contact an RPC server or a signer.
 
 Both SDK signing methods verify the returned artifact before exposing it.
 Transaction verification binds the complete requested body, network hash, selected G-key, signature hint, and one valid envelope signature.
-A failed verification after a signed response reports `requestState: "unknown"` and `canceled: false`.
+A failed verification after a signed response reports code `-1` with `requestState: "unknown"`.
+The single-session `WalletermClient` throws the same outcome with `canceled: false`.
 A missing signed artifact uses the same outcome metadata.
 These failures do not prove that signing stopped or that no usable signature exists.
 The SDK does not retry signing or claim successful cancellation after these failures.

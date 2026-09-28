@@ -4,8 +4,14 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import { browserScript } from './test/support.ts';
 import * as sdk from '@stellar/stellar-sdk';
-import { attachAuthSignature, createAuthEntry, inspectAuthEntry } from '../sdk/authorization.ts';
-import { authorizationExpiry, deployment, hex, validateContractReview } from '../demo/site/contracts.ts';
+import { createAuthEntry } from '../sdk/authorization.ts';
+import {
+  authorizationExpiry,
+  deployment,
+  hex,
+  signDemoAuthorization,
+  validateContractReview,
+} from '../demo/site/contracts.ts';
 import type { ContractReview } from '../demo/site/contracts.ts';
 
 // The page reads and writes only these element members.
@@ -55,7 +61,7 @@ function element(): MockElement {
   };
 }
 interface ConnectionChange {
-  client: unknown;
+  wallet: unknown;
   account: unknown;
 }
 function contextFor(html: string, extras: Record<string, unknown> = {}) {
@@ -81,7 +87,7 @@ function contextFor(html: string, extras: Record<string, unknown> = {}) {
       async disconnect() {
         assert.ok(this.client);
         await this.client.disconnect();
-        this.onChange({ client: null, account: null });
+        this.onChange({ wallet: null, account: null });
       }
     },
     location: { hash: '' },
@@ -159,6 +165,7 @@ function contractPage() {
     StellarSdk: sdk,
     contractHex: hex,
     validateContractReview,
+    signDemoAuthorization,
     authorizationExpiry,
     contractRecord: {
       kind: 'contract_counter',
@@ -196,22 +203,16 @@ function contractPage() {
         .build();
     },
     contractWallet: {
-      token: 'mock',
-      async signAuthEntry(
-        encoded: string,
-        options: { address: string; adapter: { type: 'contract-ed25519' } },
-      ) {
+      address: signer,
+      // SEP-43: sign SHA-256 of the preimage and return Base64 signature bytes.
+      async signAuthEntry(preimageXdr: string) {
         authSignatures++;
-        const input = {
-          auth_entry_xdr: encoded,
-          public_key: signer,
-          address: options.address,
-          adapter: options.adapter,
-          network_passphrase: sdk.Networks.TESTNET,
-        };
-        const checked = inspectAuthEntry(input, signer, 100);
+        const preimage = sdk.xdr.HashIdPreimage.fromXDR(preimageXdr, 'base64');
+        assert.equal(preimage.type, 'envelopeTypeSorobanAuthorizationWithAddress');
         return {
-          signedAuthEntryXdr: attachAuthSignature(input, signer, 100, hex(key.sign(checked.digest))),
+          signedAuthEntry: Buffer.from(key.sign(sdk.hash(Buffer.from(preimageXdr, 'base64')))).toString(
+            'base64',
+          ),
           signerAddress: signer,
         };
       },
@@ -289,7 +290,7 @@ test('unverified authorization responses keep the reviewed entry and its expiry 
   const f = contractPage();
   const original = f.run('pending.xdr');
   f.run(
-    "contractWallet.signAuthEntry=async()=>{throw Object.assign(Error('Unverified authorization result.'),{requestState:'unknown',canceled:false})}",
+    "contractWallet.signAuthEntry=async()=>({error:{code:-1,message:'Unverified authorization result.',ext:['walleterm:result_unknown'],requestState:'unknown'}})",
   );
   await assert.rejects(f.promise('requestSignature()'), /Unverified/);
   assert.equal(f.run('pending.state'), 'signing_unknown');
@@ -446,7 +447,7 @@ for (const kind of ['note', 'payment', 'offer', 'cancel_offer'] as const) {
         },
       },
       client: {
-        token: 'mock-session',
+        address: 'GMOCKSESSION',
         async signTransaction(text: string) {
           signs++;
           assert.equal(text, originalXdr);
@@ -465,7 +466,7 @@ for (const kind of ['note', 'payment', 'offer', 'cancel_offer'] as const) {
     const source = app();
     const f = contextFor(html, extras);
     f.run(source);
-    f.run('connection.onChange({client, account:{address}})');
+    f.run('connection.onChange({wallet: client, account:{address}})');
     assert.deepEqual(JSON.parse(f.el('details').textContent).transaction, expected);
     assert.equal(f.el('sign').hidden, false);
     assert.equal(f.el('submit').hidden, true);
@@ -529,9 +530,9 @@ test('signing shows retry progress and stops at the server expiry after the page
   const signing = f.promise(`
     pending={kind:'note', state:'waiting', address:'GORIGINAL', xdr:'mock', hash:'hash'};
     busy=true; actionPhase='signing';
-    wallet={signTransaction: (_xdr, options) => new Promise((_resolve,reject) => {
+    wallet={signTransaction: (_xdr, options) => new Promise((resolve) => {
       options.onProgress({state:'retrying', expiresAt:new Date(Date.now()+10000).toISOString()});
-      options.signal.addEventListener('abort', () => reject(Object.assign(Error('Timed out'),{canceled:false})),{once:true});
+      options.signal.addEventListener('abort', () => resolve({error:{code:-1,message:'Timed out',requestState:'unknown'}}),{once:true});
     })};
     requestSignature().catch(() => {});
   `);
@@ -569,7 +570,7 @@ test('wallet changes preserve the original transaction journal and signer', () =
       `pending={kind:'note', address:'GORIGINAL', hash:'original-hash', xdr:'original-xdr', signed_xdr:'original-signature', state:'${state}'}; save()`,
     );
     const before = stored;
-    f.run("connection.onChange({ client: {token:'same-session'}, account: {address:'GSECOND'} })");
+    f.run("connection.onChange({ wallet: {address:'GSECOND'}, account: {address:'GSECOND'} })");
     assert.equal(stored, before);
     assert.equal(f.run('pending.address'), 'GORIGINAL');
     assert.equal(f.run('pending.signed_xdr'), 'original-signature');
@@ -588,12 +589,19 @@ test('an unknown signing outcome remains distinct from a confirmed cancellation'
     localStorage: { getItem: () => null, setItem() {} },
   });
   f.run(app());
-  for (const error of ["{requestState:'unknown'}", '{canceled:false}']) {
+  for (const error of [
+    "{code:-1, message:'Stopped', requestState:'unknown'}",
+    "{code:-1, message:'Stopped', ext:['walleterm:result_unknown'], requestState:'unknown'}",
+  ]) {
     await f.run(
-      `pending={kind:'note', state:'waiting', address:'GORIGINAL', xdr:'original', hash:'hash'}; wallet={signTransaction: async () => {throw Object.assign(Error('Stopped'), ${error})}}; requestSignature().catch(() => {})`,
+      `pending={kind:'note', state:'waiting', address:'GORIGINAL', xdr:'original', hash:'hash'}; wallet={signTransaction: async () => ({error: ${error}})}; requestSignature().catch(() => {})`,
     );
     assert.equal(f.run('pending.state'), 'signing_unknown');
   }
+  await f.run(
+    `pending={kind:'note', state:'waiting', address:'GORIGINAL', xdr:'original', hash:'hash'}; wallet={signTransaction: async (_xdr, options) => { signingController.abort(); return {error:{code:-4, message:'Canceled', ext:['walleterm:rejected']}}; }}; requestSignature().catch(() => {})`,
+  );
+  assert.equal(f.run('pending.state'), 'canceled');
 });
 test('demo denial and expiry finish the request; unknown submission remains protected after reload', async () => {
   const html = readFileSync(new URL('../demo/site/index.html', import.meta.url), 'utf8');
@@ -620,7 +628,7 @@ test('demo denial and expiry finish the request; unknown submission remains prot
   f.run(source);
   for (const state of ['denied', 'expired']) {
     await f.run(
-      `pending = {xdr:'mock', state:'waiting'}; wallet = {token:'mock', signTransaction: async () => {throw Object.assign(Error('${state}'), {requestState:'${state}'})}}; requestSignature().catch(() => {});`,
+      `pending = {xdr:'mock', state:'waiting'}; wallet = {address:'mock', signTransaction: async () => ({error:{code:-4, message:'${state}', requestState:'${state}'}})}; requestSignature().catch(() => {});`,
     );
     f.run('render()');
     assert.equal(f.run('pending.state'), state);
@@ -724,7 +732,7 @@ test('a damaged journal still permits disconnect without changing storage', asyn
   f.context.disconnectMock = async () => {
     disconnected = true;
   };
-  f.run("wallet={token:'mock', disconnect:disconnectMock}; account={address:'GSOURCE'}; render()");
+  f.run("wallet={address:'mock', disconnect:disconnectMock}; account={address:'GSOURCE'}; render()");
   await f.run('connection.client = wallet; connection.disconnect()');
   assert.equal(disconnected, true);
   assert.equal(f.run('account'), null);
@@ -1085,7 +1093,7 @@ test('a built transaction waits for Sign before it is signed', async () => {
   });
   f.run(app());
   f.run(
-    "account={address:'GSOURCE'}; signs=0; wallet={token:'mock', signTransaction: async () => { signs++; return new Promise(() => {}); }}",
+    "account={address:'GSOURCE'}; signs=0; wallet={address:'mock', signTransaction: async () => { signs++; return new Promise(() => {}); }}",
   );
   await f.click('note');
   f.run('render()');
@@ -1103,9 +1111,9 @@ test('a built transaction waits for Sign before it is signed', async () => {
   assert.equal(f.el('sign').disabled, false);
   assert.equal(f.el('clear').textContent, 'Discard');
   assert.match(f.el('details').textContent, /"name": "walleterm-demo"/);
-  f.run('wallet.token=null; render()');
+  f.run('wallet.address=null; render()');
   assert.equal(f.el('sign').disabled, true);
-  f.run("wallet.token='mock'; render()");
+  f.run("wallet.address='mock'; render()");
   f.click('sign');
   await new Promise((resolve) => setTimeout(resolve, 10));
   assert.equal(f.run('signs'), 1);
@@ -1149,7 +1157,7 @@ test('the action modal opens before account lookup and keeps preparation errors 
       }),
   });
   f.run(app());
-  f.run("account={address:'GSOURCE'}; wallet={token:'mock'}");
+  f.run("account={address:'GSOURCE'}; wallet={address:'mock'}");
   const creating = f.click('payment');
   assert.equal(f.el('review').open, true);
   assert.equal(f.el('review-title').textContent, 'Pay 0.01 test XLM');
@@ -1172,7 +1180,7 @@ test('connection work disables demo actions and signing without changing the jou
     localStorage: { getItem: () => null },
   });
   f.run(app());
-  f.run("wallet={token:'mock'}; account={address:'GTEST'}; connection.working=true; render()");
+  f.run("wallet={address:'mock'}; account={address:'GTEST'}; connection.working=true; render()");
   for (const name of ['note', 'payment', 'offer', 'cancel-offer']) assert.equal(f.el(name).disabled, true);
   f.run("pending={state:'signed',kind:'note',address:'GTEST',xdr:'unsigned',signed_xdr:'signed'}; render()");
   assert.equal(f.el('submit').disabled, true);
@@ -1242,7 +1250,7 @@ async function completedFixture(state = 'submitted') {
   let reads = 0,
     signs = 0;
   const client = {
-    token: 'mock-session',
+    address: 'GMOCKSESSION',
     signTransaction() {
       signs++;
     },
@@ -1266,7 +1274,7 @@ async function completedFixture(state = 'submitted') {
     }),
   });
   f.run(app());
-  f.run('connection.onChange({client, account:{address:next}})');
+  f.run('connection.onChange({wallet: client, account:{address:next}})');
   return { ...f, store, events, previous, next, reads: () => reads, signs: () => signs };
 }
 
@@ -1392,7 +1400,7 @@ async function confirmationFixture(
     Uint8Array,
     localStorage: store,
     client: {
-      token: 'mock-session',
+      address: 'GMOCKSESSION',
       signTransaction() {
         signs++;
         throw Error('Confirmation must not sign.');
@@ -1415,7 +1423,7 @@ async function confirmationFixture(
   const load = () => {
     const f = contextFor(html, extras);
     f.run(source);
-    f.run('connection.onChange({client, account:{address}})');
+    f.run('connection.onChange({wallet: client, account:{address}})');
     return f;
   };
   return { ...load(), load, store, writes, requests, original, signs: () => signs };

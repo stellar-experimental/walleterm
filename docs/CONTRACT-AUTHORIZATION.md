@@ -34,36 +34,47 @@ Build and simulate the contract transaction with the official Stellar SDK.
 The example requires an unsigned AddressV2 entry from simulation.
 Set the authorization expiry before review.
 Keep that entry's address, nonce, credential version, and invocation tree.
-New authorization signing requires AddressV2 credentials.
+Authorization signing requires AddressV2 credentials.
 V1 credentials omit the authorizer address from the signing payload.
 
 Same-source deployment simulation can return SourceAccount credentials.
-The website then builds a fresh explicit entry with `createAuthEntry`.
+The website then builds a fresh explicit AddressV2 entry.
 It uses the reviewed invocation root, explicit address, fresh nonce, network, and expiry.
 The website reviews that entry before signing.
 The signer never converts SourceAccount credentials automatically.
 
-```ts
-import { WalletermClient, setAuthEntryExpiration } from 'walleterm';
+The SEP-43 `signAuthEntry` method signs the address-bound preimage of the entry.
+The website attaches the returned signature in the format that its account expects.
 
-const entryXdr = setAuthEntryExpiration(recordedEntryXdr, latestLedger + 60);
-const { signedAuthEntryXdr } = await client.signAuthEntry(entryXdr, {
-  address: smartAccountAddress,
-  adapter: { type: 'contract-ed25519' },
-});
+```ts
+import { Networks, authorizeEntry, buildAuthorizationEntryPreimage, xdr } from '@stellar/stellar-sdk';
+
+const preimage = buildAuthorizationEntryPreimage(entry, expirationLedger, Networks.TESTNET);
+const { signedAuthEntry, error } = await wallet.signAuthEntry(preimage.toXDR('base64'));
+if (error) throw error;
+const signature = Uint8Array.from(atob(signedAuthEntry), (c) => c.charCodeAt(0));
+const signed = await authorizeEntry(
+  entry,
+  async () => ({ signatureScVal: xdr.ScVal.scvBytes(signature) }), // The demo C-account format.
+  expirationLedger,
+  Networks.TESTNET,
+);
 ```
 
-The SDK validates the returned entry and verifies its signature.
+A native G-account uses `{ signature, publicKey }` in the callback instead.
+The SDK checks the preimage before sending it and verifies the returned signature.
+The bridge accepts an expiry 1–120 ledgers after its trusted ledger.
 Attach the signed entry to the invocation operation.
 Run enforcing simulation and assemble the final resources and fee.
-Then request the envelope signature with `client.signTransaction(transaction.toXDR())`.
+Then request the envelope signature with `wallet.signTransaction(transaction.toXDR())`.
 The application owns submission and result checks.
 
+Some contracts sign a digest other than the preimage hash.
+The Walleterm extension `wallet.signAuthorization(entryXdr, { address, adapter })` signs a complete entry through an adapter.
 Supported adapters are `account`, `contract-ed25519`, and `openzeppelin-ed25519`.
-The `account` adapter builds native G-account signatures.
-The `contract-ed25519` adapter returns the raw signature bytes expected by the fixture account.
+Its expiry window is 60 ledgers. It returns `{ signedAuthEntryXdr, signerAddress }`, or `error`.
 Other contracts can require different signature formats or signing payloads.
-Select an adapter only after checking the contract's authorization rules.
+Select a format or adapter only after checking the contract's authorization rules.
 See [OpenZeppelin adapters](OPENZEPPELIN.md) for its pinned signature format.
 The OpenZeppelin adapter supports one `External` Ed25519 signer. It does not support `Delegated` signers.
 

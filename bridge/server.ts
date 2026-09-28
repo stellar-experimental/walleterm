@@ -1,20 +1,28 @@
-import { requestError } from '../sdk/errors.ts';
+import { WalletermError, requestError, sep43Error, walletermError } from '../sdk/errors.ts';
 import { createServer } from 'node:http';
 import { randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Networks } from '@stellar/stellar-sdk';
 import { availableSigners, signDigest } from './signer.ts';
-import { inspectAuthorization, attachAuthSignature, latestTestnetLedger } from './authorization.ts';
+import {
+  attachAuthSignature,
+  attachPreimageSignature,
+  inspectAuthPreimageRequest,
+  inspectAuthorization,
+  latestTestnetLedger,
+} from './authorization.ts';
 import { attachSignature, inspectTransaction } from './transaction.ts';
 
 import type { IncomingMessage, ServerResponse, OutgoingHttpHeaders } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import type {
-  RequestState,
-  Signer,
-  AuthSigningInput,
-  ArtifactSigningInput,
-  WalletScope,
-} from '../sdk/types.ts';
+import type { Sep43Error, Sep43Reason } from '../sdk/errors.ts';
+import type { AuthorizationInput, RequestState, Signer, SigningInput, WalletScope } from '../sdk/types.ts';
+
+// Artifact fields for each request kind. `address` always names the signing key.
+const requestFields: Record<SigningInput['kind'], string[]> = {
+  transaction: ['xdr'],
+  auth_entry: ['preimage_xdr'],
+  authorization: ['auth_entry_xdr', 'auth_address', 'adapter'],
+};
 
 function requestIdentity(input: object): string {
   return JSON.stringify(input, (key, value) => {
@@ -45,15 +53,18 @@ interface SigningRecord {
   id: string;
   public_key: string;
   signer: Signer;
-  input: ArtifactSigningInput;
+  input: SigningInput;
   details:
-    ReturnType<typeof inspectTransaction>['details'] | ReturnType<typeof inspectAuthorization>['details'];
+    | ReturnType<typeof inspectTransaction>['details']
+    | ReturnType<typeof inspectAuthPreimageRequest>['details']
+    | ReturnType<typeof inspectAuthorization>['details'];
   expires: number;
   state: RequestState;
   logged?: RequestState;
   delivered?: boolean;
-  signed_xdr?: string;
-  message?: string;
+  // The one signed artifact for this request kind, keyed by its protocol field name.
+  result?: { signed_tx_xdr: string } | { signed_auth_entry: string } | { signed_auth_entry_xdr: string };
+  error?: Sep43Error;
 }
 export interface BridgeOptions {
   port?: number;
@@ -70,7 +81,11 @@ export interface BridgeOptions {
 }
 
 const token = () => randomBytes(32).toString('base64url');
-const fail = (status: number, message: string) => Object.assign(Error(message), { status });
+const fail = (reason: Sep43Reason, message: string, status?: number) =>
+  walletermError(reason, message, { status });
+// Each ended request keeps one SEP-43 error. The website receives it unchanged.
+const ended = (reason: Sep43Reason, message: string, requestState?: RequestState) =>
+  sep43Error(walletermError(reason, message, { requestState }));
 const equal = (a: unknown, b: unknown) =>
   typeof a === 'string' &&
   typeof b === 'string' &&
@@ -107,12 +122,12 @@ export function sendJson(
 }
 async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
   if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] || ''))
-    throw fail(415, 'Use application/json.');
+    throw fail('invalid_request', 'Use application/json.', 415);
   let length = 0;
   const chunks = [];
   for await (const chunk of req) {
     length += chunk.length;
-    if (length > 393216) throw fail(413, 'The request is too large.');
+    if (length > 393216) throw fail('invalid_request', 'The request is too large.', 413);
     chunks.push(chunk);
   }
   try {
@@ -120,7 +135,7 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
     if (!data || Array.isArray(data) || typeof data !== 'object') throw Error();
     return data;
   } catch {
-    throw fail(400, 'Send one JSON object.');
+    throw fail('invalid_request', 'Send one JSON object.');
   }
 }
 // The website approves a request by sending it. `review` is the hook for a later automated policy check.
@@ -181,34 +196,57 @@ export function createBridge({
     if (r.logged === r.state) return;
     r.logged = r.state;
     const about =
-      'kind' in r.input
-        ? `${r.details.hash} (signer ${r.public_key}, authorization ${r.input.address})`
-        : `${r.details.hash} (account ${r.public_key}, sequence ${r.details.sequence})`;
+      'sequence' in r.details
+        ? `${r.details.hash} (account ${r.public_key}, sequence ${r.details.sequence})`
+        : `${r.details.hash} (signer ${r.public_key}, authorization ${r.details.address})`;
     if (r.state === 'signed') log(`Signed ${about} for ${r.origin}.\n`);
-    if (r.state === 'unknown') log(`Signature withheld or stopped for ${about}: ${r.message}\n`);
+    if (r.state === 'unknown') log(`Signature withheld or stopped for ${about}: ${r.error?.message}\n`);
+  }
+  // End a request with its SEP-43 error. A request that started signing stays unknown.
+  function end(
+    r: SigningRecord,
+    state: 'denied' | 'expired' | 'unknown',
+    message: string,
+    error?: Sep43Error,
+  ) {
+    // After signing starts, a signature can exist. The outcome is never denied or expired.
+    if (r.state === 'signing' || r.state === 'signed') {
+      state = 'unknown';
+      error = undefined;
+    }
+    r.state = state;
+    r.error = error
+      ? { ...error, requestState: state }
+      : ended(
+          state === 'unknown' ? 'result_unknown' : state === 'expired' ? 'expired' : 'rejected',
+          message,
+          state,
+        );
+    delete r.result;
+    logResult(r);
   }
   function website(req: IncomingMessage) {
     const s = sessions.get(req.headers.authorization?.replace(/^Bearer /, '') || '');
     if (!s || s.revoked || s.origin !== req.headers.origin || now() >= s.expires)
-      throw fail(401, 'Connect this website with a new code from the tunnel terminal.');
+      throw fail('not_connected', 'Connect this website with a new code from the tunnel terminal.');
     return s;
   }
   function summary(r: SigningRecord) {
     if (r.state === 'signed') r.delivered = true;
     return {
       id: r.id,
+      kind: r.input.kind,
       state: r.state,
       hash: r.details.hash,
       expires_at: iso(r.expires),
-      message: r.message,
-      ...(r.state === 'signed' ? { signed_xdr: r.signed_xdr } : {}),
+      ...(r.error ? { error: r.error } : {}),
+      ...(r.state === 'signed' ? { signer_address: r.public_key, ...r.result } : {}),
     };
   }
   function expire() {
     for (const r of records.values())
       if (r.state === 'pending' && now() >= r.expires) {
-        r.state = 'expired';
-        logResult(r);
+        end(r, 'expired', 'The signing request expired.');
         reviews.get(r.record_id)?.abort();
       }
     // Memory keeps live sessions and records that are active or belong to them.
@@ -225,12 +263,22 @@ export function createBridge({
     s.revoked = true;
     for (const r of records.values())
       if (r.session_id === s.id && (active(r) || r.state === 'signed')) {
-        r.state = r.state === 'signing' ? 'unknown' : 'denied';
-        r.message = 'The website connection was revoked.';
-        delete r.signed_xdr;
-        logResult(r);
+        end(
+          r,
+          ['signing', 'signed'].includes(r.state) ? 'unknown' : 'denied',
+          'The website connection was revoked.',
+        );
         reviews.get(r.record_id)?.abort();
       }
+  }
+  // Any ledger lookup failure before signing is an external service error.
+  async function trustedLedger(signal: AbortSignal) {
+    try {
+      return await latestLedger({ signal });
+    } catch (error) {
+      if (signal.aborted || error instanceof WalletermError) throw error;
+      throw walletermError('ledger_unavailable', 'The trusted testnet ledger is unavailable.');
+    }
   }
   function scheduleReview(r: SigningRecord, s: Session) {
     const canceled = new AbortController();
@@ -239,10 +287,7 @@ export function createBridge({
       expire();
       if (closing || r.state !== 'pending' || s.revoked || now() >= s.expires) {
         reviews.delete(r.record_id);
-        if (r.state === 'pending') {
-          r.state = 'expired';
-          logResult(r);
-        }
+        if (r.state === 'pending') end(r, 'expired', 'The signing request expired.');
         return;
       }
       const signal = AbortSignal.any([
@@ -258,11 +303,10 @@ export function createBridge({
         if (signal.aborted || r.state !== 'pending' || s.revoked || now() >= s.expires || now() >= r.expires)
           return;
         if (!approved) {
-          r.state = 'denied';
-          logResult(r);
+          end(r, 'denied', 'The review denied this request.');
           return;
         }
-        if (!('kind' in r.input)) inspectTransaction(r.input, r.public_key, now());
+        if (r.input.kind === 'transaction') inspectTransaction(r.input, r.public_key, now());
         r.state = 'approved';
         logResult(r);
         const keys = await listSigners({ signal });
@@ -271,9 +315,11 @@ export function createBridge({
         if ((s.allowed && !s.allowed.has(r.public_key)) || !keys.some((k) => k.public_key === r.public_key))
           throw Error('The selected key is no longer available.');
         let authLedger: number | undefined;
-        if ('kind' in r.input) {
-          authLedger = await latestLedger({ signal });
-          inspectAuthorization(r.input, r.public_key, now(), authLedger);
+        if (r.input.kind !== 'transaction') {
+          authLedger = await trustedLedger(signal);
+          if (r.input.kind === 'auth_entry')
+            inspectAuthPreimageRequest(r.input, r.public_key, now(), authLedger);
+          else inspectAuthorization(r.input, r.public_key, now(), authLedger);
         }
         if (signal.aborted || r.state !== 'approved' || s.revoked || now() >= s.expires || now() >= r.expires)
           throw Error('The signing approval expired or was canceled.');
@@ -282,33 +328,28 @@ export function createBridge({
         const signature = await sign(r.public_key, r.details.hash, { signal });
         if (r.state !== 'signing')
           log(`1Password returned a signature after cancellation. Withheld ${r.details.hash}.\n`);
-        if ('kind' in r.input) authLedger = await latestLedger({ signal });
-        const signed =
-          'kind' in r.input
-            ? attachAuthSignature(r.input, r.public_key, authLedger!, signature)
-            : attachSignature(r.input, r.public_key, signature);
+        if (r.input.kind !== 'transaction') authLedger = await trustedLedger(signal);
+        const result =
+          r.input.kind === 'transaction'
+            ? { signed_tx_xdr: attachSignature(r.input, r.public_key, signature) }
+            : r.input.kind === 'auth_entry'
+              ? { signed_auth_entry: attachPreimageSignature(r.input, r.public_key, authLedger!, signature) }
+              : { signed_auth_entry_xdr: attachAuthSignature(r.input, r.public_key, authLedger!, signature) };
         if (signal.aborted || r.state !== 'signing' || s.revoked || now() >= s.expires || now() >= r.expires)
           throw Error('The signing result is withheld because approval expired or was canceled.');
-        r.signed_xdr = signed;
+        r.result = result;
         r.state = 'signed';
         logResult(r);
       } catch (errorValue) {
         const error = requestError(errorValue);
-        if (['pending', 'approved', 'signing', 'signed'].includes(r.state)) {
-          r.state = ['signing', 'signed'].includes(r.state)
-            ? 'unknown'
-            : now() >= r.expires
-              ? 'expired'
-              : 'denied';
-          delete r.signed_xdr;
-          r.message = error.message;
-          logResult(r);
+        if (['signing', 'signed'].includes(r.state)) end(r, 'unknown', error.message);
+        else if (['pending', 'approved'].includes(r.state)) {
+          if (now() >= r.expires) end(r, 'expired', error.message);
+          else end(r, 'denied', error.message, sep43Error(error));
         }
       } finally {
-        if (r.state === 'pending') {
-          r.state = now() >= r.expires ? 'expired' : 'denied';
-          logResult(r);
-        }
+        if (r.state === 'pending')
+          end(r, now() >= r.expires ? 'expired' : 'denied', 'The signing request ended before review.');
         reviews.delete(r.record_id);
       }
     });
@@ -327,13 +368,13 @@ export function createBridge({
         `localhost:${(server.address() as AddressInfo | null)?.port}`,
       ].includes(host || '')
     )
-      throw fail(403, 'The request host is invalid.');
-    if (closing) throw fail(503, 'The bridge is stopping.');
+      throw fail('invalid_request', 'The request host is invalid.', 403);
+    if (closing) throw fail('bridge_unavailable', 'The bridge is stopping.');
     expire();
     if (route.startsWith('/v1/')) {
       const siteOrigin = req.headers.origin;
       if (!validOrigin(siteOrigin) || siteOrigin === origin)
-        throw fail(403, 'Use a separate website Origin.');
+        throw fail('invalid_request', 'Use a separate website Origin.', 403);
       res.setHeader('Access-Control-Allow-Origin', siteOrigin);
       res.setHeader('Vary', 'Origin');
       if (req.method === 'OPTIONS') {
@@ -348,36 +389,41 @@ export function createBridge({
         const data = await body(req);
         if (now() < lockedUntil)
           throw fail(
-            429,
+            'rate_limited',
             'Too many incorrect codes. Wait one minute, then use the new code in the tunnel terminal.',
           );
         if (now() >= pairExpires) {
           rotateCode();
-          throw fail(403, 'The connection code expired. Use the new code in the tunnel terminal.');
+          throw fail(
+            'invalid_request',
+            'The connection code expired. Use the new code in the tunnel terminal.',
+            403,
+          );
         }
         if (
           Object.keys(data).some((k) => !['code', 'wallet_scope'].includes(k)) ||
-          (data.wallet_scope !== undefined &&
-            data.wallet_scope !== 'selected' &&
-            data.wallet_scope !== 'available')
+          (data.wallet_scope !== 'selected' && data.wallet_scope !== 'available')
         )
-          throw fail(400, 'The connection fields are invalid.');
+          throw fail('invalid_request', 'The connection fields are invalid.');
         if (!equal(data.code, pairCode)) {
           // Five failures replace the code and pause connection for one minute.
           if (++attempts >= 5) {
             lockedUntil = now() + 60000;
             rotateCode();
           }
-          throw fail(403, 'The connection code is incorrect.');
+          throw fail('invalid_request', 'The connection code is incorrect.', 403);
         }
         if (sessions.size >= 64)
-          throw fail(429, 'The connection limit was reached. Disconnect a website or restart the tunnel.');
+          throw fail(
+            'rate_limited',
+            'The connection limit was reached. Disconnect a website or restart the tunnel.',
+          );
         const s: Session = {
           id: randomUUID(),
           token: token(),
           origin: siteOrigin,
           public_key: null,
-          wallet_scope: data.wallet_scope === 'available' ? 'available' : 'selected',
+          wallet_scope: data.wallet_scope,
           selection_revision: 0,
           allowed: null,
           expires: now() + 300000,
@@ -413,9 +459,12 @@ export function createBridge({
             scoped &&
             (!Number.isSafeInteger(data.expected_revision) || data.expected_revision !== s.selection_revision)
           )
-            throw fail(409, 'The wallet selection changed. Refresh the active wallet.');
+            throw fail('conflict', 'The wallet selection changed. Refresh the active wallet.');
           if (!scoped && s.public_key)
-            throw fail(409, 'This connection already has a wallet. Disconnect to select another wallet.');
+            throw fail(
+              'conflict',
+              'This connection already has a wallet. Disconnect to select another wallet.',
+            );
         };
         if (
           Object.keys(data).some(
@@ -426,32 +475,33 @@ export function createBridge({
               ].includes(k),
           )
         )
-          throw fail(400, 'The selection fields are invalid.');
+          throw fail('invalid_request', 'The selection fields are invalid.');
         website(req);
         validRevision();
         const offered = s.offered;
         if (scoped && !s.allowed && (!offered || !equal(data.grant_id, offered.id)))
-          throw fail(409, 'Refresh the wallet list before selecting a wallet.');
+          throw fail('conflict', 'Refresh the wallet list before selecting a wallet.');
         const signers = await keys();
         website(req);
         validRevision();
         if (scoped && !s.allowed && s.offered !== offered)
-          throw fail(409, 'The wallet list changed. Review it again.');
+          throw fail('conflict', 'The wallet list changed. Review it again.');
         const key = signers.find(
           (k) =>
             k.public_key === data.public_key && (!scoped || (s.allowed || offered!.keys).has(k.public_key)),
         );
-        if (!key) throw fail(400, 'Select an available key from this connection.');
+        if (!key) throw fail('invalid_request', 'Select an available key from this connection.');
         if (s.public_key !== key.public_key) {
           // Cancel and replace the selection together. No await can admit an old request between them.
           for (const r of records.values())
             if (r.session_id === s.id && (active(r) || r.state === 'signed')) {
-              r.state = ['signing', 'signed'].includes(r.state) ? 'unknown' : 'denied';
-              r.message = r.delivered
-                ? 'The bridge sent the signature before the wallet changed.'
-                : 'The active wallet changed.';
-              delete r.signed_xdr;
-              logResult(r);
+              end(
+                r,
+                ['signing', 'signed'].includes(r.state) ? 'unknown' : 'denied',
+                r.delivered
+                  ? 'The bridge sent the signature before the wallet changed.'
+                  : 'The active wallet changed.',
+              );
               reviews.get(r.record_id)?.abort();
             }
           if (!s.public_key) {
@@ -466,7 +516,8 @@ export function createBridge({
           s.selection_revision++;
         }
         return sendJson(res, 200, {
-          public_key: s.public_key,
+          address: s.public_key,
+          network: 'TESTNET',
           network_passphrase: Networks.TESTNET,
           selection_revision: s.selection_revision,
           expires_at: iso(s.expires),
@@ -475,7 +526,8 @@ export function createBridge({
       if (route === '/v1/account' && req.method === 'GET')
         return sendJson(res, 200, {
           connection_id: s.id,
-          public_key: s.public_key,
+          address: s.public_key,
+          network: 'TESTNET',
           network_passphrase: Networks.TESTNET,
           expires_at: iso(s.expires),
           wallet_scope: s.wallet_scope,
@@ -487,74 +539,81 @@ export function createBridge({
         return sendJson(res, 200, { disconnected: true });
       }
       if (route === '/v1/requests' && req.method === 'POST') {
-        if (!s.public_key) throw fail(409, 'Select a wallet first.');
+        if (!s.public_key) throw fail('not_connected', 'Select a wallet first.', 409);
         const input = await body(req);
         website(req);
+        const fields = requestFields[input.kind as SigningInput['kind']];
         if (
           typeof input.id !== 'string' ||
           !/^[A-Za-z0-9_-]{1,64}$/.test(input.id || '') ||
+          !fields ||
           Object.keys(input).some(
             (k) =>
               ![
                 'id',
-                ...(input.kind === 'authorization'
-                  ? ['kind', 'auth_entry_xdr', 'address', 'adapter']
-                  : ['transaction_xdr']),
+                'kind',
+                ...fields,
                 'network_passphrase',
-                'public_key',
+                'address',
                 ...(s.wallet_scope === 'available' ? ['selection_revision'] : []),
               ].includes(k),
           )
         )
-          throw fail(400, 'The signing request fields are invalid.');
+          throw fail('invalid_request', 'The signing request fields are invalid.');
         if (
           s.wallet_scope === 'available' &&
           (!Number.isSafeInteger(input.selection_revision) ||
             input.selection_revision !== s.selection_revision)
         )
-          throw fail(409, 'The wallet selection changed. Build a new signing request.');
+          throw fail('conflict', 'The wallet selection changed. Build a new signing request.');
         const key = `${s.id}:${input.id}`,
           prior = records.get(key);
-        if (s.canceled.has(input.id)) throw fail(409, 'The website canceled this request before it arrived.');
+        if (s.canceled.has(input.id))
+          throw fail('rejected', 'The website canceled this request before it arrived.', 409);
         if (prior) {
           if (requestIdentity(prior.input) !== requestIdentity(input))
-            throw fail(409, 'This request ID already identifies a different transaction.');
+            throw fail('conflict', 'This request ID already identifies a different request.');
           return sendJson(res, 200, summary(prior));
         }
         const all = [...records.values()];
         if (all.filter((r) => r.session_id === s.id).length >= 1000)
-          throw fail(429, 'This connection reached its request limit. Disconnect and connect again.');
+          throw fail(
+            'rate_limited',
+            'This connection reached its request limit. Disconnect and connect again.',
+          );
         if (all.filter((r) => active(r)).length >= 32)
-          throw fail(429, 'The signing request limit was reached.');
+          throw fail('rate_limited', 'The signing request limit was reached.');
         if (
-          (input.kind === 'authorization'
-            ? typeof input.auth_entry_xdr !== 'string'
-            : typeof input.transaction_xdr !== 'string') ||
+          fields.some((k) => k !== 'adapter' && typeof input[k] !== 'string') ||
           typeof input.network_passphrase !== 'string' ||
-          typeof input.public_key !== 'string'
+          typeof input.address !== 'string'
         )
-          throw fail(400, 'The signing request fields are invalid.');
+          throw fail('invalid_request', 'The signing request fields are invalid.');
         const common = {
           network_passphrase: input.network_passphrase,
-          public_key: input.public_key,
+          address: input.address,
           ...(typeof input.selection_revision === 'number'
             ? { selection_revision: input.selection_revision }
             : {}),
         };
-        const signingInput: ArtifactSigningInput =
+        const signingInput: SigningInput =
           input.kind === 'authorization'
             ? {
                 ...common,
                 kind: 'authorization',
                 auth_entry_xdr: input.auth_entry_xdr as string,
-                address: input.address as string,
-                adapter: input.adapter as AuthSigningInput['adapter'],
+                auth_address: input.auth_address as string,
+                adapter: input.adapter as AuthorizationInput['adapter'],
               }
-            : { ...common, transaction_xdr: input.transaction_xdr as string };
+            : input.kind === 'auth_entry'
+              ? { ...common, kind: 'auth_entry', preimage_xdr: input.preimage_xdr as string }
+              : { ...common, kind: 'transaction', xdr: input.xdr as string };
         const checked =
-          'kind' in signingInput
-            ? inspectAuthorization(signingInput, s.public_key, now())
-            : inspectTransaction(signingInput, s.public_key, now());
+          signingInput.kind === 'transaction'
+            ? inspectTransaction(signingInput, s.public_key, now())
+            : signingInput.kind === 'auth_entry'
+              ? inspectAuthPreimageRequest(signingInput, s.public_key, now())
+              : inspectAuthorization(signingInput, s.public_key, now());
         const record: SigningRecord = {
           record_id: randomUUID(),
           session_id: s.id,
@@ -582,45 +641,49 @@ export function createBridge({
           // A cancel can arrive before a delayed create. Block that ID for this session.
           if (!r) {
             if (s.canceled.size >= 1000)
-              throw fail(429, 'This connection reached its request limit. Disconnect and connect again.');
+              throw fail(
+                'rate_limited',
+                'This connection reached its request limit. Disconnect and connect again.',
+              );
             s.canceled.add(match[1]);
             return sendJson(res, 200, {
               id: match[1],
               state: 'denied',
-              message: 'The website canceled this request.',
+              error: ended('rejected', 'The website canceled this request.', 'denied'),
             });
           }
           // A signed result can race the cancellation. Withhold it, as a revocation does.
           if (active(r) || r.state === 'signed') {
-            r.message = r.delivered
-              ? 'The bridge sent the signature, then the website canceled.'
-              : 'The website canceled this request.';
-            r.state = ['signing', 'signed'].includes(r.state) ? 'unknown' : 'denied';
-            delete r.signed_xdr;
-            logResult(r);
+            end(
+              r,
+              ['signing', 'signed'].includes(r.state) ? 'unknown' : 'denied',
+              r.delivered
+                ? 'The bridge sent the signature, then the website canceled.'
+                : 'The website canceled this request.',
+            );
             reviews.get(r.record_id)?.abort();
           }
           return sendJson(res, 200, summary(r));
         }
-        if (!r) throw fail(404, 'The request does not exist in this website session.');
+        if (!r) throw fail('invalid_request', 'The request does not exist in this website session.', 404);
         if (req.method === 'GET') return sendJson(res, 200, summary(r));
       }
-      throw fail(404, 'The route does not exist.');
+      throw fail('invalid_request', 'The route does not exist.', 404);
     }
     if (route === '/api/session' && req.method === 'GET')
-      return sendJson(res, 200, { service: 'walleterm', protocol: 2 }); // Startup readiness probe.
-    throw fail(404, 'Use this tunnel URL in a Walleterm-compatible website.');
+      return sendJson(res, 200, { service: 'walleterm', protocol: 3 }); // Startup readiness probe.
+    throw fail('invalid_request', 'Use this tunnel URL in a Walleterm-compatible website.', 404);
   }
 
   const server = createServer((req, res) => {
     const job = handle(req, res).catch((error) => {
       if (!res.headersSent && !res.destroyed)
         sendJson(res, error.status || 500, {
-          error: {
-            message: error.status
-              ? error.message
-              : 'The bridge could not complete this request. Check its terminal.',
-          },
+          error: error.status
+            ? sep43Error(error)
+            : sep43Error(
+                walletermError('internal', 'The bridge could not complete this request. Check its terminal.'),
+              ),
         });
       else res.destroy();
     });
@@ -634,7 +697,7 @@ export function createBridge({
     service: 'walleterm',
     server,
     get pairing() {
-      return { walleterm: 2, url: origin, code: pairCode, expires_at: iso(pairExpires) };
+      return { walleterm: 3, url: origin, code: pairCode, expires_at: iso(pairExpires) };
     },
     onPairingChanged(callback: () => void) {
       pairingChanged = callback;

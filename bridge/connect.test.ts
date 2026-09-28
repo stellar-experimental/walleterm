@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { browserScript } from './test/support.ts';
 import { scanConnection } from '../sdk/scan.ts';
-import type { WalletermClient } from '../sdk/walleterm.ts';
+import { Networks } from '@stellar/stellar-sdk';
+import type { Walleterm, WalletermClient } from '../sdk/walleterm.ts';
 
 // The connection UI reads and writes only these node members.
 interface MockNode {
@@ -29,19 +30,22 @@ interface MockAccount {
   address: string;
 }
 interface Change {
-  client: unknown;
+  wallet: unknown;
   account: MockAccount | null;
 }
 type ScanMock = (video: unknown, options: { signal: AbortSignal }) => unknown;
 // The members of the VM WalletermConnect instance that these tests drive.
 interface ConnectUI {
+  wallet: Walleterm;
+  header: boolean;
+  requestAccess(): Promise<string>;
+  walletChanged(): void;
+  unsubscribe: () => void;
   destroy(): void;
   destroyed: boolean;
   scanning: AbortController | null;
   connection: AbortController | null;
-  sessionStorageKey?: string;
   restoreSession(): Promise<void>;
-  saveSession(): void;
   checkHealth(): Promise<void>;
   state: string;
   onStateChange: (state: string) => void;
@@ -93,22 +97,29 @@ function fixture(scanConnection: ScanMock, WalletermClient?: unknown) {
   const events = new EventTarget();
   const context = vm.createContext({
     scanConnection,
-    WalletermClient,
+    mockClient: WalletermClient,
+    Networks,
     AbortController,
     AbortSignal,
     URL,
     clearInterval,
+    queueMicrotask,
     document: events,
     addEventListener: events.addEventListener.bind(events),
     removeEventListener: events.removeEventListener.bind(events),
   });
   // Errors must come from the page realm, as in the browser.
   vm.runInContext(browserScript(new URL('../sdk/errors.ts', import.meta.url)), context);
-  if (!WalletermClient)
-    vm.runInContext(browserScript(new URL('../sdk/walleterm.ts', import.meta.url)), context);
+  vm.runInContext(browserScript(new URL('../sdk/walleterm.ts', import.meta.url)), context);
+  // A mock replaces the session class for the component and the shared wallet.
+  if (WalletermClient) vm.runInContext('WalletermClient = mockClient', context);
   vm.runInContext(browserScript(new URL('../sdk/connect.ts', import.meta.url)), context);
   const ui: ConnectUI = vm.runInContext('Object.create(WalletermConnect.prototype)', context);
+  const wallet: Walleterm = vm.runInContext("new Walleterm({ walletScope: 'available' })", context);
   Object.assign(ui, {
+    wallet,
+    header: true,
+    access: null,
     destroyed: false,
     scanning: null,
     connection: null,
@@ -134,6 +145,8 @@ function fixture(scanConnection: ScanMock, WalletermClient?: unknown) {
       },
     },
   });
+  wallet.ui = ui;
+  ui.unsubscribe = wallet.onChange(() => ui.walletChanged());
   const click = (name: string) => {
     const handler = node(name).onclick;
     assert.ok(handler, `Node ${name} has no click handler.`);
@@ -157,7 +170,6 @@ function observe(f: ReturnType<typeof fixture>) {
   const callbacks: unknown[] = [],
     writes: unknown[] = [];
   Object.assign(f.ui, {
-    sessionStorageKey: 'test-connection',
     onChange: (value: Change) => callbacks.push(['connection', value]),
     onStateChange: (value: string) => callbacks.push(['state', value]),
     onBusyChange: (value: boolean) => callbacks.push(['busy', value]),
@@ -174,9 +186,9 @@ function observe(f: ReturnType<typeof fixture>) {
 function savedConnection() {
   const f = fixture(() => {});
   const storage = new Map<string, string>();
-  const key = 'test-connection';
+  const key = 'walleterm:session';
   const token = 's'.repeat(43);
-  storage.set(key, JSON.stringify({ version: 1, url: 'https://bridge.example', token }));
+  storage.set(key, JSON.stringify({ version: 3, url: 'https://bridge.example', token }));
   Object.assign(f.context, {
     sessionStorage: {
       getItem: (name: string) => storage.get(name) ?? null,
@@ -184,12 +196,12 @@ function savedConnection() {
       removeItem: (name: string) => storage.delete(name),
     },
   });
-  f.ui.sessionStorageKey = key;
   return { ...f, storage, key, token };
 }
 const recoveredAccount = {
-  public_key: 'GRECOVERED',
-  network_passphrase: 'testnet',
+  address: 'GRECOVERED',
+  network: 'TESTNET',
+  network_passphrase: Networks.TESTNET,
   selection_revision: 7,
   wallet_scope: 'available',
 };
@@ -271,23 +283,28 @@ test('reload removes a revoked or expired session and does not exchange the old 
 });
 
 test('invalid saved details never send credentials, and unavailable storage does not break the UI', async () => {
-  const f = savedConnection();
-  let calls = 0;
-  Object.assign(f.context, { fetch: () => calls++ });
+  const token = 's'.repeat(43);
   for (const saved of [
     '{',
     'null',
-    JSON.stringify({ version: 2, url: 'https://bridge.example', token: f.token }),
-    JSON.stringify({ version: 1, url: 'https://bridge.example', token: 'invalid' }),
-    JSON.stringify({ version: 1, url: 'https://bridge.example/path', token: f.token }),
-    JSON.stringify({ version: 1, url: 'http://bridge.example', token: f.token }),
+    JSON.stringify({ version: 2, url: 'https://bridge.example', token }),
+    JSON.stringify({ version: 3, url: 'https://bridge.example', token: 'invalid' }),
+    JSON.stringify({ version: 3, url: 'https://bridge.example/path', token }),
+    JSON.stringify({ version: 3, url: 'http://bridge.example', token }),
   ]) {
+    const f = savedConnection();
+    let calls = 0;
+    Object.assign(f.context, { fetch: () => calls++ });
     f.storage.set(f.key, saved);
     await f.ui.restoreSession();
-    assert.equal(f.storage.has(f.key), false);
+    assert.equal(f.storage.has(f.key), false, saved);
     assert.equal(f.ui.client ?? null, null);
+    assert.equal(calls, 0);
   }
+  const f = savedConnection();
+  let calls = 0;
   Object.assign(f.context, {
+    fetch: () => calls++,
     sessionStorage: {
       getItem() {
         throw Error('Storage disabled');
@@ -301,7 +318,6 @@ test('invalid saved details never send credentials, and unavailable storage does
     },
   });
   await f.ui.restoreSession();
-  f.ui.saveSession();
   assert.equal(calls, 0);
   assert.equal(f.ui.working ?? false, false);
 });
@@ -330,7 +346,7 @@ test('health checks retain credentials through a network failure and recover the
     token: 'session',
     generation: 1,
     url: 'https://bridge.example',
-    async getAddress() {
+    async getAccount() {
       calls++;
       if (!online) throw Error('Offline');
       return { address: 'GORIGINAL', networkPassphrase: 'testnet' };
@@ -360,7 +376,7 @@ test('an expired session removes the account and requires a new code', async () 
     token: 'session',
     generation: 1,
     url: 'https://bridge.example',
-    async getAddress() {
+    async getAccount() {
       this.token = '';
       throw expired;
     },
@@ -381,7 +397,7 @@ test('health checks do not overlap or overwrite a newer connection', async () =>
   let calls = 0;
   const client = {
     generation: 1,
-    getAddress: () => {
+    getAccount: () => {
       calls++;
       return response.promise;
     },
@@ -402,7 +418,9 @@ test('manual replacement connects to a new tunnel when the previous tunnel canno
   class Replacement {
     token = 'new-session';
     url = 'https://new.example';
+    account: MockAccount | null = null;
     async connect() {
+      this.account = { address: 'GNEW' };
       return { address: 'GNEW', networkPassphrase: 'testnet' };
     }
     async disconnect() {}
@@ -428,11 +446,13 @@ test('manual replacement connects to a new tunnel when the previous tunnel canno
     onChange() {},
     onBusyChange() {},
   });
+  Object.assign(f.ui.wallet, { client: previous });
   f.node('url').value = 'https://new.example';
   f.node('code').value = '12345678';
   await f.ui.connect();
   assert.equal(f.ui.account?.address, 'GNEW');
   assert.equal(f.ui.state, 'connected');
+  assert.equal(f.ui.wallet.client, f.ui.client);
   assert.equal(forgotten, 1);
   assert.match(f.node('health').textContent ?? '', /did not confirm disconnection/);
 });
@@ -456,6 +476,7 @@ test('manual disconnection discards an unreachable session locally and reports u
     onChange() {},
     onBusyChange() {},
   });
+  Object.assign(f.ui.wallet, { client: previous });
   await f.ui.disconnect();
   assert.equal(f.ui.client, null);
   assert.equal(f.ui.account, null);
@@ -556,7 +577,7 @@ test('changing a wallet uses the current client and does not open the scanner', 
   assert.equal(refreshes, 0);
   assert.equal(f.ui.dialog.open, false);
   assert.equal(f.ui.client, client);
-  assert.equal(changed?.client, client);
+  assert.equal(changed?.wallet, f.ui.wallet);
   assert.equal(changed?.account?.address, 'GSECOND');
 });
 
@@ -852,7 +873,8 @@ test('a scanner that returns after destruction cannot fill connection details', 
 });
 
 for (const stage of ['discovery', 'wallet-choice', 'selection', 'replacement', 'replacement-failure']) {
-  test(`destroying during ${stage} prevents late connection publication and storage changes`, async () => {
+  // Destruction stops pairing, even while the previous session is revoked.
+  test(`destroying during ${stage} prevents late connection publication`, async () => {
     const f = fixture(() => {}),
       observed = observe(f),
       reached = Promise.withResolvers<void>(),
@@ -885,15 +907,22 @@ for (const stage of ['discovery', 'wallet-choice', 'selection', 'replacement', '
             return Response.json({ signers: [{ public_key: 'GNEW' }], grant_id: 'mock-grant' });
           case '/v1/select':
             return Response.json({
-              public_key: 'GNEW',
-              network_passphrase: 'testnet',
+              address: 'GNEW',
+              network: 'TESTNET',
+              network_passphrase: Networks.TESTNET,
               selection_revision: 1,
             });
           case '/v1/disconnect':
             return Response.json({ disconnected: true });
           case '/v1/account':
             assert.equal(previous, true);
-            return Response.json({ public_key: 'GOLD', network_passphrase: 'testnet' });
+            return Response.json({
+              address: 'GOLD',
+              network: 'TESTNET',
+              network_passphrase: Networks.TESTNET,
+              selection_revision: 1,
+              wallet_scope: 'available',
+            });
           default:
             throw Error(`Unexpected mock request: ${path}`);
         }
@@ -904,9 +933,10 @@ for (const stage of ['discovery', 'wallet-choice', 'selection', 'replacement', '
       f.context,
     );
     previous.token = oldToken;
-    const account = { address: 'GOLD', networkPassphrase: 'testnet' };
+    const account = { address: 'GOLD', networkPassphrase: Networks.TESTNET };
     previous.account = account;
     Object.assign(f.ui, { client: previous, account, state: 'connected' });
+    Object.assign(f.ui.wallet, { client: previous });
     let choose: ((key: MockSigner) => void) | undefined;
     f.ui.rows = (_target, keys, callback) => {
       choose = callback;
@@ -931,28 +961,32 @@ for (const stage of ['discovery', 'wallet-choice', 'selection', 'replacement', '
     }
     release.resolve();
     await pairing;
+    const replaced = stage.startsWith('replacement');
     assert.equal(f.ui.client, previous);
     assert.equal(f.ui.account, account);
     assert.deepEqual(observed.callbacks, callbacks);
-    assert.deepEqual(observed.writes, []);
     assert.deepEqual(f.view(), view);
     assert.equal(f.ui.working, false);
     const revocations = requests.filter(({ path }) => path === '/v1/disconnect');
-    assert.equal(
-      revocations.filter(({ previous }) => previous).length,
-      stage.startsWith('replacement') ? 1 : 0,
-    );
+    assert.equal(revocations.filter(({ previous }) => previous).length, replaced ? 1 : 0);
     assert.equal(revocations.filter(({ previous }) => !previous).length, 1);
     assert.equal(
       requests.some(({ previous, destroyed }) => previous && destroyed),
       false,
     );
-    if (stage === 'replacement') {
-      // Destruction cannot undo a revocation request that already started.
+    if (replaced) {
+      // The previous revocation had started. The wallet keeps neither session.
+      assert.equal(f.ui.wallet.client, null);
       assert.equal(previous.token, null);
+      assert.deepEqual(
+        observed.writes.map((write) => (write as string[])[0]),
+        ['remove'],
+      );
     } else {
+      assert.equal(f.ui.wallet.client, previous);
+      assert.deepEqual(observed.writes, []);
       assert.equal(previous.token, oldToken);
-      assert.equal((await previous.getAddress()).address, 'GOLD');
+      assert.equal((await previous.getAccount()).address, 'GOLD');
     }
   });
 }
@@ -977,7 +1011,6 @@ test('destroying an established view preserves its shared client and rejects new
   f.ui.open();
   f.ui.close();
   f.ui.toggleMenu();
-  f.ui.saveSession();
   await f.ui.scan();
   await f.ui.connect();
   await f.ui.refresh();
@@ -992,7 +1025,7 @@ test('destroying an established view preserves its shared client and rejects new
   assert.deepEqual(observed.writes, []);
   assert.deepEqual(observed.callbacks, []);
   assert.deepEqual(f.view(), view);
-  assert.equal((await client.getAddress()).address, 'GRECOVERED');
+  assert.equal((await client.getAccount()).address, 'GRECOVERED');
   assert.deepEqual(requests, Array(2).fill('https://bridge.example/v1/account'));
 });
 
@@ -1030,10 +1063,12 @@ test('dialog focus restoration can destroy the component before connection publi
   class Replacement {
     token: string | null = 'new-session';
     url = 'https://bridge.example';
+    account: MockAccount | null = null;
     constructor() {
       next = this;
     }
     async connect() {
+      this.account = { address: 'GNEW' };
       return { address: 'GNEW', networkPassphrase: 'testnet' };
     }
     async disconnect() {
@@ -1076,8 +1111,10 @@ test('dialog focus restoration can destroy the component before connection publi
   assert.equal(restoredFocus, 1);
   assert.equal(f.ui.destroyed, true);
   assert.equal(f.ui.dialog.open, false);
-  assert.equal(disconnected, 1);
-  assert.equal(next.token, null);
+  // The wallet adopted the session before the dialog closed. Destroying the view keeps it.
+  assert.equal(disconnected, 0);
+  assert.equal(next.token, 'new-session');
+  assert.equal(f.ui.wallet.client, next);
   assert.equal(triggerWrites, 0);
   assert.deepEqual(f.view(), view);
   assert.deepEqual(observed.callbacks, callbacks);
@@ -1094,10 +1131,12 @@ for (const callback of ['state', 'connection']) {
     class Replacement {
       token: string | null = 'new-session';
       url = 'https://bridge.example';
+      account: MockAccount | null = null;
       constructor() {
         next = this;
       }
       async connect() {
+        this.account = { address: 'GNEW' };
         return { address: 'GNEW', networkPassphrase: 'testnet' };
       }
       async disconnect() {
@@ -1110,7 +1149,6 @@ for (const callback of ['state', 'connection']) {
       writesAfterDestroy: boolean[] = [],
       busy: boolean[] = [];
     Object.assign(f.ui, {
-      sessionStorageKey: 'test-connection',
       onStateChange() {
         if (callback === 'state') f.ui.destroy();
       },
@@ -1133,15 +1171,14 @@ for (const callback of ['state', 'connection']) {
     assert.equal(f.ui.destroyed, true);
     assert.deepEqual(writesAfterDestroy, [false]);
     assert.deepEqual(busy, [true]);
-    if (callback === 'state') {
-      assert.equal(changes.length, 0);
-      assert.equal(disconnected, 1);
-      assert.equal(next.token, null);
-    } else {
+    // The shared wallet owns the adopted session in both cases.
+    assert.equal(disconnected, 0);
+    assert.equal(next.token, 'new-session');
+    assert.equal(f.ui.wallet.client, next);
+    if (callback === 'state') assert.equal(changes.length, 0);
+    else {
       assert.equal(changes.length, 1);
-      assert.equal(changes[0].client, next);
-      assert.equal(disconnected, 0);
-      assert.equal(next.token, 'new-session');
+      assert.equal(changes[0].wallet, f.ui.wallet);
     }
   });
 }
@@ -1165,7 +1202,7 @@ for (const operation of ['refresh', 'changeWallet', 'checkHealth']) {
         await response.promise;
         return { address: 'GNEW' };
       },
-      async getAddress() {
+      async getAccount() {
         await response.promise;
         return { address: 'GNEW' };
       },
@@ -1191,3 +1228,189 @@ for (const operation of ['refresh', 'changeWallet', 'checkHealth']) {
     assert.deepEqual(f.view(), view);
   });
 }
+
+test('requestAccess opens one dialog, resolves after pairing, and rejects when closed', async () => {
+  class Replacement {
+    token = 'new-session';
+    url = 'https://bridge.example';
+    account: MockAccount | null = null;
+    async connect() {
+      this.account = { address: 'GNEW' };
+      return { address: 'GNEW', networkPassphrase: 'testnet' };
+    }
+    async disconnect() {}
+  }
+  const f = fixture(() => {}, Replacement);
+  const access = f.ui.requestAccess();
+  assert.equal(f.ui.dialog.open, true);
+  assert.equal(f.ui.requestAccess(), access);
+  f.node('url').value = 'https://bridge.example';
+  f.node('code').value = '12345678';
+  await f.ui.connect();
+  assert.equal(await access, 'GNEW');
+  assert.equal(f.ui.dialog.open, false);
+  assert.equal(f.ui.wallet.address, 'GNEW');
+  const closed = f.ui.requestAccess();
+  f.ui.close();
+  await assert.rejects(closed, (error: { code: number; ext: string[] }) => {
+    assert.equal(error.code, -4);
+    assert.deepEqual([...error.ext], ['walleterm:rejected']); // The error comes from the page realm.
+    return true;
+  });
+  Object.assign(f.ui, { busy: true });
+  await assert.rejects(f.ui.requestAccess(), /Wait for the current wallet action/);
+  f.ui.destroy();
+  await assert.rejects(f.ui.requestAccess(), /closed/);
+  assert.equal(f.ui.wallet.ui, null);
+});
+
+test('the header follows wallet changes made outside the component', () => {
+  const f = fixture(() => {});
+  const changes: Change[] = [];
+  Object.assign(f.ui, { onChange: (value: Change) => changes.push(value), wallets: [] });
+  const outside = { token: 'session', url: 'https://bridge.example', account: { address: 'GOUT' } };
+  Object.assign(f.ui.wallet, { client: outside });
+  f.ui.walletChanged();
+  assert.equal(f.ui.client, outside);
+  assert.equal(f.ui.account?.address, 'GOUT');
+  assert.equal(f.ui.state, 'connected');
+  assert.equal(changes.at(-1)?.wallet, f.ui.wallet);
+  Object.assign(f.ui, { working: true });
+  outside.account = { address: 'GIGNORED' };
+  f.ui.walletChanged();
+  assert.equal(f.ui.account?.address, 'GOUT');
+  Object.assign(f.ui, { working: false });
+  outside.token = '';
+  f.ui.walletChanged();
+  assert.equal(f.ui.state, 'expired');
+  assert.equal(f.ui.client, null);
+  Object.assign(f.ui.wallet, { client: { ...outside, token: 'session' } });
+  f.ui.walletChanged();
+  Object.assign(f.ui.wallet, { client: null });
+  f.ui.walletChanged();
+  assert.equal(f.ui.state, 'disconnected');
+  assert.deepEqual(
+    changes.map((change) => change.account?.address ?? null),
+    ['GOUT', null, 'GIGNORED', null],
+  );
+});
+
+test('the dialog explains the grant for each wallet scope', () => {
+  const f = fixture(() => {});
+  f.ui.open();
+  assert.match(f.node('description').textContent ?? '', /switch between the wallets/);
+  f.ui.close();
+  f.ui.wallet = vm.runInContext('new Walleterm()', f.context);
+  f.ui.open();
+  assert.match(f.node('description').textContent ?? '', /one wallet you choose/);
+});
+
+// Runs the real constructor with a mock element. The other tests assign component state directly.
+function constructed(f: ReturnType<typeof fixture>, options: Record<string, unknown>) {
+  const intervals: unknown[] = [];
+  const dialog = {
+    open: false,
+    addEventListener() {},
+    showModal() {
+      this.open = true;
+    },
+    close() {
+      this.open = false;
+    },
+  };
+  const element = {
+    classList: { add() {} },
+    innerHTML: '',
+    addEventListener() {},
+    contains: () => false,
+    querySelectorAll: () => [],
+    querySelector(selector: string) {
+      if (selector === '.wt-trigger') return f.node('trigger');
+      if (selector === 'dialog') return dialog;
+      const name = /^\[data-wt="([^"]+)"\]$/.exec(selector)?.[1];
+      return name ? f.node(name) : f.node(selector);
+    },
+  };
+  Object.assign(f.context, {
+    setInterval: (callback: unknown) => intervals.push(callback),
+    mountElement: element,
+    mountOptions: options,
+  });
+  const ui: ConnectUI = vm.runInContext('new WalletermConnect(mountElement, mountOptions)', f.context);
+  return { ui, intervals };
+}
+
+test('a header mounted for an already connected wallet shows that connection', async () => {
+  const f = fixture(() => {});
+  const wallet: Walleterm = vm.runInContext("new Walleterm({ walletScope: 'available' })", f.context);
+  const client = {
+    token: 'session',
+    url: 'https://bridge.example',
+    account: { address: 'GLIVE', networkPassphrase: Networks.TESTNET },
+  };
+  Object.assign(wallet, { client });
+  const changes: Change[] = [];
+  const { ui, intervals } = constructed(f, { wallet, onChange: (value: Change) => changes.push(value) });
+  assert.equal(wallet.ui, ui);
+  assert.equal(intervals.length, 1);
+  await settle();
+  assert.equal(ui.client, client);
+  assert.equal(ui.account?.address, 'GLIVE');
+  assert.equal(ui.state, 'connected');
+  assert.equal(changes.length, 1);
+  assert.equal(changes[0].wallet, wallet);
+  assert.equal(f.node('trigger').hidden, false);
+  ui.destroy();
+  assert.equal(wallet.ui, null);
+});
+
+test('a dialog-only component registers for access without header work', async () => {
+  const f = fixture(() => {});
+  const wallet: Walleterm = vm.runInContext('new Walleterm()', f.context);
+  const { ui, intervals } = constructed(f, { wallet, header: false });
+  await settle();
+  assert.equal(wallet.ui, ui);
+  assert.equal(f.node('trigger').hidden, true);
+  assert.equal(intervals.length, 0);
+  assert.equal(ui.client ?? null, null);
+});
+
+test('header Disconnect with the documented Kit hook clears the Kit side and opens no dialog', async () => {
+  const f = fixture(() => {});
+  const wallet = f.ui.wallet;
+  let revoked = 0,
+    accessRequests = 0;
+  const client = {
+    token: 'session' as string | null,
+    url: 'https://bridge.example',
+    account: { address: 'GLIVE', networkPassphrase: Networks.TESTNET },
+    async disconnect() {
+      revoked++;
+      this.token = null;
+    },
+    forgetConnection() {
+      this.token = null;
+    },
+  };
+  Object.assign(f.ui, { wallets: [], onChange() {} });
+  // The wallet publishes the connection. The header follows it.
+  await wallet.adopt(client as unknown as WalletermClient);
+  assert.equal(f.ui.client, client);
+  const requestAccess = f.ui.requestAccess.bind(f.ui);
+  f.ui.requestAccess = () => {
+    accessRequests++;
+    return requestAccess();
+  };
+  // The Kit hook calls these module methods: fetchAddress() uses getAddress(), disconnect() uses disconnect().
+  const hooked: Promise<unknown>[] = [];
+  wallet.onChange(({ address }) => void hooked.push(address ? wallet.getAddress() : wallet.disconnect()));
+  await f.ui.disconnect();
+  await settle();
+  await Promise.all(hooked);
+  assert.equal(hooked.length, 1);
+  assert.equal(revoked, 1);
+  assert.equal(accessRequests, 0);
+  assert.equal(f.ui.dialog.open, false);
+  assert.equal(f.ui.state, 'disconnected');
+  assert.equal(wallet.client, null);
+});

@@ -1,11 +1,11 @@
-import { requestError } from './errors.js';
-import { WalletermClient } from './walleterm.js';
+import { requestError, walletermError } from './errors.js';
+import { Walleterm, WalletermClient } from './walleterm.js';
 import { scanConnection } from './scan.js';
 
 const short = (address: string) => `${address.slice(0, 7)}…${address.slice(-6)}`;
 
-// Optional connection UI. Transaction construction, review, and submission belong to the host site.
-// Load connect.css with this module. Session storage is opt-in for reload recovery.
+// Connection UI and the pairing dialog for `Walleterm.getAddress()`.
+// Transaction construction, review, and submission belong to the host site. Load connect.css with this module.
 import type { Account, Signer } from './types.js';
 
 interface ConnectElements {
@@ -21,11 +21,14 @@ interface ConnectElements {
   copy: HTMLButtonElement;
 }
 export interface ConnectionChange {
-  client: WalletermClient | null;
+  wallet: Walleterm | null;
   account: Account | null;
 }
 export interface ConnectUIOptions {
-  sessionStorageKey?: string;
+  /** The shared wallet. Default: a new `Walleterm` with wallet switching. */
+  wallet?: Walleterm;
+  /** `false` renders only the pairing dialog, for `Walleterm.getAddress()`. */
+  header?: boolean;
   onChange?: (value: ConnectionChange) => void;
   onBusyChange?: (busy: boolean) => void;
   onStateChange?: (state: ConnectionState) => void;
@@ -33,7 +36,10 @@ export interface ConnectUIOptions {
 export type ConnectionState = 'disconnected' | 'connected' | 'unreachable' | 'expired';
 
 export class WalletermConnect {
-  sessionStorageKey?: string;
+  wallet: Walleterm;
+  header: boolean;
+  access: PromiseWithResolvers<string> | null = null;
+  unsubscribe: () => void = () => {};
   destroyed = false;
   element: HTMLElement;
   onChange: (value: ConnectionChange) => void;
@@ -72,14 +78,17 @@ export class WalletermConnect {
   constructor(
     element: HTMLElement,
     {
-      sessionStorageKey,
+      wallet = new Walleterm({ walletScope: 'available' }),
+      header = true,
       onChange = () => {},
       onBusyChange = () => {},
       onStateChange = () => {},
     }: ConnectUIOptions = {},
   ) {
     this.element = element;
-    this.sessionStorageKey = sessionStorageKey;
+    this.wallet = wallet;
+    this.header = header;
+    wallet.ui = this;
     this.onChange = onChange;
     this.onBusyChange = onBusyChange;
     this.onStateChange = onStateChange;
@@ -198,15 +207,62 @@ export class WalletermConnect {
         this.copying = false;
       }
     };
+    this.trigger.hidden = !header;
+    this.unsubscribe = wallet.onChange(() => this.walletChanged());
     this.update();
-    this.healthTimer = setInterval(this.wake, 15000);
-    for (const event of ['online', 'pageshow', 'focus']) globalThis.addEventListener(event, this.wake);
-    document.addEventListener('visibilitychange', this.wake);
-    // Defer callbacks until the host has assigned its connection component.
-    if (sessionStorageKey) queueMicrotask(() => void this.restoreSession());
+    if (header) {
+      this.healthTimer = setInterval(this.wake, 15000);
+      for (const event of ['online', 'pageshow', 'focus']) globalThis.addEventListener(event, this.wake);
+      document.addEventListener('visibilitychange', this.wake);
+      // Defer callbacks until the host has assigned its connection component.
+      queueMicrotask(() => void this.restoreSession());
+    }
+  }
+  /** `Walleterm.getAddress()` calls this without a session. It resolves with the selected address. */
+  requestAccess(_wallet?: Walleterm): Promise<string> {
+    if (this.destroyed)
+      return Promise.reject(walletermError('rejected', 'The Walleterm connection dialog was closed.'));
+    if (!this.access) {
+      if (this.busy || this.working)
+        return Promise.reject(walletermError('conflict', 'Wait for the current wallet action to finish.'));
+      this.access = Promise.withResolvers<string>();
+      this.open();
+    }
+    return this.access.promise;
+  }
+  // Follow session changes made outside this component, such as expiry or `Walleterm.disconnect()`.
+  walletChanged() {
+    if (this.destroyed || this.working) return;
+    const client = this.wallet.client;
+    if (!client?.token || !client.account?.address) {
+      if (!this.client) return;
+      if (!client) {
+        this.client = null;
+        this.account = null;
+        this.wallets = [];
+        this.setState('disconnected');
+        if (this.destroyed) return;
+        this.hideMenu();
+        this.update();
+        this.onChange({ wallet: null, account: null });
+      } else this.sync();
+      return;
+    }
+    if (client === this.client && this.account?.address === client.account.address) return;
+    this.client = client;
+    this.account = { ...client.account };
+    this.setState('connected');
+    if (this.destroyed) return;
+    this.update();
+    this.onChange({ wallet: this.wallet, account: { ...this.account } });
   }
   destroy() {
     this.destroyed = true;
+    this.unsubscribe();
+    if (this.wallet.ui === this) this.wallet.ui = null;
+    const access = this.access;
+    this.access = null;
+    access?.reject(walletermError('rejected', 'The Walleterm connection dialog was closed.'));
     this.scanning?.abort();
     this.scanning = null;
     this.connection?.abort();
@@ -223,43 +279,16 @@ export class WalletermConnect {
     this.update();
     this.onStateChange?.(state);
   }
-  saveSession() {
-    if (this.destroyed || !this.sessionStorageKey) return;
-    try {
-      if (this.client?.token)
-        globalThis.sessionStorage.setItem(
-          this.sessionStorageKey,
-          JSON.stringify({ version: 1, url: this.client.url, token: this.client.token }),
-        );
-      else globalThis.sessionStorage.removeItem(this.sessionStorageKey);
-    } catch {
-      // Storage can be disabled. The current connection still works in memory.
-    }
-  }
+  // The wallet saves the session per tab. Reload recovery checks the bridge before publishing an address.
   async restoreSession() {
-    if (!this.sessionStorageKey || this.client || this.working || this.destroyed) return;
-    try {
-      const saved = globalThis.sessionStorage.getItem(this.sessionStorageKey);
-      if (!saved) return;
-      const value = JSON.parse(saved);
-      if (
-        value?.version !== 1 ||
-        typeof value.url !== 'string' ||
-        typeof value.token !== 'string' ||
-        !/^[A-Za-z0-9_-]{43}$/.test(value.token)
-      )
-        throw Error('The saved connection is invalid.');
-      const client = new WalletermClient(value.url);
-      client.token = value.token;
-      // Recover the scope and revision from the bridge, never from browser storage.
-      client.walletScope = 'available';
-      client.revision = null;
-      this.client = client;
-      this.$('url').value = client.url;
-    } catch {
-      this.saveSession();
-      return;
-    }
+    if (this.client || this.working || this.destroyed) return;
+    this.wallet.restore();
+    const client = this.wallet.client;
+    if (!client?.token) return;
+    // Another interface, such as getAddress() or a Kit module, can connect the wallet first.
+    if (client.account?.address) return this.walletChanged();
+    this.client = client;
+    this.$('url').value = client.url;
     this.phase = 'restoring';
     this.setWorking(true);
     try {
@@ -283,7 +312,7 @@ export class WalletermConnect {
     this.checking = true;
     const generation = client.generation;
     try {
-      const account = await client.getAddress();
+      const account = await client.getAccount();
       if (
         this.destroyed ||
         client !== this.client ||
@@ -296,9 +325,8 @@ export class WalletermConnect {
         this.account?.address !== account.address ||
         this.account?.networkPassphrase !== account.networkPassphrase;
       this.account = account;
-      this.saveSession();
       this.setState('connected');
-      if (!this.destroyed && changed) this.onChange({ client, account: { ...account } });
+      if (!this.destroyed && changed) this.onChange({ wallet: this.wallet, account: { ...account } });
     } catch (errorValue) {
       if (
         this.destroyed ||
@@ -353,14 +381,13 @@ export class WalletermConnect {
     if (this.destroyed) return;
     if (this.client && !this.client.token) {
       this.client = null;
-      this.saveSession();
       this.account = null;
       this.wallets = [];
       this.setState('expired');
       if (this.destroyed) return;
       this.hideMenu();
       this.update();
-      this.onChange({ client: null, account: null });
+      this.onChange({ wallet: null, account: null });
     }
   }
   update() {
@@ -532,14 +559,14 @@ export class WalletermConnect {
       const account = await client.selectWallet(key.public_key);
       if (this.destroyed || client !== this.client) return;
       this.account = account;
-      this.onChange({ client, account: { ...account } });
+      this.onChange({ wallet: this.wallet, account: { ...account } });
       this.message('The active wallet changed.', true);
     } catch (errorValue) {
       const error = requestError(errorValue);
       // A lost response can hide a successful change. Publish only the recovered account.
       if (!this.destroyed && client === this.client) {
         this.account = client.account?.address ? { ...client.account } : null;
-        this.onChange({ client: this.account ? client : null, account: this.account });
+        this.onChange({ wallet: this.account ? this.wallet : null, account: this.account });
         this.message(error.message, true);
         this.sync();
         if (!this.account) this.hideMenu();
@@ -560,7 +587,9 @@ export class WalletermConnect {
     this.$('url').value = this.client?.url || this.$('url').value;
     this.element.querySelector('#wt-title')!.textContent = 'Connect Walleterm';
     this.$('description').textContent =
-      'Connect your Mac. This website can switch between the wallets you approve in the next step.';
+      this.wallet.walletScope === 'available'
+        ? 'Connect your Mac. This website can switch between the wallets you approve in the next step.'
+        : 'Connect your Mac. This website can use the one wallet you choose in the next step.';
     this.$('step-connect').setAttribute('aria-current', 'step');
     this.$('step-wallet').removeAttribute('aria-current');
     this.message('');
@@ -571,12 +600,15 @@ export class WalletermConnect {
   }
   close() {
     if (this.destroyed) return;
+    const access = this.access;
+    this.access = null;
     if (this.connection) this.phase = 'canceling';
     this.connection?.abort(Error('Connection canceled. Use the current code from your tunnel terminal.'));
     this.scanning?.abort();
     this.scanning = null;
     this.$('status').classList.remove('wt-loading');
     this.dialog.close();
+    access?.reject(walletermError('rejected', 'The Walleterm connection was canceled.'));
     if (this.destroyed) return;
     this.trigger.setAttribute('aria-expanded', 'false');
     this.update();
@@ -655,7 +687,9 @@ export class WalletermConnect {
         });
         this.message(
           values.length
-            ? 'This connection lets the website switch between these wallets and request signatures. New wallets need a new connection.'
+            ? this.wallet.walletScope === 'available'
+              ? 'This connection lets the website switch between these wallets and request signatures. New wallets need a new connection.'
+              : 'This connection lets the website request signatures from the one wallet you select.'
             : 'No wallets are available. Check the 1Password SSH agent on your Mac.',
         );
         this.$('retry-wallets').hidden = !!values.length;
@@ -690,14 +724,15 @@ export class WalletermConnect {
     this.connection = controller;
     const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(300000)]);
     this.setWorking(true);
-    let next: WalletermClient | undefined;
+    let next: WalletermClient | undefined,
+      adopted = false;
     this.message('Connecting and finding wallets. Unlock 1Password if it asks.');
     try {
       signal.throwIfAborted();
-      next = new WalletermClient(this.$('url').value.trim().replace(/\/$/, ''));
+      next = new WalletermClient(this.$('url').value.trim().replace(/\/$/, ''), this.wallet.clientOptions);
       const account = await next.connect({
         code: this.$('code').value.trim(),
-        walletScope: 'available',
+        walletScope: this.wallet.walletScope,
         signal,
         selectWallet: (keys, { signal }) => {
           signal.throwIfAborted();
@@ -710,31 +745,30 @@ export class WalletermConnect {
       signal.throwIfAborted();
       if (this.destroyed) throw Error('The connection component was destroyed.');
       // A failed replacement leaves the current connection usable.
+      // The user explicitly replaces this connection. Automatic checks never discard credentials.
       this.notice = '';
-      try {
-        await this.client?.disconnect();
-      } catch {
-        // The user explicitly replaces this connection. Automatic checks never discard credentials.
-        signal.throwIfAborted();
-        this.client?.forgetConnection();
+      const { previousRevoked } = await this.wallet.adopt(next, { signal });
+      adopted = true;
+      // The shared wallet now owns this session, even if this component closes.
+      const access = this.access;
+      this.access = null;
+      access?.resolve(account.address!);
+      if (!previousRevoked)
         this.notice =
           'The previous tunnel did not confirm disconnection. Its session can remain active until expiry.';
-      }
-      signal.throwIfAborted();
-      if (this.destroyed) throw Error('The connection component was destroyed.');
+      if (this.destroyed) return;
       this.client = next;
-      this.saveSession();
       this.account = account;
       this.setState('connected');
-      if (this.destroyed) throw Error('The connection component was destroyed.');
+      if (this.destroyed) return;
       this.wallets = this.nextWallets || [];
       this.connection = null;
       this.close();
-      if (this.destroyed) throw Error('The connection component was destroyed.');
-      this.onChange({ client: next, account: { ...account } });
+      if (this.destroyed) return;
+      this.onChange({ wallet: this.wallet, account: { ...account } });
     } catch (errorValue) {
       const error = requestError(errorValue);
-      await next?.disconnect().catch(() => {});
+      if (!adopted) await next?.disconnect().catch(() => {});
       if (this.destroyed) return;
       this.$('form').hidden = false;
       this.$('picker').hidden = true;
@@ -757,21 +791,20 @@ export class WalletermConnect {
       if (this.destroyed) return;
       this.notice = '';
       try {
-        await this.client.disconnect();
+        await this.wallet.disconnect();
       } catch {
         if (this.destroyed) return;
-        this.client.forgetConnection();
+        this.wallet.forgetConnection();
         this.notice = 'Disconnected here. The tunnel did not confirm session revocation.';
       }
       if (this.destroyed) return;
       this.client = null;
-      this.saveSession();
       this.account = null;
       this.setState('disconnected');
       if (this.destroyed) return;
       this.wallets = [];
       this.hideMenu();
-      this.onChange({ client: null, account: null });
+      this.onChange({ wallet: null, account: null });
       this.trigger.focus();
     } catch (errorValue) {
       const error = requestError(errorValue);

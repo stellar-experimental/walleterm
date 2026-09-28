@@ -92,11 +92,12 @@ test('an empty wallet picker can refresh discovery within its current connection
     fetch: async (input, options) => {
       const url = requestUrl(input);
       let value;
-      if (url.endsWith('/v1/connect')) value = { token: 'session' };
+      if (url.endsWith('/v1/connect'))
+        value = { token: 'session', wallet_scope: 'selected', selection_revision: 0 };
       if (url.endsWith('/v1/signers')) value = { signers: listings++ ? [{ public_key: 'GAVAILABLE' }] : [] };
       if (url.endsWith('/v1/select')) {
         assert.equal(JSON.parse(String(options?.body)).public_key, 'GAVAILABLE');
-        value = { public_key: 'GAVAILABLE', network_passphrase: 'testnet' };
+        value = { address: 'GAVAILABLE', network_passphrase: 'testnet' };
       }
       return Response.json(value);
     },
@@ -125,7 +126,7 @@ test('signing retries preserve the request ID and report network recovery', asyn
         if (++posts < 3) throw TypeError('Offline');
         return Response.json({ state: 'signing', expires_at: '2026-09-26T00:00:00Z' });
       }
-      return Response.json({ state: 'signed', signed_xdr: signedXdr });
+      return Response.json({ state: 'signed', signed_tx_xdr: signedXdr });
     },
   });
   client.token = 'session';
