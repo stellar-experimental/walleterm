@@ -1,17 +1,13 @@
-//! SEP-43 `signAuthEntry` input: a CAP-71 address-bound authorization preimage.
+//! A CAP-71 address-bound authorization preimage, as SEP-43 `signAuthEntry` and the SDK callbacks pass it.
 
-use base64::Engine as _;
-use base64::engine::general_purpose::STANDARD;
 use stellar_xdr::{HashIdPreimage, HashIdPreimageSorobanAuthorizationWithAddress};
 
-use crate::authorization::{count_auth_contexts, verify};
+use crate::authorization::{count_auth_contexts, expiration_set};
 use crate::error::{Result, fail};
 use crate::stellar::{self, Decode};
-use crate::util::{lower_hex, sha256};
+use crate::util::sha256;
 
 pub const MAX_PREIMAGE_XDR: usize = 32768;
-/// The SDK contract client defaults to the latest ledger plus 100. Keep slack for RPC differences.
-pub const MAX_PREIMAGE_LEDGER_WINDOW: u32 = 120;
 
 fn invalid<T>(message: &str) -> Result<T> {
     fail("invalid_request", message)
@@ -21,20 +17,11 @@ pub struct CheckedPreimage {
     pub preimage: HashIdPreimageSorobanAuthorizationWithAddress,
     pub address: String,
     pub digest: [u8; 32],
-    pub key: [u8; 32],
 }
 
 /// Validate one preimage and compute the digest that the key signs.
-/// Without `latest_ledger`, only the structure is checked. The bridge supplies a trusted ledger.
-pub fn inspect_auth_preimage(
-    preimage_xdr: &str,
-    public_key: &str,
-    network_passphrase: &str,
-    latest_ledger: Option<u32>,
-) -> Result<CheckedPreimage> {
-    let Some(key) = stellar::account_key(public_key) else {
-        return fail("address_mismatch", "Select a valid G-address.");
-    };
+/// The bound address can be any G- or C-address. The bridge limits it to the selected G-address or a C-address.
+pub fn inspect(preimage_xdr: &str, network_passphrase: &str) -> Result<CheckedPreimage> {
     if preimage_xdr.is_empty() || preimage_xdr.len() > MAX_PREIMAGE_XDR {
         return invalid("The authorization preimage is invalid or too large.");
     }
@@ -59,39 +46,12 @@ pub fn inspect_auth_preimage(
         return fail("network_unsupported", "The authorization is for a different network.");
     }
     let address = preimage.address.to_string();
-    if address != public_key && !stellar::is_contract(&address) {
-        return fail(
-            "address_mismatch",
-            "The authorization address must be the selected G-address or a C-address.",
-        );
+    if stellar::account_key(&address).is_none() && !stellar::is_contract(&address) {
+        return invalid("The authorization address must be a G-address or a C-address.");
     }
     count_auth_contexts(&preimage.invocation)?;
-    let expiration = preimage.signature_expiration_ledger;
-    if let Some(latest) = latest_ledger
-        && (expiration <= latest
-            || u64::from(expiration) > u64::from(latest) + u64::from(MAX_PREIMAGE_LEDGER_WINDOW))
-    {
-        return invalid("The authorization must expire within the next 120 ledgers.");
-    }
+    expiration_set(preimage.signature_expiration_ledger).or_else(|e| invalid(&e.message))?;
     let digest =
         sha256(&stellar::xdr_bytes(&HashIdPreimage::SorobanAuthorizationWithAddress(preimage.clone())));
-    Ok(CheckedPreimage { preimage, address, digest, key })
-}
-
-/// Verify the raw signature, then return it as canonical Base64.
-pub fn attach_preimage_signature(
-    preimage_xdr: &str,
-    public_key: &str,
-    network_passphrase: &str,
-    latest_ledger: u32,
-    signature: &str,
-) -> Result<String> {
-    let checked = inspect_auth_preimage(preimage_xdr, public_key, network_passphrase, Some(latest_ledger))?;
-    let Some(raw) = lower_hex::<64>(signature) else {
-        return fail("internal", "The signer returned an invalid signature.");
-    };
-    if !verify(&checked.key, &checked.digest, &raw) {
-        return invalid("The authorization signature failed independent verification.");
-    }
-    Ok(STANDARD.encode(raw))
+    Ok(CheckedPreimage { preimage, address, digest })
 }

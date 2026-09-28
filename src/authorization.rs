@@ -11,11 +11,10 @@ use stellar_xdr::{
 
 use crate::error::{Result, fail};
 use crate::stellar::{self, Decode};
-use crate::util::{hex, lower_hex, sha256, valid_passphrase};
+use crate::util::{sha256, valid_passphrase};
 
 pub const OPENZEPPELIN_AUTH_COMMIT: &str = "a5bd8cbd3d0bb8efbd5cf5e2edf9734f87e47640";
 pub const MAX_AUTH_XDR: usize = 32768;
-pub const MAX_AUTH_LEDGER_WINDOW: u32 = 60;
 const MAX_CONTEXTS: usize = 256;
 const MAX_DEPTH: usize = 32;
 
@@ -31,30 +30,6 @@ pub enum Adapter {
     Account,
     ContractEd25519,
     OpenZeppelinEd25519 { verifier: [u8; 32], context_rule_ids: Vec<u32> },
-}
-
-/// One unsigned entry for a selected key. Loose JSON fields fail the same checks, in the same order, as the TS source.
-#[derive(Clone, Debug)]
-pub struct AuthEntryInput {
-    pub auth_entry_xdr: String,
-    pub network_passphrase: String,
-    pub public_key: String,
-    pub address: String,
-    pub adapter: Value,
-}
-
-impl AuthEntryInput {
-    /// Read the fields from a JSON object. A field with the wrong type becomes a value that fails its own check.
-    pub fn from_json(object: &serde_json::Map<String, Value>) -> Self {
-        let text = |name: &str| object.get(name).and_then(Value::as_str).unwrap_or_default().to_owned();
-        Self {
-            auth_entry_xdr: text("auth_entry_xdr"),
-            network_passphrase: text("network_passphrase"),
-            public_key: text("public_key"),
-            address: text("address"),
-            adapter: object.get("adapter").cloned().unwrap_or(Value::Null),
-        }
-    }
 }
 
 pub struct CheckedAuth {
@@ -104,11 +79,13 @@ pub fn count_auth_contexts(invocation: &SorobanAuthorizedInvocation) -> Result<u
     Ok(count)
 }
 
-fn ledger(value: Option<u32>) -> Result<u32> {
-    match value {
-        Some(v) if v >= 1 => Ok(v),
-        _ => invalid("Use a positive uint32 ledger number."),
+/// Expiration ledger 0 is always in the past. Simulation leaves it at 0 when the caller never set it.
+/// This is the only expiry rule. The network refuses every other expired authorization.
+pub fn expiration_set(expiration: u32) -> Result<()> {
+    if expiration == 0 {
+        return invalid("Set the authorization expiration ledger. Ledger 0 is always in the past.");
     }
+    Ok(())
 }
 
 /// A JSON number that JavaScript treats as an integer in `0..=u32::MAX`.
@@ -121,7 +98,7 @@ pub fn json_u32(value: &Value) -> Option<u32> {
     (v.fract() == 0.0 && (0.0..=u32::MAX as f64).contains(&v)).then_some(v as u32)
 }
 
-fn adapter(value: &Value, address: &str, selected: &str, contexts: usize) -> Result<Adapter> {
+fn adapter(value: &Value, address: &str, key: &[u8; 32], contexts: usize) -> Result<Adapter> {
     let Some(object) = value.as_object() else {
         return invalid("Provide an authorization adapter.");
     };
@@ -136,7 +113,7 @@ fn adapter(value: &Value, address: &str, selected: &str, contexts: usize) -> Res
     }
     let result = match kind {
         Some("account") => {
-            if address != selected {
+            if stellar::account_key(address) != Some(*key) {
                 return invalid("The account authorization must match the selected G-address.");
             }
             Adapter::Account
@@ -173,38 +150,34 @@ fn rule_ids(ids: &[u32]) -> ScVal {
     ScVal::Vec(Some(ScVec(values.try_into().expect("at most 256 contexts"))))
 }
 
-/// Check one unsigned AddressV2 entry and compute the adapter digest that the key signs.
+/// Check one unsigned AddressV2 entry for `address` and compute the adapter digest that `key` signs.
 pub fn inspect_auth_entry(
-    input: &AuthEntryInput,
-    selected: &str,
-    latest_ledger: Option<u32>,
+    auth_entry_xdr: &str,
+    network_passphrase: &str,
+    address: &str,
+    adapter_value: &Value,
+    key: &[u8; 32],
 ) -> Result<CheckedAuth> {
-    let Some(key) = stellar::account_key(selected).filter(|_| input.public_key == selected) else {
-        return invalid("The requested signer differs from the selected key.");
-    };
-    if !valid_passphrase(&input.network_passphrase) {
+    if !valid_passphrase(network_passphrase) {
         return invalid("Provide the exact network passphrase.");
     }
-    let entry = parse_auth_entry(&input.auth_entry_xdr)?;
+    let entry = parse_auth_entry(auth_entry_xdr)?;
     let SorobanCredentials::AddressV2(credentials) = &entry.credentials else {
         return invalid(V2_REQUIRED);
     };
-    if credentials.address.to_string() != input.address {
+    if credentials.address.to_string() != address {
         return invalid("The authorization address differs from the requested address.");
     }
     if credentials.signature != ScVal::Void {
         return invalid("Use an unsigned authorization entry.");
     }
-    let latest = ledger(latest_ledger)?;
     let expiration = credentials.signature_expiration_ledger;
-    if expiration <= latest || u64::from(expiration) > u64::from(latest) + u64::from(MAX_AUTH_LEDGER_WINDOW) {
-        return invalid("The authorization must expire within the next 60 ledgers.");
-    }
+    expiration_set(expiration)?;
     let contexts = count_auth_contexts(&entry.root_invocation)?;
-    let adapter = adapter(&input.adapter, &input.address, selected, contexts)?;
+    let adapter = adapter(adapter_value, address, key, contexts)?;
     let preimage =
         HashIdPreimage::SorobanAuthorizationWithAddress(HashIdPreimageSorobanAuthorizationWithAddress {
-            network_id: Hash(sha256(input.network_passphrase.as_bytes())),
+            network_id: Hash(sha256(network_passphrase.as_bytes())),
             nonce: credentials.nonce,
             signature_expiration_ledger: expiration,
             address: credentials.address.clone(),
@@ -220,7 +193,7 @@ pub fn inspect_auth_entry(
         _ => payload,
     };
     let (nonce, expiration_ledger) = (credentials.nonce, expiration);
-    Ok(CheckedAuth { entry, digest, adapter, key, nonce, expiration_ledger })
+    Ok(CheckedAuth { entry, digest, adapter, key: *key, nonce, expiration_ledger })
 }
 
 fn symbol(name: &str) -> ScVal {
@@ -242,25 +215,13 @@ pub fn verify(key: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> bool {
         .is_ok_and(|key| key.verify_strict(message, &Signature::from_bytes(signature)).is_ok())
 }
 
-/// Verify the signature independently, then change only the credential signature value.
-pub fn attach_auth_signature(
-    input: &AuthEntryInput,
-    selected: &str,
-    latest_ledger: Option<u32>,
-    signature: &str,
-) -> Result<String> {
-    let checked = inspect_auth_entry(input, selected, latest_ledger)?;
-    let Some(raw) = lower_hex::<64>(signature) else {
-        return invalid("The signer returned an invalid signature.");
-    };
-    if !verify(&checked.key, &checked.digest, &raw) {
-        return invalid("The signature failed independent verification.");
-    }
+/// Change only the credential signature value to the adapter's schema. The caller verified `raw` first.
+pub fn attach_auth_signature(checked: &CheckedAuth, raw: &[u8; 64]) -> String {
     let key = bytes(&checked.key);
     let value = match &checked.adapter {
-        Adapter::ContractEd25519 => bytes(&raw),
+        Adapter::ContractEd25519 => bytes(raw),
         Adapter::Account => ScVal::Vec(Some(ScVec(
-            vec![map(vec![(symbol("public_key"), key), (symbol("signature"), bytes(&raw))])]
+            vec![map(vec![(symbol("public_key"), key), (symbol("signature"), bytes(raw))])]
                 .try_into()
                 .expect("one element"),
         ))),
@@ -276,21 +237,16 @@ pub fn attach_auth_signature(
             )));
             map(vec![
                 (symbol("context_rule_ids"), rule_ids(context_rule_ids)),
-                (symbol("signers"), map(vec![(signer, bytes(&raw))])),
+                (symbol("signers"), map(vec![(signer, bytes(raw))])),
             ])
         }
     };
-    let mut entry = checked.entry;
+    let mut entry = checked.entry.clone();
     let SorobanCredentials::AddressV2(credentials) = &mut entry.credentials else {
         unreachable!("inspect_auth_entry accepts only AddressV2 credentials")
     };
     credentials.signature = value;
-    Ok(stellar::encode(&entry))
-}
-
-/// The digest in lowercase hexadecimal, as every JSON result reports it.
-pub fn digest_hex(checked: &CheckedAuth) -> String {
-    hex(&checked.digest)
+    stellar::encode(&entry)
 }
 
 #[cfg(test)]
