@@ -175,6 +175,7 @@ Keep unresolved submission journals until their original transaction hashes are 
 ## Website
 
 `site/` holds the marketing page. It is static HTML with no build step. Open `site/index.html` to view it.
+`wrangler deploy -c site/wrangler.jsonc` publishes it to https://walleterm.com. Use a Cloudflare login for the account that owns the domain.
 Its illustrations come from `design/art/build.ts`. Read [the illustration standard](design/ILLUSTRATION.md) before you change them.
 The Paper file "walleterm — marketing site" is the official design reference. Change Paper first, then the site. [The Paper workflow](.agents/skills/walleterm-illustration/references/paper.md) gives the steps.
 

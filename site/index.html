@@ -10,11 +10,13 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="walleterm">
 <meta property="og:description" content="Your agent asks. 1Password signs.">
-<meta property="og:image" content="og.png">
+<meta property="og:url" content="https://walleterm.com/">
+<meta property="og:image" content="https://walleterm.com/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="A red folded wallet with thin legs stands under a cream moon on a green field.">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="https://walleterm.com/">
 <link rel="icon" href="art/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -157,7 +159,8 @@ svg { display: block; }
 /* Websites */
 .websites { padding-bottom: 0; }
 .websites .inner { display: flex; align-items: center; justify-content: space-between; gap: var(--gap); }
-.bridge { height: max(240px, 29vw); margin-top: clamp(64px, 8vw, 120px); }
+/* Held at its 1440px height; the art's ground runs wide, so wider screens show more ground. */
+.bridge { height: clamp(240px, 29vw, 418px); margin-top: clamp(64px, 8vw, 120px); }
 .bridge { display: block; }
 .bridge img { display: block; width: 100%; height: 100%; }
 .websites .heading { max-width: 540px; }
@@ -224,6 +227,12 @@ svg { display: block; }
 .footer-meta a:hover { text-decoration: underline; text-underline-offset: 4px; }
 .footer-meta p { font-size: 14px; color: color-mix(in srgb, var(--moon) 72%, transparent); }
 
+/* Above 1440px the moon and the night wallet hold their 1440px size and stay with the content column. */
+@media (min-width: 1441px) {
+  .install { --m: 806px; }
+  .night-moon { left: calc(50% + 504px - var(--m) / 2); }
+  .horizon-wallet { left: calc(50% - 423.4px); }
+}
 /* Below 1200px the Boundaries description column gets too narrow. Stack the heading above the list. */
 @media (max-width: 1200px) {
   .boundaries .grid { grid-template-columns: minmax(0, 1fr); gap: 56px; }
@@ -252,6 +261,12 @@ svg { display: block; }
   .footer-meta { align-items: flex-start; }
   .site-footer { flex-direction: column-reverse; align-items: flex-start; }
 }
+/* The narrow bridge centers its gap from 700px down. */
+@media (max-width: 700px) {
+  /* A whole moon clear of the top edge, so it never meets the centered bridge gap. */
+  .night-moon { --m: 44vw; left: auto; right: -8vw; top: 28px; }
+  .install { padding-top: calc(44vw + 56px); }
+}
 /* Phone */
 @media (max-width: 560px) {
   .wordmark { font-size: 24px; }
@@ -260,9 +275,9 @@ svg { display: block; }
   .how .inner { gap: 56px; }
   .terminal { padding: 24px 20px; font-size: 14px; }
   .commands pre { padding: 64px 20px 24px; font-size: 13px; }
-  /* A whole moon clear of the top edge, so it never meets the centered bridge gap. */
-  .night-moon { --m: 44vw; left: auto; right: -8vw; top: 28px; }
-  .install { padding-top: calc(44vw + 56px); }
+  /* Titles shrink with the column so the longest line still fits: 7.2 and 9.6 font sizes wide. */
+  .hero h1 { font-size: min(46px, calc((100vw - 2 * var(--gutter)) / 7.2)); }
+  .title { font-size: min(36px, calc((100vw - 2 * var(--gutter)) / 9.6)); }
   .horizon-wallet { width: 80px; }
   .horizon { height: 126px; }
   .horizon-line { top: 115px; }

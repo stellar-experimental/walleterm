@@ -290,8 +290,10 @@ export const scenes: Record<string, Scene> = {
         }),
       ].join('\n'),
     site: [
-      // Wide screens: the gap sits at 35% across, clear of the night moon below it.
-      { file: 'bridge.svg', crop: [1, 380, 1794, 520], fit: 'xMidYMid slice' },
+      // Wide screens: the gap sits at 35% across at 1440, clear of the night moon below it.
+      // The view is centered where a 1794-wide crop from x 1 is, but runs far to each side.
+      // The site caps the band at 418 px, so wider screens show more ground, not a larger walker.
+      { file: 'bridge.svg', crop: [-1502, 380, 4800, 520], fit: 'xMidYMid slice' },
       // Phones: the gap is centered.
       { file: 'bridge-narrow.svg', crop: [-270, 380, 1794, 520], fit: 'xMidYMid slice' },
     ],

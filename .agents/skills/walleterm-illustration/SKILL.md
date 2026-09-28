@@ -28,8 +28,8 @@ When a browser, shell, or Git step fails in a strange way, read [the tool traps]
    Done when it exits 0 and you have read the sheet of every scene the change touched.
 8. **Place in Paper.** When `site/art/` changed, put the new art in the Paper designs before you accept it on the site. Paper is the official reference for the site. Read [the Paper workflow](references/paper.md) first.
    Done when every changed image layer serves the same bytes as its site file, and both artboard screenshots look right.
-9. **Check the site.** Render the page with `agent-browser` at 1440, 820, and 390 pixels wide. Compare it with the Paper artboards and with a render from before the change.
-   Done when no width scrolls sideways and every changed picture sits where Paper puts it.
+9. **Check the site.** Render the page with `agent-browser` at each Paper artboard width, and 1 pixel on each side of every `@media` width in `site/index.html`. Compare it with the Paper artboards and with a render from before the change.
+   Done when no width scrolls sideways, no cream shape touches another across a section edge, and every changed picture sits where Paper puts it.
 10. **Record.** A new trait or lesson goes in the standard. A new reference goes in the index, then run `uv run design/tools/artcheck.py baseline`. A new tool trap goes in the traps file.
 
 ## Report
