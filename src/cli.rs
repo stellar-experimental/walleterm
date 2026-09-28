@@ -333,55 +333,6 @@ fn list_or_sign(command: &str, human: bool, io: &mut Io) -> i32 {
     write_output(io.out, &json_line(&output))
 }
 
-/// Walk any JSON value and reject a repeated key in any object.
-struct NoDuplicates;
-
-impl<'de> de::Deserialize<'de> for NoDuplicates {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
-        deserializer.deserialize_any(NoDuplicates)
-    }
-}
-
-impl<'de> Visitor<'de> for NoDuplicates {
-    type Value = NoDuplicates;
-
-    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("JSON")
-    }
-    fn visit_bool<E>(self, _: bool) -> std::result::Result<Self, E> {
-        Ok(self)
-    }
-    fn visit_i64<E>(self, _: i64) -> std::result::Result<Self, E> {
-        Ok(self)
-    }
-    fn visit_u64<E>(self, _: u64) -> std::result::Result<Self, E> {
-        Ok(self)
-    }
-    fn visit_f64<E>(self, _: f64) -> std::result::Result<Self, E> {
-        Ok(self)
-    }
-    fn visit_str<E>(self, _: &str) -> std::result::Result<Self, E> {
-        Ok(self)
-    }
-    fn visit_unit<E>(self) -> std::result::Result<Self, E> {
-        Ok(self)
-    }
-    fn visit_seq<A: de::SeqAccess<'de>>(self, mut seq: A) -> std::result::Result<Self, A::Error> {
-        while seq.next_element::<NoDuplicates>()?.is_some() {}
-        Ok(self)
-    }
-    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> std::result::Result<Self, A::Error> {
-        let mut seen = std::collections::HashSet::new();
-        while let Some(key) = map.next_key::<String>()? {
-            if !seen.insert(key) {
-                return Err(de::Error::custom("duplicate"));
-            }
-            map.next_value::<NoDuplicates>()?;
-        }
-        Ok(self)
-    }
-}
-
 const AUTH_FIELDS: [&str; 6] =
     ["auth_entry_xdr", "public_key", "network_passphrase", "address", "adapter", "latest_ledger"];
 
@@ -396,7 +347,7 @@ pub fn parse_auth_input(bytes: &[u8]) -> Result<Map<String, Value>> {
     let Ok(Value::Object(object)) = serde_json::from_str::<Value>(text) else {
         return Err(invalid("Send one JSON object."));
     };
-    if serde_json::from_str::<NoDuplicates>(text).is_err() {
+    if !crate::json::no_duplicates(text) {
         return Err(invalid("Duplicate JSON fields are not supported."));
     }
     if object.len() != AUTH_FIELDS.len() || !AUTH_FIELDS.iter().all(|f| object.contains_key(*f)) {

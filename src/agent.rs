@@ -285,3 +285,82 @@ impl Agent {
         Ok(signature)
     }
 }
+
+/// The async client for the bridge. One connection lists and signs; dropping it closes the socket.
+pub mod nonblocking {
+    use std::path::Path;
+    use std::time::Duration;
+
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::net::UnixStream;
+
+    use super::{
+        Signer, check_socket, frame, frame_length, identities_request, parse_identities, parse_signature,
+    };
+    use super::{protocol, sign_request, timeout, unavailable, verify_signature};
+    use crate::cancel::Cancel;
+    use crate::error::{Error, Result};
+
+    async fn exchange(stream: &mut UnixStream, body: &[u8]) -> Result<Vec<u8>> {
+        stream.write_all(&frame(body)).await.map_err(|_| unavailable())?;
+        let mut header = [0u8; 4];
+        stream
+            .read_exact(&mut header)
+            .await
+            .map_err(|_| protocol("The agent returned a truncated frame."))?;
+        let mut response = vec![0u8; frame_length(header)?];
+        stream
+            .read_exact(&mut response)
+            .await
+            .map_err(|_| protocol("The agent returned a truncated frame."))?;
+        Ok(response)
+    }
+
+    async fn connect(path: &Path) -> Result<UnixStream> {
+        check_socket(path)?;
+        UnixStream::connect(path).await.map_err(|_| unavailable())
+    }
+
+    async fn bounded<T>(
+        limit: Duration,
+        cancel: &Cancel,
+        work: impl Future<Output = Result<T>>,
+    ) -> Result<T> {
+        cancel.run(async { tokio::time::timeout(limit, work).await.unwrap_or_else(|_| Err(timeout())) }).await
+    }
+
+    /// List Ed25519 identities within `limit`.
+    pub async fn list(path: &Path, limit: Duration, cancel: &Cancel) -> Result<Vec<Signer>> {
+        bounded(limit, cancel, async {
+            let mut stream = connect(path).await?;
+            parse_identities(&exchange(&mut stream, &identities_request()).await?)
+        })
+        .await
+    }
+
+    /// Sign one digest with the listed key and verify the result. Cancellation drops the connection.
+    /// It cannot prove that 1Password stopped; the caller treats a canceled signing as unknown.
+    pub async fn sign(
+        path: &Path,
+        public_key: &str,
+        digest: &[u8; 32],
+        limit: Duration,
+        cancel: &Cancel,
+    ) -> Result<[u8; 64]> {
+        bounded(limit, cancel, async {
+            let mut stream = connect(path).await?;
+            let signers = parse_identities(&exchange(&mut stream, &identities_request()).await?)?;
+            let Some(signer) = signers.iter().find(|s| s.public_key == public_key) else {
+                return Err(Error::new(
+                    "key_not_found",
+                    "The selected public key is not available from the agent.",
+                ));
+            };
+            let signature =
+                parse_signature(&exchange(&mut stream, &sign_request(&signer.blob, digest)).await?)?;
+            verify_signature(signer, digest, &signature)?;
+            Ok(signature)
+        })
+        .await
+    }
+}
