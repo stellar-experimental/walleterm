@@ -66,7 +66,8 @@ Toolchain used: `stellar 27.1.0`, `rustc 1.93.0`, target `wasm32v1-none`,
 
 `tests/contracts.ts` exports `runContracts(ctx)` for `tests/live.ts`.
 It uses `ctx.sdk`, `ctx.rpc`, `ctx.networkPassphrase`, `ctx.keys.a/b/c`,
-`ctx.signDigest`, `ctx.sign`, `ctx.send`, `ctx.record`, and `ctx.fund`.
+`ctx.signPreimage`, `ctx.signEntry`, `ctx.sign`, `ctx.send`, `ctx.record`, and `ctx.fund`.
+Each signing function sends an artifact to `walleterm sign`, which computes the digest.
 Key A pays for every transaction. Keys B and C, and the deployed C-accounts,
 sign the auth entries.
 

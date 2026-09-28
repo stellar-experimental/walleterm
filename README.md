@@ -7,7 +7,8 @@ A small macOS signing companion for agents using Stellar and 1Password.
 
 [Website](https://walleterm.com) · [Docs](docs/INTERFACE.md) · [Website guide](docs/WEB-BRIDGE.md)
 
-`walleterm` lists public Ed25519 keys and signs 32-byte digests through the 1Password desktop SSH agent.
+`walleterm` lists public Ed25519 keys and signs Stellar artifacts through the 1Password desktop SSH agent.
+It accepts a transaction, an authorization preimage or entry, or a SEP-53 message, and it computes the digest itself.
 It verifies each signature before returning it.
 `walleterm tunnel` also lets a connected testnet website request signatures.
 `walleterm` is one Rust binary. It embeds the demo website and needs no Bun, Node, or Go at runtime.
@@ -27,7 +28,7 @@ walleterm list --human
 The cask installs `walleterm`, its `stellar-walleterm` alias, and `cloudflared`.
 It needs macOS 13 or later on Apple silicon. Rust, Bun, and Node are not required.
 The release contains one binary and `NOTICES.txt`. Developer ID signs the binary, and Apple notarizes it.
-The binary runs `list`, `sign`, `sign-auth`, `tunnel`, and `demo`. It embeds the demo website files.
+The binary runs `list`, `sign`, `tunnel`, and `demo`. It embeds the demo website files.
 Homebrew 6 requires trust for third-party taps. The full cask name trusts only this cask.
 Update with `brew upgrade --cask walleterm`.
 Install the Stellar CLI for transaction construction: `brew install stellar-cli`.
@@ -84,15 +85,16 @@ Keep its private-key field concealed. Use its public G-address to select it.
 ```sh
 walleterm list
 walleterm list --human
-printf '%s\n' '{"public_key":"G...","digest":"64 lowercase hexadecimal characters"}' | walleterm sign
+unsigned=$(stellar tx new payment --network testnet --source-account G... --destination G... --amount 100 --build-only)
+printf '{"public_key":"G...","network_passphrase":"Test SDF Network ; September 2015","transaction_xdr":"%s"}' "$unsigned" | walleterm sign
 ```
 
-Signing success returns JSON with the public key, digest, hexadecimal signature, and `verified: true`.
+A transaction result contains `signed_transaction_xdr`: the same envelope with one appended signature.
+Every success also returns the public key, the digest, the hexadecimal signature, and `verified: true`.
 Failure returns JSON with a stable error code and a nonzero exit status.
-See [the interface](docs/INTERFACE.md) for exact fields and limits.
+See [the interface](docs/INTERFACE.md#sign) for the four input shapes, exact fields, and limits.
 
-Use the official Stellar CLI to construct and inspect transactions.
-Use the CLI or official SDK to calculate digests and insert returned signatures.
+Use the official Stellar CLI to construct, inspect, and submit transactions.
 Use Stellar Raven MCP for Stellar questions and contract discovery.
 See [Stellar CLI integration](docs/STELLAR-CLI.md) and [OpenZeppelin formats](docs/OPENZEPPELIN.md).
 The [companion skill](.agents/skills/walleterm/SKILL.md) gives agents the signing workflow.
@@ -141,9 +143,9 @@ The [demo activity log](docs/DEMO-ACTIVITY.md) keeps browser history and support
 
 ## Boundaries
 
-The signing commands are `list`, `sign`, and `sign-auth`. Manage key creation, names, and archival in 1Password.
-The signing command does not know a digest's network, amount, destination, or contract policy.
-Inspect and approve the source artifact before signing it.
+The signing commands are `list` and `sign`. Manage key creation, names, and archival in 1Password.
+`sign` computes the digest from the artifact. 1Password does not display the network, amount, destination, or contract policy.
+Inspect and approve the artifact before signing it.
 The 1Password prompt identifies the application and key. Cached approval can allow later signatures without another prompt.
 
 The fixed socket avoids accidental use of another SSH agent.
@@ -151,7 +153,7 @@ It does not provide cryptographic proof of 1Password origin or protection agains
 Use dedicated wallet keys. A shared SSH key can authorize other systems with the same key.
 
 The runtime supports Ed25519. Passkeys are not planned and are out of scope.
-Contract accounts require their exact authorization digest and signature structure.
+Contract accounts require their exact authorization adapter and signature structure.
 
 ## Tests
 

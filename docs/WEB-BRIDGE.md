@@ -133,7 +133,8 @@ The adapter is local source code. It is not a published package or a registered 
 
 The bridge signs testnet transaction envelopes that need the selected key. It filters no operations.
 The selected key must be the transaction source, an operation source, or the fee-bump fee source.
-Time bounds must be valid now and end within five minutes.
+A nonzero `max_time` at or before now fails. Time bounds are otherwise optional.
+The demo sets a three-minute bound, so a missing transaction can become provably final.
 Existing signatures from other keys stay in place. The bridge appends one signature.
 Explicit Soroban authorization entries use `signAuthEntry` before envelope signing.
 See [contract authorization](CONTRACT-AUTHORIZATION.md) for the separate authorization and transaction steps.

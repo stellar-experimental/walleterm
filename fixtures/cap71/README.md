@@ -35,7 +35,8 @@ These tests do not prove protocol-28 testnet acceptance.
 ## Live runner
 
 `tests/cap71.ts` exports `runCap71(ctx)`.
-It uses the existing `sdk`, `rpc`, `keys`, `networkPassphrase`, `record`, `signDigest`, `sign`, `send`, and `assertClear` fields.
+It uses the existing `sdk`, `rpc`, `keys`, `networkPassphrase`, `record`, `signPreimage`, `sign`, `send`, and `assertClear` fields.
+`signPreimage` sends the address-bound preimage to `walleterm sign`. A delegate signs the preimage of the top-level address.
 Tests can override the checkpoint path with `ctx.cap71Checkpoint`.
 The normal checkpoint is `evidence/live/cap71-state.json`.
 Run this command after review and live authorization:

@@ -3,9 +3,9 @@
 This file records how `walleterm` works with the official Stellar CLI.
 The runtime core is the `list` and `sign` commands of the Rust `walleterm` binary.
 See `INTERFACE.md` for the exact input, output, and error contract.
-The core signs one 32-byte digest. It does not parse XDR, build transactions, or know contract formats.
-Scripts, examples, and test helpers compute digests and assemble signatures with the Stellar CLI.
-Contract-specific adapters may use an SDK. They stay outside the runtime core.
+`sign` accepts one artifact and computes its digest: a transaction envelope, an authorization preimage or entry, or a SEP-53 message.
+It returns a signed envelope or entry where one exists. It never builds, simulates, or submits transactions.
+The Stellar CLI does those steps. Contract formats outside the three entry adapters stay in scripts or an SDK.
 
 ## Pinned sources
 
@@ -57,11 +57,12 @@ The CLI has no command to add an external signature, build a fee bump, or sign o
 - Unknown subcommands dispatch to a `stellar-<name>` binary on `PATH`, with inherited stdio ([`commands/mod.rs#L92-L96`](https://github.com/stellar/stellar-cli/blob/8e402ea28202950b272fbabc34caad4d2f64fe87/cmd/soroban-cli/src/commands/mod.rs#L92-L96), [`commands/plugin/default.rs#L19-L31`](https://github.com/stellar/stellar-cli/blob/8e402ea28202950b272fbabc34caad4d2f64fe87/cmd/soroban-cli/src/commands/plugin/default.rs#L19-L31)). The `stellar-walleterm` alias makes `stellar walleterm list` work.
 
 The official auth-plugin pattern is `--build-only | tx simulate | <auth signer> | tx simulate | tx sign | tx send` ([soroban-examples README](https://github.com/stellar/soroban-examples/blob/b46f4e0c9dccc9e51980b559915f52d8b94e9236/multisig_1_of_n_account/README.md)).
-`walleterm` follows the same pipeline, but a script replaces the signing stages.
+`walleterm` follows the same pipeline. `walleterm sign` replaces the auth signer and `tx sign` stages.
 
 ## Digests
 
 The Ed25519 envelope and native account signatures covered here sign a SHA-256 digest of an XDR preimage.
+`walleterm sign` computes these digests itself. The commands below reproduce them for an independent check.
 `network_id` is `SHA-256(network passphrase)`. For testnet it is `cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472`.
 
 | Target | Preimage | XDR source |
@@ -77,7 +78,7 @@ The `_with_address` variant also has `address`.
 Copy `nonce` and `invocation` exactly from the simulated entry. Use the signer's chosen `signature_expiration_ledger`.
 The same value must go into the preimage and into the credentials.
 
-Compute the digest with the CLI:
+Reproduce the digest with the CLI:
 
 ```sh
 # V1 envelope
@@ -161,11 +162,10 @@ Then compute the envelope digest from the re-simulated envelope.
 ```text
 build --build-only
   -> tx simulate                     (record auth entries and resources)
-  -> [each auth entry] preimage JSON -> xdr encode -> sha256 -> walleterm sign -> insert signature
+  -> [each auth entry] walleterm sign (preimage or entry shape) -> insert signature or signed entry
   -> tx simulate --auth-mode enforce (only if auth entries changed)
-  -> tx hash                         (V1 digest)
-  -> [each envelope signer] walleterm sign -> append DecoratedSignature -> tx encode
-  -> [optional] fee-bump JSON -> payload digest -> walleterm sign -> append outer signature
+  -> [each envelope signer] walleterm sign (transaction shape) -> signed_transaction_xdr
+  -> [optional] fee-bump envelope -> walleterm sign (transaction shape) -> signed outer envelope
   -> tx send -> tx fetch result/meta
 ```
 
@@ -173,7 +173,7 @@ Before each `walleterm sign` call, the script must show or record:
 - the network passphrase
 - the unsigned XDR and its decoded JSON
 - the signer G address
-- the digest, computed again by an independent command
+- the expected digest, computed by an independent command. Compare it with the `digest` that walleterm returns.
 
 After each call, record the signature, the final envelope, the transaction hash, the ledger, the result, and the account or contract state.
 
@@ -181,7 +181,8 @@ After each call, record the signature, the final envelope, the transaction hash,
 
 - The 1Password prompt shows the process and the key. It does not show the digest or transaction. The human must approve the plan before the prompt.
 - `walleterm` generates no keys. Generate test keys in the 1Password desktop app. `walleterm` makes no changes to 1Password settings or agent configuration.
-- The CLI has no external signature injection. Scripts edit JSON and re-encode it.
+- The CLI has no external signature injection. `walleterm sign` appends envelope signatures itself.
+  Other authorization formats need JSON edits and re-encoding.
 - `stellar tx hash` rejects fee-bump envelopes. Scripts use `TransactionSignaturePayload` for fee-bump digests.
 - `stellar tx sign` cannot use `walleterm`. Do not use `tx sign` in the `walleterm` pipeline.
 - Muxed (M), claimable-balance, and liquidity-pool auth addresses are not supported. The CLI has `todo!` panics for these ([`signer/mod.rs#L131-L135`](https://github.com/stellar/stellar-cli/blob/8e402ea28202950b272fbabc34caad4d2f64fe87/cmd/soroban-cli/src/signer/mod.rs#L131-L135)).

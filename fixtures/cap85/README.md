@@ -79,7 +79,7 @@ where listed, the host diagnostic.
 
 One local path handles every submission, including uploads and deploys:
 record simulation, root verification, entry signing through
-`ctx.signDigest`, enforce simulation, `ctx.assertClear`, envelope signature
+`ctx.signPreimage` or `ctx.signEntry`, enforce simulation, `ctx.assertClear`, envelope signature
 by A, send. Root verification builds the expected `SorobanAuthorizedInvocation`
 from the local operation (direct call or direct contract creation) and
 requires every recorded entry to match it byte for byte, to carry no

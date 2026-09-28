@@ -3,6 +3,8 @@
 This snapshot records project evidence dated 2026-09-25. It does not replace checks against current network state.
 The source project recorded full transaction hashes and results in `evidence/live/`; this portable package keeps only the coverage summary.
 The signer was written in Go at that date. The Rust binary replaced it later and passes the same frozen transcripts.
+The commands of that date are historical. They signed digests and used `walleterm sign-auth`.
+The current `walleterm sign` takes an artifact instead, and a new live run needs the current harnesses.
 
 | Layer | Observed result |
 | --- | --- |

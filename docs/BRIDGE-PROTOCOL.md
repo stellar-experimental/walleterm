@@ -1,6 +1,7 @@
 # Walleterm bridge protocol version 3
 
 The bridge signs testnet transaction envelopes and authorization payloads. It never builds or submits transactions.
+The bridge and `walleterm sign` share one Rust core for each artifact. The bridge adds only its website rules.
 The browser SDK exposes this protocol through a SEP-43 wallet. See [the SEP-43 design](SEP-43.md).
 All routes return JSON. Errors contain `{ "error": { "code": -3, "message": "...", "ext": ["walleterm:..."] } }`.
 `code` is a SEP-43 error code. `ext[0]` is a stable reason. The HTTP status stays meaningful.
@@ -84,7 +85,8 @@ An `available` session also sends `selection_revision`. Unknown fields fail.
 `hash` holds the transaction hash, the SHA-256 digest of the preimage, or the adapter digest.
 The request ID is client-generated, with 1–64 letters, digits, underscores, or hyphens.
 An identical retry returns the same request. A changed payload with the same ID fails.
-A signing request lasts at most five minutes. The bridge scopes request IDs to a website session.
+A signing request lasts at most five minutes. A transaction request ends sooner at a nonzero `max_time`.
+The bridge scopes request IDs to a website session.
 A connection permits 1000 requests. The bridge permits 32 active requests and 64 live connections.
 
 ## Errors
@@ -94,13 +96,12 @@ A connection permits 1000 requests. The bridge permits 32 active requests and 64
 | `-3` | `walleterm:not_connected` | No session, an expired session, or no selected key. |
 | `-3` | `walleterm:network_unsupported` | A network other than testnet. |
 | `-3` | `walleterm:address_mismatch` | A signer other than the selected key, or a key that the envelope does not need. |
-| `-3` | `walleterm:invalid_request` | Malformed fields or artifacts, or an expired time bound or ledger window. |
+| `-3` | `walleterm:invalid_request` | Malformed fields or artifacts, an expired `max_time`, or expiration ledger 0. |
 | `-3` | `walleterm:unsupported` | A V1 authorization preimage. |
 | `-3` | `walleterm:conflict` | A stale selection, grant, or revision, or a reused request ID. |
 | `-3` | `walleterm:rate_limited` | A code, connection, or request limit. |
 | `-3` | `walleterm:expired` | The request expired before signing. |
 | `-4` | `walleterm:rejected` | The website canceled, the session ended, the wallet changed, or the review denied the request. |
-| `-2` | `walleterm:ledger_unavailable` | The trusted ledger check failed before signing. |
 | `-1` | `walleterm:result_unknown` | Signing started and the bridge withheld or lost the result. |
 | `-1` | `walleterm:internal` | Any other failure. |
 
@@ -127,9 +128,8 @@ It keeps these structural invariants:
   Muxed accounts use their base key.
 - At most 19 existing signatures. The selected key must not have signed already.
   The result keeps them in order and appends one signature.
-- Time bounds are required. They are valid now and end within five minutes.
-  A fee bump uses the time bounds of its inner transaction.
-  This bounds signature lifetime and the request expiry. It inspects no operation.
+- A nonzero `max_time` at or before now fails. A fee bump uses the time bounds of its inner transaction.
+  Time bounds are optional, and no other time rule applies. The network enforces them.
 
 Operation types, operation count, fees, other preconditions, and embedded authorization entries are not filtered.
 The envelope signature covers any embedded entries exactly. It never signs an entry by itself.
@@ -145,7 +145,7 @@ Transaction XDR permits 262144 Base64 characters. Request bodies permit 393216 b
 3. The testnet network ID.
 4. A bound address that is the selected G-address or a C-address.
 5. At most 256 invocation contexts and 32 levels.
-6. An expiry 1–120 ledgers after the trusted ledger.
+6. A set expiration. Expiration ledger 0 fails.
 
 The bridge signs `SHA-256(preimage bytes)` and verifies the signature before it returns it.
 The website attaches the signature in its account's format.
@@ -157,18 +157,16 @@ A preimage cannot show the credential variant or the contract's policy. The sign
 It accepts an unsigned AddressV2 entry with `auth_address` and one adapter:
 `account`, `contract-ed25519`, or `openzeppelin-ed25519` with `verifier` and `context_rule_ids`.
 It rejects V1, SourceAccount, and delegated credentials. The signer never converts credential variants.
-The expiry window is 60 ledgers. See [the CLI interface](INTERFACE.md) for schemas and helpers.
+Expiration ledger 0 fails. See [the CLI interface](INTERFACE.md) for schemas and helpers.
 C-account policy and ownership checks remain the website's responsibility.
 
-## Trusted ledger
+## Expiry
 
-Authorization requests query `getHealth` at `https://soroban-testnet.stellar.org` before signing and after signature return.
-The endpoint is fixed. Redirects, oversized responses, lookup failures, and invalid ledger numbers stop the request.
-The website cannot supply ledger metadata or an RPC endpoint.
-The response must report `status: "healthy"` and a valid uint32 `latestLedger`.
-The bridge permits at most 16384 response bytes and ten seconds per lookup.
-A request also expires after five minutes, independent of ledger expiry and any outer transaction.
-The SDK checks the complete returned artifact locally. It does not independently establish ledger freshness.
+No request reads a ledger. The bridge has no RPC endpoint and no authorization expiry window.
+The network refuses an expired authorization or transaction.
+Expiration ledger 0 is the only authorization expiry rule. Ledger 0 is always in the past.
+Simulation leaves it at 0 when the caller never sets it.
+A request expires after five minutes, independent of the authorization expiry.
 
 ## State and cancellation
 
@@ -177,7 +175,8 @@ The browser SDK shares one session token among the tabs of a website. The bridge
 A wallet change, a disconnection, or an expiry applies to every tab. Each tab generates random request IDs.
 The bridge never retries a signing request. The terminal prints a line for each produced or withheld signature.
 A signature is withheld only when the bridge never sent it to the website.
-A signed transaction applies at most once, because its sequence number and five-minute expiry limit it.
+A signed transaction applies at most once, because its sequence number limits it.
+An authorization applies at most once, because its nonce limits it. Both stay usable until the network refuses them.
 Cancellation or revocation during signing can suppress delivery but cannot undo a signature already produced.
 Each bridge process permits one active signing operation.
 The SDK retries identical request IDs after network failures and server errors.

@@ -105,7 +105,6 @@ These methods belong to the Walleterm SDK. Failures throw a `WalletermError` wit
 | `-3` | `walleterm:expired` | The request expired before signing. |
 | `-4` | `walleterm:rejected` | The user closed the dialog, the website canceled, the session ended, or a review denied the request. |
 | `-2` | `walleterm:bridge_unavailable` | The tunnel was unreachable for a call that does not sign. Signing retries until its deadline. |
-| `-2` | `walleterm:ledger_unavailable` | The trusted ledger check failed before signing. |
 | `-1` | `walleterm:result_unknown` | Signing started and no verified result arrived. `requestState` is `unknown`. |
 | `-1` | `walleterm:internal` | Any other failure. |
 
@@ -144,8 +143,7 @@ const signed = await authorizeEntry(
 3. The network ID of testnet.
 4. The bound address is the selected G-address or a C-address.
 5. At most 256 invocation contexts and 32 levels.
-6. An expiry 1–120 ledgers after the trusted ledger. The SDK default of 100 ledgers fits.
-   The bridge reads the ledger from its fixed RPC endpoint before and after signing.
+6. A set expiration. Expiration ledger 0 fails. No check reads a ledger, and the network enforces expiry.
 
 A preimage does not show the credential variant, the final signature format, account policy, or the transaction.
 These gaps add no authority. The signature approves one tree for one address, network, nonce, and expiry.
@@ -158,8 +156,8 @@ A connected website can relay a SEP-45 challenge. The testnet network ID limits 
 `signAuthorization(entryXdr, { address, adapter })` keeps the `account`, `contract-ed25519`, and `openzeppelin-ed25519` adapters.
 It signs a complete unsigned AddressV2 entry and returns `{ signedAuthEntryXdr, signerAddress }`.
 The OpenZeppelin digest differs from the preimage hash, so SEP-43 cannot carry it.
-This path uses `sdk/authorization.ts`, whose expiry window stays at 60 ledgers.
-`walleterm sign-auth` keeps the same adapters.
+This path uses `sdk/authorization.ts`. No check reads a ledger. Expiration ledger 0 fails.
+The authorization entry shape of `walleterm sign` keeps the same adapters.
 
 ## 3. Pairing, switching, and sessions
 
@@ -261,8 +259,8 @@ The bridge keeps only these structural invariants:
 | Envelope | Canonical V1 or fee-bump XDR. V0 fails. | The bridge must parse and hash exactly what it signs. SDK 17 builds V1. |
 | Required signer | The selected key is the transaction source, an operation source, or the fee-bump fee source. Muxed accounts use their base key. | A signature must serve this envelope. It reads account fields only. |
 | Existing signatures | Permitted, up to 19. The selected key must not have signed already. | Multi-party signing. The result appends one signature. |
-| Time bounds | Required. They are valid now and end within five minutes. A fee bump uses its inner bounds. | They bound signature lifetime and the bridge request expiry. They read no operation. |
-| Preconditions | Any, when the time bounds meet the rule. | Not an operation rule. |
+| Time bounds | Optional. A nonzero `max_time` at or before now fails. A fee bump uses its inner bounds. | An expired envelope can never apply. The network enforces every other time bound. |
+| Preconditions | Any. | Not an operation rule. |
 | Operation types and count | No bridge rule. | Removed on user direction. |
 | Fees | No cap. | A fee cap blocks nothing that a payment cannot do. |
 | Embedded authorization entries | Not inspected. | The envelope signature covers them. The network enforces them. |
@@ -393,7 +391,6 @@ Options:
 | Question | Decision |
 | --- | --- |
 | Q1 `signMessage` | Return `-3`. Future work above. |
-| Q2 Expiry | 120 ledgers for preimages. |
 | Q3 V1 preimages | Reject. |
 | Q4 OpenZeppelin | Native `signAuthorization` extension and the CLI. |
 | Q5 Switching | Keep both scopes in the native SDK. Report switches through `onChange`. |

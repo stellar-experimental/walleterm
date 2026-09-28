@@ -427,17 +427,16 @@ Mapping for the companion:
 1. `stellar contract invoke ... --build-only` produces the envelope XDR.
    Simulation returns the auth entry for the C-address with
    `signature: void`.
-2. The caller computes `signature_payload` from the preimage (section 4.1), then `auth_digest` (section 2.3).
-3. The caller asks `walleterm` to sign `auth_digest` through the 1Password agent.
-4. The companion builds the `AuthPayload` `ScVal` (section 2.2), sets it in
-   `SorobanAddressCredentials.signature`, sets `nonce` and
-   `signatureExpirationLedger`, and re-simulates in enforce mode
-   (`--auth-mode enforce`).
-5. The fee payer signs the envelope hash with `walleterm sign`.
-   The helper inserts the signature, then submits with `stellar tx send` or the official SDK.
+2. The caller sets `nonce` and `signatureExpirationLedger` on the unsigned AddressV2 entry.
+3. The caller sends the entry to `walleterm sign` with the entry shape and the `openzeppelin-ed25519` adapter.
+   Walleterm computes `signature_payload` (section 4.1), then `auth_digest` (section 2.3).
+   It returns `signed_auth_entry_xdr` with the `AuthPayload` `ScVal` (section 2.2), and the raw `signature`.
+4. The caller re-simulates in enforce mode (`--auth-mode enforce`).
+   A multi-signer rule needs one call per signer. The caller merges the raw signatures into one `AuthPayload`.
+5. The fee payer signs the envelope with the transaction shape of `walleterm sign`.
+   The caller submits `signed_transaction_xdr` with `stellar tx send` or the official SDK.
 
-`stellar tx sign` signs G-address auth entries only. It cannot build
-`AuthPayload`. Step 4 is custom code.
+`stellar tx sign` signs G-address auth entries only. It cannot build `AuthPayload`.
 
 ## 10. Bounded test plan
 
@@ -513,7 +512,8 @@ Before each signing request, it checks the live code hashes, the rule count, and
 It record-simulates one `ping` call on `auth_target_1` and builds the expected entry locally.
 Any difference stops the run before the signing request.
 
-The runner signs once with `walleterm sign-auth` and once with the SDK `signAuthEntry` through a local bridge.
+The runner signs once with the entry shape of `walleterm sign` and once with the SDK `signAuthorization` through a local bridge.
+The 2026-09-28 run used `walleterm sign-auth`, which the entry shape replaced. The runner now uses a 200-ledger expiry.
 It recomputes each digest with the SDK preimage helper and the acceptance-suite digest rule.
 It rebuilds each returned `AuthPayload` independently and verifies the signature.
 Then it enforce-simulates, submits through the shared submission guard, and checks that the counter increased by one.
@@ -565,7 +565,7 @@ The outer `AuthPayload` holds `Delegated(C-address)` with empty signature bytes.
 
 ### Current coverage
 
-`walleterm sign-auth` can sign the nested entry mechanically.
+The entry shape of `walleterm sign` can sign the nested entry mechanically.
 That entry is an ordinary unsigned AddressV2 entry for a C-address.
 The `contract-ed25519` and `openzeppelin-ed25519` adapters accept a `__check_auth` root.
 The request then shows only `__check_auth` and an opaque 32-byte argument.
@@ -579,7 +579,7 @@ A safe adapter needs these changes:
 
 1. Add a request field for the unsigned outer entry and its rule IDs.
 2. Recompute `auth_digest` from the outer entry. Require the nested root to be exactly `<outer>.__check_auth(auth_digest)`.
-3. Require AddressV2 credentials and a bounded expiry for both entries.
+3. Require AddressV2 credentials and a set expiration for both entries.
 4. Sign the nested entry with one existing adapter. Reject a nested `Delegated` chain.
 5. Show the outer address, invocation, and rule IDs in the review.
 6. Update the bridge request fields, `docs/INTERFACE.md`, the skill, and the offline tests.

@@ -44,7 +44,7 @@ Keep codes and session tokens out of public records.
 
 ## Review and verify
 
-For message requests, use [message signing](references/message-signing.md).
+For message requests, use [message signing](references/message-signing.md). The message shape of `walleterm sign` signs SEP-53 text.
 For transaction requests, follow these steps.
 
 1. Confirm the exact website origin, selected G-address, and `Test SDF Network ; September 2015` passphrase.

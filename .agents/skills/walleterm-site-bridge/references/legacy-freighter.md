@@ -73,19 +73,17 @@ Keep the reviewed artifact fixed. Use new files for each request.
 
 ## Return one reviewed V1 envelope
 
-Complete the transaction review before requesting a signature.
-Put the selected G-address and reviewed digest in `sign-request.json`. Set `REVIEWED_HASH` to that digest.
-The attach helper supports V1 envelopes, including Soroban bodies. It does not review contract effects or authorization.
+Complete the transaction review before requesting a signature. Set `REVIEWED_HASH` to the reviewed hash.
+Write the transaction shape to `sign-request.json` with the selected G-address, the testnet passphrase, and the exact unsigned XDR:
+`{"public_key":"G...","network_passphrase":"Test SDF Network ; September 2015","transaction_xdr":"..."}`.
 
 ```sh
-walleterm sign < sign-request.json > signature.json
-bun scripts/classic-attach.ts \
-  --unsigned unsigned.xdr \
-  --signature signature.json \
-  --expected-public-key "$SELECTED_G_ADDRESS" \
-  --network-passphrase 'Test SDF Network ; September 2015' \
-  --expected-hash "$REVIEWED_HASH" \
-  --output signed.xdr
+walleterm sign < sign-request.json > result.json
+```
+
+Require `digest` in `result.json` to equal `REVIEWED_HASH`. Write its `signed_transaction_xdr` to a new file `signed.xdr`.
+
+```sh
 bun scripts/legacy-freighter.ts reply \
   --index "$REQUEST_INDEX" \
   --public-key "$SELECTED_G_ADDRESS" \
@@ -95,7 +93,7 @@ bun scripts/legacy-freighter.ts reply \
 ```
 
 Require a successful exit from each command before continuing.
-The attach and reply helpers verify the new Ed25519 signature, transaction body, digest, and earlier signatures.
+The reply helper verifies the new Ed25519 signature, transaction body, digest, and earlier signatures.
 The page bridge checks the original XDR against the pending request.
 The website can submit immediately after the reply. Reconcile the original hash before retrying an uncertain result.
 
