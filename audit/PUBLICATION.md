@@ -1,10 +1,12 @@
 # Audit publication record
 
-The pending source changes and audit evidence use two PRs.
+The source changes and audit evidence use two PRs.
 The source changes are in [PR #11](https://github.com/stellar-experimental/walleterm/pull/11).
 The evidence branch, `docs/audit-evidence-2026-09-27`, starts from that PR's branch.
 Review the evidence diff against `fix/audit-remediation-2026-09-27`.
-Merge #11 first. Then change the evidence PR base to `main` if GitHub has not changed it.
+Squash-merge #11 first. Then merge the updated `main` into the evidence branch without a force-push.
+Change the evidence PR base to `main` if GitHub has not changed it.
+Verify the audit-only diff and run CI on the final evidence head.
 
 ## Source identity
 
@@ -20,6 +22,9 @@ The source PR contains three commits:
 - `7f2da1d`: SDK lifecycle and demo recovery corrections.
 - `ba8d46b`: fixture evidence and durable CLI submission recovery.
 - `608d383`: signer, distribution, and interception documentation.
+
+`main` received these changes as squash commit `939f64ffd3e5d99fb0b8a999862f59a81bd8af17`.
+Its tree equals the tree of `608d383`. PR #11 keeps the original commits reachable.
 
 The source PR head is `608d38391f6381a3602d2723d053ca666b0fed91`.
 All 201 source file hashes still match the [tested snapshot](2026-09-27-remediation/checks/final-source.json).
@@ -42,8 +47,12 @@ The scanner reported 148 matches. Review classified them as hashes, public ident
 The JWT examples come from public SEP-45 documentation and contain an expired `exp` value.
 No workspace credential was confirmed. The [classification record](publication/secret-scan.json) preserves each location without its matched value.
 This scan does not prove the absence of all secrets.
+An independent Opus review also checked checksum-valid Stellar Ed25519 seeds throughout the payload and extracted archives.
+All 104 distinct matches came from public documentation examples. No workspace credential was found in that scan.
+The [Opus review](2026-09-27-opus-review/review-11-12.md) records the source provenance and scan limits.
 
-No merge, deployment, real-prefix installation, or live signing forms part of this publication step.
+The initial publication step did not merge, deploy, install into a real prefix, or perform live signing.
+The later Opus merge review remains separate from release and live acceptance.
 Current live 1Password, testnet, camera, and installed-release acceptance remain unrun.
 
 ## Remaining work
@@ -58,5 +67,6 @@ The [deferred-work record](2026-09-27-remediation/DEFERRED.md) contains mitigati
 
 Existing [PR #10](https://github.com/stellar-experimental/walleterm/pull/10) adds contract authorization from the same original base.
 It overlaps SDK, demo, tests, and interface documentation.
-Rebase and test that branch after #11 merges so it retains these corrections.
+Merge the updated `main` into a separate integration branch for #10. Do not rewrite history.
+Test that branch so it retains these corrections.
 Publication does not change #10 or claim the new authorization feature received this audit.
