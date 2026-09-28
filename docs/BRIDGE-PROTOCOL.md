@@ -65,6 +65,7 @@ A selection compares `expected_revision` after discovery. Missing or stale revis
 This rejects delayed requests after a wallet changes away and back.
 Wallet changes cancel pending and approved requests. Their state becomes `denied`.
 They withhold in-progress and completed bridge results. Their state becomes `unknown`.
+A result that the bridge already sent also becomes `unknown`. The terminal does not report it as withheld.
 Each request keeps its original public key, signer metadata, artifact, and hash.
 A signature already delivered can remain in the website's recovery journal.
 A wallet change cannot undo that signature or submit a transaction.
@@ -172,7 +173,10 @@ The SDK checks the complete returned artifact locally. It does not independently
 ## State and cancellation
 
 The bridge keeps sessions and requests in memory. A restart ends all of them.
+The browser SDK shares one session token among the tabs of a website. The bridge treats them as one client.
+A wallet change, a disconnection, or an expiry applies to every tab. Each tab generates random request IDs.
 The bridge never retries a signing request. The terminal prints a line for each produced or withheld signature.
+A signature is withheld only when the bridge never sent it to the website.
 A signed transaction applies at most once, because its sequence number and five-minute expiry limit it.
 Cancellation or revocation during signing can suppress delivery but cannot undo a signature already produced.
 Each bridge process permits one active signing operation.

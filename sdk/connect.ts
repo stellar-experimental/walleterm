@@ -56,6 +56,8 @@ export class WalletermConnect {
   account: Account | null = null;
   wallets: Signer[] = [];
   nextWallets: Signer[] = [];
+  // The client whose wallet list was requested. The menu loads it once; Refresh retries.
+  listed: WalletermClient | null = null;
   busy = false;
   working = false;
   phase = '';
@@ -249,6 +251,8 @@ export class WalletermConnect {
       return;
     }
     if (client === this.client && this.account?.address === client.account.address) return;
+    // Another tab can pair a new session. Its grant can list other wallets, so the menu loads them again.
+    if (client !== this.client) this.wallets = [];
     this.client = client;
     this.account = { ...client.account };
     this.setState('connected');
@@ -279,7 +283,7 @@ export class WalletermConnect {
     this.update();
     this.onStateChange?.(state);
   }
-  // The wallet saves the session per tab. Reload recovery checks the bridge before publishing an address.
+  // The website's tabs share the saved session. Recovery checks the bridge before publishing an address.
   async restoreSession() {
     if (this.client || this.working || this.destroyed) return;
     this.wallet.restore();
@@ -479,6 +483,8 @@ export class WalletermConnect {
     this.renderWallets();
     this.update();
     this.$('copy').focus();
+    // A restored session has no wallet list yet. Load it once when the user opens the menu.
+    if (this.account && !this.wallets.length && this.listed !== this.client) void this.refresh();
   }
   rows(target: HTMLElement, keys: Signer[], choose: (key: Signer) => void, active?: string | null) {
     target.replaceChildren();
@@ -514,6 +520,7 @@ export class WalletermConnect {
   async refresh() {
     if (this.destroyed || !this.client || this.busy || this.working || this.refreshing) return;
     const client = this.client;
+    this.listed = client;
     this.refreshing = true;
     this.update();
     this.message('Refreshing wallets. Unlock 1Password if it asks.', true);

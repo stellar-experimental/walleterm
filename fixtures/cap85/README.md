@@ -101,6 +101,10 @@ Startup reconciles the shared submission journal and the local checkpoint before
 X02 and X03 persist their counter preconditions before submission.
 SUCCESS recovery checks the original counter delta before it caches the step.
 A missing precondition or incorrect counter keeps the checkpoint and stops the run.
+X06 does not resume after a saved `adopt-ref` or `adopt-wasm` step.
+It stops with `incomplete_evidence` for manual review and repeats no operation.
+To recover, review the saved hashes, then remove the `X06:*` steps and `contracts.target_plain` from the checkpoint.
+The next run then deploys a new throwaway target.
 X04 requires X03's v2 reference and checks its owner, tag, version, and resolved hash.
 
 The runner accepts the testnet passphrase only, checks the RPC network and

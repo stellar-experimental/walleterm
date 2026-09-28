@@ -27,7 +27,8 @@ Install the 1Password CLI with `brew install --cask 1password-cli` for vault fil
 Enable 1Password CLI integration in the desktop app, or sign in before starting the tunnel.
 The bridge reads only item metadata and public keys. Lookup failures stop wallet discovery.
 Public key reads run in batches of four. A failed read cancels the batch and waits for cleanup.
-Opening the wallet menu shows the existing list. Use Refresh to request an updated list.
+After a reload, opening the wallet menu loads the list once. Otherwise the menu shows the existing list.
+Use Refresh to request an updated list.
 Selection and signing still check current vault membership. Switching wallets does not trigger a second refresh.
 An unset or empty `OP_VAULT` lists all available Ed25519 agent keys.
 The bridge permits 120 seconds for vault lookup, after the agent list completes.
@@ -116,9 +117,10 @@ The default wallet scope is `selected`: one wallet for each connection.
 The header component uses that scope and explains the grant before selection.
 See [the connection UI](CONNECTION-UI.md). `wallet.onChange(listener)` reports each switch and disconnection.
 
-The wallet saves its bridge URL and session token in `sessionStorage` for the current tab.
-A reload checks the session before it publishes an address. An expired session requires a new code.
-`sessionStorageKey: null` keeps the session in memory only. Recovery never repeats signing or submission.
+The wallet saves its bridge URL and session token in `localStorage`. All tabs of the website share the session.
+A pairing, a wallet change, or a disconnection in one tab reaches the other open tabs.
+A reload or a new tab checks the session before it publishes an address. An expired session requires a new code.
+`storageKey: null` keeps the session in memory only. Recovery never repeats signing or submission.
 The SDK retries network errors and 5xx responses on the same connection. An abort or leaving the page cancels the bridge request.
 After a failure, build a new transaction. `error.requestState` reports the bridge state when one exists.
 `requestState: 'unknown'` means that signing started and no verified result arrived.

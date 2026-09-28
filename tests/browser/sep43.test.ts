@@ -298,7 +298,7 @@ test('signing after session expiry returns not_connected without a cancel reques
   const paths: string[] = [];
   let failFirstCreate = false;
   const wallet = new Walleterm({
-    sessionStorageKey: null,
+    storageKey: null,
     page: null,
     pollInterval: 1,
     ui: f.wallet.ui,
@@ -385,11 +385,11 @@ test('a change listener can read the new address at once, as a Kit fetchAddress 
 const saved = new Map<string, string>();
 afterEach(() => {
   saved.clear();
-  Reflect.deleteProperty(globalThis, 'sessionStorage');
+  Reflect.deleteProperty(globalThis, 'localStorage');
 });
 function storage() {
   Object.assign(globalThis, {
-    sessionStorage: {
+    localStorage: {
       getItem: (name: string) => saved.get(name) ?? null,
       setItem: (name: string, value: string) => saved.set(name, value),
       removeItem: (name: string) => saved.delete(name),
@@ -397,7 +397,7 @@ function storage() {
   });
 }
 
-test('sessions survive a reload in the same tab and expire with the bridge session', async () => {
+test('sessions survive a reload and expire with the bridge session', async () => {
   storage();
   const f = await fixture();
   await f.wallet.getAddress();
@@ -405,12 +405,13 @@ test('sessions survive a reload in the same tab and expire with the bridge sessi
     version: 3,
     url: f.origin,
     token: f.wallet.client!.token,
+    revision: 1,
   });
   const reloaded = new Walleterm({ fetch: f.fetcher });
   expect(await reloaded.getAddress({ skipRequestAccess: true })).toEqual({ address: key.publicKey() });
   await reloaded.disconnect();
   expect(saved.has('walleterm:session')).toBe(false);
-  const memory = new Walleterm({ fetch: f.fetcher, sessionStorageKey: null, ui: f.wallet.ui });
+  const memory = new Walleterm({ fetch: f.fetcher, storageKey: null, ui: f.wallet.ui });
   await memory.getAddress();
   expect(saved.size).toBe(0);
 });

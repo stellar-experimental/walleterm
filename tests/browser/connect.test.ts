@@ -175,7 +175,7 @@ function observe(f: ReturnType<typeof fixture>) {
     onBusyChange: (value: boolean) => callbacks.push(['busy', value]),
   });
   Object.assign(f.context, {
-    sessionStorage: {
+    localStorage: {
       setItem: (key: string, value: string) => writes.push(['set', key, value]),
       removeItem: (key: string) => writes.push(['remove', key]),
     },
@@ -190,7 +190,7 @@ function savedConnection() {
   const token = 's'.repeat(43);
   storage.set(key, JSON.stringify({ version: 3, url: 'https://bridge.example', token }));
   Object.assign(f.context, {
-    sessionStorage: {
+    localStorage: {
       getItem: (name: string) => storage.get(name) ?? null,
       setItem: (name: string, value: string) => storage.set(name, value),
       removeItem: (name: string) => storage.delete(name),
@@ -235,7 +235,13 @@ test('reload checks the saved session before publishing the wallet and uses the 
   assert.deepEqual(requests, ['https://bridge.example/v1/account']);
   assert.equal(f.node('url').value, 'https://bridge.example');
   assert.equal(f.node('code').value, '');
-  assert.deepEqual(Object.keys(JSON.parse(f.storage.get(f.key)!)).sort(), ['token', 'url', 'version']);
+  // The confirmed revision tells other tabs about a later wallet change. Nothing else joins the credentials.
+  assert.deepEqual(JSON.parse(f.storage.get(f.key)!), {
+    version: 3,
+    url: 'https://bridge.example',
+    token: f.token,
+    revision: 7,
+  });
 });
 
 test('reload keeps an offline session and recovers it on the next health check without replaying requests', async () => {
@@ -305,7 +311,7 @@ test('invalid saved details never send credentials, and unavailable storage does
   let calls = 0;
   Object.assign(f.context, {
     fetch: () => calls++,
-    sessionStorage: {
+    localStorage: {
       getItem() {
         throw Error('Storage disabled');
       },
@@ -602,6 +608,88 @@ test('opening the wallet menu renders known wallets without another lookup', () 
   assert.equal(refreshes, 0);
   assert.equal(shown, wallets);
   assert.equal(f.node('menu').hidden, false);
+});
+
+test('opening the wallet menu after a reload loads the wallet list once', async () => {
+  const f = savedConnection();
+  const requests: string[] = [];
+  const wallets = [
+    { public_key: 'GRECOVERED', comment: 'First' },
+    { public_key: 'GSECOND', comment: 'Second' },
+  ];
+  Object.assign(f.context, {
+    fetch: async (url: string) => {
+      requests.push(new URL(url).pathname);
+      return Response.json(
+        url.endsWith('/v1/signers') ? { signers: wallets, grant_id: 'grant' } : recoveredAccount,
+      );
+    },
+  });
+  let shown: MockSigner[] = [];
+  Object.assign(f.ui, {
+    rows: (_target: unknown, keys: MockSigner[]) => {
+      shown = keys;
+    },
+  });
+  await f.ui.restoreSession();
+  assert.equal(f.ui.account?.address, 'GRECOVERED');
+  assert.equal(f.ui.wallets.length, 0);
+  f.node('menu').hidden = true;
+  f.ui.toggleMenu();
+  for (let i = 0; i < 50 && !shown.length; i++) await settle();
+  assert.deepEqual(requests, ['/v1/account', '/v1/signers']);
+  assert.deepEqual(
+    shown.map((key) => key.public_key),
+    ['GRECOVERED', 'GSECOND'],
+  );
+  assert.equal(f.node('wallet-name').textContent, 'First');
+  assert.equal(f.ui.refreshing, false);
+  f.ui.toggleMenu();
+  f.ui.toggleMenu();
+  await settle();
+  assert.deepEqual(requests, ['/v1/account', '/v1/signers']);
+});
+
+test('a failed automatic wallet lookup runs once, and Refresh retries it', async () => {
+  const f = savedConnection();
+  const requests: string[] = [];
+  let available = false;
+  Object.assign(f.context, {
+    fetch: async (url: string) => {
+      requests.push(new URL(url).pathname);
+      if (!url.endsWith('/v1/signers')) return Response.json(recoveredAccount);
+      return available
+        ? Response.json({ signers: [{ public_key: 'GRECOVERED', comment: 'First' }], grant_id: 'grant' })
+        : Response.json({ error: { message: '1Password did not answer.' } }, { status: 503 });
+    },
+  });
+  let shown: MockSigner[] = [];
+  Object.assign(f.ui, {
+    rows: (_target: unknown, keys: MockSigner[]) => {
+      shown = keys;
+    },
+  });
+  await f.ui.restoreSession();
+  f.node('menu').hidden = true;
+  f.ui.toggleMenu();
+  assert.equal(f.ui.refreshing, true);
+  for (let i = 0; i < 50 && f.ui.refreshing; i++) await settle();
+  assert.equal(f.ui.refreshing, false);
+  assert.equal(f.node('menu-status').textContent, '1Password did not answer.');
+  assert.equal(f.ui.account?.address, 'GRECOVERED');
+  f.ui.toggleMenu();
+  f.ui.toggleMenu();
+  await settle();
+  assert.equal(f.node('menu').hidden, false);
+  assert.equal(f.ui.refreshing, false);
+  assert.deepEqual(requests, ['/v1/account', '/v1/signers']);
+  available = true;
+  await f.ui.refresh();
+  assert.deepEqual(requests, ['/v1/account', '/v1/signers', '/v1/signers']);
+  assert.deepEqual(
+    shown.map((key) => key.public_key),
+    ['GRECOVERED'],
+  );
 });
 
 test('the connection UI publishes the recovered account after a lost selection response', async () => {
@@ -1159,7 +1247,7 @@ for (const callback of ['state', 'connection']) {
       onBusyChange: (value: boolean) => busy.push(value),
     });
     Object.assign(f.context, {
-      sessionStorage: {
+      localStorage: {
         setItem: () => writesAfterDestroy.push(f.ui.destroyed),
         removeItem: () => writesAfterDestroy.push(f.ui.destroyed),
       },
@@ -1292,6 +1380,40 @@ test('the header follows wallet changes made outside the component', () => {
   assert.deepEqual(
     changes.map((change) => change.account?.address ?? null),
     ['GOUT', null, 'GIGNORED', null],
+  );
+});
+
+test('a new session from another tab replaces the wallet list, and the menu loads its grant', async () => {
+  const f = fixture(() => {});
+  const listed: string[] = [];
+  const session = (token: string) => ({
+    token,
+    url: 'https://bridge.example',
+    account: { address: 'GSAME', networkPassphrase: Networks.TESTNET },
+    async listWallets() {
+      listed.push(token);
+      return [{ public_key: 'GSAME' }, { public_key: `G${token.toUpperCase()}` }];
+    },
+  });
+  const first = session('first');
+  Object.assign(f.ui, { onChange() {}, client: first, account: { ...first.account }, listed: first });
+  Object.assign(f.ui, { wallets: [{ public_key: 'GSAME' }, { public_key: 'GFIRST' }] });
+  Object.assign(f.ui.wallet, { client: first });
+  f.ui.walletChanged();
+  assert.equal(f.ui.wallets.length, 2);
+  // The address can stay the same. The new grant can still list other wallets.
+  const next = session('next');
+  Object.assign(f.ui.wallet, { client: next });
+  f.ui.walletChanged();
+  assert.equal(f.ui.client, next);
+  assert.equal(f.ui.wallets.length, 0);
+  f.node('menu').hidden = true;
+  f.ui.toggleMenu();
+  for (let i = 0; i < 50 && !f.ui.wallets.length; i++) await settle();
+  assert.deepEqual(listed, ['next']);
+  assert.deepEqual(
+    f.ui.wallets.map((key) => key.public_key),
+    ['GSAME', 'GNEXT'],
   );
 });
 

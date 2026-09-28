@@ -80,8 +80,9 @@ test-package:
 	status=0; run demo --port 0 > out 2>&1 || status=$$?; test "$$status" = 2; grep -q "^invalid_input: " out; \
 	echo "The package check passed."
 
-# The real Stellar Wallets Kit 2.7.0 against the Rust bridge. Its dependency stays in fixtures/kit.
+# The real Stellar Wallets Kit 2.7.0 against the Rust bridge, in one tab and across tabs. Its dependency stays in fixtures/kit.
 test-kit:
 	cargo build --locked --features test-host --bin walleterm-test-host
 	bun install --cwd fixtures/kit --frozen-lockfile --ignore-scripts
 	bun fixtures/kit/check.mts
+	bun fixtures/kit/tabs.mts
