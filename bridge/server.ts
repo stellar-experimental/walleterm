@@ -3,12 +3,27 @@ import { createServer } from 'node:http';
 import { randomBytes, randomInt, randomUUID, timingSafeEqual } from 'node:crypto';
 import { Networks } from '@stellar/stellar-sdk';
 import { availableSigners, signDigest } from './signer.ts';
+import { inspectAuthorization, attachAuthSignature, latestTestnetLedger } from './authorization.ts';
 import { attachSignature, inspectTransaction } from './transaction.ts';
 
 import type { IncomingMessage, ServerResponse, OutgoingHttpHeaders } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import type { RequestState, Signer, SigningInput, WalletScope } from '../sdk/types.ts';
+import type {
+  RequestState,
+  Signer,
+  AuthSigningInput,
+  ArtifactSigningInput,
+  WalletScope,
+} from '../sdk/types.ts';
 
+function requestIdentity(input: object): string {
+  return JSON.stringify(input, (key, value) => {
+    if (key === 'id') return undefined;
+    if (value && typeof value === 'object' && !Array.isArray(value))
+      return Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)));
+    return value;
+  });
+}
 interface Session {
   id: string;
   token: string;
@@ -30,8 +45,9 @@ interface SigningRecord {
   id: string;
   public_key: string;
   signer: Signer;
-  input: SigningInput;
-  details: ReturnType<typeof inspectTransaction>['details'];
+  input: ArtifactSigningInput;
+  details:
+    ReturnType<typeof inspectTransaction>['details'] | ReturnType<typeof inspectAuthorization>['details'];
   expires: number;
   state: RequestState;
   logged?: RequestState;
@@ -50,6 +66,7 @@ export interface BridgeOptions {
   ) => Promise<boolean>;
   log?: (line: string) => unknown;
   now?: () => number;
+  latestLedger?: typeof latestTestnetLedger;
 }
 
 const token = () => randomBytes(32).toString('base64url');
@@ -95,7 +112,7 @@ async function body(req: IncomingMessage): Promise<Record<string, unknown>> {
   const chunks = [];
   for await (const chunk of req) {
     length += chunk.length;
-    if (length > 49152) throw fail(413, 'The request is too large.');
+    if (length > 393216) throw fail(413, 'The request is too large.');
     chunks.push(chunk);
   }
   try {
@@ -118,6 +135,7 @@ export function createBridge({
   review = approveAll,
   log = (line) => process.stdout.write(line),
   now = Date.now,
+  latestLedger = latestTestnetLedger,
 }: BridgeOptions = {}) {
   const records = new Map<string, SigningRecord>(),
     sessions = new Map<string, Session>();
@@ -162,7 +180,10 @@ export function createBridge({
   function logResult(r: SigningRecord) {
     if (r.logged === r.state) return;
     r.logged = r.state;
-    const about = `${r.details.hash} (account ${r.public_key}, sequence ${r.details.sequence})`;
+    const about =
+      'kind' in r.input
+        ? `${r.details.hash} (signer ${r.public_key}, authorization ${r.input.address})`
+        : `${r.details.hash} (account ${r.public_key}, sequence ${r.details.sequence})`;
     if (r.state === 'signed') log(`Signed ${about} for ${r.origin}.\n`);
     if (r.state === 'unknown') log(`Signature withheld or stopped for ${about}: ${r.message}\n`);
   }
@@ -241,7 +262,7 @@ export function createBridge({
           logResult(r);
           return;
         }
-        inspectTransaction(r.input, r.public_key, now());
+        if (!('kind' in r.input)) inspectTransaction(r.input, r.public_key, now());
         r.state = 'approved';
         logResult(r);
         const keys = await listSigners({ signal });
@@ -249,12 +270,23 @@ export function createBridge({
           throw Error('The signing approval expired or was canceled.');
         if ((s.allowed && !s.allowed.has(r.public_key)) || !keys.some((k) => k.public_key === r.public_key))
           throw Error('The selected key is no longer available.');
+        let authLedger: number | undefined;
+        if ('kind' in r.input) {
+          authLedger = await latestLedger({ signal });
+          inspectAuthorization(r.input, r.public_key, now(), authLedger);
+        }
+        if (signal.aborted || r.state !== 'approved' || s.revoked || now() >= s.expires || now() >= r.expires)
+          throw Error('The signing approval expired or was canceled.');
         r.state = 'signing';
         logResult(r);
         const signature = await sign(r.public_key, r.details.hash, { signal });
         if (r.state !== 'signing')
           log(`1Password returned a signature after cancellation. Withheld ${r.details.hash}.\n`);
-        const signed = attachSignature(r.input, r.public_key, signature);
+        if ('kind' in r.input) authLedger = await latestLedger({ signal });
+        const signed =
+          'kind' in r.input
+            ? attachAuthSignature(r.input, r.public_key, authLedger!, signature)
+            : attachSignature(r.input, r.public_key, signature);
         if (signal.aborted || r.state !== 'signing' || s.revoked || now() >= s.expires || now() >= r.expires)
           throw Error('The signing result is withheld because approval expired or was canceled.');
         r.signed_xdr = signed;
@@ -465,7 +497,9 @@ export function createBridge({
             (k) =>
               ![
                 'id',
-                'transaction_xdr',
+                ...(input.kind === 'authorization'
+                  ? ['kind', 'auth_entry_xdr', 'address', 'adapter']
+                  : ['transaction_xdr']),
                 'network_passphrase',
                 'public_key',
                 ...(s.wallet_scope === 'available' ? ['selection_revision'] : []),
@@ -483,11 +517,7 @@ export function createBridge({
           prior = records.get(key);
         if (s.canceled.has(input.id)) throw fail(409, 'The website canceled this request before it arrived.');
         if (prior) {
-          if (
-            ['transaction_xdr', 'network_passphrase', 'public_key', 'selection_revision'].some(
-              (k) => prior.input[k as keyof SigningInput] !== input[k],
-            )
-          )
+          if (requestIdentity(prior.input) !== requestIdentity(input))
             throw fail(409, 'This request ID already identifies a different transaction.');
           return sendJson(res, 200, summary(prior));
         }
@@ -497,20 +527,34 @@ export function createBridge({
         if (all.filter((r) => active(r)).length >= 32)
           throw fail(429, 'The signing request limit was reached.');
         if (
-          typeof input.transaction_xdr !== 'string' ||
+          (input.kind === 'authorization'
+            ? typeof input.auth_entry_xdr !== 'string'
+            : typeof input.transaction_xdr !== 'string') ||
           typeof input.network_passphrase !== 'string' ||
           typeof input.public_key !== 'string'
         )
           throw fail(400, 'The signing request fields are invalid.');
-        const signingInput: SigningInput = {
-          transaction_xdr: input.transaction_xdr,
+        const common = {
           network_passphrase: input.network_passphrase,
           public_key: input.public_key,
           ...(typeof input.selection_revision === 'number'
             ? { selection_revision: input.selection_revision }
             : {}),
         };
-        const checked = inspectTransaction(signingInput, s.public_key, now());
+        const signingInput: ArtifactSigningInput =
+          input.kind === 'authorization'
+            ? {
+                ...common,
+                kind: 'authorization',
+                auth_entry_xdr: input.auth_entry_xdr as string,
+                address: input.address as string,
+                adapter: input.adapter as AuthSigningInput['adapter'],
+              }
+            : { ...common, transaction_xdr: input.transaction_xdr as string };
+        const checked =
+          'kind' in signingInput
+            ? inspectAuthorization(signingInput, s.public_key, now())
+            : inspectTransaction(signingInput, s.public_key, now());
         const record: SigningRecord = {
           record_id: randomUUID(),
           session_id: s.id,

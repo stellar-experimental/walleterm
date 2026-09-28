@@ -3,21 +3,50 @@
 The coordinator started Claude Opus 5.5 through Herdr with `--effort xhigh`.
 The coordinator kept merge control and checked the repository rules.
 
-- [Source and audit review](review-11-12.md): exact reviewed heads, findings, checks, and limits for #11 and #12.
-- [Publication follow-up](review-12-followup.md): acceptance of the corrected merge instructions.
-- [Coordinator checks](phase-1-checks.json): source tree equality, preserved hashes, and audit-only scope.
+| PR | Review result | Reports and checks |
+| --- | --- | --- |
+| #11: audit corrections | Accepted; merged as `939f64f` | [Source review](review-11-12.md), [coordinator checks](phase-1-checks.json) |
+| #12: audit evidence | Accepted after publication corrections; merged as `184480d` | [Publication follow-up](review-12-followup.md) |
+| #10: contract authorization | Accepted after historical acceptance wording correction | [Feature review](review-10.md), [source hashes](feature-source-checks.json), [installed checks](installed-checks.json) |
 
-Opus accepted source PR #11. Its exact-head offline CI passed with 341 tests.
-GitHub merged #11 as `939f64ffd3e5d99fb0b8a999862f59a81bd8af17`.
-The coordinator verified that this squash commit preserves the complete reviewed source tree.
+## Source and audit corrections
 
-Opus requested only publication wording changes for #12.
-The coordinator corrected those instructions and merged current main ancestry without rewriting history.
-Opus accepted the corrected publication. Final remote CI remains a merge condition.
-The original 568 audit files remain unchanged.
-The independent review also classified 104 checksum-valid seeds as public examples.
-These matches came only from saved research.
+The #11 squash commit preserves its complete reviewed source tree.
+The #12 squash commit preserves its final reviewed evidence tree.
+Both exact PR heads and both main commits passed offline CI.
+All 568 original audit files remain unchanged.
+The independent seed scan classified all 104 distinct checksum-valid matches as public documentation examples.
+These matches appeared only in saved research.
+The source review records the scan scope and limits.
 
-The source review is separate from live acceptance and release.
-No new live signing, testnet submission, real-prefix installation, or deployment occurred.
-The contract-authorization PR #10 requires its own integration and review.
+## Contract authorization
+
+The coordinator merged the source fixes into #10 without rewriting history.
+The only conflict joined two independent groups of demo tests. Both groups remain.
+Opus reviewed that integration independently and found no required runtime correction.
+It clarified that the recorded live acceptance occurred before this integration.
+The coordinator accepted and committed that correction as `346f900`.
+
+The final source passed 387 Bun tests and three offline harness self-tests.
+Go race tests, Go vet, full tracked-source TypeScript, formatting, and the browser build passed.
+All 219 tracked feature source files matched the tested temporary copy.
+Ignored Pagebook captures stayed outside that copy. Compiler settings remain unchanged.
+
+The coordinator built a real installation in a temporary prefix.
+The installed CLI help, version, and invalid authorization rejection passed.
+The installed SDK exports loaded without a browser document.
+Fifteen served assets matched their installed bytes, including both WASM files and all shared chunks.
+The [probe source](installed-probe.ts.txt) records the asset check.
+The temporary server stopped, and the temporary installation was removed.
+
+The audit-only main integration is `b91f4ff63e03f5fb7cbe6551609c47096fbfc873`.
+It changes no feature source bytes. The 219 source hashes and 568 original audit hashes still match.
+Final remote CI and exact-head merge verification remain coordinator merge conditions.
+
+## Limits
+
+No new live 1Password signing, testnet submission, public tunnel, deployment, or real-prefix installation occurred.
+The historical testnet and Chrome evidence remains unchanged.
+The new OpenZeppelin adapter still has offline validation only. A fresh desktop approval prompt remains unverified.
+The earlier deferred C11/C13 harness decisions and optional C07/C09 hardening remain separate work.
+No new paid research was needed during this Opus review.

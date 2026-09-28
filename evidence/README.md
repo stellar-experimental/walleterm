@@ -39,9 +39,15 @@ A later desktop run covers website approval: the page review, Sign, and Discard,
 [Vault filter validation](../docs/VAULT-FILTER-VALIDATION.md) records the 2026-09-26 review, local tests, and installed browser checks.
 Its final live vault recheck passed after user approval, including vault name, ID, HTTP selection, and browser filtering.
 
+[Contract authorization acceptance](contract-auth-demo-2026-09-26.json) records the separate CLI and SDK authorization signatures.
+It records two deployments, three counter increases, independent signature checks, and testnet ledger results.
+The final run rejected missing authorization, changed nonces, and changed calls without submitting those controls.
+The record preserves the first transport failure and its tested fix.
+See [the contract authorization guide](../docs/CONTRACT-AUTHORIZATION.md) for the demo and integration workflow.
+
 ## Tracked summaries and local records
 
-Git includes this index, two acceptance summaries, three site records, the browser QA report, and the mobile proof index and JSON summaries.
+Git includes this index, acceptance summaries, site records, the browser QA report, and the mobile proof summaries.
 These files contain public testnet addresses, transaction hashes, contract identifiers, and source hashes.
 They contain no signing keys or vault identifiers.
 

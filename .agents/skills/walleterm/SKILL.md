@@ -6,7 +6,8 @@ description: Sign a reviewed Stellar transaction or Soroban authorization digest
 # Walleterm signing
 
 `walleterm list` lists public keys. `walleterm sign` signs one supplied 32-byte digest.
-Neither command builds XDR or submits transactions.
+`walleterm sign-auth` validates and signs one explicit AddressV2 entry through a supported adapter.
+These commands never submit transactions.
 Use `walleterm-site-bridge` for `walleterm tunnel`, `walleterm demo`, website integration, or wallet request interception.
 Use `walleterm --help` for the installed command contract. Use `stellar --version` before following a pinned reference.
 Use Stellar CLI to build, inspect, simulate, encode, and submit. Use Stellar Raven for protocol questions and contract discovery.
@@ -24,6 +25,7 @@ Read only the references that the current artifact needs.
 - Read [pinned OpenZeppelin auth](references/openzeppelin.md) for an OpenZeppelin smart account.
 - Read [CAP-71 delegation](references/delegation.md) for `address_with_delegates` entries. It also compares the digest of each scheme.
 - Read [contract code](references/contract-code.md) when a signature depends on contract code, including a CAP-85 external executable.
+- Read [structured authorization signing](references/structured-auth.md) for `walleterm sign-auth` and supported AddressV2 adapters.
 - Read the [acceptance snapshot](references/acceptance.md) before citing prior live coverage or its limits.
 
 These files stay beside this skill after installation. Resolve links from this `SKILL.md`, independent of the caller directory.

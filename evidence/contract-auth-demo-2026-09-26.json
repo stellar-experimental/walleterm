@@ -1,0 +1,268 @@
+{
+  "status": "passed",
+  "date": "2026-09-26",
+  "network": "testnet",
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "signer": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+  "account": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+  "target": "CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E",
+  "counter": 3,
+  "fixture_versions": {
+    "account": {
+      "file": "walleterm_simple_account.wasm",
+      "hash": "87248e34b98c4acc825f68ea8b4666c9e8b89b43ef7cdf86ef9f284ad08a823d"
+    },
+    "target": {
+      "file": "walleterm_auth_target.wasm",
+      "hash": "04a9a33cd3f56a0f16aca0db6b18e4b624416f3393cfeb1e0ce8bcc0d47fcdf5"
+    }
+  },
+  "sdk_version": "17.1.0",
+  "bun_version": "1.4.2",
+  "base_commit": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
+  "source_hashes": {
+    "main.go": "adf47b09611d6d6a0f094feefd6934b3cac4736b93bfed82828d77eba4a3a3ae",
+    "auth_command.go": "1357c8caa157c9b76b87c92ecdd17aab1258eba174cbd10347580286c2f9d8c6",
+    "bridge/auth-cli.ts": "a6854dac94d90495a2605104436062ac9fedcaf9c8e217e0f5185940af7d58ba",
+    "bridge/authorization.ts": "0b93a844b9ee7e73b7e0ea23f9338b49272ecdc73fd01932ee42f50e35ba3d3d",
+    "bridge/server.ts": "14b401a4636c05bfc75806542af1a97305e850e6fa1926b17dd8d12118e67745",
+    "sdk/authorization.ts": "612913d005e4e62642f18ae941a1c3492b13663bbf873ad529cadbdb01968021",
+    "sdk/transaction.ts": "1e095782a7a49e452304efa42f3bbfc0eba82a607ba2051a22607af3a6219a6a",
+    "sdk/walleterm.ts": "67a5b3f389fc09c24d699838277fd106245c1844cc0edef2b78f4cae22efab84",
+    "demo/site/contracts.ts": "c0cdeca559e7747c086369d35ee5627dc14598817b6ecf34849e16b8c82ce7b8",
+    "demo/site/app.ts": "d5639b122c6eb66220406fe86c1f9ac0a2ba465c01f2fa625d5caa8a4f6a9732"
+  },
+  "transactions": [
+    {
+      "stage": "deploy-account",
+      "authorization_method": "cli",
+      "hash": "18d1907569df10da7c413192539b2905ed9e8a9139bc0d72502afb886bfb9918",
+      "ledger": 4889349,
+      "chain_status": "SUCCESS",
+      "charged_fee_stroops": "77856",
+      "authorization": {
+        "type": "sorobanCredentialsAddressV2",
+        "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+        "nonce": "6452283162451068948",
+        "expiration_ledger": 4889407,
+        "digest": "0475118d1df275d0450dd144467c5347d21939448270f15336942fcdc7999e26",
+        "verified": true
+      },
+      "verification": {
+        "account": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+        "contract": "CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E",
+        "stage": "deploy-account"
+      }
+    },
+    {
+      "stage": "deploy-target",
+      "authorization_method": "cli",
+      "hash": "2713a79e562d81b6117959445135b5a05cb767b9cb2b010c81e6e0a966f1455b",
+      "ledger": 4889350,
+      "chain_status": "SUCCESS",
+      "charged_fee_stroops": "55713",
+      "authorization": {
+        "type": "sorobanCredentialsAddressV2",
+        "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+        "nonce": "6088356347702385146",
+        "expiration_ledger": 4889409,
+        "digest": "36f924113b2c7b31196b5bb8b02b10a88e32014b5ca9523437130bb1ccb99dd5",
+        "verified": true
+      },
+      "verification": {
+        "account": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+        "contract": "CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E",
+        "stage": "deploy-target"
+      }
+    },
+    {
+      "stage": "increment",
+      "authorization_method": "cli",
+      "hash": "423985fe3e2cb7d88ac157bac2418155eaac122a3aecd89c3be949794e60c593",
+      "ledger": 4889351,
+      "chain_status": "SUCCESS",
+      "charged_fee_stroops": "64156",
+      "authorization": {
+        "type": "sorobanCredentialsAddressV2",
+        "address": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+        "nonce": "6715536542049991004",
+        "expiration_ledger": 4889410,
+        "digest": "3b5de95fb542c37f5e2c22ccae607ecd4b1b40897bf91bf275358d92e0798f11",
+        "verified": true
+      },
+      "verification": {
+        "count_before": 0,
+        "count_after": 1,
+        "account": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+        "contract": "CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E"
+      }
+    },
+    {
+      "stage": "increment",
+      "authorization_method": "cli",
+      "hash": "350c497072d7dd5be15540b9fa247e20718003f0317557338bbd500c7bc32eef",
+      "ledger": 4889441,
+      "chain_status": "SUCCESS",
+      "charged_fee_stroops": "13782",
+      "authorization": {
+        "type": "sorobanCredentialsAddressV2",
+        "address": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+        "nonce": "3585655563628239767",
+        "expiration_ledger": 4889500,
+        "digest": "27af676751307c38ed70b3bafd8a67656ebdce342259ded06b4de8e107ee95f2",
+        "verified": true
+      },
+      "verification": {
+        "count_before": 1,
+        "count_after": 2,
+        "account": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+        "contract": "CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E"
+      }
+    },
+    {
+      "stage": "increment",
+      "authorization_method": "sdk",
+      "hash": "a7946a0d604e4de5910b2767a765020801f71f9d0f17201421a97cec4e8ab6ab",
+      "ledger": 4889442,
+      "chain_status": "SUCCESS",
+      "charged_fee_stroops": "13782",
+      "authorization": {
+        "type": "sorobanCredentialsAddressV2",
+        "address": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+        "nonce": "8105444090249930064",
+        "expiration_ledger": 4889501,
+        "digest": "6bbbd1f49613638b730eaf4a4e4fdcf85e4f414a44cd2d4b8197a90007d7ae56",
+        "verified": true
+      },
+      "verification": {
+        "count_before": 2,
+        "count_after": 3,
+        "account": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+        "contract": "CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E"
+      }
+    }
+  ],
+  "negative_controls": [
+    {
+      "case": "missing-custom-authorization",
+      "status": "passed",
+      "submitted": false,
+      "signatures_requested": 0,
+      "error": "HostError: Error(Auth, InvalidAction)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[error, Error(Auth, InvalidAction)], data:\"escalating error to VM trap from failed host function call: require_auth\"\n   1: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[error, Error(Auth, InvalidAction)], data:[\"Unauthorized function call for address\", CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD]\n   2: [Diagnostic Event] topics:[fn_call, CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, ping], data:[CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, 1]\n"
+    },
+    {
+      "case": "changed-authorization-nonce",
+      "status": "passed",
+      "submitted": false,
+      "signatures_requested": 0,
+      "error": "HostError: Error(Auth, InvalidAction)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[error, Error(Auth, InvalidAction)], data:\"escalating error to VM trap from failed host function call: require_auth\"\n   1: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[error, Error(Auth, InvalidAction)], data:[\"failed account authentication with error\", CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, Error(Crypto, InvalidInput)]\n   2: [Failed Diagnostic Event (not emitted)] contract:CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, topics:[log], data:[\"VM call trapped with HostError\", __check_auth, Error(Crypto, InvalidInput)]\n   3: [Failed Diagnostic Event (not emitted)] contract:CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, topics:[error, Error(Crypto, InvalidInput)], data:\"escalating error to VM trap from failed host function call: verify_sig_ed25519\"\n   4: [Failed Diagnostic Event (not emitted)] contract:CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, topics:[error, Error(Crypto, InvalidInput)], data:\"failed ED25519 verification\"\n   5: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[fn_call, CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, __check_auth], data:[Bytes(2ee85806187d01b4c1f59cb1e982a3163254c22689a831fffd3ff6e99a26bf26), Bytes(a8f737c337f95b8083fef1d00bef5c89ab63cef117c39c5184b26bd9034fb407c04229c0b4899c17ce3778a2815b22d4ee1fdabd2ef1871e97d2668a41f28708), [[Contract, {args: [CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, 1], contract: CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, fn_name: ping}]]]\n   6: [Diagnostic Event] topics:[fn_call, CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, ping], data:[CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, 1]\n"
+    },
+    {
+      "case": "changed-call-and-authorization",
+      "status": "passed",
+      "submitted": false,
+      "signatures_requested": 0,
+      "error": "HostError: Error(Auth, InvalidAction)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[error, Error(Auth, InvalidAction)], data:\"escalating error to VM trap from failed host function call: require_auth\"\n   1: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[error, Error(Auth, InvalidAction)], data:[\"failed account authentication with error\", CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, Error(Crypto, InvalidInput)]\n   2: [Failed Diagnostic Event (not emitted)] contract:CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, topics:[log], data:[\"VM call trapped with HostError\", __check_auth, Error(Crypto, InvalidInput)]\n   3: [Failed Diagnostic Event (not emitted)] contract:CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, topics:[error, Error(Crypto, InvalidInput)], data:\"escalating error to VM trap from failed host function call: verify_sig_ed25519\"\n   4: [Failed Diagnostic Event (not emitted)] contract:CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, topics:[error, Error(Crypto, InvalidInput)], data:\"failed ED25519 verification\"\n   5: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[fn_call, CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, __check_auth], data:[Bytes(ccc9ab687790659579c098ebbf4037a79e31c144e056525b918d78ead9f7a531), Bytes(a8f737c337f95b8083fef1d00bef5c89ab63cef117c39c5184b26bd9034fb407c04229c0b4899c17ce3778a2815b22d4ee1fdabd2ef1871e97d2668a41f28708), [[Contract, {args: [CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, 2], contract: CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, fn_name: ping}]]]\n   6: [Diagnostic Event] topics:[fn_call, CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, ping], data:[CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, 2]\n"
+    },
+    {
+      "case": "missing-custom-authorization",
+      "status": "passed",
+      "submitted": false,
+      "signatures_requested": 0,
+      "error": "HostError: Error(Auth, InvalidAction)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[error, Error(Auth, InvalidAction)], data:\"escalating error to VM trap from failed host function call: require_auth\"\n   1: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[error, Error(Auth, InvalidAction)], data:[\"Unauthorized function call for address\", CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD]\n   2: [Diagnostic Event] topics:[fn_call, CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, ping], data:[CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, 1]\n"
+    },
+    {
+      "case": "changed-authorization-nonce",
+      "status": "passed",
+      "submitted": false,
+      "signatures_requested": 0,
+      "error": "HostError: Error(Auth, InvalidAction)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[error, Error(Auth, InvalidAction)], data:\"escalating error to VM trap from failed host function call: require_auth\"\n   1: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[error, Error(Auth, InvalidAction)], data:[\"failed account authentication with error\", CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, Error(Crypto, InvalidInput)]\n   2: [Failed Diagnostic Event (not emitted)] contract:CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, topics:[log], data:[\"VM call trapped with HostError\", __check_auth, Error(Crypto, InvalidInput)]\n   3: [Failed Diagnostic Event (not emitted)] contract:CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, topics:[error, Error(Crypto, InvalidInput)], data:\"escalating error to VM trap from failed host function call: verify_sig_ed25519\"\n   4: [Failed Diagnostic Event (not emitted)] contract:CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, topics:[error, Error(Crypto, InvalidInput)], data:\"failed ED25519 verification\"\n   5: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[fn_call, CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, __check_auth], data:[Bytes(7732832913ba6e877302df5ba97370ed8c829f0c036539814c6a4cb325235b4f), Bytes(a5d30bf274c5667746a824e8e2d1baaa700d68914d8131a9edcbfa5aa35a76a75b5b0908aa3b5571885d1905b5743548a8d7cb1cd7acef86cf21b37fef36d90a), [[Contract, {args: [CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, 1], contract: CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, fn_name: ping}]]]\n   6: [Diagnostic Event] topics:[fn_call, CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, ping], data:[CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, 1]\n"
+    },
+    {
+      "case": "changed-call-and-authorization",
+      "status": "passed",
+      "submitted": false,
+      "signatures_requested": 0,
+      "error": "HostError: Error(Auth, InvalidAction)\n\nEvent log (newest first):\n   0: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[error, Error(Auth, InvalidAction)], data:\"escalating error to VM trap from failed host function call: require_auth\"\n   1: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[error, Error(Auth, InvalidAction)], data:[\"failed account authentication with error\", CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, Error(Crypto, InvalidInput)]\n   2: [Failed Diagnostic Event (not emitted)] contract:CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, topics:[log], data:[\"VM call trapped with HostError\", __check_auth, Error(Crypto, InvalidInput)]\n   3: [Failed Diagnostic Event (not emitted)] contract:CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, topics:[error, Error(Crypto, InvalidInput)], data:\"escalating error to VM trap from failed host function call: verify_sig_ed25519\"\n   4: [Failed Diagnostic Event (not emitted)] contract:CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, topics:[error, Error(Crypto, InvalidInput)], data:\"failed ED25519 verification\"\n   5: [Diagnostic Event] contract:CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, topics:[fn_call, CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, __check_auth], data:[Bytes(a0906d8e53d470b9648a8fd6cf38a0ea85045a29d04ee77d5b6a87cb436ccc06), Bytes(a5d30bf274c5667746a824e8e2d1baaa700d68914d8131a9edcbfa5aa35a76a75b5b0908aa3b5571885d1905b5743548a8d7cb1cd7acef86cf21b37fef36d90a), [[Contract, {args: [CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, 2], contract: CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, fn_name: ping}]]]\n   6: [Diagnostic Event] topics:[fn_call, CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E, ping], data:[CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD, 2]\n"
+    }
+  ],
+  "validation": {
+    "offline_tests": 270,
+    "offline_failures": 0,
+    "go_race": "passed",
+    "go_vet": "passed",
+    "typecheck": "passed",
+    "build": "passed",
+    "isolated_install": "passed",
+    "astra_review": "no actionable findings remain",
+    "browser_smoke": "mock wallet connection, action cards, restored explicit C-account review, no console errors"
+  },
+  "first_run": {
+    "status": "stopped before SDK authorization signing",
+    "reason": "getLatestLedger metadata exceeded the original response limit",
+    "fix": "getHealth.latestLedger from the fixed trusted endpoint; healthy status required"
+  },
+  "limits": [
+    "A fresh desktop approval prompt was not verified.",
+    "Browser contract acceptance used offline tests; live acceptance used the shared demo module and SDK.",
+    "This run did not test the new OpenZeppelin adapter against a live OpenZeppelin account.",
+    "The bridge remains testnet-only."
+  ],
+  "sources": [
+    "https://developers.stellar.org/docs/build/guides/auth/contract-authorization",
+    "https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getHealth",
+    "https://developers.stellar.org/docs/data/apis/rpc/api-reference/methods/getLatestLedger"
+  ],
+  "verified_at": "2026-09-27T01:01:57.194Z",
+  "browser_acceptance": {
+    "status": "passed",
+    "source_commit": "d0a3919da60e417a6da2684d2bbe3c8672747a09",
+    "browser": "visible Chrome, controlled through computer use",
+    "fresh_install_prefix": "/tmp/walleterm-observable-contract-test",
+    "release_id": "e360aafb021f8c411ac20ecf",
+    "demo_url": "https://arrangement-api-franchise-missile.trycloudflare.com",
+    "tunnel_url": "https://royalty-begin-pro-nest.trycloudflare.com",
+    "wallet": "existing dedicated walleterm-v2-test-a 1Password key",
+    "flow": [
+      "Connect wallet",
+      "Increment counter",
+      "Review explicit C-account AddressV2 entry",
+      "Sign contract authorization",
+      "Review enforcing simulation and final fee",
+      "Sign transaction",
+      "Submit to testnet",
+      "Observe transaction complete and counter 3 to 4"
+    ],
+    "signatures_requested": 2,
+    "submissions": 1,
+    "counter_before": 3,
+    "counter_after": 4,
+    "ui_result": "Contract authorization verified. Counter changed from 3 to 4.",
+    "independent_rpc_verification": {
+      "status": "SUCCESS",
+      "checked_at": "2026-09-27T01:17:47.113Z",
+      "rpc": "https://soroban-testnet.stellar.org",
+      "hash": "b9c7aefbe337c1a208a22c982e573d75338a86889b597fe054b35d6ed960eee8",
+      "ledger": 4889644,
+      "charged_fee_stroops": "13782",
+      "signer": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+      "account": "CB7JDFPFWSHP4DLXCJWYUUEYZSWNXG436FETNLNTLYBOIBWEKDLVUTYD",
+      "target": "CCQSIVXMYJYWQCMNDNNREIWFRGTG7IOWN5ZBFHXQRNGG5DWSJJDSIR3E",
+      "counter": 4,
+      "authorization": {
+        "type": "sorobanCredentialsAddressV2",
+        "nonce": "4609327776194934888",
+        "expiration_ledger": 4889697,
+        "digest": "a6a5607ef2caa264577ddea33f5432193b24fdee0f7b12af08faab24adf7dbae",
+        "independently_verified": true
+      },
+      "transaction_signature_independently_verified": true
+    },
+    "limits": [
+      "The existing contracts were reused; browser setup deployment was not retested.",
+      "A fresh desktop approval prompt was not observed by the agent.",
+      "The live OpenZeppelin adapter was not tested."
+    ],
+    "connection_note": "The first connection canceled during wallet discovery, before any signature. A fresh connection completed."
+  }
+}

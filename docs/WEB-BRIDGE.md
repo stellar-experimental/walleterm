@@ -127,13 +127,18 @@ The adapter is local source code. It is not a published package or a registered 
 
 ## Supported transactions
 
-The bridge supports Stellar testnet and one unsigned classic operation per transaction:
+The bridge supports Stellar testnet and one unsigned operation per transaction.
+Classic operations include:
 
 - Native XLM payment to a G-address.
 - Set or delete a data entry.
 - Create, update, or cancel a sell offer with explicit assets and an exact rational price.
 
-Mainnet, Soroban, fee bumps, and other operations fail before approval.
+Soroban operations include contract invocation, upload, deployment, TTL extension, and restoration.
+Explicit AddressV2 entries use `client.signAuthEntry` before envelope signing.
+See [contract authorization](CONTRACT-AUTHORIZATION.md) for the separate authorization and transaction steps.
+General envelopes can use normal SourceAccount authorization.
+Mainnet, fee bumps, and unsupported operations fail before signing.
 See [the protocol contract](../bridge/PROTOCOL.md) for exact limits.
 
 ## Approval and recovery

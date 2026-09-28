@@ -1,3 +1,4 @@
+import { addressCredentials, parseAuthEntry } from '../sdk/authorization.ts';
 import { Keypair, Networks, StrKey, TransactionBuilder, xdr } from '@stellar/stellar-sdk';
 
 function reject(message: string): never {
@@ -12,7 +13,7 @@ export function inspectTransaction(input: SigningInput, publicKey: string, now =
   if (input.network_passphrase !== Networks.TESTNET) reject('Only Stellar testnet is supported.');
   if (input.public_key !== publicKey || !StrKey.isValidEd25519PublicKey(publicKey))
     reject('The requested account differs from the selected account.');
-  if (typeof input.transaction_xdr !== 'string' || input.transaction_xdr.length > 32768)
+  if (typeof input.transaction_xdr !== 'string' || input.transaction_xdr.length > 262144)
     reject('The transaction XDR is invalid or too large.');
   let envelope: xdr.TransactionEnvelope;
   let tx: Transaction;
@@ -24,18 +25,16 @@ export function inspectTransaction(input: SigningInput, publicKey: string, now =
   } catch {
     reject('The transaction XDR is invalid.');
   }
-  if (
-    envelope.type !== 'envelopeTypeTx' ||
-    envelope.value.tx.ext.type !== 'v0' ||
-    envelope.value.tx.cond.type !== 'precondTime'
-  ) {
-    reject('Use a classic v1 transaction with only time preconditions.');
+  if (envelope.type !== 'envelopeTypeTx' || envelope.value.tx.cond.type !== 'precondTime') {
+    reject('Use a v1 transaction with only time preconditions.');
   }
   if (tx.toXDR() !== input.transaction_xdr) reject('Use canonical transaction XDR.');
   if (tx.source !== publicKey || tx.signatures.length || tx.operations.length !== 1)
     reject('Use one unsigned operation from the selected account.');
-  if (BigInt(tx.fee) < 100n || BigInt(tx.fee) > 100000n)
-    reject('The fee must be between 100 and 100000 stroops.');
+  const soroban = envelope.value.tx.ext.type === 'sorobanData';
+  const maximumFee = soroban ? 100000000n : 100000n;
+  if (BigInt(tx.fee) < 100n || BigInt(tx.fee) > maximumFee)
+    reject(`The fee must be between 100 and ${maximumFee} stroops.`);
   if (!tx.timeBounds) reject('Use transaction time bounds.');
   const min = Number(tx.timeBounds.minTime),
     max = Number(tx.timeBounds.maxTime);
@@ -52,7 +51,26 @@ export function inspectTransaction(input: SigningInput, publicKey: string, now =
   const op = tx.operations[0];
   if (op.source && op.source !== publicKey) reject('The operation source differs from the selected account.');
   let operation;
-  if (op.type === 'payment') {
+  if (soroban) {
+    const body = envelope.value.tx.operations[0].body;
+    if (body.type === 'invokeHostFunction') {
+      for (const entry of body.value.auth) {
+        // SourceAccount is valid envelope authorization. It has no standalone signing path.
+        if (entry.credentials.type === 'sorobanCredentialsSourceAccount') continue;
+        const checked = parseAuthEntry(entry.toXDR('base64'));
+        if (addressCredentials(checked).signature.type === 'scvVoid')
+          reject('Sign explicit address authorization entries before signing the transaction.');
+      }
+      operation = {
+        type: op.type,
+        host_function: body.value.hostFunction.type,
+        host_function_xdr: body.value.hostFunction.toXDR('base64'),
+        auth_entry_xdr: body.value.auth.map((entry) => entry.toXDR('base64')),
+      };
+    } else if (body.type === 'extendFootprintTtl' || body.type === 'restoreFootprint') {
+      operation = { type: op.type, operation_xdr: body.toXDR('base64') };
+    } else reject('Use a Soroban operation with Soroban transaction data.');
+  } else if (op.type === 'payment') {
     if (!op.asset.isNative() || !StrKey.isValidEd25519PublicKey(op.destination) || Number(op.amount) <= 0)
       reject('Use a native payment to a G-address.');
     operation = { type: op.type, destination: op.destination, amount: op.amount, asset: 'XLM' };
@@ -114,6 +132,7 @@ export function inspectTransaction(input: SigningInput, publicKey: string, now =
       ...(memo.type === 'text' ? { hex: Buffer.from(memoValue ?? '').toString('hex') } : {}),
     },
     operation,
+    ...(soroban ? { soroban_data_xdr: envelope.value.tx.ext.toXDR('base64') } : {}),
     hash: Buffer.from(tx.hash()).toString('hex'),
   };
   return { tx, details, expires: max * 1000 };

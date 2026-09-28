@@ -1,3 +1,12 @@
+import { inspectTransactionRequest, verifyTransactionSignature } from './transaction.js';
+import {
+  addressCredentials,
+  parseAuthEntry,
+  inspectAuthEntry,
+  verifyAuthEntrySignature,
+} from './authorization.js';
+import type { AuthSignOptions } from './authorization.js';
+export * from './authorization.js';
 import { requestError } from './errors.js';
 // Browser adapter for Walleterm bridge protocol v2. Credentials remain in memory.
 import type {
@@ -21,6 +30,11 @@ export type {
   WalletPicker,
   WalletScope,
 } from './types.js';
+
+// A response that claims signing succeeded cannot prove that no signature was produced.
+function unverifiedResult(caught: unknown) {
+  return Object.assign(requestError(caught), { requestState: 'unknown' as const, canceled: false });
+}
 
 export class WalletermClient {
   readonly url: string;
@@ -287,8 +301,79 @@ export class WalletermClient {
   // An abort, a rejection, or leaving the page cancels the bridge request. Build a new transaction to try again.
   // error.canceled reports cancellation or lost session access. It does not prove that signing stopped.
   // requestState stays unknown when cancellation cannot determine whether a signature was produced.
-  async signTransaction(
-    transactionXdr: string,
+  async signTransaction(transactionXdr: string, options: SignOptions = {}) {
+    const selected = this.account;
+    if (!selected?.address || !this.token || this.selecting)
+      throw Error('Connect and select a wallet first.');
+    const {
+      address = selected.address,
+      networkPassphrase = selected.networkPassphrase,
+      signal,
+      onProgress,
+    } = options;
+    if (address !== selected.address) throw Error('The requested signer differs from the selected account.');
+    if (networkPassphrase !== selected.networkPassphrase)
+      throw Error('The requested network differs from the selected network.');
+    inspectTransactionRequest(transactionXdr, address, networkPassphrase);
+    const result = await this.signArtifact(
+      { transaction_xdr: transactionXdr },
+      { address, networkPassphrase, signal, onProgress },
+    );
+    try {
+      verifyTransactionSignature(transactionXdr, result.signedXdr, address, networkPassphrase);
+    } catch (error) {
+      throw unverifiedResult(error);
+    }
+    return { signedTxXdr: result.signedXdr, signerAddress: address };
+  }
+
+  async signAuthEntry(authEntryXdr: string, options: AuthSignOptions) {
+    const publicKey = this.account?.address;
+    if (!publicKey) throw Error('Connect and select a wallet first.');
+    const {
+      address,
+      adapter = { type: 'account' },
+      networkPassphrase = this.account?.networkPassphrase,
+      signal,
+      onProgress,
+    } = options;
+    const input = {
+      auth_entry_xdr: authEntryXdr,
+      address,
+      adapter: structuredClone(adapter),
+      public_key: publicKey,
+      network_passphrase: networkPassphrase!,
+    };
+    // Local verification checks exact artifacts. Only the bridge supplies trusted current-ledger evidence.
+    const expiration = addressCredentials(parseAuthEntry(authEntryXdr)).signatureExpirationLedger;
+    const structuralLedger = Math.max(1, expiration - 60);
+    inspectAuthEntry(input, publicKey, structuralLedger);
+    const result = await this.signArtifact(
+      {
+        kind: 'authorization',
+        auth_entry_xdr: input.auth_entry_xdr,
+        address: input.address,
+        adapter: input.adapter,
+      },
+      { address: publicKey, networkPassphrase: input.network_passphrase, signal, onProgress },
+    );
+    try {
+      verifyAuthEntrySignature(input, result.signedXdr, structuralLedger);
+    } catch (error) {
+      throw unverifiedResult(error);
+    }
+    return { signedAuthEntryXdr: result.signedXdr, signerAddress: result.signerAddress };
+  }
+
+  private async signArtifact(
+    artifact:
+      | { transaction_xdr: string }
+      | {
+          kind: 'authorization';
+          auth_entry_xdr: string;
+          address: string;
+          adapter: import('./authorization.js').AuthAdapter;
+        },
     {
       networkPassphrase = this.account?.networkPassphrase,
       address = this.account?.address,
@@ -328,7 +413,7 @@ export class WalletermClient {
             '/v1/requests',
             {
               id,
-              transaction_xdr: transactionXdr,
+              ...artifact,
               network_passphrase: networkPassphrase,
               public_key: address,
               ...(this.walletScope === 'available' ? { selection_revision: revision } : {}),
@@ -378,11 +463,13 @@ export class WalletermClient {
       this.signings.delete(stop);
       this.page?.removeEventListener?.('pagehide', leave);
     }
-    if (result.state !== 'signed' || typeof result.signed_xdr !== 'string')
+    if (result.state !== 'signed')
       throw Object.assign(Error(result.message || `The signing request is ${result.state}.`), {
         requestState: result.state,
       });
-    return { signedTxXdr: result.signed_xdr, signerAddress: address };
+    if (typeof result.signed_xdr !== 'string')
+      throw unverifiedResult(Error('The bridge returned no signed artifact.'));
+    return { signedXdr: result.signed_xdr, signerAddress: address };
   }
   async disconnect() {
     const token = this.token;

@@ -55,7 +55,8 @@ Inspect the displayed recipient and offer terms before approving the action.
 
 ## Supported XDR
 
-The bridge accepts canonical unsigned V1 testnet envelopes with exactly one classic operation:
+The bridge accepts canonical unsigned V1 testnet envelopes with exactly one operation.
+Classic operations include:
 
 - A native XLM payment to a G-address.
 - A `manageData` operation to set or delete a data entry.
@@ -63,9 +64,11 @@ The bridge accepts canonical unsigned V1 testnet envelopes with exactly one clas
   A zero amount cancels the named offer. A nonzero amount can trade immediately.
 
 The transaction source and any operation source must match the selected G-address.
-The fee must be 100–100000 stroops. The positive sequence must come from live account state.
+Classic fees must be 100–100000 stroops. Soroban fees must be 100–100000000 stroops.
+The positive sequence must come from live account state.
 Only time preconditions are accepted. The transaction must be valid now and expire within five minutes.
-Fee bumps, Soroban, existing signatures, additional preconditions, and other operations fail before signing.
+Soroban operations include invocation, upload, deployment, TTL extension, and restoration.
+Fee bumps, existing envelope signatures, additional preconditions, and unsupported operations fail before signing.
 Use direct `walleterm sign` with the matching core reference when an authorized task needs another format.
 Do not expand the public bridge's limits to work around a rejected transaction.
 
@@ -93,12 +96,27 @@ await wallet.disconnect();
 
 `connect` and `getAddress` return `{address, networkPassphrase}`.
 `signTransaction` returns `{signedTxXdr, signerAddress}`. It does not submit.
+The SDK independently verifies the unchanged body and selected key's signature.
 `listWallets`, `selectWallet`, and `disconnect` manage the connection.
 The default `walletScope` is `selected`. It fixes one wallet for that connection.
 For wallet switching, request `walletScope: 'available'` explicitly and explain that permission before selection.
 `WalletermConnect` uses this broader scope and displays the grant explanation.
 The first selection fixes the displayed eligible key set. Later keys need a new connection.
 The SDK manages grant IDs and selection revisions. Wallet changes cancel pending requests and withhold old results.
+
+## Explicit authorization
+
+Use `client.signAuthEntry(entryXdr, { address, adapter })` for an unsigned AddressV2 entry.
+The result contains `signedAuthEntryXdr` and `signerAddress`.
+The bridge obtains current ledger evidence from its fixed testnet RPC endpoint.
+The SDK independently verifies the exact returned entry and signature.
+Supported adapters are `account`, `contract-ed25519`, and the pinned `openzeppelin-ed25519` adapter.
+Review the contract's signature format before selecting an adapter.
+The website builds entries, checks invocation trees, and chooses expiry before requesting a signature.
+Attach the signed entry, run enforcing simulation, and assemble the final transaction before requesting its envelope signature.
+Standalone signing rejects V1, SourceAccount, and delegated credentials.
+General transaction envelopes permit normal SourceAccount authorization.
+Invalid returned artifacts preserve `requestState: 'unknown'`. Keep the original request and expiry protected.
 Switching away and back does not restore a canceled request or undo a delivered signature.
 Use the SDK instead of duplicating its session, revision, request-ID, and cancellation logic.
 

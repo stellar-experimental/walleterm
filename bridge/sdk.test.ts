@@ -1,7 +1,20 @@
+import { Account, Keypair, Networks, Operation, TransactionBuilder } from '@stellar/stellar-sdk';
 import { jest, onTestFinished, spyOn, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { WalletermClient } from '../sdk/walleterm.ts';
 import { requestSignal, requestUrl } from './test/support.ts';
+
+const mockKey = Keypair.random(); // Offline mock key only.
+const mockTransaction = new TransactionBuilder(new Account(mockKey.publicKey(), '1'), {
+  fee: '100',
+  networkPassphrase: Networks.TESTNET,
+})
+  .addOperation(Operation.manageData({ name: 'test', value: 'reviewed' }))
+  .setTimeout(180)
+  .build();
+const unsignedXdr = mockTransaction.toXDR();
+mockTransaction.sign(mockKey);
+const signedXdr = mockTransaction.toXDR();
 
 test('wallet discovery can refresh without replacing the selected account', async () => {
   let keys = [{ public_key: 'GFIRST', comment: 'First' }];
@@ -112,18 +125,18 @@ test('signing retries preserve the request ID and report network recovery', asyn
         if (++posts < 3) throw TypeError('Offline');
         return Response.json({ state: 'signing', expires_at: '2026-09-26T00:00:00Z' });
       }
-      return Response.json({ state: 'signed', signed_xdr: 'signature' });
+      return Response.json({ state: 'signed', signed_xdr: signedXdr });
     },
   });
   client.token = 'session';
-  client.account = { address: 'GMOCK', networkPassphrase: 'testnet' };
-  const result = await client.signTransaction('transaction', {
+  client.account = { address: mockKey.publicKey(), networkPassphrase: Networks.TESTNET };
+  const result = await client.signTransaction(unsignedXdr, {
     onProgress(progress) {
       states.push(progress.state);
       if (progress.state === 'signing') throw Error('Display failure');
     },
   });
-  assert.equal(result.signedTxXdr, 'signature');
+  assert.equal(result.signedTxXdr, signedXdr);
   assert.equal(new Set(bodies).size, 1);
   assert.deepEqual(states, ['retrying', 'retrying', 'signing', 'signed']);
 });
@@ -151,9 +164,9 @@ test('an unreachable bridge bounds cancellation and preserves signing uncertaint
     },
   });
   client.token = 'session';
-  client.account = { address: 'GMOCK', networkPassphrase: 'testnet' };
+  client.account = { address: mockKey.publicKey(), networkPassphrase: Networks.TESTNET };
   await assert.rejects(
-    client.signTransaction('transaction', {
+    client.signTransaction(unsignedXdr, {
       signal: controller.signal,
       onProgress: () => controller.abort(Error('Canceled')),
     }),
@@ -176,7 +189,7 @@ test('failed remote disconnection retains credentials until an explicit local di
   const active = new AbortController();
   client.signings.add(active);
   client.token = 'session';
-  client.account = { address: 'GMOCK', networkPassphrase: 'testnet' };
+  client.account = { address: mockKey.publicKey(), networkPassphrase: Networks.TESTNET };
   const generation = client.generation;
   await assert.rejects(client.disconnect(), /Offline/);
   assert.equal(client.token, 'session');

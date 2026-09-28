@@ -8,9 +8,9 @@ await mkdir(outdir, { recursive: true });
 const result = await Bun.build({
   entrypoints: [
     'sdk/walleterm.ts',
+    'sdk/authorization.ts',
     'sdk/connect.ts',
     'sdk/scan.ts',
-    'demo/site/app.ts',
     'demo/site/activity.ts',
     'demo/site/code-view.ts',
     'demo/site/syntax.ts',
@@ -22,3 +22,15 @@ const result = await Bun.build({
   splitting: true,
 });
 if (!result.success) throw new AggregateError(result.logs, 'The browser build failed.');
+
+// Keep the side-effectful demo entry out of shared library chunks.
+// Bun can otherwise place SDK exports in app.js and import the demo from a library chunk.
+const demo = await Bun.build({
+  entrypoints: [root + 'demo/site/app.ts'],
+  root,
+  outdir,
+  target: 'browser',
+  format: 'esm',
+  splitting: false,
+});
+if (!demo.success) throw new AggregateError(demo.logs, 'The demo build failed.');

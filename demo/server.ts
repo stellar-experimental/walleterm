@@ -23,6 +23,14 @@ export function createDemoSite({ port = 8788 } = {}) {
     '/sdk/connect.js': [join(assets, 'sdk/connect.js'), 'text/javascript'],
     '/sdk/connect.css': [join(here, '../sdk/connect.css'), 'text/css'],
     '/sdk/scan.js': [join(assets, 'sdk/scan.js'), 'text/javascript'],
+    '/fixtures/walleterm_simple_account.wasm': [
+      join(here, '../fixtures/wasm/walleterm_simple_account.wasm'),
+      'application/wasm',
+    ],
+    '/fixtures/walleterm_auth_target.wasm': [
+      join(here, '../fixtures/wasm/walleterm_auth_target.wasm'),
+      'application/wasm',
+    ],
     '/stellar-sdk.js': [
       join(here, '../node_modules/@stellar/stellar-sdk/dist/stellar-sdk.min.js'),
       'text/javascript',

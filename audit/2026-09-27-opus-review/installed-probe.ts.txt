@@ -1,0 +1,42 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
+const release = process.argv[2];
+const sdk = await import(pathToFileURL(join(release, 'dist/sdk/walleterm.js')).href);
+for (const name of ['WalletermClient', 'createAuthEntry', 'inspectAuthEntry', 'verifyAuthEntrySignature']) {
+  if (typeof sdk[name] !== 'function') throw Error(`Missing installed export: ${name}`);
+}
+const { createDemoSite } = await import(pathToFileURL(join(release, 'demo/server.ts')).href);
+const site = createDemoSite({ port: 0 });
+const checked: string[] = [];
+try {
+  await site.listen();
+  const port = site.server.address().port;
+  const entries = [
+    ['/', 'demo/site/index.html'],
+    ['/app.js', 'dist/demo/site/app.js'],
+    ['/sdk/walleterm.js', 'dist/sdk/walleterm.js'],
+    ['/sdk/connect.js', 'dist/sdk/connect.js'],
+    ['/sdk/connect.css', 'sdk/connect.css'],
+    ['/stellar-sdk.js', 'node_modules/@stellar/stellar-sdk/dist/stellar-sdk.min.js'],
+    ['/fixtures/walleterm_simple_account.wasm', 'fixtures/wasm/walleterm_simple_account.wasm'],
+    ['/fixtures/walleterm_auth_target.wasm', 'fixtures/wasm/walleterm_auth_target.wasm'],
+  ];
+  const manifest = JSON.parse(readFileSync(join(release, 'manifest.json'), 'utf8'));
+  for (const file of manifest.files) {
+    if (/^dist\/(chunk|jsQR)-[a-z0-9]+\.js$/i.test(file)) entries.push(['/' + file.slice(5), file]);
+  }
+  for (const [url, file] of entries) {
+    const response = await fetch(`http://127.0.0.1:${port}${url}`);
+    if (response.status !== 200) throw Error(`Installed asset ${url}: ${response.status}`);
+    const actual = Buffer.from(await response.arrayBuffer());
+    if (!actual.equals(readFileSync(join(release, file)))) throw Error(`Installed asset differs: ${url}`);
+    checked.push(url);
+  }
+  console.log(JSON.stringify({ exports: 'passed', asset_bytes: 'passed', assets: checked, manifest_sha256: createHash('sha256').update(readFileSync(join(release, 'manifest.json'))).digest('hex') }));
+} finally {
+  const closed = new Promise<void>((resolve) => site.server.once('close', resolve));
+  await site.close();
+  await closed;
+}

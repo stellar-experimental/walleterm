@@ -8,6 +8,7 @@ The binary name is `walleterm`. A `stellar-walleterm` alias enables Stellar CLI 
 ```text
 walleterm list [--human]
 walleterm sign [--human] < request.json
+walleterm sign-auth < request.json
 walleterm tunnel [--port 8787]
 walleterm demo [--port 8788]
 walleterm --help
@@ -15,7 +16,8 @@ walleterm --version
 ```
 
 `tunnel` starts the independent signing bridge and its Cloudflare Quick Tunnel.
-It needs no recipient, demo, website build, or network connection to Stellar.
+It needs no recipient, demo, or website build.
+Authorization signing uses a fixed testnet RPC endpoint for current ledger evidence.
 It accepts supported unsigned testnet XDR through the [bridge protocol](../bridge/PROTOCOL.md).
 It returns signed XDR to the requesting website. It never builds or submits transactions.
 A website connects with a single-use eight-digit code and selects a 1Password key.
@@ -78,7 +80,7 @@ The bridge signs each valid request without a terminal step. Ctrl+C stops the tu
 A 1Password prompt can still require the Mac. Cached 1Password approval can suppress a fresh desktop prompt.
 Use only dedicated testnet keys. Any website that holds a valid session can request signatures.
 
-The bridge supports one classic testnet operation per transaction. See [the protocol](../bridge/PROTOCOL.md) for limits.
+The bridge supports one classic or Soroban testnet operation per transaction. See [the protocol](../bridge/PROTOCOL.md) for limits.
 An integration adapter is required. An unchanged website does not automatically discover Walleterm.
 
 `list` returns the Ed25519 public identities exposed by the explicit 1Password socket.
@@ -168,3 +170,113 @@ Response type 14 contains a signature blob with algorithm and 64-byte signature 
 Response type 5 reports generic agent failure. It does not prove that the user selected Deny.
 One signing connection handles listing and signing. It closes after the command.
 See [RFC 9987](https://www.rfc-editor.org/rfc/rfc9987) and [RFC 8709](https://www.rfc-editor.org/rfc/rfc8709).
+
+## Structured authorization signing
+
+```text
+walleterm sign-auth < request.json
+```
+
+`sign-auth` validates one explicit authorization entry through an installed TypeScript sidecar.
+The unchanged Go `sign` command handles the 1Password socket and raw digest signature.
+The sidecar never builds, simulates, deploys, or submits transactions.
+It does not load `.env` files.
+Bun 1.4.2 and installed assets are required.
+
+```json
+{
+  "auth_entry_xdr": "canonical Base64 SorobanAuthorizationEntry",
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "public_key": "selected G-address",
+  "address": "authorized G-address or C-address",
+  "adapter": { "type": "contract-ed25519" },
+  "latest_ledger": 12345
+}
+```
+
+The entry contains its final nonce, invocation tree, and expiration ledger.
+Its signature must be `scvVoid`.
+Expiration must exceed `latest_ledger` by 1–60 ledgers.
+The local caller supplies trusted, current ledger evidence.
+The CLI cannot establish its freshness without network access.
+The bridge obtains its own trusted ledger instead.
+
+The new signing APIs require `sorobanCredentialsAddressV2`.
+They reject SourceAccount, delegated credentials, and legacy V1 credentials.
+V1 lacks address binding and permits signature reuse across addresses.
+The helpers preserve V1 during parsing, but signing rejects it without conversion.
+Existing legacy acceptance fixtures remain separate.
+
+Adapters:
+
+- `{"type":"account"}` signs for the selected native G-address.
+- `{"type":"contract-ed25519"}` produces an `scvBytes` raw signature for a C-account.
+- `{"type":"openzeppelin-ed25519","verifier":"C...","context_rule_ids":[0]}` uses the pinned external Ed25519 schema.
+
+The OpenZeppelin adapter requires one uint32 rule ID per invocation context.
+It signs the additional digest described in [OPENZEPPELIN.md](OPENZEPPELIN.md).
+The caller selects the contract adapter and verifies the account's deployed policy and ownership.
+A C-address and public key declaration cannot establish ownership.
+The signer validates the requested binding and signature format without querying contract state.
+The website must enforce-simulate before submission.
+
+The command returns:
+
+```json
+{
+  "ok": true,
+  "public_key": "G...",
+  "digest": "64 lowercase hexadecimal characters",
+  "signed_auth_entry_xdr": "canonical Base64 SorobanAuthorizationEntry",
+  "verified": true
+}
+```
+
+Only the signature field changes.
+Independent verification checks the exact digest before output.
+The input limit is 49152 bytes. The authorization XDR limit is 32768 Base64 characters.
+Invocation trees permit 256 contexts and 32 levels.
+Unknown fields, duplicate JSON fields, malformed XDR, noncanonical XDR, and existing signatures fail before signing.
+The command permits 120 seconds, including input and signing.
+Invalid input exits with code 2. Other failures exit with code 1.
+The command never retries signing.
+
+### Browser authorization API
+
+```ts
+const result = await client.signAuthEntry(authEntryXdr, {
+  address: contractId,
+  adapter: { type: 'contract-ed25519' },
+  networkPassphrase: Networks.TESTNET,
+  signal,
+  onProgress,
+});
+// result: { signedAuthEntryXdr, signerAddress }
+```
+
+`address` identifies the authorization address. `signerAddress` identifies the selected G-key.
+Omitting `adapter` selects `{ type: 'account' }`.
+The SDK copies the adapter before asynchronous work.
+It verifies the entire returned artifact before exposing it.
+The bridge supplies ledger freshness. SDK verification does not independently query the network.
+
+Portable exports from `sdk/walleterm.ts` and `sdk/authorization.ts`:
+
+- `createAuthEntry({ address, invocation, nonce, expirationLedger, credentialVersion: 2 })` returns Base64 XDR.
+- `setAuthEntryExpiration(authEntryXdr, expirationLedger)` sets expiry on an unsigned entry.
+- `parseAuthEntry(authEntryXdr)` returns the canonical, bounded XDR entry.
+- `addressCredentials(entry)` returns explicit V1/V2 address credentials without conversion.
+- `countAuthContexts(invocation)` counts the complete bounded invocation tree.
+- `inspectAuthEntry(input, selectedPublicKey, latestLedger)` validates the request and computes the digest.
+- `attachAuthSignature(input, publicKey, latestLedger, signatureHex)` verifies and attaches one signature.
+- `verifyAuthEntrySignature(input, signedAuthEntryXdr, latestLedger)` returns `true` or throws.
+
+`input` contains the six CLI fields except `latest_ledger`.
+These helpers do not contact an RPC server or a signer.
+
+Both SDK signing methods verify the returned artifact before exposing it.
+Transaction verification binds the complete requested body, network hash, selected G-key, signature hint, and one valid envelope signature.
+A failed verification after a signed response reports `requestState: "unknown"` and `canceled: false`.
+A missing signed artifact uses the same outcome metadata.
+These failures do not prove that signing stopped or that no usable signature exists.
+The SDK does not retry signing or claim successful cancellation after these failures.

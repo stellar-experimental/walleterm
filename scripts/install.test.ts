@@ -60,6 +60,20 @@ for (const fail of [true, false])
         const binary = realpathSync(join(prefix, 'bin', 'walleterm'));
         const release = join(binary, '..', '..');
         assert.equal(existsSync(join(release, 'bridge', 'entry.ts')), true);
+        for (const file of [
+          'bridge/auth-cli.ts',
+          'bridge/authorization.ts',
+          'sdk/authorization.ts',
+          'sdk/transaction.ts',
+          'demo/site/contracts.ts',
+          'fixtures/wasm/walleterm_simple_account.wasm',
+          'fixtures/wasm/walleterm_auth_target.wasm',
+        ])
+          assert.equal(
+            readFileSync(join(release, file)).equals(readFileSync(new URL('../' + file, import.meta.url))),
+            true,
+          );
+        assert.equal(existsSync(join(release, 'dist/sdk/authorization.js')), true);
         assert.equal(existsSync(join(release, 'demo', 'entry.ts')), true);
         assert.equal(existsSync(join(release, 'demo', 'site', 'activity.css')), true);
         for (const asset of ['app.js', 'activity.js', 'code-view.js', 'syntax.js'])

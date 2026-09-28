@@ -59,6 +59,7 @@ const transpiler = new Bun.Transpiler({ loader: 'ts' });
 export function browserScript(url: URL): string {
   return transpiler
     .transformSync(readFileSync(url, 'utf8'))
-    .replace(/^import .*\n/gm, '')
+    .replace(/^import\s+(?:[\s\S]*?\s+from\s+)?['"][^'"]+['"];?\n/gm, '')
+    .replace(/^export \* from .*\n/gm, '')
     .replace(/^export (?=(?:async )?(?:class|function|const|let) )/gm, '');
 }

@@ -1,6 +1,6 @@
 # Walleterm bridge protocol v2
 
-The bridge signs supported unsigned classic testnet transactions. It never builds or submits transactions.
+The bridge signs supported testnet transactions and explicit authorization entries. It never builds or submits transactions.
 All routes return JSON. Errors contain `{ "error": { "message": "..." } }`.
 The public bridge URL contains no credential. The website exchanges the connection code for an origin-bound session token.
 A connected website can list available 1Password Ed25519 public keys, comments, and fingerprints.
@@ -88,9 +88,10 @@ The selected key must still exist before signing. The bridge independently verif
 
 The bridge accepts TESTNET, unsigned v1 transaction envelopes, and one operation per transaction.
 The transaction source and optional operation source must match the selected account.
-Supported operations are native payment, manageData, and manageSellOffer with explicit assets.
+Classic operations are native payment, manageData, and manageSellOffer with explicit assets.
 The maximum fee is 100000 stroops. Time bounds are required and end within five minutes.
-Fee bumps, additional preconditions, Soroban, additional signatures, and other operations fail before signing.
+Fee bumps, additional preconditions, and additional envelope signatures fail before signing.
+The Soroban section below defines the additional supported operations.
 These limits describe the first adapter. They do not claim support for every Stellar application.
 
 ## State and cancellation
@@ -104,3 +105,74 @@ The SDK retries identical request IDs after network failures and server errors.
 Retry delays increase from one second to five seconds. Successful polling uses one-second intervals.
 The SDK never retries the signer itself. It bounds cancellation checks to ten seconds and three attempts.
 Unconfirmed cancellation preserves signing uncertainty. An optional `onProgress` callback reports request states and network retries.
+
+## Explicit authorization requests
+
+Use the existing request endpoint and lifecycle for standalone authorization signing:
+
+```json
+{
+  "id": "unique-request-id",
+  "kind": "authorization",
+  "auth_entry_xdr": "canonical Base64 SorobanAuthorizationEntry",
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "public_key": "selected G-key",
+  "address": "authorized G-address or C-address",
+  "adapter": { "type": "contract-ed25519" },
+  "selection_revision": 1
+}
+```
+
+`selection_revision` applies only to sessions with `wallet_scope: "available"`.
+The result uses `signed_xdr` for the signed authorization entry.
+`hash` contains the exact signing digest. The SDK returns `signedAuthEntryXdr` to its caller.
+
+The bridge accepts AddressV2 credentials with an empty `scvVoid` signature.
+It rejects V1, SourceAccount, delegated credentials, and unknown adapters for standalone signing.
+V1 has no address binding and permits cross-address signature reuse.
+The signer never converts credential variants.
+The address, nonce, full invocation tree, expiry, and network enter the V2 signing digest.
+
+Adapters are `account`, `contract-ed25519`, and `openzeppelin-ed25519`.
+The OpenZeppelin adapter also requires `verifier` and `context_rule_ids`.
+See [the CLI interface](../docs/INTERFACE.md) for schemas and exported helpers.
+C-account policy and ownership checks remain the website's responsibility.
+
+The bridge queries `getHealth` at `https://soroban-testnet.stellar.org` before signing and after signature return.
+The endpoint is fixed. Redirects, oversized responses, lookup failures, and invalid ledger numbers stop the request.
+The website cannot supply ledger metadata or an RPC endpoint.
+The response must report `status: "healthy"` and a valid uint32 `latestLedger`.
+The bridge permits at most 16384 response bytes and ten seconds per lookup.
+Expiration must exceed the trusted ledger by 1–60 ledgers.
+A request also expires after five minutes, independent of ledger expiry and any outer transaction.
+The SDK checks the complete returned artifact locally. It does not independently establish ledger freshness.
+
+Authorization requests share cancellation, page closure, revocation, wallet revisions, queueing, and repeated-ID behavior.
+Repeated IDs bind the full artifact, signer, network, authorization address, and all adapter fields.
+Changing the OpenZeppelin verifier or rule IDs requires a new request ID.
+Canceled requests never expose late signatures.
+The bridge and SDK each verify returned signatures independently.
+The bridge exposes no arbitrary digest route.
+
+## Generic Soroban transaction envelopes
+
+Transaction requests also accept unsigned v1 envelopes with Soroban transaction data.
+They support one invoke-host-function, extend-footprint, or restore-footprint operation.
+Host functions include contract upload, contract creation, and arbitrary contract invocation.
+The source and operation source must match the selected G-key.
+Existing time, sequence, signature, and network checks still apply.
+Soroban fees permit 100–100000000 stroops. Classic fees retain their existing limit.
+Transaction XDR permits 262144 Base64 characters. Request bodies permit 393216 bytes.
+
+SourceAccount authorization is valid inside these envelopes.
+It has no standalone authorization signature payload.
+Explicit V1/V2 address entries must already contain signatures.
+The bridge rejects delegated credential variants until it has an explicit supported path.
+The envelope signature covers all embedded authorization entries exactly.
+It does not establish C-account policy acceptance or replace an explicit authorization signature.
+The website must simulate, build, and submit the transaction.
+
+The SDK verifies each returned transaction against its exact requested body and network-bound hash.
+It requires one valid envelope signature from the selected G-key, with the correct signature hint.
+Both SDK signing methods report post-response verification failures as `requestState: "unknown"` and `canceled: false`.
+They do not claim cancellation or retry signing after an invalid signed response.

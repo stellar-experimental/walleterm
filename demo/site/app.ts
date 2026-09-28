@@ -2,6 +2,16 @@ import { requestError } from '../../sdk/errors.ts';
 import { createCodeView, highlightConnectionCommand } from './code-view.js';
 import { WalletermConnect } from '../../sdk/connect.ts';
 import { createActivityLog } from './activity.ts';
+import {
+  assembleAuthorizedContract,
+  authorizationExpiry,
+  demoRpc,
+  hex as contractHex,
+  prepareContract,
+  validateContractReview,
+  verifyContractResult,
+} from './contracts.ts';
+import type { ContractReview } from './contracts.ts';
 import type { Horizon, Transaction } from '@stellar/stellar-sdk';
 import type { Account as WalletAccount } from '../../sdk/types.ts';
 import type { WalletermClient } from '../../sdk/walleterm.ts';
@@ -9,7 +19,7 @@ import type { WalletermClient } from '../../sdk/walleterm.ts';
 declare global {
   var StellarSdk: typeof import('@stellar/stellar-sdk');
 }
-type Action = 'note' | 'payment' | 'offer' | 'cancel_offer';
+type Action = 'note' | 'payment' | 'offer' | 'cancel_offer' | 'contract_setup' | 'contract_counter';
 type State =
   | 'review'
   | 'waiting'
@@ -31,6 +41,7 @@ interface Journal {
   recipient?: string;
   signed_xdr?: string;
   result?: unknown;
+  contract?: ContractReview;
 }
 interface TransactionResult {
   hash: string;
@@ -62,6 +73,8 @@ interface Elements {
   payment: HTMLButtonElement;
   offer: HTMLButtonElement;
   'cancel-offer': HTMLButtonElement;
+  'contract-setup': HTMLButtonElement;
+  'contract-counter': HTMLButtonElement;
   sign: HTMLButtonElement;
   submit: HTMLButtonElement;
   check: HTMLButtonElement;
@@ -138,6 +151,8 @@ const actionNames = {
   payment: 'Pay 0.01 test XLM',
   offer: 'Offer 0.1 test XLM',
   cancel_offer: 'Cancel newest offer',
+  contract_setup: 'Set up contract demo',
+  contract_counter: 'Increment contract counter',
 };
 const stateNames = {
   review: 'Ready to sign',
@@ -268,7 +283,9 @@ function readJournal(): Journal | null {
       'expired',
       'failed',
     ].includes(value.state) ||
-    !['note', 'payment', 'offer', 'cancel_offer'].includes(value.kind) ||
+    !['note', 'payment', 'offer', 'cancel_offer', 'contract_setup', 'contract_counter'].includes(
+      value.kind,
+    ) ||
     typeof value.address !== 'string' ||
     !value.address ||
     typeof value.hash !== 'string' ||
@@ -278,14 +295,36 @@ function readJournal(): Journal | null {
   )
     throw Error('The local demo journal is invalid.');
   if (value.state === 'review') describe(value.xdr); // A review must decode before the page shows it.
+  if (value.kind === 'contract_setup' || value.kind === 'contract_counter') {
+    validateContractReview(value.xdr, value.address, value.contract);
+    if (value.hash !== contractHex(classicTransaction(value.xdr).hash()))
+      throw Error('The saved contract hash is invalid.');
+    if (value.signed_xdr !== undefined) verifySignedRecord(value);
+  }
   return value;
 }
 function classicTransaction(
   text: string,
 ): Transaction & { timeBounds: NonNullable<Transaction['timeBounds']> } {
   const tx = TransactionBuilder.fromXDR(text, Networks.TESTNET);
-  if ('innerTransaction' in tx || !tx.timeBounds) throw Error('Use a classic transaction with time bounds.');
+  if ('innerTransaction' in tx || !tx.timeBounds) throw Error('Use a transaction with time bounds.');
   return tx as Transaction & { timeBounds: NonNullable<Transaction['timeBounds']> };
+}
+function verifySignedRecord(record: Journal) {
+  if (typeof record.signed_xdr !== 'string') throw Error('The signed transaction is missing.');
+  if (record.contract && !record.contract.authorizationReady)
+    throw Error('The contract authorization is not complete.');
+  const signed = classicTransaction(record.signed_xdr);
+  const hash = Array.from(signed.hash(), (byte) => byte.toString(16).padStart(2, '0')).join('');
+  if (
+    hash !== record.hash ||
+    signed.signatures.length !== 1 ||
+    signed.source !== record.address ||
+    !Keypair.fromPublicKey(record.address).verify(signed.hash(), signed.signatures[0].signature.toBytes())
+  )
+    throw Error('The signed transaction differs from the reviewed transaction.');
+  if (record.contract) validateContractReview(record.signed_xdr, record.address, record.contract);
+  return signed;
 }
 // Show every field that Sign approves.
 function describe(text: string) {
@@ -318,7 +357,14 @@ function render() {
   connection.sync();
   connection.setBusy(busy && !signingController);
   $('connection-hint').hidden = !!account;
-  for (const name of ['note', 'payment', 'offer', 'cancel-offer'] as const)
+  for (const name of [
+    'note',
+    'payment',
+    'offer',
+    'cancel-offer',
+    'contract-setup',
+    'contract-counter',
+  ] as const)
     $(name).disabled =
       !account ||
       !wallet?.token ||
@@ -390,6 +436,17 @@ function render() {
     ['Network', 'Stellar testnet'],
     ['Wallet', pending.address],
     ...(pending.recipient ? [['Recipient', pending.recipient]] : []),
+    ...(pending.contract
+      ? [
+          ['Smart account', pending.contract.accountId],
+          ['Contract', pending.contract.targetId],
+          ['Action', pending.contract.stage],
+          ...(pending.contract.before === undefined
+            ? []
+            : [['Counter', `${pending.contract.before} → ${pending.contract.before + 1}`]]),
+          ['Next signature', pending.contract.authorizationReady ? 'Transaction' : 'Contract authorization'],
+        ]
+      : []),
   ]) {
     const term = document.createElement('dt'),
       detail = document.createElement('dd');
@@ -407,6 +464,7 @@ function render() {
         hash: pending.hash,
         ...(['review', 'signed'].includes(pending.state) ? { transaction: describe(pending.xdr) } : {}),
         result: pending.result,
+        ...(pending.contract ? { contract: pending.contract } : {}),
       },
       null,
       2,
@@ -426,7 +484,14 @@ function render() {
     journalBlocked ||
     !pending.xdr ||
     !connectedTo(pending.address);
-  $('sign').textContent = busy && actionPhase === 'signing' ? 'Signing…' : 'Sign';
+  $('sign').textContent =
+    busy && actionPhase === 'signing'
+      ? 'Signing…'
+      : pending.contract
+        ? pending.contract.authorizationReady
+          ? 'Sign transaction'
+          : 'Sign contract authorization'
+        : 'Sign';
   $('cancel-request').hidden = pending.state !== 'waiting' || !signingController;
   $('cancel-request').disabled = !signingController || signingController.signal.aborted;
   $('cancel-request').textContent = signingController?.signal.aborted
@@ -488,6 +553,35 @@ async function action(fn: () => Promise<void>, phase = 'preparing') {
 async function build(kind: Action) {
   if (!account || pending) return;
   const source = await sourceAccount();
+  if (kind === 'contract_setup' || kind === 'contract_counter') {
+    progressLabel('Checking the demo contracts and their code…');
+    const prepared = await prepareContract(
+      demoRpc(),
+      account.address!,
+      kind === 'contract_counter',
+      async (file) => {
+        const response = await fetch(`/fixtures/${file}`, { signal: AbortSignal.timeout(15000) });
+        if (!response.ok) throw Error('The demo contract file is unavailable.');
+        return new Uint8Array(await response.arrayBuffer());
+      },
+    );
+    pending = {
+      kind,
+      address: account.address!,
+      hash: contractHex(prepared.transaction.hash()),
+      xdr: prepared.transaction.toXDR(),
+      state: 'review',
+      contract: prepared.review,
+    };
+    save();
+    render();
+    status(
+      prepared.review.authorizationReady
+        ? 'Review the setup transaction before signing it.'
+        : 'Review the exact contract authorization before signing it.',
+    );
+    return;
+  }
   let operation;
   const id = crypto.randomUUID();
   let recipient;
@@ -578,6 +672,7 @@ async function requestSignature() {
   const record = pending,
     client = wallet,
     controller = new AbortController();
+  if (record.contract) validateContractReview(record.xdr, record.address, record.contract);
   signingController = controller;
   const timer = setInterval(() => {
     if (signingController !== controller) return;
@@ -591,12 +686,12 @@ async function requestSignature() {
       Number(classicTransaction(record.xdr).timeBounds.maxTime) * 1000,
     );
     render();
-    const result = await client.signTransaction(record.xdr, {
+    const options = {
       signal: AbortSignal.any([
         controller.signal,
         AbortSignal.timeout(Math.max(1, signingDeadline - Date.now())),
       ]),
-      onProgress({ state, expiresAt }) {
+      onProgress({ state, expiresAt }: { state: string; expiresAt?: string }) {
         if (pending !== record || signingController !== controller) return;
         const expires = Date.parse(expiresAt || '');
         if (Number.isFinite(expires)) signingDeadline = Math.min(signingDeadline, expires);
@@ -612,7 +707,40 @@ async function requestSignature() {
                   : '';
         render();
       },
-    });
+    };
+    if (record.contract && !record.contract.authorizationReady) {
+      for (const authorization of record.contract.authorizations) {
+        if (authorization.signed) continue;
+        const result = await client.signAuthEntry(authorization.xdr, {
+          ...options,
+          address: authorization.address,
+          adapter: { type: authorization.adapter },
+        });
+        if (pending !== record || signingController !== controller)
+          throw Error('The contract record changed during authorization signing.');
+        authorization.xdr = result.signedAuthEntryXdr;
+        authorization.signed = true;
+        save();
+        activity.record('authorization', 'Contract authorization signed', {
+          authorizer: authorization.address,
+          signer: record.address,
+          signed_auth_entry_xdr: result.signedAuthEntryXdr,
+        });
+      }
+      actionProgress = 'Checking the signed contract authorization…';
+      render();
+      const assembled = await assembleAuthorizedContract(demoRpc(), record.xdr, record.contract);
+      record.xdr = assembled.toXDR();
+      record.hash = contractHex(assembled.hash());
+      record.contract.authorizationReady = true;
+      record.state = 'review';
+      save();
+      status(
+        'Contract authorization verified by simulation. Review the final fee, then sign the transaction.',
+      );
+      return;
+    }
+    const result = await client.signTransaction(record.xdr, options);
     if (pending !== record || signingController !== controller)
       throw Error('The transaction record changed during signing.');
     const signed = TransactionBuilder.fromXDR(result.signedTxXdr, Networks.TESTNET);
@@ -674,6 +802,8 @@ function startAction(kind: Action) {
 }
 for (const kind of ['note', 'payment', 'offer'] as const) $(kind).onclick = () => startAction(kind);
 $('cancel-offer').onclick = () => startAction('cancel_offer');
+$('contract-setup').onclick = () => startAction('contract_setup');
+$('contract-counter').onclick = () => startAction('contract_counter');
 $('cancel-request').onclick = () => {
   signingController?.abort(Error('The signing request was canceled.'));
   render();
@@ -714,11 +844,21 @@ async function confirmed(result: TransactionResult) {
       status('The original transaction succeeded on testnet. Offer details are unavailable.');
     }
   }
+  if (result.successful && pending.contract) {
+    const verification = await verifyContractResult(demoRpc(), pending.address, pending.contract);
+    pending.result = { ...(pending.result as Record<string, unknown>), verification };
+    save();
+    status(
+      pending.contract.stage === 'increment'
+        ? `Contract authorization verified. Counter changed from ${pending.contract.before} to ${pending.contract.before! + 1}.`
+        : 'Setup step confirmed. Select Set up contract demo to continue, or Increment counter when ready.',
+    );
+  }
 }
 $('submit').onclick = () =>
   action(async () => {
     if (pending?.state !== 'signed') return;
-    const tx = classicTransaction(pending.signed_xdr!);
+    const tx = verifySignedRecord(pending);
     if (Number(tx.timeBounds.maxTime) * 1000 <= Date.now()) {
       pending.state = 'expired';
       save();
@@ -730,6 +870,36 @@ $('submit').onclick = () =>
     render();
     status('Waiting for the testnet submission result.');
     try {
+      if (pending.contract) {
+        const server = demoRpc();
+        const sent = await server.sendTransaction(tx);
+        if (sent.status === 'ERROR' && sent.errorResult && sent.errorResult.result.type !== 'txBadSeq') {
+          pending.state = 'failed';
+          pending.result = {
+            rejected: true,
+            response: sent.status,
+            result_xdr: sent.errorResult?.toXdr('base64'),
+            hash: pending.hash,
+          };
+          save();
+          status(`Testnet rejected the transaction: ${sent.errorResult?.result.type || sent.status}.`);
+          return;
+        }
+        for (let attempt = 0; attempt < 10; attempt++) {
+          const result = await server.getTransaction(pending.hash);
+          if (result.status === 'SUCCESS' || result.status === 'FAILED') {
+            await confirmed({
+              hash: pending.hash,
+              ledger: result.ledger,
+              successful: result.status === 'SUCCESS',
+              result_xdr: result.resultXdr.toXdr('base64'),
+            });
+            return;
+          }
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+        throw Error('The RPC has not confirmed the original transaction yet.');
+      }
       const result = await horizon<TransactionResult>('/transactions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -738,6 +908,7 @@ $('submit').onclick = () =>
       await confirmed(result);
     } catch (errorValue) {
       const error = requestError(errorValue);
+      if (hasFinishedTransaction()) throw error;
       const result = 'result' in error ? (error.result as HorizonFailure) : undefined;
       const code = result?.extras?.result_codes?.transaction;
       if (
@@ -777,6 +948,15 @@ $('check').onclick = () =>
         Date.parse(latest.closed_at) / 1000 > Number(tx.timeBounds.maxTime) &&
         BigInt(source.sequence) < BigInt(tx.sequence)
       ) {
+        if (
+          pending.contract &&
+          authorizationExpiry(pending.contract) >= (await demoRpc().getLatestLedger()).sequence
+        ) {
+          status(
+            `The original transaction expired. Its contract authorization remains valid through ledger ${authorizationExpiry(pending.contract)}. Check again later.`,
+          );
+          return;
+        }
         pending.state = 'expired';
         save();
         status('The transaction expired without reaching the ledger. It can never apply.');
@@ -794,6 +974,16 @@ $('clear').onclick = () =>
       (['waiting', 'signing_unknown'].includes(pending.state) && signingController)
     )
       return;
+    if (
+      pending.contract &&
+      ['waiting', 'signing_unknown'].includes(pending.state) &&
+      authorizationExpiry(pending.contract) >= (await demoRpc().getLatestLedger()).sequence
+    ) {
+      status(
+        `Wait until after ledger ${authorizationExpiry(pending.contract)} before clearing this unknown authorization result.`,
+      );
+      return;
+    }
     pending = null;
     save();
     selectedAction = null;

@@ -1,3 +1,4 @@
+import type { AuthEntryInput } from './authorization.js';
 /** Public bridge values. Connection credentials stay in memory. */
 export interface Signer {
   public_key: string;
@@ -61,3 +62,9 @@ export interface Connection {
   url: string;
   code: string;
 }
+
+export interface AuthSigningInput extends AuthEntryInput {
+  kind: 'authorization';
+  selection_revision?: number;
+}
+export type ArtifactSigningInput = SigningInput | AuthSigningInput;
