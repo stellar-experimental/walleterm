@@ -11,7 +11,7 @@ After a connection, the Walleterm SDK and its header component drive the interfa
   They resolve SEP-43 results. A failure resolves empty fields and `error: { code, message, ext }`, as Freighter does.
 - `getAddress()` owns pairing. Without a session, it opens the Walleterm dialog.
 - `signAuthEntry` signs a CAP-71 address-bound preimage and returns a Base64 Ed25519 signature.
-- `signMessage` always returns `-3`. See [future work](#future-work-message-signing).
+- `signMessage` signs SEP-53 text of 1–1024 UTF-8 bytes and returns a Base64 signature. See [section 2a](#2a-message-signing).
 - The network is testnet only.
 - The native SDK keeps wallet switching, both wallet scopes, and the `WalletermConnect` header component.
 - The native SDK keeps adapter signing as `signAuthorization`, outside SEP-43.
@@ -73,7 +73,7 @@ So a `Walleterm` object is a Stellar SDK `contract.Signer`. Its `address` is an 
 | `getAddress()` | With a session, it confirms the session through `GET /v1/account`. Without one, it opens pairing. `skipRequestAccess: true` returns `-3 walleterm:not_connected` instead. A closed dialog returns `-4`. |
 | `signTransaction()` | It checks the envelope locally, sends one request, and verifies the returned envelope. `submit: true` or `submitUrl` returns `-3`. The bridge never submits. |
 | `signAuthEntry()` | Section 2. |
-| `signMessage()` | It returns `-3 walleterm:unsupported`. It sends no request. |
+| `signMessage()` | Section 2a. It checks the text, the network, and the address before any request. |
 | `getNetwork()` | It returns `{ network: 'TESTNET', networkPassphrase: 'Test SDF Network ; September 2015' }` without a session. |
 
 ### Native methods
@@ -98,8 +98,8 @@ These methods belong to the Walleterm SDK. Failures throw a `WalletermError` wit
 | `-3` | `walleterm:not_connected` | No session, or the bridge returned 401. |
 | `-3` | `walleterm:network_unsupported` | The passphrase or preimage network is not testnet. |
 | `-3` | `walleterm:address_mismatch` | `opts.address` differs from the selected key, or the key is not a required signer. |
-| `-3` | `walleterm:invalid_request` | Malformed, noncanonical, or oversized input. |
-| `-3` | `walleterm:unsupported` | `signMessage`, submission, or a V1 preimage. |
+| `-3` | `walleterm:invalid_request` | Malformed, noncanonical, or oversized input. Message text that is not well-formed or has more than 1024 UTF-8 bytes. |
+| `-3` | `walleterm:unsupported` | Submission or a V1 preimage. |
 | `-3` | `walleterm:conflict` | A stale wallet selection or a reused request ID. |
 | `-3` | `walleterm:rate_limited` | A bridge connection or request limit. |
 | `-3` | `walleterm:expired` | The request expired before signing. |
@@ -158,6 +158,45 @@ It signs a complete unsigned AddressV2 entry and returns `{ signedAuthEntryXdr, 
 The OpenZeppelin digest differs from the preimage hash, so SEP-43 cannot carry it.
 This path uses `sdk/authorization.ts`. No check reads a ledger. Expiration ledger 0 fails.
 The authorization entry shape of `walleterm sign` keeps the same adapters.
+
+## 2a. Message signing
+
+`signMessage(message)` signs [SEP-53](https://github.com/stellar/stellar-protocol/blob/9cd703075d87a6ce293752b1532e7b68efe12ae1/ecosystem/sep-0053.md) text.
+The key signs `SHA-256("Stellar Signed Message:\n" || UTF-8 text)`. The bridge computes that digest from the text.
+No path accepts a precomputed hash or binary data.
+
+```ts
+const { signedMessage, signerAddress, error } = await wallet.signMessage(text);
+if (error) throw error;
+Keypair.fromPublicKey(signerAddress).verifyMessage(text, Uint8Array.from(atob(signedMessage), (c) => c.charCodeAt(0)));
+```
+
+Before any request, the SDK checks these points:
+
+1. `message` is a string, and `message.isWellFormed()` is true.
+   `TextEncoder` turns a lone surrogate into U+FFFD, so the signature would cover other text.
+2. The text has 1–1024 UTF-8 bytes. The limit counts bytes, not characters.
+3. The network is testnet, and `opts.address` is absent or the selected G-address.
+
+The SDK sends one `message` request. It verifies the result with `Keypair.verifyMessage` before it returns it.
+`signedMessage` is the Base64 64-byte signature. `signerAddress` is the selected G-address.
+Stellar CLI also verifies it: `stellar message verify "<text>" --signature <Base64> --public-key G...`.
+
+The website approves a message by sending it, as for every request (decision D1, 2026-09-28).
+The optional `review` hook applies. The tunnel prints the origin, key, byte count, digest, and escaped text before signing.
+The line states that the signature has no network, site, or expiry binding.
+
+A SEP-53 signature is a permanent, portable proof that the key approved the text.
+It binds no network, origin, nonce, or expiry, unless the text contains them. The 1Password prompt shows no text.
+So a connected website, or a compromised script on it, can try these attacks:
+
+1. Login relay. It requests another service's login challenge, then signs in to that service as the user.
+2. Key derivation. It requests a fixed text that another application hashes into a private key.
+3. Claims. It requests a social-proof or agreement text of its own choice.
+4. Replay. It reuses a signature at a consumer that checks no nonce or expiry.
+
+The testnet rule does not limit a message signature. Connect only dedicated testnet keys.
+Never use a Walleterm key as an identity or a key-derivation source for another service.
 
 ## 3. Pairing, switching, and sessions
 
@@ -275,8 +314,8 @@ The QR payload is `{"walleterm":3,"url":"...","code":"...","expires_at":"..."}`.
 | `GET /v1/signers` | `signers`, and `grant_id` before an `available` selection. |
 | `POST /v1/select` | `{ public_key }`, plus `expected_revision` and the first `grant_id` for `available`. Returns `address`, `network`, `network_passphrase`, `selection_revision`, `expires_at`. |
 | `GET /v1/account` | `connection_id`, `address`, `network`, `network_passphrase`, `expires_at`, `wallet_scope`, `selection_revision`. |
-| `POST /v1/requests` | `{ id, kind, network_passphrase, address, selection_revision? }` plus `xdr` (`transaction`), `preimage_xdr` (`auth_entry`), or `auth_entry_xdr`, `auth_address`, and `adapter` (`authorization`). |
-| `GET /v1/requests/:id` | `id`, `kind`, `state`, `hash`, `expires_at`, `error`. A signed request adds `signer_address` and one of `signed_tx_xdr`, `signed_auth_entry`, or `signed_auth_entry_xdr`. |
+| `POST /v1/requests` | `{ id, kind, network_passphrase, address, selection_revision? }` plus `xdr` (`transaction`), `preimage_xdr` (`auth_entry`), `auth_entry_xdr`, `auth_address`, and `adapter` (`authorization`), or `message` (`message`). |
+| `GET /v1/requests/:id` | `id`, `kind`, `state`, `hash`, `expires_at`, `error`. A signed request adds `signer_address` and one of `signed_tx_xdr`, `signed_auth_entry`, `signed_auth_entry_xdr`, or `signed_message`. |
 | `POST /v1/requests/:id/cancel`, `POST /v1/disconnect` | Unchanged. |
 
 Every error is `{ "error": { "code", "message", "ext" } }` with an HTTP status.
@@ -312,7 +351,7 @@ It would not remove the tunnel or make Walleterm safe for mainnet.
 `fixtures/kit/` pins Kit 2.7.0 in its own package and lockfile. The root package does not depend on the Kit.
 Its check type-checks the module against the Kit `ModuleInterface`.
 It then drives the real Kit SDK against the Rust bridge in `walleterm-test-host`, with random mock keys:
-PUBLIC refusal, pairing, transaction and preimage signing, message refusal, network, switching, and disconnection.
+PUBLIC refusal, pairing, transaction, preimage, and message signing, network, switching, and disconnection.
 Run it from the repository root:
 
 ```sh
@@ -334,13 +373,13 @@ They also cover switching events, the removed operation rules, and the Kit modul
 An independent reviewer checks the signing path before acceptance. Check these points:
 
 - Every rejected request reaches no signer call.
-- The bridge signs exactly the validated hash: the transaction hash or `SHA-256(preimage)`.
+- The bridge signs exactly the validated hash: the transaction hash, `SHA-256(preimage)`, or the SEP-53 digest of the text.
 - Request identity binds kind, artifact, signer, network, and adapter fields.
 - No path reports `-4` or `denied` after signing started.
 - The SDK verifies each result before it returns it.
 
 `fixtures/kit/live/` serves a loopback acceptance page with the real Kit, `WalletermModule`, and the guarded hook.
-It exposes `window.acceptance` for steps 3–5. `bun fixtures/kit/live/check.mts` checks it offline with mock keys.
+It exposes `window.acceptance` for steps 3–6. `bun fixtures/kit/live/check.mts` checks it offline with mock keys.
 Start it with `bun fixtures/kit/live/serve.mts` after the Kit fixture install.
 
 Live acceptance needs fresh approval and dedicated testnet keys:
@@ -348,10 +387,13 @@ Live acceptance needs fresh approval and dedicated testnet keys:
 1. Demo: pair, sign and submit a payment, switch wallets, and sign again.
 2. Demo: increment the fixture counter through `signAuthEntry`, then `signTransaction`.
 3. Kit fixture page with a real 1Password key: `authModal`, `signTransaction`, `signAuthEntries`, switch, and `disconnect`.
-4. Zero signature requests for PUBLIC, a V1 preimage, `signMessage`, and `submit: true`.
+4. Zero signature requests for PUBLIC, a V1 preimage, a message with a lone surrogate, and `submit: true`.
 5. A `changeTrust` transaction, which the removed operation allowlist refused.
+6. Kit fixture page `signMessage` with the text `walleterm acceptance <date> <nonce>`.
+   The tunnel prints the message line. Verify the Base64 signature with the SDK and Stellar CLI. Nothing goes to the network.
 
-The coordinator ran these steps on testnet on 2026-09-28. All steps passed.
+The coordinator ran steps 1–5 on testnet on 2026-09-28. All steps passed.
+That run was before message signing. Its step 4 checked that `signMessage` returned `-3`. Step 6 has not run yet.
 [The live record](../evidence/sep43-live-2026-09-28.json) holds the hashes, ledgers, fees, and account states.
 The run signed 7 transactions and 2 authorization entries. Step 4 produced no signature.
 It found two defects. After a switch or a revoke, the terminal reported delivered signatures as withheld.
@@ -361,36 +403,18 @@ After a reload, the header menu showed no wallets until Refresh. PR #27 fixes bo
 
 | Item | Walleterm | Reason |
 | --- | --- | --- |
-| `signMessage` | Returns `-3` | No network binding and no trusted display |
+| `signMessage` encoding | Base64 of the raw 64-byte signature | SEP-43 prose says hexadecimal. Freighter, its Kit module, and Stellar CLI use Base64. |
+| `signMessage` confirmation | The connected website confirms by sending. The tunnel prints the escaped text. | The bridge has no trusted display. Dedicated testnet keys are required. |
 | V1 preimages | Return `-3` | Cross-address replay |
 | Networks | Testnet only | Bridge scope |
 | `submit`, `submitUrl` | Return `-3` | The bridge never submits |
 | Review | The website approves by sending | Existing testnet design; agentic review is planned |
 
-## Future work: message signing
-
-`signMessage` returns `-3` for now. Review these points before any change.
-
-SEP-53 signs `SHA-256("Stellar Signed Message:\n" || message)`. Freighter returns Base64.
-
-1. No network binding. Every other bridge artifact binds testnet. A message signature works on every network and service.
-2. Login relay. A connected website can request another service's login challenge.
-3. Key derivation. A connected website can request text that another application uses to derive keys.
-4. A compromised script on a connected website gets the same power.
-5. SEP-53 requires a clear display or confirmation. The bridge has no trusted display.
-
-Options:
-
-- Per-message confirmation in the tunnel terminal. It shows the Origin, key, full text, and digest.
-  Accept UTF-8 text of 1024 bytes or fewer. A timeout denies the request.
-- Agentic review of each message, with the same limits.
-- Automatic signing with limits. This fails the SEP-53 display rule.
-
 ## Decisions
 
 | Question | Decision |
 | --- | --- |
-| Q1 `signMessage` | Return `-3`. Future work above. |
+| Q1 `signMessage` | Sign SEP-53 text of 1–1024 UTF-8 bytes. The website confirms by sending. The result is Base64. The user decided this on 2026-09-28 (sign design D1, option C). |
 | Q3 V1 preimages | Reject. |
 | Q4 OpenZeppelin | Native `signAuthorization` extension and the CLI. |
 | Q5 Switching | Keep both scopes in the native SDK. Report switches through `onChange`. |

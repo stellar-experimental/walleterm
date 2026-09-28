@@ -2,8 +2,8 @@
 
 Use this path for text messages, login challenges, or signatures that derive application keys.
 Walleterm signs SEP-53 text only. It computes the digest itself and never accepts a precomputed hash.
-The public tunnel has no message signing method. Its SEP-43 `signMessage` returns error `-3`.
-Use the message shape of `walleterm sign` outside the browser after reviewing the captured request.
+A website with the Walleterm SDK calls SEP-43 `signMessage` through the tunnel. See [the bridge method](#bridge-signmessage).
+For a request captured from an unchanged website, use the message shape of `walleterm sign` after review.
 
 ## Review the message
 
@@ -21,7 +21,26 @@ Treat a signature as secret material when it can reproduce a private key or gran
 Preserve such signatures only in private local records. Exclude them from public reports and terminal output.
 If the application stores such a key, inspect entry names or counts without reading private-key values.
 
-## Sign and return one signature
+## Bridge `signMessage`
+
+`wallet.signMessage(text)` sends the text to the tunnel. The connected website approves it by sending it.
+The bridge has no terminal approval step. The optional review hook applies, as for every request.
+Before signing, the tunnel prints the origin, key, byte count, digest, and escaped text on one line.
+That line is the only display of the text. The 1Password prompt shows no text.
+The result `signedMessage` is the Base64 raw 64-byte signature. `signerAddress` is the selected G-address.
+The SDK verifies the signature with `Keypair.verifyMessage` before it returns it.
+
+Walleterm differs from SEP-43 in two ways:
+
+- It returns Base64 in place of hexadecimal, as Freighter and Stellar CLI do.
+- The connected website confirms by sending. No wallet display shows the text.
+
+A message signature binds no network. The testnet rule does not limit it.
+A connected website can use a signature as a login proof or a claim at any service that trusts the key.
+Connect only dedicated testnet keys to the tunnel.
+Never use such a key as an identity or a key-derivation source for another service.
+
+## Sign a captured request and return one signature
 
 A confirmed [SEP-53](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0053.md) request signs:
 
