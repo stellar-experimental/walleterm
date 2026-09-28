@@ -45,6 +45,12 @@ The final run rejected missing authorization, changed nonces, and changed calls 
 The record preserves the first transport failure and its tested fix.
 See [the contract authorization guide](../docs/CONTRACT-AUTHORIZATION.md) for the demo and integration workflow.
 
+[The 2026-09-28 rerun](live-rerun-2026-09-28.json) tested the integrated source from a temporary installation.
+It records 26 successful testnet transactions and 30 signatures from the dedicated test keys.
+It covers the contract runner, the tunnel demo, StellarTerm, Asset Sandbox, the confidential-token demo, and Pagebook.
+The site checks reused the manual interception paths. They do not prove native website integration.
+Cached 1Password approval applied. A fresh desktop prompt was not verified.
+
 ## Tracked summaries and local records
 
 Git includes this index, acceptance summaries, site records, the browser QA report, and the mobile proof summaries.
