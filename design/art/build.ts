@@ -7,7 +7,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type Mascot, colors, mascot } from './mascot.ts';
-import { type Hand, type Point, defaultHand, inkStroke, rng, wobblePolyline } from './hand.ts';
+import { type Hand, type Point, cutCircle, defaultHand, inkStroke, rng, wobblePolyline } from './hand.ts';
 
 type SiteOutput = {
   file: string;
@@ -76,6 +76,14 @@ const night = '#050404';
 
 // Reference 11, in its own pixels. On black, black ink leaves only the gap between flap
 // and panel. Legs are thin and cream.
+/** A flat, cut-paper disc. `wobble` defaults to the reference median of 0.3%. */
+const disc = (c: Point, r: number, fill: string, seed: number, wobble?: number) =>
+  `<path d="${cutCircle(c, r, rng(seed), wobble)}" fill="${fill}"/>`;
+
+// The night moon is one shape at two sizes: in the recreation of 11, and as its own site file.
+// Its visible arc in 11 measures 0.2% out of round; a 0.5% disc measures that on the same arc.
+const nightMoon = (c: Point, r: number) => disc(c, r, moonNight, 111, 0.005);
+
 const nightMascot = () =>
   placeFromTrace([344.5, 630], 120.5, {
     ink: night,
@@ -105,7 +113,7 @@ export const scenes: Record<string, Scene> = {
     background: colors.paper,
     body: () =>
       [
-        `<circle cx="836.5" cy="278.5" r="156" fill="#48602d"/>`,
+        disc([836.5, 278.5], 156, '#48602d', 151),
         line(
           [
             [660, 806.5],
@@ -178,7 +186,7 @@ export const scenes: Record<string, Scene> = {
     background: moss,
     body: () =>
       [
-        `<circle cx="1350.5" cy="181" r="79" fill="${moon}"/>`,
+        disc([1350.5, 181], 79, moon, 11),
         // This reference's panel is narrower than the median, and its line is finer and less even.
         placeFromTrace([1191.5, 414], 219.5, {
           widen: 0.95,
@@ -208,7 +216,7 @@ export const scenes: Record<string, Scene> = {
           3.4,
           51,
         ),
-        `<circle cx="1453.5" cy="361" r="33" fill="${dotMoss}"/>`,
+        disc([1453.5, 361], 33, dotMoss, 41),
         // This reference's panel is wider than the median, and its legs are shorter.
         placeFromTrace([376.5, 444], 145.5, { widen: 1.055, ground: 1680 }),
       ].join('\n'),
@@ -222,7 +230,8 @@ export const scenes: Record<string, Scene> = {
     background: deepMoss,
     body: () =>
       [
-        `<circle cx="638.5" cy="262" r="223" fill="#f6f0da"/>`,
+        // This reference's keyhole top is further out of round: 1.3%.
+        disc([638.5, 262], 223, '#f6f0da', 101, 0.012),
         `<path d="M524 420 L753 420 L887 888 L376 888 Z" fill="#f6f0da"/>`,
         // This reference's panel is wider than the median.
         placeFromTrace([1065.5, 568], 173.5, { widen: 1.07, ground: 1820 }),
@@ -281,8 +290,10 @@ export const scenes: Record<string, Scene> = {
         }),
       ].join('\n'),
     site: [
-      // Wide screens: the gap sits at 35% across, clear of the night moon below it.
-      { file: 'bridge.svg', crop: [1, 380, 1794, 520], fit: 'xMidYMid slice' },
+      // Wide screens: the gap sits at 35% across at 1440, clear of the night moon below it.
+      // The view is centered where a 1794-wide crop from x 1 is, but runs far to each side.
+      // The site caps the band at 418 px, so wider screens show more ground, not a larger walker.
+      { file: 'bridge.svg', crop: [-1502, 380, 4800, 520], fit: 'xMidYMid slice' },
       // Phones: the gap is centered.
       { file: 'bridge-narrow.svg', crop: [-270, 380, 1794, 520], fit: 'xMidYMid slice' },
     ],
@@ -294,8 +305,7 @@ export const scenes: Record<string, Scene> = {
     width: 1672,
     height: 941,
     background: night,
-    body: () =>
-      [`<circle cx="1310" cy="15" r="535" fill="${moonNight}"/>`, horizonLine(), nightMascot()].join('\n'),
+    body: () => [nightMoon([1310, 15], 535), horizonLine(), nightMascot()].join('\n'),
   },
   'night-wallet': {
     width: 1672,
@@ -303,6 +313,14 @@ export const scenes: Record<string, Scene> = {
     background: night,
     body: nightMascot,
     site: [{ file: 'night-wallet.svg', crop: [318, 580, 170, 258] }],
+  },
+  'night-moon': {
+    width: 1000,
+    height: 1000,
+    background: night,
+    // The outline wobbles past r by up to about 1%, so r leaves that room inside the box.
+    body: () => nightMoon([500, 500], 492),
+    site: [{ file: 'night-moon.svg', crop: [0, 0, 1000, 1000] }],
   },
   'night-horizon': {
     width: 1672,

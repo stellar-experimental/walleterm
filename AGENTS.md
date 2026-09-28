@@ -23,6 +23,8 @@ Target macOS first. Permit human approval through 1Password.
 Read `docs/INTERFACE.md` before changing the CLI. Read `docs/PLAN.md` for phase ownership and acceptance.
 Read `docs/OPENZEPPELIN.md` before changing its contract adapters.
 Read `design/ILLUSTRATION.md` before changing illustrations, the mascot, or `site/art/`.
+The Paper designs are the official reference for `site/`. Change Paper first, then the site.
+Read `.agents/skills/walleterm-illustration/references/paper.md` before any `site/` change.
 
 ## Code layout
 

@@ -9,6 +9,7 @@
   uv run design/tools/artcheck.py compare REF CANDIDATE [--out sheet.png] [--bands-only] [--walk]
   uv run design/tools/artcheck.py baseline                  # rebuild reference bands
   uv run design/tools/artcheck.py render SVG PNG            # rasterize at the SVG's own size
+  uv run design/tools/artcheck.py suite                     # every scene with a reference
 
 CANDIDATE may be a PNG or an SVG. An SVG is rendered with agent-browser at the
 reference size. The compare command exits 1 when a metric leaves its band, or
@@ -18,7 +19,7 @@ bands for a walking pose; its legs still compare with REF. The fill color passes
 when it matches REF or the reference median, since the site uses the median.
 See design/ILLUSTRATION.md for what each metric means.
 """
-import json, os, subprocess, sys, tempfile
+import glob, json, os, subprocess, sys, tempfile
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from scipy import ndimage as ndi
@@ -188,6 +189,58 @@ CHECKS = [
 ]
 
 
+# Flat shapes. Each reference lists its circles and straight edges as a CIELAB color and a
+# filter that keeps the part of the outline to fit. Recreations share the reference's pixels.
+CIRCLES = {
+    "01-moon-green-field.png": [([94.5, -0.2, 8.5], None)],
+    "04-request-line.png": [([36.0, -18.0, 25.0], None)],
+    "06-arc-three-dots.png": [([48.0, -22.0, 33.0], None)],
+    "10-keyhole.png": [([95.0, -1.0, 10.0], lambda x, y: y < 380)],
+    "11-horizon-moon.png": [([96.0, -0.5, 7.0], lambda x, y: (x > 790) & (x < 1660) & (y > 20))],
+    "12-red-barrier.png": [([42.0, -20.0, 28.0], None)],
+    "15-moss-circle.png": [([37.6, -18.5, 26.2], None)],
+}
+EDGES = {
+    "10-keyhole.png": [([95.0, -1.0, 10.0], lambda x, y: (y > 460) & (y < 870) & (x < 640)),
+                       ([95.0, -1.0, 10.0], lambda x, y: (y > 460) & (y < 870) & (x > 640))],
+    "12-red-barrier.png": [([53.5, 57.7, 45.0], lambda x, y: (x < 840) & (y > 40) & (y < 900))],
+}
+FLAT_EDGE_SAG = 0.002  # references measure 0.06% or less; a drawn bow would be several times this
+
+
+def outline(path, lab_target, tol=14.0):
+    """Subpixel outline of the largest region near one color."""
+    lab = rgb2lab(np.asarray(Image.open(path).convert("RGB")).astype(float) / 255)
+    soft = np.clip(1 - (np.linalg.norm(lab - np.array(lab_target), axis=2) - tol) / tol, 0, 1)
+    lbl, n = ndi.label(soft > 0.5)
+    sizes = ndi.sum(soft > 0.5, lbl, range(1, n + 1))
+    region = ndi.binary_fill_holes(lbl == int(np.argmax(sizes)) + 1)
+    c = max(find_contours(np.where(region, np.maximum(soft, 0.51), 0.0), 0.5), key=len)
+    return c[:, 1], c[:, 0]
+
+
+def circle_wobble(path, lab_target, keep=None):
+    """Slow out-of-round wobble: rms of harmonics 2 to 8 of the radial residual, over r."""
+    x, y = outline(path, lab_target)
+    if keep is not None:
+        k = keep(x, y); x, y = x[k], y[k]
+    cx, cy, c = np.linalg.lstsq(np.c_[2 * x, 2 * y, np.ones_like(x)], x ** 2 + y ** 2, rcond=None)[0]
+    r = np.sqrt(c + cx ** 2 + cy ** 2)
+    th, res = np.arctan2(y - cy, x - cx), np.hypot(x - cx, y - cy) - r
+    X = np.stack([np.ones_like(th)] + [f(k * th) for k in range(2, 9) for f in (np.cos, np.sin)], 1)
+    slow = X @ np.linalg.lstsq(X, res, rcond=None)[0]
+    return float(np.sqrt(np.mean(slow ** 2)) / r)
+
+
+def flat_edge_sag(path, lab_target, keep):
+    """Bow of a straight flat edge: the quadratic's largest distance from the chord, over length."""
+    x, y = outline(path, lab_target)
+    k = keep(x, y); x, y = x[k], y[k]
+    t, v = (x, y) if np.ptp(x) > np.ptp(y) else (y, x)
+    lin, quad = np.polyfit(t, v, 1), np.polyfit(t, v, 2)
+    return float(np.max(np.abs(np.polyval(quad, t) - np.polyval(lin, t))) / np.ptp(t))
+
+
 # References left out of the standing-mascot bands, and why.
 EXCLUDE = {
     "02-request-line-draft.png": "superseded draft",
@@ -213,6 +266,10 @@ def baseline():
     fills = np.array([m["lab_fill"] for m in ms])
     papers = np.array([m["lab_paper"] for m in ms if m["lab_paper"][0] > 90])
     bands["lab_fill"] = [float(v) for v in np.median(fills, axis=0)]
+    wobbles = [circle_wobble(os.path.join(REF_DIR, f), lab, keep) for f, cs in CIRCLES.items() for lab, keep in cs]
+    lo, hi = min(wobbles), max(wobbles)
+    bands["circle_wobble"] = {"min": lo - 0.1 * (hi - lo), "max": hi + 0.1 * (hi - lo),
+                              "median": float(np.median(wobbles)), "n": len(wobbles)}
     bands["lab_paper"] = [float(v) for v in np.median(papers, axis=0)]
     json.dump({"bands": bands, "references": ms}, open(BANDS, "w"), indent=1)
     print(BANDS)
@@ -304,10 +361,46 @@ def compare(ref, cand, out, bands_only=False, walk=False):
             de = min(de, float(deltaE_ciede2000(np.array(bands["lab_fill"]), np.array(cm[key]))))
         fails += de > limit
         print(f"{key:14} {'':>10} {de:10.2f} {'dE2000 <= ' + str(limit):>17}  {'pass' if de <= limit else 'FAIL'}")
+    name = os.path.basename(ref)
+    b = bands.get("circle_wobble")
+    for lab, keep in CIRCLES.get(name, []):
+        r, c = circle_wobble(ref, lab, keep), circle_wobble(cand, lab, keep)
+        tol = max(0.002, 0.5 * r)
+        ok_band = b is None or b["min"] <= c <= b["max"]
+        ok = ok_band and (bands_only or abs(c - r) <= tol)
+        fails += not ok
+        why = "" if ok else (" outside band" if not ok_band else f" differs by more than {tol:.4f}")
+        bs = f"[{b['min']:.4f}, {b['max']:.4f}]" if b else ""
+        print(f"{'circle_wobble':14} {r:10.4f} {c:10.4f} {bs:>17}  {'pass' if ok else 'FAIL' + why}")
+    for lab, keep in EDGES.get(name, []):
+        r, c = flat_edge_sag(ref, lab, keep), flat_edge_sag(cand, lab, keep)
+        ok = c <= FLAT_EDGE_SAG
+        fails += not ok
+        print(f"{'flat_edge_sag':14} {r:10.4f} {c:10.4f} {'<= ' + str(FLAT_EDGE_SAG):>17}  {'pass' if ok else 'FAIL'}")
     if out:
         sheet(ref, cand, rm, cm, out)
         print("sheet:", out)
     return fails
+
+
+# Scenes that use the walking pose. Their legs skip the standing-leg bands.
+WALK = {"08-bridge-walk.png"}
+
+
+def suite(out_dir=os.path.join(HERE, "..", "art", "out")):
+    """Compare every built scene that has a same-named reference, and write each sheet."""
+    results = []
+    for svg in sorted(glob.glob(os.path.join(out_dir, "*.svg"))):
+        ref = os.path.join(REF_DIR, os.path.basename(svg)[:-4] + ".png")
+        if not os.path.exists(ref):
+            continue
+        print(f"\n== {os.path.basename(ref)}")
+        fails = compare(ref, svg, svg[:-4] + "-sheet.png", walk=os.path.basename(ref) in WALK)
+        results.append((os.path.basename(ref), fails))
+    print()
+    for name, fails in results:
+        print(f"{name:28} {'pass' if not fails else f'FAIL ({fails})'}")
+    return sum(f for _, f in results)
 
 
 if __name__ == "__main__":
@@ -318,6 +411,8 @@ if __name__ == "__main__":
         print(json.dumps([trace(p) for p in args], indent=1))
     elif cmd == "baseline":
         baseline()
+    elif cmd == "suite":
+        sys.exit(1 if suite() else 0)
     elif cmd == "render":
         import re, shutil
         head = open(args[0]).read(400)

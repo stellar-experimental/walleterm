@@ -159,6 +159,25 @@ export function smoothPath(ring: Point[], closed: boolean, scale = 10): string {
   return closed ? d + 'Z' : d;
 }
 
+/**
+ * A cut-paper circle: flat, no outline, and very slightly out of round.
+ * The references measure a slow wobble of 0.2% to 0.5% of the radius (harmonics 2 to 5),
+ * and 1.3% on the keyhole top. `wobble` is that rms, as a fraction of `r`. The harmonics
+ * repeat around the circle, so the outline closes without a seam.
+ */
+export function cutCircle(c: Point, r: number, random: () => number, wobble = 0.003): string {
+  const waves = [2, 3, 4, 5].map((k) => ({ k, a: random() * 2 - 1, phase: random() * Math.PI * 2 }));
+  const rms = Math.sqrt(waves.reduce((s, w) => s + w.a * w.a, 0) / 2) || 1;
+  const pts: Point[] = [];
+  for (let i = 0; i < 96; i++) {
+    const t = (i / 96) * Math.PI * 2;
+    const offset = waves.reduce((s, w) => s + w.a * Math.cos(w.k * t + w.phase), 0) / rms;
+    const rr = r * (1 + wobble * offset);
+    pts.push([c[0] + Math.cos(t) * rr, c[1] + Math.sin(t) * rr]);
+  }
+  return smoothPath(pts, true);
+}
+
 /** A slightly irregular filled disc for eyes and dots. */
 export function blob(c: Point, r: number, random: () => number, irregularity = 0.025): string {
   const wob = noise1d(random, 5);

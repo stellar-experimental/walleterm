@@ -128,20 +128,32 @@ export function mascot(options: Mascot = {}): string {
   out.push(`<path d="${smoothPath(flapLine, true)}" fill="${fill}"/>`);
   out.push(`<path d="${smoothPath(frontLine, true)}" fill="${fill}"/>`);
 
+  // Soft ink edges come from faint strokes around each ink shape, not from an SVG blur.
+  // Safari draws filters at 1x and scales them up, which blurs the whole mascot on Retina screens.
+  // Stacked strokes, widest first, fade the edge outward. The core ink is thinner by the ink the
+  // strokes add, so the total darkness of a line stays the same, as it did with the blur.
+  const soft = options.soften ?? 0.1;
+  // Three strokes reach 1.75 blur sigmas at 20% each. artcheck.py confirms edge_ramp and stroke_h.
+  const [layers, reach, alpha] = [3, 1.75, 0.2];
+  let added = 0; // Halo darkness on one side, in units of the blur's sigma.
+  for (let j = 1; j <= layers; j++) added += (reach / layers) * (1 - (1 - alpha) ** (layers - j + 1));
+  const core = soft > 0 ? 1 - 2 * soft * added : 1;
+  const inked = (id: string, d: string, color: string, width: number) => {
+    if (soft <= 0) return `<path d="${d}" fill="${color}"/>`;
+    const sigma = width * soft;
+    const halos = Array.from({ length: layers }, (_, i) => {
+      const w = (2 * reach * sigma * (layers - i)) / layers;
+      return `<use href="#${id}" stroke="${color}" stroke-opacity="${alpha}" stroke-width="${w.toFixed(2)}" stroke-linejoin="round"/>`;
+    });
+    return [...halos, `<path id="${id}" d="${d}" fill="${color}"/>`].join('\n');
+  };
   const strokes: string[] = [];
   {
-    for (const e of edges) strokes.push(inkStroke(e, hand, random));
-    strokes.push(inkStroke(wobblePolyline([b[0], b[1]], hand, random), hand, random));
-    strokes.push(inkStroke(wobblePolyline([b[1], b[2]], hand, random), hand, random));
+    for (const e of edges) strokes.push(inkStroke(e, hand, random, core));
+    strokes.push(inkStroke(wobblePolyline([b[0], b[1]], hand, random), hand, random, core));
+    strokes.push(inkStroke(wobblePolyline([b[1], b[2]], hand, random), hand, random, core));
   }
-  // Soft ink edges come from a faint stroke around each ink shape, not from an SVG blur.
-  // Safari draws filters at 1x and scales them up, which blurs the whole mascot on Retina screens.
-  const soft = options.soften ?? 0.1;
-  const halo = (color: string, width: number) =>
-    soft > 0
-      ? ` stroke="${color}" stroke-opacity="0.3" stroke-width="${(width * soft * 1.5).toFixed(2)}" stroke-linejoin="round"`
-      : '';
-  if (strokes.length) out.push(`<path d="${strokes.join('')}" fill="${ink}"${halo(ink, hand.width)}/>`);
+  if (strokes.length) out.push(inked(`ink-${hand.seed}`, strokes.join(''), ink, hand.width));
 
   const legPaths: string[] = [];
   const weight = options.legWeight ?? 1;
@@ -166,7 +178,7 @@ export function mascot(options: Mascot = {}): string {
     const top: Point = [legTop[0], legTop[1] - hand.width * 0.3];
     // Legs are straight lines that splay. A bowed leg reads as bent knees.
     const legHand = { ...hand, bow: 0.0015, width: hand.width * weight };
-    legPaths.push(inkStroke(wobblePolyline([top, bottom], legHand, random), legHand, random));
+    legPaths.push(inkStroke(wobblePolyline([top, bottom], legHand, random), legHand, random, core));
     // Feet are ticks that sit on the ground, not in it.
     const lift = hand.width * 0.2;
     legPaths.push(
@@ -181,11 +193,11 @@ export function mascot(options: Mascot = {}): string {
         ),
         legHand,
         random,
-        options.footWeight ?? 1.1,
+        (options.footWeight ?? 1.1) * core,
       ),
     );
   }
-  if (legPaths.length) out.push(`<path d="${legPaths.join('')}" fill="${legInk}"${halo(legInk, hand.width * weight)}/>`);
+  if (legPaths.length) out.push(inked(`legs-${hand.seed}`, legPaths.join(''), legInk, hand.width * weight));
   out.push(`<path d="${blob([eye.c[0] * widen, eye.c[1]], eye.r, random)}" fill="${colors.ink}"/>`);
   return out.join('\n');
 }
