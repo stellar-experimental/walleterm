@@ -301,6 +301,10 @@ An independent reviewer checks the signing path before acceptance. Check these p
 - No path reports `-4` or `denied` after signing started.
 - The SDK verifies each result before it returns it.
 
+`fixtures/kit/live/` serves a loopback acceptance page with the real Kit, `WalletermModule`, and the guarded hook.
+It exposes `window.acceptance` for steps 3–5. `bun fixtures/kit/live/check.mts` checks it offline with mock keys.
+Start it with `bun fixtures/kit/live/serve.mts` after the Kit fixture install.
+
 Live acceptance needs fresh approval and dedicated testnet keys:
 
 1. Demo: pair, sign and submit a payment, switch wallets, and sign again.
