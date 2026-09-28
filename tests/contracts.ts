@@ -8,6 +8,8 @@ import { requestError } from '../sdk/errors.ts';
 // - walleterm_simple_account: signature over the host payload, ScVal Bytes(64).
 // - OpenZeppelin account: signature over sha256(payload || XDR(Vec<u32> rule ids)),
 //   ScVal Map{context_rule_ids, signers}. Never the raw host payload.
+// - Every signing row declares its expected entries. invoke checks each recorded entry against them
+//   before any mutation or signing request. Source-only operations check their recorded entries too.
 import { readFileSync, writeFileSync, existsSync, renameSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
@@ -85,9 +87,16 @@ export interface CountCheck {
   who: string;
   delta?: number;
 }
+/** One entry that record simulation must return: unsigned AddressV2 credentials for `address`, rooted at `invocation`. */
+export interface ExpectedAuth {
+  address: string;
+  invocation: xdr.SorobanAuthorizedInvocation;
+}
 /** A row error can carry the evidence gathered before it failed. */
 type RowFailure = RequestError & { details?: Details };
-type ContractsContext = Pick<LiveContext, 'sdk' | 'rpc' | 'networkPassphrase' | 'keys' | 'sign' | 'send'>;
+type ContractsContext = Pick<LiveContext, 'sdk' | 'networkPassphrase' | 'keys' | 'sign' | 'send'> & {
+  rpc: Pick<LiveContext['rpc'], 'getAccount' | 'simulateTransaction'>;
+};
 
 const sha256 = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest();
 const sym = (sdk: Sdk, s: string) => sdk.xdr.ScVal.scvSymbol(s);
@@ -139,6 +148,24 @@ export const accountSignature = (sdk: Sdk, sigs: AccountSignature[]) =>
   );
 export const countContexts = (inv: xdr.SorobanAuthorizedInvocation): number =>
   1 + inv.subInvocations.reduce((n, sub) => n + countContexts(sub), 0);
+/** The authorized form of one contract call, with the calls that it authorizes below it. */
+export const contractFn = (
+  sdk: Sdk,
+  contract: string,
+  name: string,
+  args: xdr.ScVal[],
+  subInvocations: xdr.SorobanAuthorizedInvocation[] = [],
+) =>
+  new sdk.xdr.SorobanAuthorizedInvocation({
+    function: sdk.xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+      new sdk.xdr.InvokeContractArgs({
+        contractAddress: new sdk.Address(contract).toScAddress(),
+        functionName: name,
+        args,
+      }),
+    ),
+    subInvocations,
+  });
 
 // ---------- authorizers: { address, label, signatureScVal(payload, entry) } ----------
 export const gAuthorizer = (ctx: SigningContext, key: TestKey, { duplicate = false } = {}) => ({
@@ -272,6 +299,61 @@ const rootArgs = (entry: xdr.SorobanAuthorizationEntry) => contractArgs(entry.ro
 const childArgs = (entry: xdr.SorobanAuthorizationEntry) =>
   contractArgs(entry.rootInvocation.subInvocations[0]);
 
+// Checks every recorded entry before any mutation or signing request. Each entry must use unsigned AddressV2
+// credentials and match one expected address with its complete invocation tree. Source-account, extra, and
+// missing entries fail.
+export function checkRecordedAuth(
+  sdk: Sdk,
+  recorded: readonly xdr.SorobanAuthorizationEntry[],
+  expected: readonly ExpectedAuth[] | undefined,
+  label: string,
+) {
+  if (!expected?.length) throw new Error(`${label}: the row declares no expected authorization entries`);
+  const open = expected.map((e) => ({ address: e.address, root: e.invocation.toXdr('base64') }));
+  recorded.forEach((entry, i) => {
+    const { credentials } = entry;
+    if (credentials.type !== 'sorobanCredentialsAddressV2')
+      throw new Error(`${label}: recorded entry ${i} uses ${credentials.type}, not AddressV2 credentials`);
+    if (credentials.addressV2.signature.type !== 'scvVoid')
+      throw new Error(`${label}: recorded entry ${i} already holds a signature`);
+    const address = sdk.Address.fromScAddress(credentials.addressV2.address).toString();
+    const root = entry.rootInvocation.toXdr('base64');
+    const match = open.findIndex((e) => e.address === address && e.root === root);
+    if (match < 0)
+      throw new Error(`${label}: recorded entry ${i} for ${address} differs from the expected authorization`);
+    open.splice(match, 1);
+  });
+  if (open.length)
+    throw new Error(`${label}: record simulation omitted the expected entry for ${open[0].address}`);
+}
+// A source-only operation authorizes through the envelope signature of key A. A deployment by key A records one
+// source-account entry for the exact local creation. An upload records none. Any other entry fails before signing.
+export function checkSourceAuth(
+  sdk: Sdk,
+  func: xdr.HostFunction,
+  recorded: readonly xdr.SorobanAuthorizationEntry[],
+  label: string,
+) {
+  const expected =
+    func.type === 'hostFunctionTypeCreateContractV2'
+      ? [
+          new sdk.xdr.SorobanAuthorizedInvocation({
+            function: sdk.xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeCreateContractV2HostFn(
+              func.createContractV2,
+            ),
+            subInvocations: [],
+          }).toXdr('base64'),
+        ]
+      : [];
+  const actual = recorded.map((e) =>
+    e.credentials.type === 'sorobanCredentialsSourceAccount'
+      ? e.rootInvocation.toXdr('base64')
+      : e.credentials.type,
+  );
+  if (JSON.stringify(actual) !== JSON.stringify(expected))
+    throw new Error(`${label}: recorded authorization differs from the local operation`);
+}
+
 function simulationText(sdk: Sdk, sim: rpc.Api.SimulateTransactionErrorResponse) {
   let text = String(sim.error ?? '');
   for (const ev of sim.events ?? []) {
@@ -291,7 +373,7 @@ function simulationText(sdk: Sdk, sim: rpc.Api.SimulateTransactionErrorResponse)
 
 // ---------- transactions ----------
 async function buildTx(
-  ctx: Pick<LiveContext, 'sdk' | 'rpc' | 'keys' | 'networkPassphrase'>,
+  ctx: Pick<ContractsContext, 'sdk' | 'rpc' | 'keys' | 'networkPassphrase'>,
   operation: xdr.Operation,
 ) {
   const account = await ctx.rpc.getAccount(ctx.keys.a.publicKey);
@@ -345,6 +427,8 @@ export async function submitSourceOnly(ctx: ContractsContext, operation: xdr.Ope
   const tx = await buildTx(ctx, operation);
   const sim = await ctx.rpc.simulateTransaction(tx, undefined, 'record');
   if (ctx.sdk.rpc.Api.isSimulationError(sim)) throw new Error(`${label}: simulation failed: ${sim.error}`);
+  // The local operation has no entries, so assembly copies the recorded entries into the signed envelope.
+  checkSourceAuth(ctx.sdk, hostOperation(tx).func, normalizeAuth(ctx.sdk, sim.result?.auth), label);
   const prepared = ctx.sdk.rpc.assembleTransaction(tx, sim).build();
   await ctx.sign(prepared, ctx.keys.a);
   return { sent: await sendOrStop(ctx, prepared, label), retval: sim.result?.retval };
@@ -378,6 +462,8 @@ export interface InvokeOptions {
   args?: xdr.ScVal[];
   finalArgs?: xdr.ScVal[];
   authorizers?: Authorizer[];
+  /** Every entry that record simulation must return. A `presigned` row records nothing and must omit it. */
+  expected?: ExpectedAuth[];
   label: string;
   expect?: string | string[];
   mutate?: {
@@ -391,8 +477,10 @@ export interface InvokeOptions {
   extraAuth?(input: ExtraAuthInput): Promise<xdr.SorobanAuthorizationEntry[]>;
 }
 
-// invoke: build, record-simulate, sign each address entry, enforce-simulate, then submit.
-// With `expect`, the enforce simulation must fail with that exact error text and no submission happens.
+// invoke: build, record-simulate, check every recorded entry, sign each entry, enforce-simulate, then submit.
+// `expected` lists every entry that the recorded tree must hold. No mutation or signing request happens
+// until all recorded entries match it. With `expect`, the enforce simulation must fail with that exact error
+// text and no submission happens.
 // `finalArgs` (optional) builds the submitted call with different arguments than the recorded one,
 // for signature-binding negatives where both the call and the entry change after signing.
 export async function invoke(
@@ -403,6 +491,7 @@ export async function invoke(
     args = [],
     finalArgs,
     authorizers = [],
+    expected,
     label,
     expect,
     mutate,
@@ -414,6 +503,8 @@ export async function invoke(
   }: InvokeOptions,
 ) {
   const { sdk, rpc, networkPassphrase } = ctx;
+  if (presigned && expected)
+    throw new Error(`${label}: a presigned row cannot declare expected entries; it records nothing`);
   const template = await buildTx(ctx, new sdk.Contract(contractId).call(method, ...args));
   const func = hostOperation(
     finalArgs ? await buildTx(ctx, new sdk.Contract(contractId).call(method, ...finalArgs)) : template,
@@ -433,17 +524,20 @@ export async function invoke(
       throw new Error(`${label}: record simulation failed: ${recorded.error}`);
     const validUntil = expired ? recorded.latestLedger - 1 : recorded.latestLedger + EXPIRY_LEDGERS;
     expiration = validUntil;
-    auth = [];
-    for (const raw of normalizeAuth(sdk, recorded.result?.auth)) {
-      const entry = cloneEntry(sdk, raw);
-      const credentials = addressCredentials(entry);
-      if (!credentials) {
-        auth.push(entry);
-        continue;
-      }
-      const address = entryAddress(sdk, entry);
+    const recordedAuth = normalizeAuth(sdk, recorded.result?.auth);
+    checkRecordedAuth(sdk, recordedAuth, expected, label);
+    const signers = recordedAuth.map((raw) => {
+      const address = entryAddress(sdk, raw);
       const signer = authorizers.find((a) => a.address === address);
       if (!signer) throw new Error(`${label}: no authorizer for ${address}`);
+      return signer;
+    });
+    auth = [];
+    for (const [i, raw] of recordedAuth.entries()) {
+      const entry = cloneEntry(sdk, raw);
+      const credentials = requireAddressCredentials(entry);
+      const address = entryAddress(sdk, entry);
+      const signer = signers[i];
       const meta: EntryMeta = {
         variant: entry.credentials.type,
         address,
@@ -479,6 +573,10 @@ export async function invoke(
       args_xdr: args.map((a) => a.toXdr('base64')),
       final_args_xdr: finalArgs?.map((a) => a.toXdr('base64')),
     },
+    expected_auth: expected?.map((e) => ({
+      address: e.address,
+      invocation_xdr: e.invocation.toXdr('base64'),
+    })),
     sign_passphrase: signPassphrase ?? networkPassphrase,
     mutation: mutate ? Object.keys(mutate) : undefined,
     expired_on_purpose: expired || undefined,
@@ -674,12 +772,14 @@ const ROWS: Row[] = [
     id: 'C01',
     title: 'G-account address credentials (payer A, signer B)',
     async run(ctx, c) {
-      const { keys } = ctx;
+      const { sdk, keys } = ctx;
+      const args = [addr(sdk, keys.b.publicKey), u32(sdk, 1)];
       return invoke(ctx, {
         contractId: c.target1,
         method: 'ping',
-        args: [addr(ctx.sdk, keys.b.publicKey), u32(ctx.sdk, 1)],
+        args,
         authorizers: [gAuthorizer(ctx, keys.b)],
+        expected: [{ address: keys.b.publicKey, invocation: contractFn(sdk, c.target1, 'ping', args) }],
         label: 'C01-g-address-auth',
         state: { target: c.target1, who: keys.b.publicKey },
       });
@@ -692,12 +792,14 @@ const ROWS: Row[] = [
       const { sdk, keys } = ctx;
       const args = [addr(sdk, c.simple), u32(sdk, 1)];
       const state = { target: c.target1, who: c.simple };
+      const expected = [{ address: c.simple, invocation: contractFn(sdk, c.target1, 'ping', args) }];
       return {
         owner_b_passes: await invoke(ctx, {
           contractId: c.target1,
           method: 'ping',
           args,
           authorizers: [simpleAuthorizer(ctx, c.simple, keys.b)],
+          expected,
           label: 'C02-simple-owner',
           state,
         }),
@@ -706,6 +808,7 @@ const ROWS: Row[] = [
           method: 'ping',
           args,
           authorizers: [simpleAuthorizer(ctx, c.simple, keys.c)],
+          expected,
           label: 'C02-simple-wrong-key',
           expect: ERR.crypto,
           state,
@@ -720,12 +823,14 @@ const ROWS: Row[] = [
       const { sdk, keys } = ctx;
       const args = [addr(sdk, c.ozBasic), u32(sdk, 1)];
       const state = { target: c.target1, who: c.ozBasic };
+      const expected = [{ address: c.ozBasic, invocation: contractFn(sdk, c.target1, 'ping', args) }];
       return {
         digest_signature_passes: await invoke(ctx, {
           contractId: c.target1,
           method: 'ping',
           args,
           authorizers: [ozAuthorizer(ctx, c.ozBasic, c.verifier, [keys.a])],
+          expected,
           label: 'C03-oz-basic',
           state,
         }),
@@ -734,6 +839,7 @@ const ROWS: Row[] = [
           method: 'ping',
           args,
           authorizers: [ozAuthorizer(ctx, c.ozBasic, c.verifier, [keys.a], { naive: true })],
+          expected,
           label: 'C03-oz-naive-payload',
           expect: ERR.crypto,
           state,
@@ -748,12 +854,14 @@ const ROWS: Row[] = [
       const { sdk, keys } = ctx;
       const args = [addr(sdk, c.ozMulti), u32(sdk, 1)];
       const state = { target: c.target1, who: c.ozMulti };
+      const expected = [{ address: c.ozMulti, invocation: contractFn(sdk, c.target1, 'ping', args) }];
       return {
         a_b_pass: await invoke(ctx, {
           contractId: c.target1,
           method: 'ping',
           args,
           authorizers: [ozAuthorizer(ctx, c.ozMulti, c.verifier, [keys.a, keys.b])],
+          expected,
           label: 'C04-oz-2of3-ab',
           state,
         }),
@@ -762,6 +870,7 @@ const ROWS: Row[] = [
           method: 'ping',
           args,
           authorizers: [ozAuthorizer(ctx, c.ozMulti, c.verifier, [keys.a])],
+          expected,
           label: 'C04-oz-2of3-a-only',
           expect: ERR.notAllowed,
           state,
@@ -776,12 +885,14 @@ const ROWS: Row[] = [
       const { sdk, keys } = ctx;
       const args = [addr(sdk, c.ozWeighted), u32(sdk, 1)];
       const state = { target: c.target1, who: c.ozWeighted };
+      const expected = [{ address: c.ozWeighted, invocation: contractFn(sdk, c.target1, 'ping', args) }];
       return {
         a_weight2_passes: await invoke(ctx, {
           contractId: c.target1,
           method: 'ping',
           args,
           authorizers: [ozAuthorizer(ctx, c.ozWeighted, c.verifier, [keys.a])],
+          expected,
           label: 'C05-weighted-a',
           state,
         }),
@@ -790,6 +901,7 @@ const ROWS: Row[] = [
           method: 'ping',
           args,
           authorizers: [ozAuthorizer(ctx, c.ozWeighted, c.verifier, [keys.b])],
+          expected,
           label: 'C05-weighted-b-only',
           expect: ERR.weightNotAllowed,
           state,
@@ -799,6 +911,7 @@ const ROWS: Row[] = [
           method: 'ping',
           args,
           authorizers: [ozAuthorizer(ctx, c.ozWeighted, c.verifier, [keys.b, keys.c])],
+          expected,
           label: 'C05-weighted-bc',
           state,
         }),
@@ -810,13 +923,19 @@ const ROWS: Row[] = [
     title: 'Two C-accounts authorize one invocation',
     async run(ctx, c) {
       const { sdk, keys } = ctx;
+      const args = [addr(sdk, c.ozBasic), addr(sdk, c.simple), u32(sdk, 1)];
+      const invocation = contractFn(sdk, c.target1, 'ping2', args);
       return invoke(ctx, {
         contractId: c.target1,
         method: 'ping2',
-        args: [addr(sdk, c.ozBasic), addr(sdk, c.simple), u32(sdk, 1)],
+        args,
         authorizers: [
           ozAuthorizer(ctx, c.ozBasic, c.verifier, [keys.a]),
           simpleAuthorizer(ctx, c.simple, keys.b),
+        ],
+        expected: [
+          { address: c.ozBasic, invocation },
+          { address: c.simple, invocation },
         ],
         label: 'C06-two-c-accounts',
         state: [
@@ -831,11 +950,17 @@ const ROWS: Row[] = [
     title: 'G-account and C-account authorize one invocation',
     async run(ctx, c) {
       const { sdk, keys } = ctx;
+      const args = [addr(sdk, keys.b.publicKey), addr(sdk, c.ozMulti), u32(sdk, 1)];
+      const invocation = contractFn(sdk, c.target1, 'ping2', args);
       return invoke(ctx, {
         contractId: c.target1,
         method: 'ping2',
-        args: [addr(sdk, keys.b.publicKey), addr(sdk, c.ozMulti), u32(sdk, 1)],
+        args,
         authorizers: [gAuthorizer(ctx, keys.b), ozAuthorizer(ctx, c.ozMulti, c.verifier, [keys.a, keys.c])],
+        expected: [
+          { address: keys.b.publicKey, invocation },
+          { address: c.ozMulti, invocation },
+        ],
         label: 'C07-mixed-g-c',
         state: [
           { target: c.target1, who: keys.b.publicKey },
@@ -851,6 +976,15 @@ const ROWS: Row[] = [
       const { sdk, keys } = ctx;
       const args = [addr(sdk, c.ozMulti), addr(sdk, c.target2), u32(sdk, 1)];
       const state = { target: c.target2, who: c.ozMulti };
+      // outer(who, inner, n) calls inner.ping(who, n), so the tree holds that call below the root.
+      const expected = [
+        {
+          address: c.ozMulti,
+          invocation: contractFn(sdk, c.target1, 'outer', args, [
+            contractFn(sdk, c.target2, 'ping', [addr(sdk, c.ozMulti), u32(sdk, 1)]),
+          ]),
+        },
+      ];
       const oz = (opts?: OzAuthorizerOptions) => [
         ozAuthorizer(ctx, c.ozMulti, c.verifier, [keys.a, keys.b], opts),
       ];
@@ -860,6 +994,7 @@ const ROWS: Row[] = [
           method: 'outer',
           args,
           authorizers: oz(),
+          expected,
           label: 'C08-nested-full-tree',
           state,
         }),
@@ -868,6 +1003,7 @@ const ROWS: Row[] = [
           method: 'outer',
           args,
           authorizers: oz(),
+          expected,
           label: 'C08-nested-altered-child',
           expect: ERR.auth,
           state,
@@ -882,6 +1018,7 @@ const ROWS: Row[] = [
           method: 'outer',
           args,
           authorizers: oz({ ruleIds: [0] }),
+          expected,
           label: 'C08-nested-rule-ids-mismatch',
           expect: ERR.ruleIdsMismatch,
           state,
@@ -892,6 +1029,7 @@ const ROWS: Row[] = [
           args,
           finalArgs: [addr(sdk, c.ozMulti), addr(sdk, c.target2), u32(sdk, 2)],
           authorizers: oz(),
+          expected,
           label: 'C08-nested-rebound-args',
           expect: ERR.crypto,
           state,
@@ -927,12 +1065,15 @@ const ROWS: Row[] = [
       const simpleArgs = [addr(sdk, c.simple), u32(sdk, 1)];
       const simpleState = { target: c.target1, who: c.simple };
       const simple = [simpleAuthorizer(ctx, c.simple, keys.b)];
+      const expected = [{ address: c.simple, invocation: contractFn(sdk, c.target1, 'ping', simpleArgs) }];
+      const ozArgs = [addr(sdk, c.ozBasic), u32(sdk, 1)];
       return {
         wrong_nonce: await invoke(ctx, {
           contractId: c.target1,
           method: 'ping',
           args: simpleArgs,
           authorizers: simple,
+          expected,
           label: 'C10-wrong-nonce',
           expect: ERR.crypto,
           state: simpleState,
@@ -948,6 +1089,7 @@ const ROWS: Row[] = [
           method: 'ping',
           args: simpleArgs,
           authorizers: simple,
+          expected,
           label: 'C10-wrong-network',
           expect: ERR.crypto,
           state: simpleState,
@@ -956,8 +1098,9 @@ const ROWS: Row[] = [
         wrong_signer: await invoke(ctx, {
           contractId: c.target1,
           method: 'ping',
-          args: [addr(sdk, c.ozBasic), u32(sdk, 1)],
+          args: ozArgs,
           authorizers: [ozAuthorizer(ctx, c.ozBasic, c.verifier, [keys.c])],
+          expected: [{ address: c.ozBasic, invocation: contractFn(sdk, c.target1, 'ping', ozArgs) }],
           label: 'C10-wrong-signer',
           expect: ERR.unvalidatedContext,
           state: { target: c.target1, who: c.ozBasic },
@@ -967,6 +1110,7 @@ const ROWS: Row[] = [
           method: 'ping',
           args: simpleArgs,
           authorizers: simple,
+          expected,
           label: 'C10-altered-root-args',
           expect: ERR.auth,
           state: simpleState,
@@ -982,6 +1126,7 @@ const ROWS: Row[] = [
           args: simpleArgs,
           finalArgs: [addr(sdk, c.simple), u32(sdk, 2)],
           authorizers: simple,
+          expected,
           label: 'C10-rebound-args',
           expect: ERR.crypto,
           state: simpleState,
@@ -997,6 +1142,7 @@ const ROWS: Row[] = [
             method: 'ping',
             args: simpleArgs,
             authorizers: simple,
+            expected,
             label: 'C10-expired-signature',
             expect: 'Error(Auth, InvalidInput)',
             state: simpleState,
@@ -1019,6 +1165,7 @@ const ROWS: Row[] = [
         method: 'ping',
         args,
         authorizers: [gAuthorizer(ctx, keys.b)],
+        expected: [{ address: keys.b.publicKey, invocation: contractFn(sdk, c.target1, 'ping', args) }],
         label: 'C11-fresh-success',
         state,
       });
@@ -1054,13 +1201,16 @@ const ROWS: Row[] = [
       const { sdk, keys } = ctx;
       const ozArgs = [addr(sdk, c.ozMulti), u32(sdk, 1)];
       const ozState = { target: c.target1, who: c.ozMulti };
+      const ozExpected = [{ address: c.ozMulti, invocation: contractFn(sdk, c.target1, 'ping', ozArgs) }];
+      const gArgs = [addr(sdk, keys.b.publicKey), u32(sdk, 1)];
       const recorded = 'Error(Object, InvalidInput)'; // Observed live: invalid ScMap order or duplicate keys.
       return {
         g_duplicate_signature_vector: await invoke(ctx, {
           contractId: c.target1,
           method: 'ping',
-          args: [addr(sdk, keys.b.publicKey), u32(sdk, 1)],
+          args: gArgs,
           authorizers: [gAuthorizer(ctx, keys.b, { duplicate: true })],
+          expected: [{ address: keys.b.publicKey, invocation: contractFn(sdk, c.target1, 'ping', gArgs) }],
           label: 'C12-g-duplicate-signature',
           expect: ERR.accountSigs,
           state: { target: c.target1, who: keys.b.publicKey },
@@ -1071,6 +1221,7 @@ const ROWS: Row[] = [
             method: 'ping',
             args: ozArgs,
             authorizers: [ozAuthorizer(ctx, c.ozMulti, c.verifier, [keys.a, keys.b], { duplicate: true })],
+            expected: ozExpected,
             label: 'C12-oz-duplicate-map-entry',
             expect: recorded,
             state: ozState,
@@ -1082,6 +1233,7 @@ const ROWS: Row[] = [
             method: 'ping',
             args: ozArgs,
             authorizers: [ozAuthorizer(ctx, c.ozMulti, c.verifier, [keys.a, keys.b], { unsorted: true })],
+            expected: ozExpected,
             label: 'C12-oz-unsorted-map',
             expect: recorded,
             state: ozState,
@@ -1110,14 +1262,18 @@ const ROWS: Row[] = [
       const { sdk, keys } = ctx;
       const args = [addr(sdk, c.simple), u32(sdk, 1)];
       const state = { target: c.target1, who: c.simple };
-      const setOwner = (to: TestKey, by: TestKey, label: string) =>
-        invoke(ctx, {
+      const expected = [{ address: c.simple, invocation: contractFn(sdk, c.target1, 'ping', args) }];
+      const setOwner = (to: TestKey, by: TestKey, label: string) => {
+        const ownerArgs = [bytes(sdk, to.rawPublicKey)];
+        return invoke(ctx, {
           contractId: c.simple,
           method: 'set_owner',
-          args: [bytes(sdk, to.rawPublicKey)],
+          args: ownerArgs,
           authorizers: [simpleAuthorizer(ctx, c.simple, by)],
+          expected: [{ address: c.simple, invocation: contractFn(sdk, c.simple, 'set_owner', ownerArgs) }],
           label,
         });
+      };
       const keyFor = (hex: string) =>
         [keys.a, keys.b, keys.c].find((k) => Buffer.from(k.rawPublicKey).toString('hex') === hex);
       const details: Details & { initial_owner_hex: string; final_owner_hex?: string } = {
@@ -1135,6 +1291,7 @@ const ROWS: Row[] = [
           method: 'ping',
           args,
           authorizers: [simpleAuthorizer(ctx, c.simple, keys.b)],
+          expected,
           label: 'C13-old-owner',
           expect: ERR.crypto,
           state,
@@ -1144,6 +1301,7 @@ const ROWS: Row[] = [
           method: 'ping',
           args,
           authorizers: [simpleAuthorizer(ctx, c.simple, keys.c)],
+          expected,
           label: 'C13-new-owner',
           state,
         });
@@ -1171,11 +1329,7 @@ const ROWS: Row[] = [
   },
 ];
 
-export const NOT_IMPLEMENTED = [
-  'Forced V1 credentials in this baseline runner; separate CLI usability evidence covers one legacy OZ case',
-  'CAP-71 delegate credentials',
-  'passkeys',
-];
+export const NOT_IMPLEMENTED = ['CAP-71 delegate credentials', 'passkeys: out of scope and not planned'];
 
 export async function runContracts(ctx: LiveContext) {
   const manifest: Manifest = JSON.parse(readFileSync(new URL('manifest.json', WASM_DIR), 'utf8'));
@@ -1288,21 +1442,12 @@ async function selfTest() {
   };
   const target = sdk.Keypair.random().publicKey();
   const fn = (name: string, args: xdr.ScVal[], subs: xdr.SorobanAuthorizedInvocation[] = []) =>
-    new sdk.xdr.SorobanAuthorizedInvocation({
-      function: sdk.xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
-        new sdk.xdr.InvokeContractArgs({
-          contractAddress: new sdk.Address(verifier).toScAddress(),
-          functionName: name,
-          args,
-        }),
-      ),
-      subInvocations: subs,
-    });
+    contractFn(sdk, verifier, name, args, subs);
   const tree = fn('outer', [addr(sdk, target), u32(sdk, 1)], [fn('ping', [addr(sdk, target), u32(sdk, 1)])]);
   assert(countContexts(tree) === 2, 'countContexts');
   const entryFor = (address: string) =>
     new sdk.xdr.SorobanAuthorizationEntry({
-      credentials: sdk.xdr.SorobanCredentials.sorobanCredentialsAddress(
+      credentials: sdk.xdr.SorobanCredentials.sorobanCredentialsAddressV2(
         new sdk.xdr.SorobanAddressCredentials({
           address: new sdk.Address(address).toScAddress(),
           nonce: 7n,
