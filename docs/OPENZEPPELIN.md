@@ -502,7 +502,10 @@ This validation cannot stop a signature holder from constructing another artifac
 
 ### Live acceptance runner
 
-`tests/openzeppelin-auth-live.ts` prepares live acceptance for this adapter. It has not run yet.
+`tests/openzeppelin-auth-live.ts` runs live acceptance for this adapter.
+It passed on 2026-09-28. See [the OpenZeppelin record](../evidence/openzeppelin-live-2026-09-28.json).
+The CLI increment `db0ac667…98055a05` confirmed in ledger 4917224. The SDK increment `09e43d99…c7ccb379` confirmed in ledger 4917226.
+The counter changed from 2 to 4. The run made four signature requests and two submissions.
 It uses the existing `oz_basic_a` account from the 2026-09-25 acceptance run. It deploys nothing.
 Rule 0 of that account holds one `External` Ed25519 signer: the dedicated key `walleterm-v2-test-a`.
 The runner reads the contract IDs from `live/contracts-state.json` beside the metadata file.

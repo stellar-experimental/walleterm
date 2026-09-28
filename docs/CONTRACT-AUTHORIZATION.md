@@ -129,9 +129,11 @@ The runner passed again. The CLI and SDK increments changed the counter from 4 t
 Its six negative controls requested no signatures.
 A headless Chrome demo run through public tunnels changed the counter from 6 to 7.
 It reloaded the page before and after the envelope signature. The record passed validation each time.
-The OpenZeppelin adapter still has offline validation only. A fresh 1Password prompt was not verified.
-`tests/openzeppelin-auth-live.ts` prepares that live test. It has not run yet.
-It uses an existing OpenZeppelin account and deploys nothing.
+A later check on 2026-09-28 verified a fresh 1Password approval prompt after the user locked 1Password.
+The OpenZeppelin adapter passed live acceptance on 2026-09-28 with `tests/openzeppelin-auth-live.ts`.
+The CLI and the SDK each signed one authorization entry for an existing OpenZeppelin account.
+Two increments changed its counter from 2 to 4. Six negative controls requested no signature and were not submitted.
+[The OpenZeppelin record](../evidence/openzeppelin-live-2026-09-28.json) holds both results.
 See [the runner notes](OPENZEPPELIN.md#live-acceptance-runner) for its checks, controls, and command.
 
 Protocol references:
