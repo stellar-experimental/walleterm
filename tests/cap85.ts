@@ -1199,7 +1199,7 @@ export async function x06(ctx: Cap85Context, state: Cap85State, manifest: Cap85M
     throw Object.assign(
       new Error(
         `X06: incomplete_evidence: the checkpoint holds ${changed.join(', ')} but not done.X06. ` +
-          'X06 does not resume after an executable change. Review these transactions manually.',
+          'X06 does not resume after an executable change. Review these transactions, then recover as fixtures/cap85/README.md describes.',
       ),
       { code: 'incomplete_evidence' },
     );
@@ -1211,10 +1211,15 @@ export async function x06(ctx: Cap85Context, state: Cap85State, manifest: Cap85M
     addr(sdk, keys.b.publicKey),
   ]);
   details.target_plain = plain;
-  details.before = {
+  const before = (details.before = {
     executable: await readInstanceExecutable(ctx, plain),
     version: await readU32(ctx, plain, 'version'),
-  };
+  });
+  // A partial manual recovery can keep a target that adopt-ref already moved. Stop before any signature.
+  if (before.executable.type !== 'wasm' || before.version !== 1)
+    throw new Error(
+      'X06: the target does not start on the direct v1 executable; recover as fixtures/cap85/README.md describes',
+    );
   details.adopt_ref_by_admin_b = await step('adopt-ref', () =>
     invokeOperation(ctx, state, {
       operation: call(sdk, plain, 'adopt_ref', addr(sdk, manager), str(sdk, TAG)),

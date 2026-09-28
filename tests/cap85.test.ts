@@ -11,7 +11,9 @@ import {
   reconcileInflight,
   prepareCap85,
   assertCreatedReference,
+  externalRef,
   x06,
+  TAG,
 } from './cap85.ts';
 import type { Transaction, rpc } from '@stellar/stellar-sdk';
 import type { Cap85Context, Inflight, PrepareContext } from './cap85.ts';
@@ -28,15 +30,15 @@ const base = {
 };
 // Reconciliation needs only these calls. Signing, submission, and funding fail the test when reached.
 type TestContext = PrepareContext & Pick<Cap85Context, 'sign' | 'send' | 'fund'>;
-// A typed record-mode simulation. Only the counter value carries test data.
-const counterResponse = (count: number): rpc.Api.SimulateTransactionSuccessResponse => ({
+// A typed record-mode simulation. Only the u32 return value carries test data.
+const u32Response = (value: number): rpc.Api.SimulateTransactionSuccessResponse => ({
   id: 'cap85-test',
   latestLedger: 10,
   events: [],
   _parsed: true,
   transactionData: new sdk.SorobanDataBuilder(),
   minResourceFee: '0',
-  result: { auth: [], retval: sdk.xdr.ScVal.scvU32(count) },
+  result: { auth: [], retval: sdk.xdr.ScVal.scvU32(value) },
 });
 const functionName = (tx: Transaction) => {
   const op = tx.operations[0];
@@ -81,7 +83,7 @@ function setup(row = 'X03', count = 12) {
       simulateTransaction: async (tx) => {
         assert.equal(functionName(tx), 'count');
         calls.push('counter-read');
-        return counterResponse(count);
+        return u32Response(count);
       },
     },
   };
@@ -240,7 +242,10 @@ for (const [name, saved, marker, status = 'SUCCESS'] of incomplete) {
   test(`X06 restart after ${name} stops with incomplete_evidence and no live read`, async () => {
     const { ctx, restarted, file, calls, startup } = await restartX06(saved, marker, status);
     const changed = marker?.sent && status === 'SUCCESS' ? [...saved, marker.label] : saved;
-    const message = new RegExp(changed.map((label) => `${label} ${X06_HASH[label]}`).join(', '));
+    const hashes = changed.map((label) => `${label} ${X06_HASH[label]}`).join(', ');
+    const message = new RegExp(
+      `${hashes} but not done\\.X06\\. .*recover as fixtures/cap85/README\\.md describes`,
+    );
     await assert.rejects(x06(ctx, restarted, manifest), { code: 'incomplete_evidence', message });
     assert.deepEqual(calls, startup);
     const checkpoint = readCheckpoint(file);
@@ -261,7 +266,54 @@ for (const [name, marker, status] of unchanged) {
     assert.deepEqual(calls, [...startup, 'read executable']);
   });
 }
-test('a checkpoint with done.X06 and saved adopt steps still loads', async () => {
+// A partial manual edit: saved adopt steps, but no target. X06 stops before it deploys a new target.
+test('X06 restart without contracts.target_plain stops with incomplete_evidence and no call', async () => {
+  const { ctx, restarted, calls, startup } = await restartX06(['adopt-ref']);
+  delete restarted.contracts.target_plain;
+  await assert.rejects(x06(ctx, restarted, manifest), { code: 'incomplete_evidence' });
+  assert.deepEqual(calls, startup);
+});
+// A partial manual recovery: the X06 steps are gone, but the target that adopt-ref moved stays.
+test('X06 stops before any signature when the kept target runs the external reference', async () => {
+  const { ctx, restarted, file, calls, startup } = await restartX06([]);
+  delete restarted.steps['X06:deploy-target_plain'];
+  const contract = new sdk.Address(C).toScAddress();
+  const instanceKey = sdk.xdr.ScVal.scvLedgerKeyContractInstance();
+  const durability = sdk.xdr.ContractDataDurability.persistent;
+  const instance = new sdk.xdr.ScContractInstance({
+    executable: externalRef(sdk, manager, TAG),
+    storage: null,
+  });
+  ctx.rpc.getContractData = async () => {
+    calls.push('read executable');
+    return {
+      key: sdk.xdr.LedgerKey.contractData(
+        new sdk.xdr.LedgerKeyContractData({ contract, key: instanceKey, durability }),
+      ),
+      val: sdk.xdr.LedgerEntryData.contractData(
+        new sdk.xdr.ContractDataEntry({
+          ext: sdk.xdr.ExtensionPoint.v0(),
+          contract,
+          key: instanceKey,
+          durability,
+          val: sdk.xdr.ScVal.scvContractInstance(instance),
+        }),
+      ),
+    };
+  };
+  ctx.rpc.getAccount = async () => new sdk.Account(key.publicKey, '1');
+  ctx.rpc.simulateTransaction = async (tx) => {
+    calls.push(`read ${functionName(tx)}`);
+    return u32Response(2);
+  };
+  await assert.rejects(
+    x06(ctx, restarted, manifest),
+    /does not start on the direct v1 executable; recover as fixtures\/cap85\/README\.md describes/,
+  );
+  assert.deepEqual(calls, [...startup, 'read executable', 'read version']);
+  assert.equal(readCheckpoint(file).done.X06, undefined);
+});
+test('loadState accepts a checkpoint with done.X06 and saved adopt steps', async () => {
   const { ctx, file } = await restartX06(['adopt-ref', 'adopt-wasm']);
   const state = loadState(ctx, base, manifest, file);
   state.done.X06 = { title: 'X06' };
