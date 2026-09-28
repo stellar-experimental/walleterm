@@ -579,15 +579,24 @@ fn tunnels(dir: &std::path::Path) -> Vec<i32> {
         .collect()
 }
 
-fn scratch() -> PathBuf {
+/// Removes a scratch directory even when its test fails.
+struct Cleanup(PathBuf);
+
+impl Drop for Cleanup {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+fn scratch() -> (PathBuf, Cleanup) {
     let dir = PathBuf::from(format!("/private/tmp/wt-sup-{}", &walleterm::util::uuid()[..8]));
     std::fs::create_dir(&dir).unwrap();
-    dir
+    (dir.clone(), Cleanup(dir))
 }
 
 #[tokio::test]
 async fn a_closed_parent_pipe_stops_the_supervisor_and_its_stubborn_child() {
-    let dir = scratch();
+    let (dir, _cleanup) = scratch();
     mock_cloudflared(&dir);
     let mut supervisor = tokio::process::Command::new(env!("CARGO_BIN_EXE_walleterm"))
         .arg("tunnel-child")
@@ -615,7 +624,7 @@ async fn a_closed_parent_pipe_stops_the_supervisor_and_its_stubborn_child() {
 
 #[tokio::test]
 async fn a_supervisor_sigkill_stops_its_tunnel_group_and_spares_bystanders() {
-    let dir = scratch();
+    let (dir, _cleanup) = scratch();
     mock_cloudflared(&dir);
     let bystanders: Vec<std::process::Child> = [false, true]
         .into_iter()
@@ -656,7 +665,7 @@ async fn a_supervisor_sigkill_stops_its_tunnel_group_and_spares_bystanders() {
 
 #[tokio::test]
 async fn stopping_a_supervisor_stops_its_stubborn_child_within_the_grace_periods() {
-    let dir = scratch();
+    let (dir, _cleanup) = scratch();
     mock_cloudflared(&dir);
     let env = vec![("PATH".to_owned(), format!("{}:/bin:/usr/bin", dir.display()))];
     let binary = PathBuf::from(env!("CARGO_BIN_EXE_walleterm"));
@@ -672,7 +681,7 @@ async fn stopping_a_supervisor_stops_its_stubborn_child_within_the_grace_periods
 
 #[test]
 fn the_tunnel_command_reports_a_busy_port_without_starting_cloudflared() {
-    let dir = scratch();
+    let (dir, _cleanup) = scratch();
     mock_cloudflared(&dir);
     let busy = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = busy.local_addr().unwrap().port();
@@ -729,7 +738,7 @@ fn record(cwd: &std::path::Path) -> Value {
 
 #[tokio::test]
 async fn a_replacement_supervisor_records_its_own_processes_and_stays_alive() {
-    let dir = scratch();
+    let (dir, _cleanup) = scratch();
     scripted_cloudflared(&dir, "1 2");
     let (h, mut deps) = harness(Plan { health: Duration::from_millis(20), ..Plan::default() });
     let cwds = real_supervisor(&mut deps, &dir);
@@ -757,7 +766,7 @@ async fn a_replacement_supervisor_records_its_own_processes_and_stays_alive() {
 
 #[tokio::test]
 async fn shutdown_before_the_first_url_stops_the_starting_tunnel_first() {
-    let dir = scratch();
+    let (dir, _cleanup) = scratch();
     scripted_cloudflared(&dir, "");
     let (h, mut deps) = harness(Plan::default());
     let cwds = real_supervisor(&mut deps, &dir);
@@ -777,7 +786,7 @@ async fn shutdown_before_the_first_url_stops_the_starting_tunnel_first() {
 
 #[tokio::test]
 async fn shutdown_before_a_replacement_url_stops_the_replacement_first() {
-    let dir = scratch();
+    let (dir, _cleanup) = scratch();
     scripted_cloudflared(&dir, "1");
     let (h, mut deps) = harness(Plan { health: Duration::from_millis(20), ..Plan::default() });
     let cwds = real_supervisor(&mut deps, &dir);
@@ -794,7 +803,7 @@ async fn shutdown_before_a_replacement_url_stops_the_replacement_first() {
 
 #[tokio::test]
 async fn tunnel_output_after_the_url_is_discarded_and_shutdown_stays_normal() {
-    let dir = scratch();
+    let (dir, _cleanup) = scratch();
     let body = "#!/bin/sh\necho https://mock-tunnel.trycloudflare.com\nsleep 0.2\n\
                 dd if=/dev/zero bs=4096 count=1024 2>/dev/null\nwhile :; do sleep 1; done\n";
     std::fs::write(dir.join("cloudflared"), body).unwrap();
@@ -844,7 +853,7 @@ async fn closed_output_keeps_the_url_deadline_and_the_stop_request() {
 /// Review P7-S1: shutdown during recovery waits until the old tunnel has stopped.
 #[tokio::test]
 async fn shutdown_while_recovery_stops_the_old_tunnel_waits_for_that_stop() {
-    let dir = scratch();
+    let (dir, _cleanup) = scratch();
     scripted_cloudflared(&dir, "1 2");
     let (h, mut deps) = harness(Plan {
         probe: Box::new(|_, _| Err(Error::new("internal", "Mock network failure"))),
@@ -867,7 +876,7 @@ async fn shutdown_while_recovery_stops_the_old_tunnel_waits_for_that_stop() {
 /// A signature that arrives after shutdown starts never reaches the website.
 #[tokio::test]
 async fn shutdown_during_retirement_cancels_bridge_signing_first() {
-    let dir = scratch();
+    let (dir, _cleanup) = scratch();
     scripted_cloudflared(&dir, "1 2");
     let unhealthy = Arc::new(AtomicBool::new(false));
     let health = unhealthy.clone();
