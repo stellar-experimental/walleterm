@@ -70,3 +70,12 @@ Keep the account's rule IDs bound to the original host payload through `auth_dig
 Live tests accepted both a single context and a nested two-context tree.
 Wrong roots, wrong bound digests, and missing delegate entries failed enforce simulation.
 This is OpenZeppelin's nested authorization scheme. For CAP-71 delegate credentials, read [CAP-71 delegation](delegation.md).
+
+## Untested delegated C-address signer
+
+A `Delegated` C-address signer also needs a separate entry rooted at `<account>.__check_auth(auth_digest)`.
+Sign that entry in the delegate contract's own format. Check its code first with [contract code](contract-code.md).
+`walleterm sign-auth` accepts that entry with the `contract-ed25519` or `openzeppelin-ed25519` adapter.
+The request then shows only an opaque 32-byte digest. Walleterm does not check what that digest approves.
+Before signing, recompute `auth_digest` from the reviewed outer entry and its rule IDs. Require an exact match.
+No live test covers this path.
