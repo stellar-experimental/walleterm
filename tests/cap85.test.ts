@@ -11,9 +11,10 @@ import {
   reconcileInflight,
   prepareCap85,
   assertCreatedReference,
+  x06,
 } from './cap85.ts';
 import type { Transaction, rpc } from '@stellar/stellar-sdk';
-import type { Cap85Context, PrepareContext } from './cap85.ts';
+import type { Cap85Context, Inflight, PrepareContext } from './cap85.ts';
 
 const C = sdk.StrKey.encodeContract(Buffer.alloc(32, 9));
 const manager = sdk.StrKey.encodeContract(Buffer.alloc(32, 8));
@@ -97,7 +98,8 @@ function setup(row = 'X03', count = 12) {
 }
 interface SavedCheckpoint {
   inflight?: { hash?: string };
-  steps: Record<string, { count_after?: number } | undefined>;
+  done: Record<string, unknown>;
+  steps: Record<string, { count_after?: number; hash?: string } | undefined>;
 }
 const readCheckpoint = (file: string): SavedCheckpoint => JSON.parse(readFileSync(file, 'utf8'));
 
@@ -158,6 +160,113 @@ test('an unknown local outcome keeps the checkpoint and stops before assertClear
   await assert.rejects(prepareCap85(ctx, state), { code: 'unknown_submission' });
   assert.deepEqual(calls, ['shared-hash', 'local-hash']);
   assert.equal(state.inflight?.hash, hash);
+});
+
+// X06 restart boundaries. Each checkpoint is what an interruption inside X06 leaves: X01-X05 done, the
+// target deployed, some adopt steps saved, and an optional marker. A restart reloads the checkpoint,
+// runs startup reconciliation, then X06. Every X06 read, signature, and submission is recorded.
+const X06_HASH = { 'adopt-ref': 'ab'.repeat(32), 'adopt-wasm': 'cd'.repeat(32) };
+type Adopt = keyof typeof X06_HASH;
+interface Marker {
+  label: Adopt;
+  sent: boolean;
+}
+async function restartX06(saved: Adopt[], marker?: Marker, status = 'SUCCESS') {
+  const directory = mkdtempSync(join(tmpdir(), 'cap85-x06-'));
+  onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
+  const file = join(directory, 'state.json');
+  const calls: string[] = [];
+  const reached = (name: string) => async (): Promise<never> => {
+    calls.push(name);
+    assert.fail(`X06 reached ${name}`);
+  };
+  const testKey = { name: 'mock', publicKey: key.publicKey, rawPublicKey: Buffer.alloc(32, 7) };
+  const ctx: Cap85Context = {
+    sdk,
+    networkPassphrase: sdk.Networks.TESTNET,
+    keys: { a: testKey, b: testKey, c: testKey },
+    record() {},
+    reconcile: async () => {
+      calls.push('shared-hash');
+      return null;
+    },
+    assertClear() {
+      calls.push('assert-clear');
+    },
+    signDigest: reached('signDigest'),
+    sign: reached('sign'),
+    send: reached('send'),
+    fund: reached('fund'),
+    rpc: {
+      getTransaction: async (requested) => {
+        calls.push(`lookup ${requested}`);
+        return { status, ledger: 10 };
+      },
+      // The live read of `before`. It stops the run here so that no later X06 step starts.
+      getContractData: async () => {
+        calls.push('read executable');
+        throw new Error('live before read');
+      },
+      getNetwork: reached('getNetwork'),
+      getAccount: reached('getAccount'),
+      simulateTransaction: reached('simulateTransaction'),
+    },
+  };
+  const state = loadState(ctx, base, manifest, file);
+  for (const id of ['X01', 'X02', 'X03', 'X04', 'X05']) state.done[id] = { title: id };
+  state.contracts.manager = { id: manager, executable: { type: 'wasm' } };
+  state.contracts.target_plain = { id: C, executable: { type: 'wasm' } };
+  state.steps['X06:deploy-target_plain'] = { outcome: 'submitted', hash: '01'.repeat(32) };
+  for (const label of saved) state.steps[`X06:${label}`] = { outcome: 'submitted', hash: X06_HASH[label] };
+  if (marker) {
+    const inflight: Inflight = { row: 'X06', label: marker.label, key: `X06:${marker.label}` };
+    if (marker.sent) inflight.hash = X06_HASH[marker.label];
+    state.inflight = inflight;
+  }
+  saveState(state);
+  const restarted = loadState(ctx, base, manifest, file);
+  await prepareCap85(ctx, restarted);
+  return { ctx, restarted, file, calls, startup: [...calls] };
+}
+const incomplete: [string, Adopt[], Marker?, string?][] = [
+  ['adopt-ref was sent and succeeded', [], { label: 'adopt-ref', sent: true }],
+  ['adopt-ref was saved', ['adopt-ref']],
+  ['adopt-wasm was marked but not sent', ['adopt-ref'], { label: 'adopt-wasm', sent: false }],
+  ['adopt-wasm was sent and failed', ['adopt-ref'], { label: 'adopt-wasm', sent: true }, 'FAILED'],
+  ['adopt-wasm was sent and succeeded', ['adopt-ref'], { label: 'adopt-wasm', sent: true }],
+  ['adopt-wasm was saved', ['adopt-ref', 'adopt-wasm']],
+];
+for (const [name, saved, marker, status = 'SUCCESS'] of incomplete) {
+  test(`X06 restart after ${name} stops with incomplete_evidence and no live read`, async () => {
+    const { ctx, restarted, file, calls, startup } = await restartX06(saved, marker, status);
+    const changed = marker?.sent && status === 'SUCCESS' ? [...saved, marker.label] : saved;
+    const message = new RegExp(changed.map((label) => `${label} ${X06_HASH[label]}`).join(', '));
+    await assert.rejects(x06(ctx, restarted, manifest), { code: 'incomplete_evidence', message });
+    assert.deepEqual(calls, startup);
+    const checkpoint = readCheckpoint(file);
+    assert.equal(checkpoint.done.X06, undefined);
+    for (const label of changed) assert.equal(checkpoint.steps[`X06:${label}`]?.hash, X06_HASH[label]);
+  });
+}
+// Controls: no executable change reached the chain, so the live read of `before` is valid.
+const unchanged: [string, Marker?, string?][] = [
+  ['the target deploy'],
+  ['an adopt-ref marker that was not sent', { label: 'adopt-ref', sent: false }],
+  ['an adopt-ref that failed on chain', { label: 'adopt-ref', sent: true }, 'FAILED'],
+];
+for (const [name, marker, status] of unchanged) {
+  test(`X06 restart after ${name} reads before from the unchanged target`, async () => {
+    const { ctx, restarted, calls, startup } = await restartX06([], marker, status);
+    await assert.rejects(x06(ctx, restarted, manifest), /live before read/);
+    assert.deepEqual(calls, [...startup, 'read executable']);
+  });
+}
+test('a checkpoint with done.X06 and saved adopt steps still loads', async () => {
+  const { ctx, file } = await restartX06(['adopt-ref', 'adopt-wasm']);
+  const state = loadState(ctx, base, manifest, file);
+  state.done.X06 = { title: 'X06' };
+  saveState(state);
+  assert.deepEqual(loadState(ctx, base, manifest, file).done.X06, { title: 'X06' });
 });
 
 const validCreation = () => ({
