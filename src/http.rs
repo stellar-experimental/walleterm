@@ -74,7 +74,10 @@ pub fn response(reply: Reply) -> Response<Full<Bytes>> {
     for (name, value) in &reply.headers {
         builder = builder.header(*name, value);
     }
-    let body = reply.body.map(|v| Bytes::from(v.to_string())).unwrap_or_default();
+    let body = match reply.raw {
+        Some(raw) => raw,
+        None => reply.body.map(|v| Bytes::from(v.to_string())).unwrap_or_default(),
+    };
     builder.body(Full::new(body)).unwrap_or_else(|_| Response::new(Full::new(Bytes::new())))
 }
 

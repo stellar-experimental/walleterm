@@ -41,3 +41,4 @@ jobs:
       - name: Check Rust advisories, licenses, and sources
         run: cargo deny --workspace --locked check advisories licenses sources
       - run: make test
+      - run: make test-kit

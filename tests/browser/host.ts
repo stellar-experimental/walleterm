@@ -19,6 +19,8 @@ export interface HostOptions {
   /** Present: every request waits for this review. Absent: the bridge approves valid requests. */
   review?: (request: ReviewRequest, options: Options) => Promise<boolean>;
   log?: (line: string) => unknown;
+  /** Also serve the embedded demo website. Its origin is `demoOrigin`. */
+  demo?: boolean;
 }
 export interface ReviewRequest {
   origin: string;
@@ -34,6 +36,7 @@ export interface Pairing {
 export interface Host {
   origin: string;
   port: number;
+  demoOrigin?: string;
   pairing(): Promise<Pairing>;
   code(): Promise<string>;
   /** Move the bridge clock. */
@@ -55,7 +58,11 @@ function errorCode(error: unknown): { code: string; message: string } {
 export async function createHost(options: HostOptions = {}): Promise<Host> {
   const child = spawn(binary, [], {
     stdio: ['pipe', 'pipe', 'inherit'],
-    env: { PATH: process.env.PATH ?? '', ...(options.review ? { WALLETERM_TEST_HOST_REVIEW: '1' } : {}) },
+    env: {
+      PATH: process.env.PATH ?? '',
+      ...(options.review ? { WALLETERM_TEST_HOST_REVIEW: '1' } : {}),
+      ...(options.demo ? { WALLETERM_TEST_HOST_DEMO: '1' } : {}),
+    },
   });
   const lines = createInterface({ input: child.stdout });
   const replies = new Map<number, (value: unknown) => void>();
@@ -63,7 +70,7 @@ export async function createHost(options: HostOptions = {}): Promise<Host> {
   let nextRequest = 1;
   let pairingChanged = () => {};
   const write = (value: unknown) => child.stdin.write(JSON.stringify(value) + '\n');
-  const ready = Promise.withResolvers<{ marker: string; port: number }>();
+  const ready = Promise.withResolvers<{ marker: string; port: number; demo_port: number | null }>();
   child.once('exit', (code) =>
     ready.reject(Error(`The test host exited (${code}). Build it with the test-host feature.`)),
   );
@@ -122,6 +129,7 @@ export async function createHost(options: HostOptions = {}): Promise<Host> {
   return {
     origin: `http://127.0.0.1:${started.port}`,
     port: started.port,
+    ...(started.demo_port ? { demoOrigin: `http://127.0.0.1:${started.demo_port}` } : {}),
     pairing: () => request('pairing') as Promise<Pairing>,
     code: async () => ((await request('pairing')) as Pairing).code,
     advance: async (ms) => {

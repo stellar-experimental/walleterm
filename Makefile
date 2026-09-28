@@ -1,12 +1,16 @@
 PREFIX ?= $(HOME)/.local
 
-.PHONY: build install install-skill test
+.PHONY: build install install-skill test test-kit
 
 SKILL_HOME ?= $(HOME)
 SKILL_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/.agents/skills)
 
+# One Rust binary with the demo website embedded. Browser files are minified in a private directory.
 build:
-	bun scripts/package.ts bin
+	bun scripts/build.ts target/assets --minify
+	WALLETERM_ASSETS="$(CURDIR)/target/assets" cargo build --release --locked --bin walleterm
+	mkdir -p bin
+	cp target/release/walleterm bin/walleterm
 	ln -sf walleterm bin/stellar-walleterm
 
 install:
@@ -46,6 +50,7 @@ install-skill:
 	done
 
 test:
+	bun run build
 	go test ./...
 	go vet ./...
 	cargo fmt --all --check
@@ -55,3 +60,9 @@ test:
 	cargo build --locked --features test-host --bin walleterm-test-host
 	bun run typecheck
 	bun run test
+
+# The real Stellar Wallets Kit 2.7.0 against the Rust bridge. Its dependency stays in fixtures/kit.
+test-kit:
+	cargo build --locked --features test-host --bin walleterm-test-host
+	bun install --cwd fixtures/kit --frozen-lockfile --ignore-scripts
+	bun fixtures/kit/check.mts

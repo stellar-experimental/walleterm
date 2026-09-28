@@ -148,7 +148,16 @@ fn main() {
             Box::pin(async move { bridge.handle(req, body).await })
         });
         tokio::spawn(walleterm::http::serve(listener, handler, Duration::from_secs(150), stop.clone()));
-        send(&json!({ "ready": { "marker": MARKER, "port": port, "pairing": bridge.pairing() } }));
+        // With WALLETERM_TEST_HOST_DEMO, also serve the embedded demo website on its own port.
+        let mut demo_port = Value::Null;
+        if std::env::var_os("WALLETERM_TEST_HOST_DEMO").is_some() {
+            let demo_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("a loopback port");
+            let port = demo_listener.local_addr().unwrap().port();
+            let demo = walleterm::demo::Demo::new(port);
+            tokio::spawn(walleterm::demo::serve(demo, demo_listener, stop.clone()));
+            demo_port = json!(port);
+        }
+        send(&json!({ "ready": { "marker": MARKER, "port": port, "demo_port": demo_port, "pairing": bridge.pairing() } }));
         // Tokio's standard input needs a feature the application does not use. A thread reads lines instead.
         let (tx, mut lines) = tokio::sync::mpsc::unbounded_channel::<String>();
         std::thread::spawn(move || {

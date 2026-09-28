@@ -317,18 +317,25 @@ pub struct HttpRequest {
 pub struct Reply {
     pub status: u16,
     pub headers: Vec<(&'static str, String)>,
+    /// A JSON body. `raw` sends bytes instead, with only the listed headers.
     pub body: Option<Value>,
+    pub raw: Option<bytes::Bytes>,
 }
 
 impl Reply {
     /// A failure as a response, with the SEP-43 error under `error`.
     pub fn failure(fail: Fail) -> Self {
-        Reply { status: fail.status, headers: Vec::new(), body: Some(json!({ "error": fail.error })) }
+        Reply {
+            status: fail.status,
+            headers: Vec::new(),
+            body: Some(json!({ "error": fail.error })),
+            raw: None,
+        }
     }
 }
 
 fn reply(status: u16, body: Value) -> std::result::Result<Reply, Fail> {
-    Ok(Reply { status, headers: Vec::new(), body: Some(body) })
+    Ok(Reply { status, headers: Vec::new(), body: Some(body), raw: None })
 }
 
 /// Read and parse a JSON object body with the TS server's rules. Duplicate keys fail.
@@ -991,6 +998,7 @@ impl Bridge {
                     ("Access-Control-Max-Age", "300".into()),
                 ],
                 body: None,
+                raw: None,
             }));
         }
         with_cors(self.route(&req, &route, &site, body).await)

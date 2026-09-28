@@ -1,11 +1,7 @@
 //! `walleterm tunnel` and `walleterm demo`: option parsing, startup banners, signals, and exit codes.
-//! The tunnel runs natively. The demo still starts the Bun sidecar until its assets are embedded.
 
-use std::ffi::OsString;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
-use std::os::unix::process::CommandExt;
-use std::path::PathBuf;
 
 fn usage(command: &str) -> &'static str {
     if command == "tunnel" { "walleterm tunnel [--port 8787]" } else { "walleterm demo [--port 8788]" }
@@ -37,16 +33,6 @@ pub fn parse_port(command: &str, args: &[&str]) -> Option<u16> {
         port = digits.parse().ok()?;
     }
     (1..=65535).contains(&port).then_some(port as u16)
-}
-
-/// Bun reads BUN_OPTIONS, BUN_BE_BUN, and similar variables even in a compiled executable.
-/// Drop them so the caller's environment cannot load code into the sidecar.
-pub fn sidecar_environment(vars: impl Iterator<Item = (OsString, OsString)>) -> Vec<(OsString, OsString)> {
-    vars.filter(|(name, _)| {
-        let name = name.to_string_lossy();
-        !name.starts_with("BUN_") && name != "NODE_OPTIONS" && name != "WALLETERM_BINARY"
-    })
-    .collect()
 }
 
 fn on_path(program: &str) -> bool {
@@ -271,21 +257,23 @@ pub fn run(command: &str, args: &[&str], out: &mut dyn Write) -> i32 {
     if command == "tunnel" {
         return run_tunnel(port);
     }
-    let binary = std::env::current_exe().and_then(std::fs::canonicalize);
-    let sidecar = binary.as_ref().ok().and_then(|b| b.parent()).map(|dir| dir.join("walleterm-bridge"));
-    let (Ok(binary), Some(sidecar)) = (&binary, sidecar.filter(|s| s.is_file())) else {
-        return fail(out, "start_failed", "The walleterm-bridge binary is missing. Reinstall walleterm.");
-    };
-    let mut environment = sidecar_environment(std::env::vars_os());
-    environment.push(("WALLETERM_BINARY".into(), binary.as_os_str().to_owned()));
-    // exec returns only on failure.
-    let _ = std::process::Command::new(&sidecar)
-        .arg0(PathBuf::from(&sidecar))
-        .args([command, &format!("{{\"port\":{port}}}")])
-        .env_clear()
-        .envs(environment)
-        .exec();
-    fail(out, "start_failed", "The service could not start.")
+    run_demo(port)
+}
+
+/// `walleterm demo`: the example website behind its own Quick Tunnel.
+fn run_demo(port: u16) -> i32 {
+    let Ok(runtime) = tokio::runtime::Builder::new_current_thread().enable_all().build() else { return 1 };
+    runtime.block_on(async {
+        let client = match crate::ledger::https_client() {
+            Ok(client) => std::sync::Arc::new(client),
+            Err(e) => {
+                println!("{}", e.message);
+                return 1;
+            }
+        };
+        let service = std::sync::Arc::new(crate::demo::DemoService::new(port));
+        run_launch("Walleterm demo", port, service, std::sync::Arc::new(Terminal), client).await
+    })
 }
 
 #[cfg(test)]
@@ -334,19 +322,5 @@ mod tests {
             assert!(text.contains(&format!("walleterm {command}")));
             assert!(!text.contains("--recipient") && !text.contains("--human") && !text.contains("--public"));
         }
-    }
-
-    #[test]
-    fn the_sidecar_never_inherits_code_loading_variables() {
-        let vars = [
-            ("BUN_OPTIONS", "--preload x.js"),
-            ("BUN_BE_BUN", "1"),
-            ("NODE_OPTIONS", "--require x.js"),
-            ("WALLETERM_BINARY", "/tmp/other"),
-            ("OP_VAULT", "Private"),
-        ]
-        .map(|(k, v)| (OsString::from(k), OsString::from(v)));
-        let kept = sidecar_environment(vars.into_iter());
-        assert_eq!(kept, vec![(OsString::from("OP_VAULT"), OsString::from("Private"))]);
     }
 }
