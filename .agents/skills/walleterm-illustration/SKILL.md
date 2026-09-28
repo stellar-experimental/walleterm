@@ -1,19 +1,20 @@
 ---
 name: walleterm-illustration
-description: Draw or change walleterm illustrations and the wallet mascot at parity with the reference images. Use for a new scene, a site or social image, a change to the hand-drawn line, or a parity check of art against design/reference.
+description: Draw or change walleterm illustrations and the wallet mascot at parity with the reference images. Use for a new scene, a site or social image, a change to the hand-drawn line or flat shapes, a parity check of art against design/reference, or an update to the Paper designs.
 ---
 
 # Walleterm illustration
 
-Read [the illustration standard](../../../design/ILLUSTRATION.md) first. It defines the style, the line, and **parity**.
+Read [the illustration standard](../../../design/ILLUSTRATION.md) first. It defines the style, the line, flat shapes, and **parity**.
 Work from the repository root. Scenes live in `design/art/build.ts`. The mascot and the line live beside it.
+When a browser, shell, or Git step fails in a strange way, read [the tool traps](references/tooling.md).
 
 ## Loop
 
 1. **Pick the reference.** Choose the image in `design/reference/` nearest to the picture: same ground, same pose. The [index](../../../design/reference/README.md) lists each one.
    Done when you can name one reference file and the idea the picture carries.
 2. **Construct.** Add or edit a scene in `design/art/build.ts`. For a recreation, place the mascot with `placeFromTrace` and the output of `uv run design/tools/artcheck.py trace REF`.
-   Use mascot defaults. Set an option only for a trait the reference shows, and write that reason in a comment.
+   Use mascot defaults. Draw circles with `disc`. Set an option only for a trait the reference shows, and write that reason in a comment.
 3. **Build.** Run `bun design/art/build.ts`.
 4. **Measure.** Run `uv run design/tools/artcheck.py compare REF design/art/out/NAME.svg --out design/art/out/NAME-sheet.png`.
    Add `--bands-only` for a new picture, where no single reference matches. Add `--walk` for the walking pose.
@@ -23,9 +24,13 @@ Work from the repository root. Scenes live in `design/art/build.ts`. The mascot 
    Done when each row has a verdict: "matches" or a named difference.
 6. **Fix.** Change the construction or the hand, then go back to step 3. Change a measure only when it measures the wrong thing, and prove that on the references first.
    Done when steps 4 and 5 are clean in the same pass.
-7. **Guard the suite.** After a change to `hand.ts` or `mascot.ts` defaults, run step 4 for the parity scenes `15-moss-circle` and `16-hourglass`.
-   Done when both exit 0.
-8. **Record.** A new trait goes in the standard. A new reference goes in the index, then run `uv run design/tools/artcheck.py baseline`.
+7. **Guard the suite.** After a change to `hand.ts`, `mascot.ts`, or a shared helper, run `uv run design/tools/artcheck.py suite`.
+   Done when it exits 0 and you have read the sheet of every scene the change touched.
+8. **Check the site.** When `site/art/` changed, render the page with `agent-browser` at 1440, 820, and 390 pixels wide. Compare it with a render from before the change.
+   Done when no width scrolls sideways and every changed picture sits where it did.
+9. **Sync Paper.** When `site/art/` changed, update the Paper designs. Read [the Paper workflow](references/paper.md) first.
+   Done when every changed image layer serves the same bytes as its site file.
+10. **Record.** A new trait or lesson goes in the standard. A new reference goes in the index, then run `uv run design/tools/artcheck.py baseline`. A new tool trap goes in the traps file.
 
 ## Report
 

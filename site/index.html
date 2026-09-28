@@ -27,7 +27,6 @@
   --moon: #f4eddc;
   --moss: #758747;
   --deep-moss: #2a4525;
-  --night-moon: #fbf4e4;
   --night: #050404;
   --sans: "Atkinson Hyperlegible Next", system-ui, sans-serif;
   --mono: "Atkinson Hyperlegible Mono", ui-monospace, monospace;
@@ -191,7 +190,7 @@ svg { display: block; }
 .install { position: relative; overflow: hidden; padding-bottom: 48px; --m: 56vw; }
 /* Cut by the top edge, as in reference 11. Its top chord starts right of the bridge gap above. */
 .night-moon {
-  position: absolute; width: var(--m); aspect-ratio: 1; border-radius: 50%; background: var(--night-moon);
+  position: absolute; display: block; width: var(--m); height: auto; aspect-ratio: 1;
   left: calc(85% - var(--m) / 2); top: calc(15px - var(--m) / 2);
 }
 .install .inner { position: relative; }
@@ -414,7 +413,7 @@ svg { display: block; }
   </section>
 
   <section class="spread night install" id="install" aria-labelledby="install-title">
-    <div class="night-moon" aria-hidden="true"></div>
+    <img class="night-moon" src="art/night-moon.svg" alt="" width="1000" height="1000">
     <div class="inner">
       <div class="install-row">
         <div class="install-copy">
