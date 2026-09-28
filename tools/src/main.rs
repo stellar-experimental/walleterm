@@ -1,6 +1,7 @@
-//! Maintainer tools: `package`, `install`, `release`, and the contract fixture manifests. They call Bun, Cargo, and the macOS signing tools
+//! Maintainer tools: `package`, `install`, `release`, the contract fixture manifests, and the illustrations. They call Bun, Cargo, and the macOS signing tools
 //! with argument lists and checked exits. Nothing here ships in a release.
 
+mod art;
 mod fixtures;
 mod install;
 mod notices;
@@ -85,7 +86,7 @@ pub fn sha256_hex(bytes: &[u8]) -> String {
 
 const USAGE: &str = "Use walleterm-tools package <directory> [version], install <prefix>, \
 release <major.minor.patch> [--publish | --no-notarize], fixture-manifest <wasm directory> <OpenZeppelin commit>, \
-or cap85-manifest <fixtures/cap85 directory>.";
+cap85-manifest <fixtures/cap85 directory>, or art.";
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -102,6 +103,7 @@ fn main() {
         ["release", version, flags @ ..] => release::release(&root, version, flags),
         ["fixture-manifest", out, commit] => fixtures::write_fixture_manifest(Path::new(out), commit),
         ["cap85-manifest", here] => fixtures::write_cap85_manifest(Path::new(here)),
+        ["art"] => art::build(&root),
         _ => Err(USAGE.into()),
     };
     match result {

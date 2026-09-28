@@ -1,6 +1,6 @@
 PREFIX ?= $(HOME)/.local
 
-.PHONY: build install install-skill release test test-kit test-package
+.PHONY: art build install install-skill release test test-kit test-package
 
 SKILL_HOME ?= $(HOME)
 SKILL_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/.agents/skills)
@@ -20,6 +20,10 @@ install:
 release:
 	@test -n "$(VERSION)" || { echo "Use make release VERSION=<major.minor.patch> [PUBLISH=1 | NOTARIZE=0]." >&2; exit 1; }
 	$(TOOLS) release "$(VERSION)" $(if $(PUBLISH),--publish) $(if $(filter 0,$(NOTARIZE)),--no-notarize)
+
+# The illustrations in design/art/out and site/art. See design/ILLUSTRATION.md.
+art:
+	$(TOOLS) art
 
 install-skill:
 	@set -eu; \

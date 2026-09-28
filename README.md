@@ -190,7 +190,7 @@ Keep unresolved submission journals until their original transaction hashes are 
 ## Website
 
 `site/` holds the marketing page. It is static HTML with no build step. Open `site/index.html` to view it.
-Its illustrations come from `design/art/build.ts`. Read [the illustration standard](design/ILLUSTRATION.md) before you change them.
+Its illustrations come from `tools/src/art.rs` (`make art`). Read [the illustration standard](design/ILLUSTRATION.md) before you change them.
 
 ## TypeScript development
 

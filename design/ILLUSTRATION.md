@@ -16,7 +16,7 @@ Hurd printed the first edition in four flat inks. Seuss picked a few saturated i
 
 ## The mascot
 
-A folded wallet with one round eye and two thin legs. [`art/mascot.ts`](art/mascot.ts) holds the construction, traced from seven references.
+A folded wallet with one round eye and two thin legs. The mascot section of [`tools/src/art.rs`](../tools/src/art.rs) holds the construction, traced from seven references.
 The front panel is a skewed quadrilateral, about 1.1 times as wide as it is tall. Its top and bottom edges slope down to the right.
 The back flap is a triangle that rises from the front panel's top-left corner.
 The eye sits at 85% across and 32% down the front panel. Its diameter is about 10% of the panel height.
@@ -31,11 +31,11 @@ The hand-drawn feel comes from the line itself. Five traits make it, and all fiv
 
 | Trait | What the references do | Control |
 | --- | --- | --- |
-| Weight | Width is 2% to 3.5% of the panel height. It scales with the drawing. | `width` in [`hand.ts`](art/hand.ts) |
-| Drift | Long lines bow a little. The right panel edge bends inward about 1% in all 16 references, so its bottom corner flares. | `bow`, `drift`, `bias`; `bows` in [`mascot.ts`](art/mascot.ts) |
-| Tilt | Nothing is exactly vertical or square. Legs are straight but splay outward by up to 6%. | `jitter`; `splay` in `mascot.ts` |
+| Weight | Width is 2% to 3.5% of the panel height. It scales with the drawing. | `width` in the line section of [`art.rs`](../tools/src/art.rs) |
+| Drift | Long lines bow a little. The right panel edge bends inward about 1% in all 16 references, so its bottom corner flares. | `bow`, `drift`, `bias`; `right_bow` in the mascot section |
+| Tilt | Nothing is exactly vertical or square. Legs are straight but splay outward by up to 6%. | `jitter`; `splay` in the mascot section |
 | Swell | Width changes slowly along a line, by 2% to 14%. Ink pools slightly at joins and ends. | `swell`; an 8% pool in `inkStroke` |
-| Softness | The ink edge ramps over about a third of a stroke width. | `soften` in `mascot.ts` |
+| Softness | The ink edge ramps over about a third of a stroke width. | `soften` in the mascot section |
 
 `artcheck.py baseline` records the exact bands in `reference/metrics.json`. The bands are the numbers to trust.
 Short lines stay nearly straight, and long lines drift more. This follows the arm-trajectory model of AlMeraj et al. (2009).
@@ -84,7 +84,7 @@ At strokes under about 4 pixels, `edge_ramp` is noisy. Compare at the reference'
 
 ## Site art
 
-Every file in `site/art/` is generated. Change `art/build.ts`, then run the build. Hand edits to those files are lost.
+Every file in `site/art/` is generated. Change the scenes in `tools/src/art.rs`, then run `make art`. Hand edits to those files are lost.
 Each site file is a crop of a full recreation. The recreation's parity check therefore covers the site file.
 
 | Site file | Section | Reference |
@@ -100,7 +100,8 @@ Each site file is a crop of a full recreation. The recreation's parity check the
 
 ## Tools
 
-- `bun design/art/build.ts` writes each scene to `design/art/out/` and each site crop to `site/art/`.
+- `make art` writes each scene to `design/art/out/` and each site crop to `site/art/`.
+  It runs `walleterm-tools art`. A Cargo test requires the committed `site/art/` files to equal its output.
 - `uv run design/tools/artcheck.py compare REF CANDIDATE --out SHEET` checks parity and writes the review sheet. It renders an SVG with `agent-browser`. Add `--walk` for the walking pose.
 - `uv run design/tools/artcheck.py trace REF` reports the corners and placement of the mascot in a reference.
 - `uv run design/tools/artcheck.py measure IMAGE` prints every metric as JSON.
