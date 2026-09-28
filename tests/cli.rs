@@ -618,3 +618,67 @@ fn the_binary_rejects_bad_input_without_touching_the_agent() {
     let (code, out, _) = run_binary(&["--help"], b"");
     assert_eq!((code, out.as_str()), (Some(0), walleterm::cli::HELP));
 }
+
+/// A writer that waits before accepting each write.
+struct Slow(Duration);
+
+impl Write for Slow {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        std::thread::sleep(self.0);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+#[test]
+fn a_late_notice_never_sends_a_signing_request_after_the_deadline() {
+    let scratch = Scratch::new();
+    let agent = mock_agent(&scratch.socket(), vec![Reply::Frame(identities_body()), Reply::SignDigest]);
+    let mut out = Vec::new();
+    let deadline = Instant::now() + Duration::from_millis(100);
+    let exit = run_with(
+        &["sign"],
+        sign_input().as_bytes(),
+        &mut out,
+        &mut Slow(Duration::from_millis(250)),
+        Some(&scratch.socket()),
+        deadline,
+    );
+    let requests = agent.join().unwrap();
+    assert_eq!(exit, 1);
+    assert_eq!(requests.iter().filter(|r| r[0] == 13).count(), 0, "no signing request after the deadline");
+    assert_eq!(
+        String::from_utf8(out).unwrap(),
+        "{\"ok\":false,\"error\":{\"code\":\"timeout\",\"message\":\"The agent operation timed out.\"}}\n"
+    );
+}
+
+#[test]
+fn a_buffered_response_after_the_deadline_is_not_read() {
+    let scratch = Scratch::new();
+    let listener = UnixListener::bind(scratch.socket()).unwrap();
+    std::fs::set_permissions(scratch.socket(), std::fs::Permissions::from_mode(0o600)).unwrap();
+    let body = identities_body();
+    // The mock answers before any request arrives, so the response waits in the socket buffer.
+    let agent = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        let _ = write_frame(&mut stream, &body);
+        stream.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
+        read_frame(&mut stream).ok()
+    });
+    let deadline = Instant::now() + Duration::from_millis(20);
+    let mut connection = walleterm::agent::Agent::connect(&scratch.socket(), deadline).unwrap();
+    std::thread::sleep(Duration::from_millis(60));
+    assert_eq!(connection.list().unwrap_err().code, "timeout");
+    drop(connection);
+    assert_eq!(agent.join().unwrap(), None, "the expired client sent no request");
+}
+
+#[test]
+fn format_characters_are_escaped_like_go() {
+    let bs = '\\';
+    let expected = format!("\"x{bs}U000e0001{bs}U000e0061{bs}U000110bdy\"");
+    assert_eq!(walleterm::cli::go_quote("x\u{e0001}\u{e0061}\u{110bd}y"), expected);
+}

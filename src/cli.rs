@@ -138,14 +138,35 @@ pub fn go_quote(text: &str) -> String {
 }
 
 /// Go's `unicode.IsPrint` for non-ASCII characters, without the unassigned code point table.
+/// Control (Cc), format (Cf), separator (Zs, Zl, Zp), private-use (Co), and noncharacters are not printable.
 fn printable(c: char) -> bool {
     let n = c as u32;
-    !(c.is_control()
-        || c.is_whitespace()
-        || matches!(n, 0xad | 0x600..=0x605 | 0x61c | 0x6dd | 0x70f | 0x180e | 0x200b..=0x200f)
-        || matches!(n, 0x2028..=0x202e | 0x2060..=0x206f | 0xfeff | 0xfff9..=0xfffb)
-        || matches!(n, 0xe000..=0xf8ff | 0xf0000..=0x10ffff | 0xfdd0..=0xfdef)
-        || n & 0xfffe == 0xfffe)
+    let format = matches!(
+        n,
+        0xad | 0x600..=0x605
+            | 0x61c
+            | 0x6dd
+            | 0x70f
+            | 0x890..=0x891
+            | 0x8e2
+            | 0x180e
+            | 0x200b..=0x200f
+            | 0x202a..=0x202e
+            | 0x2060..=0x2064
+            | 0x2066..=0x206f
+            | 0xfeff
+            | 0xfff9..=0xfffb
+            | 0x110bd
+            | 0x110cd
+            | 0x13430..=0x1343f
+            | 0x1bca0..=0x1bca3
+            | 0x1d173..=0x1d17a
+            | 0xe0001
+            | 0xe0020..=0xe007f
+    );
+    let private = matches!(n, 0xe000..=0xf8ff | 0xf0000..=0x10ffff);
+    let noncharacter = matches!(n, 0xfdd0..=0xfdef) || n & 0xfffe == 0xfffe;
+    !(c.is_control() || c.is_whitespace() || format || private || noncharacter)
 }
 
 #[derive(Clone, Copy, PartialEq)]

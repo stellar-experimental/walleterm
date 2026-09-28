@@ -36,8 +36,8 @@ The Rust host differs from the old code in these places. Only the first one acce
   The signer, network, exact body, and signature lifetime stay bound. The browser SDK's pre-check still rejects it.
 - Ed25519 checks use strict verification (`verify_strict`). A weak key or a noncanonical signature fails.
 - XDR decoding stops at depth 500, the Soroban host limit. A deeper value cannot run on chain.
-- `--human` output escapes unassigned Unicode code points only when they are control, format, or private-use
-  characters. Go also escapes unassigned letters. JSON output is byte-identical.
+- `--human` output escapes control, format (Cf), separator, and private-use characters as Go does.
+  Go also escapes unassigned code points; Rust prints an unassigned letter-like character. JSON output is byte-identical.
 - `sign` input with an escaped lone surrogate (`\ud800`) fails as invalid JSON. Go decodes it to U+FFFD.
 - `sign-auth` input that JavaScript parses but `serde_json` refuses (lone surrogates, numbers beyond f64) fails as
   `Send one JSON object.` Both reject the request.

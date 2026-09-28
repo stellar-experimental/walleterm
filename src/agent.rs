@@ -238,9 +238,15 @@ impl Agent {
         }
     }
 
+    /// Every read and write first checks the deadline. A readable or writable socket never extends it.
+    fn check(&self) -> Result<()> {
+        if Instant::now() >= self.deadline { Err(timeout()) } else { Ok(()) }
+    }
+
     fn read_full(&mut self, buf: &mut [u8]) -> Result<()> {
         let mut filled = 0;
         while filled < buf.len() {
+            self.check()?;
             match self.stream.read(&mut buf[filled..]) {
                 Ok(0) => return Err(protocol("The agent returned a truncated frame.")),
                 Ok(n) => filled += n,
@@ -257,6 +263,7 @@ impl Agent {
         let out = frame(body);
         let mut sent = 0;
         while sent < out.len() {
+            self.check()?;
             match self.stream.write(&out[sent..]) {
                 Ok(0) => return Err(unavailable()),
                 Ok(n) => sent += n,

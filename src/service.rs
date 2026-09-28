@@ -17,7 +17,10 @@ pub fn parse_port(command: &str, args: &[&str]) -> Option<u16> {
     let mut rest = args.iter();
     while let Some(&arg) = rest.next() {
         if arg == "--" {
-            return rest.next().is_none().then_some(port as u16).filter(|&p| p >= 1);
+            if rest.next().is_some() {
+                return None;
+            }
+            break;
         }
         let name = arg.strip_prefix("--").or_else(|| arg.strip_prefix('-'))?;
         let (name, value) = match name.split_once('=') {
@@ -128,6 +131,9 @@ mod tests {
             &["extra"],
             &["--", "extra"],
             &["--state-dir", "/tmp/state"],
+            &["--port", "65537", "--"],
+            &["--port", "65537"],
+            &["--port=0", "--"],
         ] {
             assert_eq!(parse_port("tunnel", args), None, "{args:?}");
         }
