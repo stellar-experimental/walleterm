@@ -282,7 +282,7 @@ svg { display: block; }
   .horizon { height: 126px; }
   .horizon-line { top: 115px; }
   .code-object ul { flex-direction: column; gap: 6px; }
-  .footer-meta ul { display: grid; grid-template-columns: repeat(2, max-content); gap: 10px 40px; }
+  .footer-meta ul { gap: 10px 40px; }
 }
 </style>
 </head>
@@ -341,17 +341,17 @@ svg { display: block; }
         <li class="step">
           <span class="step-number" aria-hidden="true">01</span>
           <h3>Your agent prepares the transaction</h3>
-          <p class="muted">It builds and inspects the transaction with the Stellar CLI, then computes its digest.</p>
+          <p class="muted">It builds and checks the transaction with the Stellar CLI.</p>
         </li>
         <li class="step">
           <span class="step-number" aria-hidden="true">02</span>
-          <h3>1Password signs the digest</h3>
-          <p class="muted">walleterm sends the digest to the 1Password SSH agent. Approve on your Mac if asked.</p>
+          <h3>1Password signs it</h3>
+          <p class="muted">walleterm asks 1Password to sign. Approve on your Mac if asked.</p>
         </li>
         <li class="step">
           <span class="step-number" aria-hidden="true">03</span>
           <h3>walleterm checks the signature</h3>
-          <p class="muted">It verifies the Ed25519 signature, then returns one JSON object to your agent.</p>
+          <p class="muted">It checks the signature, then returns one JSON object to your agent.</p>
         </li>
       </ol>
 
@@ -359,7 +359,7 @@ svg { display: block; }
         <div class="caption">
           <h3>Made for agents to read</h3>
           <p class="muted">Each command returns one JSON object. A failure returns a stable error code.</p>
-          <p class="muted">Skills ship for Claude Code, Codex, OpenCode, and Grok. It also runs as <code>stellar walleterm</code>.</p>
+          <p class="muted">Skills ship for Claude Code, Codex, OpenCode, and Grok. It also works as a Stellar CLI plugin: <code>stellar walleterm</code>.</p>
         </div>
         <pre class="terminal span-2" aria-label="Example sign command and its output"><span class="prompt">$ </span>walleterm sign &lt; request.json
 {
@@ -383,15 +383,15 @@ svg { display: block; }
       <dl class="span-2">
         <div>
           <dt>Keys stay in 1Password</dt>
-          <dd class="muted">You create the Ed25519 key inside 1Password. walleterm never exports, prints, logs, or caches a private key.</dd>
+          <dd class="muted">You create the key inside 1Password. walleterm never exports, prints, logs, or caches it.</dd>
         </div>
         <div>
           <dt>Every signature is checked</dt>
-          <dd class="muted">walleterm verifies each signature against the public key before it returns it. It never retries a signature.</dd>
+          <dd class="muted">walleterm checks each signature against your public key before it returns it.</dd>
         </div>
         <div>
-          <dt>You review the transaction</dt>
-          <dd class="muted">The signer sees a digest, not an amount or a destination. Inspect the transaction before you sign it.</dd>
+          <dt>You approve in 1Password</dt>
+          <dd class="muted">1Password asks before it signs, the same way it does for SSH.</dd>
         </div>
         <div>
           <dt>Websites never see your key</dt>
@@ -454,9 +454,8 @@ walleterm list --human</pre>
         <div class="footer-meta">
           <ul>
             <li><a href="https://github.com/stellar-experimental/walleterm">GitHub</a></li>
-            <li><a href="https://github.com/stellar-experimental/walleterm/blob/main/docs/INTERFACE.md">Interface</a></li>
-            <li><a href="https://github.com/stellar-experimental/walleterm/blob/main/docs/WEB-BRIDGE.md">Web bridge</a></li>
-            <li><a href="https://github.com/stellar-experimental/walleterm/blob/main/evidence/README.md">Test evidence</a></li>
+            <li><a href="https://github.com/stellar-experimental/walleterm/blob/main/docs/INTERFACE.md">Docs</a></li>
+            <li><a href="https://github.com/stellar-experimental/walleterm/blob/main/docs/WEB-BRIDGE.md">Website guide</a></li>
           </ul>
           <p>An experimental project for Stellar. Use testnet accounts.</p>
         </div>
