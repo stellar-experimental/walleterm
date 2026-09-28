@@ -192,6 +192,7 @@ export function createBridge({
   }
   restartCodeTimer();
   // The terminal records each produced or withheld signature.
+  // A signature that the bridge already sent was not withheld. Its later ending prints no line.
   function logResult(r: SigningRecord) {
     if (r.logged === r.state) return;
     r.logged = r.state;
@@ -200,7 +201,8 @@ export function createBridge({
         ? `${r.details.hash} (account ${r.public_key}, sequence ${r.details.sequence})`
         : `${r.details.hash} (signer ${r.public_key}, authorization ${r.details.address})`;
     if (r.state === 'signed') log(`Signed ${about} for ${r.origin}.\n`);
-    if (r.state === 'unknown') log(`Signature withheld or stopped for ${about}: ${r.error?.message}\n`);
+    if (r.state === 'unknown' && !r.delivered)
+      log(`Signature withheld or stopped for ${about}: ${r.error?.message}\n`);
   }
   // End a request with its SEP-43 error. A request that started signing stays unknown.
   function end(

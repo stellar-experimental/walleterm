@@ -479,6 +479,8 @@ export class WalletermConnect {
     this.renderWallets();
     this.update();
     this.$('copy').focus();
+    // A restored session has no wallet list yet. Load it when the user opens the menu.
+    if (this.account && !this.wallets.length) void this.refresh();
   }
   rows(target: HTMLElement, keys: Signer[], choose: (key: Signer) => void, active?: string | null) {
     target.replaceChildren();

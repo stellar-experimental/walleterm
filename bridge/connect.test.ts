@@ -604,6 +604,46 @@ test('opening the wallet menu renders known wallets without another lookup', () 
   assert.equal(f.node('menu').hidden, false);
 });
 
+test('opening the wallet menu after a reload loads the wallet list once', async () => {
+  const f = savedConnection();
+  const requests: string[] = [];
+  const wallets = [
+    { public_key: 'GRECOVERED', comment: 'First' },
+    { public_key: 'GSECOND', comment: 'Second' },
+  ];
+  Object.assign(f.context, {
+    fetch: async (url: string) => {
+      requests.push(new URL(url).pathname);
+      return Response.json(
+        url.endsWith('/v1/signers') ? { signers: wallets, grant_id: 'grant' } : recoveredAccount,
+      );
+    },
+  });
+  let shown: MockSigner[] = [];
+  Object.assign(f.ui, {
+    rows: (_target: unknown, keys: MockSigner[]) => {
+      shown = keys;
+    },
+  });
+  await f.ui.restoreSession();
+  assert.equal(f.ui.account?.address, 'GRECOVERED');
+  assert.equal(f.ui.wallets.length, 0);
+  f.node('menu').hidden = true;
+  f.ui.toggleMenu();
+  for (let i = 0; i < 50 && !shown.length; i++) await settle();
+  assert.deepEqual(requests, ['/v1/account', '/v1/signers']);
+  assert.deepEqual(
+    shown.map((key) => key.public_key),
+    ['GRECOVERED', 'GSECOND'],
+  );
+  assert.equal(f.node('wallet-name').textContent, 'First');
+  assert.equal(f.ui.refreshing, false);
+  f.ui.toggleMenu();
+  f.ui.toggleMenu();
+  await settle();
+  assert.deepEqual(requests, ['/v1/account', '/v1/signers']);
+});
+
 test('the connection UI publishes the recovered account after a lost selection response', async () => {
   const f = fixture(() => {});
   let changed: Change | undefined;
