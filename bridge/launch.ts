@@ -183,10 +183,28 @@ export async function publicReady(
 }
 
 function startTunnel(_command: string, args: string[], options: SpawnOptions) {
-  return spawn(process.execPath, [fileURLToPath(new URL('./tunnel-child.ts', import.meta.url)), ...args], {
-    ...options,
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  // The supervisor leads a new process group. Cloudflared inherits it.
+  const child = spawn(
+    process.execPath,
+    [fileURLToPath(new URL('./tunnel-child.ts', import.meta.url)), ...args],
+    {
+      ...options,
+      detached: true,
+      stdio: ['pipe', 'pipe', 'pipe'],
+    },
+  );
+  // A supervisor killed before cleanup leaves cloudflared in its group. Stop that group once, at supervisor exit.
+  // macOS does not reuse a group ID while the group has a member, and it assigns new PIDs in sequence.
+  const group = child.pid;
+  if (group)
+    child.once('exit', () => {
+      try {
+        process.kill(-group, 'SIGKILL');
+      } catch {
+        // ESRCH: the group has no member.
+      }
+    });
+  return child;
 }
 function qrForTerminal(qr: string, output: Output) {
   const width = Math.max(...qr.split('\n').map((line) => line.replace(/\x1b\[[0-9;]*m/g, '').length));

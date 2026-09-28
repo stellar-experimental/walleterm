@@ -170,11 +170,23 @@ A new public demo hostname has different browser storage. Keep the original tab 
 
 ## Tunnel lifetime
 
-Each public command creates a private Cloudflare configuration and a separate supervised process.
+Each public command creates a private Cloudflare configuration and a separate tunnel supervisor process.
 It does not inherit Cloudflare routing or credential environment settings or change existing Cloudflare configuration.
-The server and metrics bind loopback. A parent pipe terminates the child after a parent crash.
-Normal shutdown closes requests and terminates the child with a bounded escalation deadline.
+The server and metrics bind loopback.
+The supervisor starts cloudflared. Both run in a new process group, outside the caller's terminal group.
+Terminal signals such as Ctrl+C reach only the command. Normal shutdown or the parent pipe then stops the tunnel.
+A parent pipe lets the supervisor stop cloudflared after a command crash.
+When the supervisor exits, the command sends one SIGKILL to the supervisor's process group.
+After a normal supervisor exit, the group is empty, and the signal has no effect.
+After a supervisor crash, the signal stops cloudflared before tunnel recovery starts a replacement.
+The command never signals a PID from `child.json`. macOS does not reuse a group ID while the group has a member.
+Normal shutdown closes requests and terminates the supervisor with a bounded escalation deadline.
 Shutdown waits up to 3.5 seconds for an active signing request to stop.
+
+A hard crash of both the command and the supervisor can leave cloudflared running.
+Its Quick Tunnel still forwards the old public URL to the local port. A later process on that port can receive this traffic.
+`pgrep -fl walleterm-tunnel-` lists tunnel processes with their temporary configuration paths.
+Stop a listed `cloudflared` only when its command no longer runs.
 
 Quick Tunnels provide a temporary URL and no uptime guarantee. The URL changes on restart.
 The Mac must remain awake and connected. Neither command installs a login service or automatically restarts.
