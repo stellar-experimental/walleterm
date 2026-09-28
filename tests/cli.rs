@@ -95,7 +95,21 @@ fn mock_agent(path: &Path, replies: Vec<Reply>) -> JoinHandle<Vec<Vec<u8>>> {
     let handle = std::thread::spawn(move || {
         ready.send(()).unwrap();
         let mut got = Vec::new();
-        let Ok((mut stream, _)) = listener.accept() else { return got };
+        // A command that fails before it connects must fail its test, not hang it.
+        listener.set_nonblocking(true).unwrap();
+        let waited = Instant::now();
+        let mut stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(e)
+                    if e.kind() == io::ErrorKind::WouldBlock && waited.elapsed() < Duration::from_secs(5) =>
+                {
+                    std::thread::sleep(Duration::from_millis(2));
+                }
+                Err(_) => return got,
+            }
+        };
+        stream.set_nonblocking(false).unwrap();
         let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
         for reply in replies {
             let Ok(request) = read_frame(&mut stream) else { return got };
