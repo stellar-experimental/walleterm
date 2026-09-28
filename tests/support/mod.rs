@@ -52,6 +52,8 @@ pub struct Controls {
     pub signers: Arc<Mutex<Result<Vec<SignerInfo>, Error>>>,
     pub listings: Arc<AtomicUsize>,
     pub listing_delay: Arc<Mutex<Option<oneshot::Receiver<()>>>>,
+    /// Held listings that saw cancellation and finished their cleanup, as vault discovery does.
+    pub listing_cleanups: Arc<AtomicUsize>,
     pub signs: Arc<AtomicUsize>,
     pub sign_gate: Arc<Mutex<Option<oneshot::Receiver<()>>>>,
     pub sign_result: Arc<Mutex<Option<String>>>,
@@ -114,13 +116,21 @@ impl Default for Options {
 pub fn deps(controls: &Controls, options: &Options) -> Deps {
     let c = controls.clone();
     let list_signers =
-        Box::new(move |_cancel: Cancel| -> BoxFuture<walleterm::error::Result<Vec<SignerInfo>>> {
+        Box::new(move |cancel: Cancel| -> BoxFuture<walleterm::error::Result<Vec<SignerInfo>>> {
             let c = c.clone();
             Box::pin(async move {
                 c.listings.fetch_add(1, Ordering::SeqCst);
                 let gate = c.listing_delay.lock().unwrap().take();
                 if let Some(gate) = gate {
-                    let _ = gate.await;
+                    tokio::select! {
+                        _ = gate => {}
+                        () = cancel.cancelled() => {
+                            // Stop like the vault CLI children: a short cleanup, then the reason.
+                            tokio::time::sleep(Duration::from_millis(50)).await;
+                            c.listing_cleanups.fetch_add(1, Ordering::SeqCst);
+                            return Err(cancel.reason());
+                        }
+                    }
                 }
                 c.signers.lock().unwrap().clone()
             })
@@ -234,6 +244,7 @@ impl Fixture {
         let controls = Controls {
             signers: Arc::new(Mutex::new(Ok(vec![]))),
             listings: Arc::default(),
+            listing_cleanups: Arc::default(),
             listing_delay: Arc::default(),
             signs: Arc::default(),
             sign_gate: Arc::default(),

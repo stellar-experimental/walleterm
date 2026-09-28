@@ -321,3 +321,71 @@ async fn discovery_filters_agent_keys_by_the_vault_and_skips_the_cli_when_unset(
     let e = discover(&socket, Some(VAULT), program.as_os_str(), &Cancel::new()).await.unwrap_err();
     assert_eq!(e.code, "bridge_unavailable");
 }
+
+#[tokio::test]
+async fn every_bun_dotenv_form_keeps_the_vault_filter() {
+    let texts = [
+        "\u{feff}OP_VAULT=Private\n",
+        "export\tOP_VAULT=Private\n",
+        "OP_VAULT=Private\nNOTE=\"example\nOP_VAULT=\n\"\n",
+    ];
+    for text in texts {
+        let fake = Fake::new();
+        std::fs::write(fake.0.join(".env"), text).unwrap();
+        let setting = walleterm::config::load_vault(&fake.0, None).unwrap();
+        assert_eq!(setting.vault.as_deref(), Some("Private"), "{text:?}");
+        let socket = mock_agent(&fake.0, &[[7; 32], [9; 32]]).await;
+        let found = discover(&socket, setting.vault.as_deref(), fake.program().as_os_str(), &Cancel::new())
+            .await
+            .unwrap();
+        let found: Vec<String> = found.into_iter().map(|s| s.public_key).collect();
+        assert_eq!(found, vec![account_address(&[7; 32])], "{text:?}");
+        assert!(fake.calls()[0].starts_with("item list --vault Private"), "{text:?}");
+    }
+}
+
+/// Review P3-S4: a failure in any batch position ends the batch without waiting for stalled reads.
+#[tokio::test]
+async fn a_failure_in_any_batch_position_stops_the_stalled_reads() {
+    for position in 0..4 {
+        let fake = Fake::new();
+        // New IDs, so that no read finds the default key.
+        let ids: Vec<String> = (0..4).map(|i| format!("{}{}", "d".repeat(25), (b'p' + i) as char)).collect();
+        fake.items(&ids.iter().map(|id| item(id)).collect::<Vec<_>>());
+        for (i, id) in ids.iter().enumerate() {
+            if i != position {
+                fake.touch(&format!("stall-{id}"));
+            }
+        }
+        let start = Instant::now();
+        let e = keys(&fake, VAULT).await.unwrap_err();
+        assert_eq!(e.message, "A public key in the selected vault is unavailable.", "position {position}");
+        // Three stalled reads ignore SIGTERM, so each needs the 1.5 second grace and SIGKILL.
+        assert!(start.elapsed() < Duration::from_secs(4), "position {position}: {:?}", start.elapsed());
+        assert!(fake.pids().iter().all(|&p| !alive(p)), "position {position}: a stalled read survived");
+    }
+}
+
+/// Review P3-S4: an outer cancellation returns only after every CLI child has stopped.
+#[tokio::test]
+async fn outer_cancellation_returns_after_the_children_stop() {
+    let fake = Fake::new();
+    let ids: Vec<String> = (0..2).map(|i| format!("{}{}", "b".repeat(25), (b'c' + i) as char)).collect();
+    fake.items(&ids.iter().map(|id| item(id)).collect::<Vec<_>>());
+    for id in &ids {
+        fake.touch(&format!("stall-{id}"));
+    }
+    let cancel = Cancel::new();
+    let (inner, program) = (cancel.clone(), fake.program());
+    let task = tokio::spawn(async move { allowed_keys_with(program.as_os_str(), VAULT, &inner).await });
+    for _ in 0..400 {
+        if fake.pids().len() == 2 {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+    assert_eq!(fake.pids().len(), 2);
+    cancel.abort();
+    assert!(task.await.unwrap().is_err());
+    assert!(fake.pids().iter().all(|&p| !alive(p)), "a CLI child outlived the returned lookup");
+}

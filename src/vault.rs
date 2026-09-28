@@ -143,19 +143,19 @@ pub async fn allowed_keys_with(program: &OsStr, vault: &str, cancel: &Cancel) ->
                     .map_err(|()| unavailable("An Ed25519 public key in the selected vault is invalid."))
             }
         });
-        let handles: Vec<_> = reads.map(tokio::spawn).collect();
+        // Handle each read as it ends. The first failure cancels the rest, then waits for their cleanup.
+        // Dropping the set aborts the reads, and each child is killed on drop.
+        let mut set: tokio::task::JoinSet<_> = reads.collect();
         let mut failure = None;
-        for handle in handles {
-            match handle.await {
-                Ok(Ok(Some(address))) => allowed.push(address),
-                Ok(Ok(None)) => {}
-                Ok(Err(e)) => {
+        while let Some(joined) = set.join_next().await {
+            let joined = joined
+                .unwrap_or_else(|_| Err(unavailable("A public key in the selected vault is unavailable.")));
+            match joined {
+                Ok(Some(address)) => allowed.push(address),
+                Ok(None) => {}
+                Err(e) => {
                     batch_cancel.abort();
                     failure.get_or_insert(e);
-                }
-                Err(_) => {
-                    batch_cancel.abort();
-                    failure.get_or_insert(unavailable("A public key in the selected vault is unavailable."));
                 }
             }
         }

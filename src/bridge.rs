@@ -605,6 +605,11 @@ impl Bridge {
         state.sessions.get(id).is_some_and(|s| !s.revoked && self.now() < s.expires)
     }
 
+    /// The caller's session was removed during an await, such as a body read.
+    fn disconnected() -> Fail {
+        fail("not_connected", "Connect this website with a new code from the tunnel terminal.", None)
+    }
+
     /// The website's session: its bearer token, its connected Origin, not revoked, not expired.
     fn website(&self, state: &State, req: &HttpRequest) -> std::result::Result<String, Fail> {
         let presented = req.authorization.as_deref().unwrap_or_default();
@@ -614,11 +619,7 @@ impl Bridge {
             Some(s) if !s.revoked && req.origin.as_deref() == Some(&s.origin) && self.now() < s.expires => {
                 Ok(s.id.clone())
             }
-            _ => Err(fail(
-                "not_connected",
-                "Connect this website with a new code from the tunnel terminal.",
-                None,
-            )),
+            _ => Err(Self::disconnected()),
         }
     }
 
@@ -827,13 +828,25 @@ impl Bridge {
         state.reviews.remove(&record_id);
     }
 
-    /// Check that the request and its session still allow the next step.
-    fn still(&self, key: &str, session_id: &str, signal: &Cancel, expected: RequestState) -> bool {
-        let state = self.state.lock().unwrap();
+    /// Check that the request and its session still allow the next step. Shutdown ends every step at once,
+    /// before the cancellation signal reaches this worker.
+    fn eligible(
+        &self,
+        state: &State,
+        key: &str,
+        session_id: &str,
+        signal: &Cancel,
+        expected: RequestState,
+    ) -> bool {
         let now = self.now();
         !signal.is_cancelled()
-            && self.session_live(&state, session_id)
+            && !state.closing
+            && self.session_live(state, session_id)
             && state.records.get(key).is_some_and(|r| r.state == expected && now < r.expires)
+    }
+
+    fn still(&self, key: &str, session_id: &str, signal: &Cancel, expected: RequestState) -> bool {
+        self.eligible(&self.state.lock().unwrap(), key, session_id, signal, expected)
     }
 
     fn set_state(&self, key: &str, next: RequestState) {
@@ -856,11 +869,11 @@ impl Bridge {
             Some(review) => signal.run(review(request, signal.clone())).await?,
             None => true,
         };
-        if !self.still(key, session_id, signal, RequestState::Pending) {
-            return Ok(());
-        }
         let (artifact, passphrase, address, public_key) = {
             let mut state = self.state.lock().unwrap();
+            if !self.eligible(&state, key, session_id, signal, RequestState::Pending) {
+                return Ok(());
+            }
             if !approved {
                 self.end_key(&mut state, key, RequestState::Denied, "The review denied this request.", None);
                 return Ok(());
@@ -872,7 +885,12 @@ impl Bridge {
             Self::inspect(&artifact, &passphrase, &address, &public_key, self.now(), None)?;
         }
         self.set_state(key, RequestState::Approved);
-        let keys = signal.run((self.deps.list_signers)(signal.clone())).await?;
+        // Vault discovery stops its CLI children before it returns, so it is awaited, not dropped.
+        let keys = (self.deps.list_signers)(signal.clone()).await;
+        if signal.is_cancelled() {
+            return Err(signal.reason());
+        }
+        let keys = keys?;
         if !self.still(key, session_id, signal, RequestState::Approved) {
             return Err(Error::new("internal", "The signing approval expired or was canceled."));
         }
@@ -890,11 +908,12 @@ impl Bridge {
             Self::inspect(&artifact, &passphrase, &address, &public_key, self.now(), Some(latest))?;
             ledger = Some(latest);
         }
-        if !self.still(key, session_id, signal, RequestState::Approved) {
-            return Err(Error::new("internal", "The signing approval expired or was canceled."));
-        }
         let hash = {
+            // The last check and the move to Signing share one lock.
             let mut state = self.state.lock().unwrap();
+            if !self.eligible(&state, key, session_id, signal, RequestState::Approved) {
+                return Err(Error::new("internal", "The signing approval expired or was canceled."));
+            }
             let r = state.records.get_mut(key).unwrap();
             r.state = RequestState::Signing;
             let mut r = state.records.remove(key).unwrap();
@@ -915,13 +934,13 @@ impl Bridge {
         }
         let result =
             Self::attach(&artifact, &passphrase, &address, &public_key, self.now(), ledger, &signature)?;
-        if !self.still(key, session_id, signal, RequestState::Signing) {
+        let mut state = self.state.lock().unwrap();
+        if !self.eligible(&state, key, session_id, signal, RequestState::Signing) {
             return Err(Error::new(
                 "internal",
                 "The signing result is withheld because approval expired or was canceled.",
             ));
         }
-        let mut state = self.state.lock().unwrap();
         if let Some(mut r) = state.records.remove(key) {
             r.result = Some(result);
             r.state = RequestState::Signed;
@@ -1021,7 +1040,7 @@ impl Bridge {
             ("/v1/select", "POST") => return self.select(req, &session_id, body).await,
             ("/v1/account", "GET") => {
                 let state = self.state.lock().unwrap();
-                let s = &state.sessions[&session_id];
+                let s = state.sessions.get(&session_id).ok_or_else(Self::disconnected)?;
                 return reply(
                     200,
                     json!({
@@ -1165,7 +1184,7 @@ impl Bridge {
         let signers = self.keys().await.map_err(listing_failure)?;
         let mut state = self.state.lock().unwrap();
         self.website(&state, req)?;
-        let s = state.sessions.get_mut(session_id).unwrap();
+        let s = state.sessions.get_mut(session_id).ok_or_else(Self::disconnected)?;
         if s.scope == Scope::Available && s.allowed.is_none() {
             s.offered =
                 Some(Offer { id: token(), keys: signers.iter().map(|k| k.public_key.clone()).collect() });
@@ -1207,7 +1226,8 @@ impl Bridge {
         let data = object(&req.content_type, body).await?;
         let (offer_id, offer_keys) = {
             let state = self.state.lock().unwrap();
-            let s = &state.sessions[session_id];
+            // The body read can outlast the session. Check again under this lock before any use.
+            let s = state.sessions.get(session_id).ok_or_else(Self::disconnected)?;
             let scoped = s.scope == Scope::Available;
             let mut fields = vec!["public_key"];
             if scoped {
@@ -1240,7 +1260,7 @@ impl Bridge {
         let signers = self.keys().await.map_err(listing_failure)?;
         let mut state = self.state.lock().unwrap();
         self.website(&state, req)?;
-        let s = state.sessions.get(session_id).unwrap();
+        let s = state.sessions.get(session_id).ok_or_else(Self::disconnected)?;
         Self::valid_revision(s, &data)?;
         let scoped = s.scope == Scope::Available;
         if scoped && s.allowed.is_none() && s.offered.as_ref().map(|o| &o.id) != offer_id.as_ref() {
@@ -1268,7 +1288,7 @@ impl Bridge {
                 }
             });
             let now = self.now();
-            let s = state.sessions.get_mut(session_id).unwrap();
+            let s = state.sessions.get_mut(session_id).ok_or_else(Self::disconnected)?;
             if s.public_key.is_none() {
                 s.allowed = match (&offer_keys, scoped) {
                     (Some(offered), true) => Some(
@@ -1287,7 +1307,7 @@ impl Bridge {
             s.key = Some(key.clone());
             s.selection_revision += 1;
         }
-        let s = &state.sessions[session_id];
+        let s = state.sessions.get(session_id).ok_or_else(Self::disconnected)?;
         reply(
             200,
             json!({
@@ -1306,13 +1326,14 @@ impl Bridge {
         session_id: &str,
         body: BodyReader,
     ) -> std::result::Result<Reply, Fail> {
-        if self.state.lock().unwrap().sessions[session_id].public_key.is_none() {
+        let selected = self.state.lock().unwrap().sessions.get(session_id).map(|s| s.public_key.is_some());
+        if !selected.ok_or_else(Self::disconnected)? {
             return Err(fail("not_connected", "Select a wallet first.", Some(409)));
         }
         let input = object(&req.content_type, body).await?;
         let mut state = self.state.lock().unwrap();
         self.website(&state, req)?;
-        let s = &state.sessions[session_id];
+        let s = state.sessions.get(session_id).ok_or_else(Self::disconnected)?;
         let (scoped, revision, origin) =
             (s.scope == Scope::Available, s.selection_revision, s.origin.clone());
         let (public_key, signer, canceled_ids) = (s.public_key.clone(), s.key.clone(), s.canceled.clone());
@@ -1428,7 +1449,7 @@ impl Bridge {
     ) -> std::result::Result<Reply, Fail> {
         if !state.records.contains_key(key) {
             // A cancel can arrive before a delayed create. Block that ID for this session.
-            let s = state.sessions.get_mut(session_id).unwrap();
+            let s = state.sessions.get_mut(session_id).ok_or_else(Self::disconnected)?;
             if s.canceled.len() >= MAX_PER_SESSION {
                 return Err(fail(
                     "rate_limited",

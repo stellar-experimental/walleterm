@@ -1142,3 +1142,79 @@ async fn a_selection_completes_after_its_client_disconnects() {
     assert_eq!((account["selection_revision"].clone(), account["address"].clone()), (json!(2), json!(other)));
     f.close().await;
 }
+
+/// Review P3-S3. The legacy bridge answered 401 and kept serving other requests.
+#[tokio::test]
+async fn a_selection_body_that_outlasts_its_session_fails_without_stopping_the_bridge() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let f = Fixture::new(Options::default()).await;
+    let site = f.open(SITE, "selected").await;
+    let data = json!({"public_key": f.public_key}).to_string();
+    let mut stream = tokio::net::TcpStream::connect(("127.0.0.1", f.port)).await.unwrap();
+    let head = format!(
+        "POST /v1/select HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nOrigin: {SITE}\r\nAuthorization: Bearer {}\r\n\
+         Content-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{{",
+        f.port,
+        site.token.as_ref().unwrap(),
+        data.len()
+    );
+    stream.write_all(head.as_bytes()).await.unwrap();
+    tokio::time::sleep(Duration::from_millis(60)).await;
+    assert_eq!(f.post("/v1/disconnect", json!({}), &site).await.status, 200);
+    // The session sweep removes the disconnected session while the body is still open.
+    assert_eq!(f.get("/api/session", &Site::new(SITE)).await.status, 200);
+    stream.write_all(&data.as_bytes()[1..]).await.unwrap();
+    let mut out = Vec::new();
+    stream.read_to_end(&mut out).await.unwrap();
+    assert!(String::from_utf8_lossy(&out).starts_with("HTTP/1.1 401"), "{}", String::from_utf8_lossy(&out));
+    assert_eq!(f.get("/api/session", &Site::new(SITE)).await.status, 200);
+    let other = f.connect(SITE_TWO).await;
+    assert_eq!(f.get("/v1/account", &other).await.status, 200);
+    f.close().await;
+}
+
+/// Review P3-S2, first schedule. The legacy bridge made no signing call.
+#[tokio::test]
+async fn shutdown_before_the_approved_listing_resumes_starts_no_signing() {
+    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let site = f.connect(SITE).await;
+    let before = f.controls.listings.load(Ordering::SeqCst);
+    let release = f.controls.hold_listing();
+    assert_eq!(f.post("/v1/requests", transaction_request("close-race", &f), &site).await.status, 201);
+    until(|| f.controls.listings.load(Ordering::SeqCst) > before).await;
+    release.send(()).unwrap();
+    f.bridge.close().await;
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0, "{:?}", f.controls.logs());
+    f.close().await;
+}
+
+/// Review P3-S2, second schedule. A signature that arrives after shutdown starts is withheld.
+#[tokio::test]
+async fn shutdown_before_the_signature_resumes_withholds_it() {
+    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let site = f.connect(SITE).await;
+    let release = f.controls.hold_signing();
+    assert_eq!(f.post("/v1/requests", transaction_request("close-result", &f), &site).await.status, 201);
+    until(|| f.controls.signs.load(Ordering::SeqCst) == 1).await;
+    release.send(()).unwrap();
+    f.bridge.close().await;
+    let logs = f.controls.logs();
+    assert!(logs.iter().all(|line| !line.starts_with("Signed ")), "{logs:?}");
+    assert!(logs.iter().any(|line| line.starts_with("Signature withheld")), "{logs:?}");
+    f.close().await;
+}
+
+/// Review P3-S4. Cancellation during signer discovery waits for the discovery cleanup to end.
+#[tokio::test]
+async fn shutdown_waits_for_signer_discovery_to_finish_its_cleanup() {
+    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let site = f.connect(SITE).await;
+    let before = f.controls.listings.load(Ordering::SeqCst);
+    let _release = f.controls.hold_listing();
+    assert_eq!(f.post("/v1/requests", transaction_request("close-listing", &f), &site).await.status, 201);
+    until(|| f.controls.listings.load(Ordering::SeqCst) > before).await;
+    f.bridge.close().await;
+    assert_eq!(f.controls.listing_cleanups.load(Ordering::SeqCst), 1, "close returned before cleanup ended");
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+    f.close().await;
+}
