@@ -187,7 +187,6 @@ svg { display: block; }
 .boundaries dl > div:last-child { padding-bottom: 0; }
 .boundaries dt { font-size: 20px; line-height: 1.4; font-weight: 500; }
 .boundaries dd { font-size: 17px; line-height: 1.6; }
-.boundaries code { font-size: 0.95em; }
 .boundaries .art { max-width: 420px; padding-top: 24px; }
 
 /* Install and footer */
@@ -395,8 +394,8 @@ svg { display: block; }
           <dd class="muted">The signer sees a digest, not an amount or a destination. Inspect the transaction before you sign it.</dd>
         </div>
         <div>
-          <dt>Websites see public keys only</dt>
-          <dd class="muted">A connected website sees your Ed25519 public keys, never a private key. Set <code>OP_VAULT</code> to list one vault. Connect only websites you trust.</dd>
+          <dt>Websites never see your key</dt>
+          <dd class="muted">A website can ask for a signature. The key stays in 1Password.</dd>
         </div>
         <div>
           <dt>Uses the 1Password you have</dt>
