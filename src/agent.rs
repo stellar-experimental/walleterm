@@ -34,8 +34,8 @@ fn truncated() -> Error {
     protocol("The agent returned a truncated frame.")
 }
 
-/// A sign response that ends before its first byte. Live runs saw a close after an unanswered prompt.
-/// The byte count was not recorded. A Deny returns type 5 instead.
+/// A sign response that ends before its first byte. On 2026-09-28, an unanswered prompt while 1Password was locked
+/// ended this way after 60 seconds. A Deny returns type 5 instead.
 fn closed() -> Error {
     protocol(
         "The agent closed the connection without a signature. The 1Password approval prompt may have timed out.",

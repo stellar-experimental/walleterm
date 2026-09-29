@@ -1,0 +1,451 @@
+{
+  "record": "Live acceptance of one walleterm sign, SEP-43 signMessage, the removed time and expiry windows, shared tab sessions, the tunnel DNS fix, and the unanswered-prompt message",
+  "recorded_at": "2026-09-28 local (2026-09-29T00:06Z to 01:02Z UTC)",
+  "network": "Stellar testnet",
+  "keys": {
+    "test-a": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+    "test-b": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+    "test-c": "GDAYLQYJ5TFW4SKZAXJFGX65GUALBBQ5C3UINZEJK66IAAEAGORJADBL"
+  },
+  "binaries": {
+    "cli_and_suites": "walleterm b50236d (main after #40)",
+    "bridge_round": "walleterm 1ec919e (PR #47 head on main 9ea19e0, includes #43)"
+  },
+  "approvals": "The user approved each 1Password prompt on the Mac. Cached approval let several signatures pass without a new prompt.",
+  "local_refusals_without_agent_contact": {
+    "inputs": [
+      "old digest input",
+      "sign-auth",
+      "transaction_xdr plus message",
+      "latest_ledger in the transaction shape",
+      "expired max_time",
+      "empty message"
+    ],
+    "exit_code": 2,
+    "notice_printed": false
+  },
+  "cli": {
+    "message": {
+      "ok": true,
+      "message": "walleterm acceptance 2026-09-28 6bcdcedf-e5dd-4829-a37a-2b3c274542d7",
+      "digest": "ab6b3abd1ad1e9216f0dcbd5a7c2a017df542e6958f80ff0715a6fb85a5b1784",
+      "sdk_verify": true,
+      "stellar_message_verify_exit": 0
+    },
+    "transaction_max_time_0": {
+      "time_bounds": {
+        "minTime": "0",
+        "maxTime": "0"
+      },
+      "input_plus_one_signature": true,
+      "hash": "57a4eb65f4ff448054796847ff03d620cb90c12e938aff18f5f26dd84a06aacf",
+      "ledger": 4923362,
+      "successful": true
+    },
+    "first_attempt_note": "The first message attempt at 2026-09-28T23:26Z was not approved. 1Password closed the request after 60 s. The b50236d binary reported agent_protocol, truncated frame."
+  },
+  "suites": {
+    "classic": {
+      "rows": "G01-G10 all passed",
+      "submissions": 31,
+      "successful": 18,
+      "expected_protocol_failures": 13,
+      "g08_expired_max_time": "walleterm refused it before 1Password",
+      "hashes": [
+        {
+          "id": "G01-payment.submission",
+          "hash": "72df65aa48efda88f8fb2b94c4adc45b7db2e1065f14a6d9a7a0b63a3934c45b",
+          "outcome": "success"
+        },
+        {
+          "id": "G02-configure.submission",
+          "hash": "33d9dd273751033fa9f4527e99768f3e171ccbe53954fe145cbd222d5575d07e",
+          "outcome": "success"
+        },
+        {
+          "id": "G02-one-signature.submission",
+          "hash": "cfbe0a19f804caeddba1a090e6e7487bb12053b43f9d0f989e51f0ff1d91e5a8",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G02-two-signatures.submission",
+          "hash": "cfbe0a19f804caeddba1a090e6e7487bb12053b43f9d0f989e51f0ff1d91e5a8",
+          "outcome": "success"
+        },
+        {
+          "id": "G03-configure.submission",
+          "hash": "bc1723eb9affd4d656b308327e1e0aa428fe4e80d280b8587bc81b3a6a66cfd3",
+          "outcome": "success"
+        },
+        {
+          "id": "G03-weight-two.submission",
+          "hash": "88d8a2d370ab8e88e315961f9dbe9ad242560fa647771f246191053472f48bf0",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G03-two-light-signers.submission",
+          "hash": "88d8a2d370ab8e88e315961f9dbe9ad242560fa647771f246191053472f48bf0",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G03-weight-three.submission",
+          "hash": "13c5c5698d308e69855a3b9187ae3a7ee9ed8f9ee5be93e753d83547a1339910",
+          "outcome": "success"
+        },
+        {
+          "id": "G04-disable-master.submission",
+          "hash": "d2749b24dab759f3a2c93745dc1d25ca6adb40d4e5f8bb70ee089e807c6dfd73",
+          "outcome": "success"
+        },
+        {
+          "id": "G04-master-only.submission",
+          "hash": "5e0b27fc8e2199384256bb12a7709b20a625f1ecf8b075c14074ae970f0d0b86",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G04-added-signers.submission",
+          "hash": "1e0e024e1d717de9f7e2029155ed01e808c64fb57361d7a04caf5b271608a04e",
+          "outcome": "success"
+        },
+        {
+          "id": "G04-restore.submission",
+          "hash": "b2e3a43ce5b29dc8256cf703060e3689573c1b1fe26e03547eb9024a3734cf84",
+          "outcome": "success"
+        },
+        {
+          "id": "G05-missing-operation-source.submission",
+          "hash": "c187f0ceafebe7daf55f8676eb08c9438b30f4f8f8963a043fbf25956165d881",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G05-complete-sources.submission",
+          "hash": "c187f0ceafebe7daf55f8676eb08c9438b30f4f8f8963a043fbf25956165d881",
+          "outcome": "success"
+        },
+        {
+          "id": "G06-all-sources.submission",
+          "hash": "62fbfdaee65862512d802c900d8253905a5c9640afe42210c23992ec54619e15",
+          "outcome": "success"
+        },
+        {
+          "id": "G07-missing-inner.submission",
+          "hash": "af226384a54095c068fbed618c6cb7515d3afb2441d777fbea5887881a519029",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G07-missing-outer.submission",
+          "hash": "e314edb9c9893f47843ce74e24b98c097f2b843d50ffff626cc06a726a9b668b",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G07-outer.submission",
+          "hash": "e314edb9c9893f47843ce74e24b98c097f2b843d50ffff626cc06a726a9b668b",
+          "outcome": "success"
+        },
+        {
+          "id": "G08-wrong-network.submission",
+          "hash": "d666a26feed06c8841020b0e3227f1ac16a8131e90f838037f507ccb8bfd3ae9",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G08-altered-body.submission",
+          "hash": "8a78db767e4136459bfcf9648986ffbb12f24e43d283ea1c242531748ece71fd",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G08-stale-sequence.submission",
+          "hash": "d516246b7e633eb303b07f0bc775cf37ff195c4c210e2b2bf0762fc024239c1e",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G09-configure.submission",
+          "hash": "5dfffffdca5cbbe943cb0346920634e2163e844d74c20afb0b7f093ceb3f4123",
+          "outcome": "success"
+        },
+        {
+          "id": "G09-duplicate-insufficient.submission",
+          "hash": "6c04b8b9129b26fca92fe1441a8904f7e421a0c5ee94944ac613c18d15a5a980",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G09-unrelated-extra.submission",
+          "hash": "aa4a5ca4b662752bb9baf60ce87f977bafe18152f16cd98450cdf0570d2e982a",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G09-restore.submission",
+          "hash": "fb7d836ba7f069bd77cc3e3b6033aa293ed017025b756f5767b6b9c4bf2d93e5",
+          "outcome": "success"
+        },
+        {
+          "id": "G10-old-signer.submission",
+          "hash": "a342a8479e33a80213e52ec50bcce251dec6398198331ab31f7684c61d14670e",
+          "outcome": "success"
+        },
+        {
+          "id": "G10-old-before-rotation.submission",
+          "hash": "1bc2f663cd5ca14c63376d153fcd7222edacbd1dff41a8852f188762f9881887",
+          "outcome": "success"
+        },
+        {
+          "id": "G10-rotate.submission",
+          "hash": "18dcc483cb631674eb69bc98d43c8e7f030f75980593580abfa7379a26ddadbf",
+          "outcome": "success"
+        },
+        {
+          "id": "G10-old-after-rotation.submission",
+          "hash": "c153201fc7ec80ca7555552f3a2cd279b97b09a86934d2f7966164c7e805b1cd",
+          "outcome": "protocol_failure"
+        },
+        {
+          "id": "G10-replacement.submission",
+          "hash": "c153201fc7ec80ca7555552f3a2cd279b97b09a86934d2f7966164c7e805b1cd",
+          "outcome": "success"
+        },
+        {
+          "id": "G10-restore.submission",
+          "hash": "427f925164ff08c321374b6ef7b67f0cc173fd463a2eb916447d23eecbf97ccd",
+          "outcome": "success"
+        }
+      ]
+    },
+    "openzeppelin": {
+      "status": "passed",
+      "checks_passed": 13,
+      "cli_entry_shape": {
+        "hash": "df5489b1f04b2316efe400ddc686895f489cb307cc7d8fc97ff2b1c8eec85264",
+        "ledger": 4923401
+      },
+      "sdk_bridge": {
+        "hash": "cbb1e64c79a7eefc38ac4ae840dd2d6c6d8dec0aaec3ffe0ce2dffd25682babb",
+        "ledger": 4923402
+      },
+      "counter": "4 -> 6",
+      "cli_entry_expiration_ledger": 4923599,
+      "note": "About 200 ledgers ahead; the removed window allowed at most 60."
+    },
+    "contracts": {
+      "rows": "C01-C08, C10-C13 passed; C09 covered_by another row",
+      "submissions": 16,
+      "successful_on_chain": 16,
+      "hashes": [
+        {
+          "id": "C01-g-address-auth.submission",
+          "hash": "719a15b9b7f3a700e5778e103855fbbea819c59f16615f5a7092fd4c02a124b9",
+          "outcome": "success"
+        },
+        {
+          "id": "C01",
+          "hash": "719a15b9b7f3a700e5778e103855fbbea819c59f16615f5a7092fd4c02a124b9",
+          "outcome": "submitted"
+        },
+        {
+          "id": "C02-simple-owner.submission",
+          "hash": "8cf3a5324eb70cdf3d7e093c9816aba1e0fb35c57f76ac914866227fd5dccfd7",
+          "outcome": "success"
+        },
+        {
+          "id": "C03-oz-basic.submission",
+          "hash": "cc9523a87b662b0a5d1638f715b8933b8a37463daad69faca0d990a438e472e6",
+          "outcome": "success"
+        },
+        {
+          "id": "C04-oz-2of3-ab.submission",
+          "hash": "22a82c6b6d1042648970b30859ff285dfcedcce28ce8c4599d175ebe184fab26",
+          "outcome": "success"
+        },
+        {
+          "id": "C05-weighted-a.submission",
+          "hash": "fd954b8e17cb4dd574c109766984ce7447c466e52bee26bcf62e3f541185126b",
+          "outcome": "success"
+        },
+        {
+          "id": "C05-weighted-bc.submission",
+          "hash": "8b61ab54eb8159e1d152a7c995071a4ddf6182925d7bc5f76d6a273b43820921",
+          "outcome": "success"
+        },
+        {
+          "id": "C06-two-c-accounts.submission",
+          "hash": "f00a4530cc8f904cdb2d90dbb593b0e43780c24a638e5fe96eb46dbc41d0f7be",
+          "outcome": "success"
+        },
+        {
+          "id": "C06",
+          "hash": "f00a4530cc8f904cdb2d90dbb593b0e43780c24a638e5fe96eb46dbc41d0f7be",
+          "outcome": "submitted"
+        },
+        {
+          "id": "C07-mixed-g-c.submission",
+          "hash": "d6eebf0749cfbdff91f671078e9bb4d4b016f34c7ea05d8ac9c4b1e769b22ee4",
+          "outcome": "success"
+        },
+        {
+          "id": "C07",
+          "hash": "d6eebf0749cfbdff91f671078e9bb4d4b016f34c7ea05d8ac9c4b1e769b22ee4",
+          "outcome": "submitted"
+        },
+        {
+          "id": "C08-nested-full-tree.submission",
+          "hash": "cd12b92a56b6de1ac0c62af4fe995ad4c17bafcadd48bac18bb5f09bc2e048d6",
+          "outcome": "success"
+        },
+        {
+          "id": "C11-fresh-success.submission",
+          "hash": "4ede312e5852aabd16f8c271b7bb4415e57605089dcb2bdf86b2dc533681f88d",
+          "outcome": "success"
+        },
+        {
+          "id": "C13-set-owner-c.submission",
+          "hash": "f39801e5b12cbb7d601fcd2d91651e837d1667fe803eb568177d8f13a827ca8c",
+          "outcome": "success"
+        },
+        {
+          "id": "C13-new-owner.submission",
+          "hash": "a7f29e49b41d53358a1693df23e86183a575e4e4b644f1454aa2f8bb7865fb39",
+          "outcome": "success"
+        },
+        {
+          "id": "C13-restore-owner-b.submission",
+          "hash": "9c5cfde96b28856da629e4b79c502bbd93bf4a0c8d792638036069e1a7f43c7d",
+          "outcome": "success"
+        }
+      ]
+    }
+  },
+  "tunnel_regression": {
+    "symptom": "walleterm tunnel (b50236d) failed twice: The public tunnel did not become ready.",
+    "cause": "The Rust readiness probe resolved the new trycloudflare name with getaddrinfo before the record existed. The macOS resolver cache kept the negative answer (zone negative TTL 60 s, readiness limit 45 s).",
+    "measurement": {
+      "direct_query_first_configured_nameserver_s": 21,
+      "direct_query_second_nameserver_s": 24,
+      "direct_query_public_resolver_1_1_1_1_s": 27,
+      "system_cache_still_failing_at_s": 72,
+      "note": "Direct A queries to the configured nameservers, then to a public resolver. The macOS system cache (dscacheutil) still had no address at 72 s."
+    },
+    "fix": "PR #47: direct UDP A queries to the /etc/resolv.conf nameservers; TLS SNI and Host keep the tunnel name.",
+    "fix_live_check": {
+      "ready_after_s": 30,
+      "system_resolver_after_ready": "resolved",
+      "api_session": "{\"protocol\":3,\"service\":\"walleterm\"}"
+    }
+  },
+  "bridge_kit_page": {
+    "vault_filter": "Only the four walleterm test keys were listed.",
+    "kit_connect": "Kit and Walleterm addresses equal test-a",
+    "sign_note_test_a": {
+      "hash": "29834c85341eaa9b04862094dd51b900a91acd92bfe48613452537e2591f99d3",
+      "ledger": 4923919
+    },
+    "sign_transaction_max_time_0": {
+      "same_hash": true,
+      "time_bounds": {
+        "minTime": "0",
+        "maxTime": "0"
+      },
+      "signatures": 1,
+      "hash": "eec8f12bb3116cfce1da0c309062b4c769e06717833b642db48405b1d3acd642",
+      "ledger": 4923924,
+      "successful": true
+    },
+    "sign_message": {
+      "message": "walleterm acceptance 2026-09-29T00:53:37.948Z 95bbf870-cb7c-4390-85b3-db5fd0d70690",
+      "bytes": 82,
+      "verified_by_page": true,
+      "stellar_message_verify": "valid",
+      "digest": "a3f599a8a92294c791fcb70638e05abba7efd40920d99a08621918d065c2dc45",
+      "tunnel_line": "Message request ... no network, site, or expiry binding, then a Signed ... SEP-53 message line"
+    },
+    "negatives": {
+      "passed": true,
+      "cases": [
+        "bad_message",
+        "public",
+        "submit",
+        "v1_preimage"
+      ],
+      "new_signature_lines": 0,
+      "bad_message": {
+        "sdk": {
+          "code": -3,
+          "ext": [
+            "walleterm:invalid_request"
+          ],
+          "bridgeRequests": 0
+        },
+        "bridge": {
+          "status": 400,
+          "code": -3,
+          "ext": [
+            "walleterm:invalid_request"
+          ]
+        }
+      }
+    },
+    "two_tabs": {
+      "tab2_restored": "Kit and Walleterm addresses equal test-a without pairing",
+      "tab2_sign_test_a": {
+        "hash": "fa90fe63e468e9380b2968ca6a4fc36cde6cc7f56ef538f950d49c7d2f98f004",
+        "ledger": 4923936
+      },
+      "tab1_switch_to_test_b": "tab 2 followed (Kit and Walleterm)",
+      "tab2_sign_test_b": {
+        "hash": "d063ed2f3d6d66f86fb2546a03c8caa3e291cae4b54d0151501f6c15e57c4f3d",
+        "ledger": 4923941
+      },
+      "tab1_kit_disconnect": {
+        "old_token_status": 401,
+        "tab2": "both addresses cleared",
+        "shared_storage": "removed"
+      }
+    },
+    "tunnel_signed_lines": 5
+  },
+  "unanswered_prompt": {
+    "binary": "1ec919e (includes #43)",
+    "setup": "1Password locked; the unlock prompt was not answered",
+    "elapsed_s": 60,
+    "result": {
+      "ok": false,
+      "error": {
+        "code": "agent_protocol",
+        "message": "The agent closed the connection without a signature. The 1Password approval prompt may have timed out."
+      }
+    }
+  },
+  "accounts_after": [
+    {
+      "id": "GBSW6N4W",
+      "sequence": "20897180558557367",
+      "native": "19952.6919373",
+      "signers": 1,
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      }
+    },
+    {
+      "id": "GBMU6VU5",
+      "sequence": "20897184853524518",
+      "native": "10003.0070648",
+      "signers": 1,
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      }
+    },
+    {
+      "id": "GDAYLQYJ",
+      "sequence": "20897189148491777",
+      "native": "10000.0102040",
+      "signers": 1,
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      }
+    }
+  ],
+  "cleanup": "Tunnel, page server, and the agent-browser session one-sign-live stopped. No process or temporary directory from these runs remained."
+}

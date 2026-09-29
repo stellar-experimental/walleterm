@@ -65,6 +65,15 @@ The record lists two defects: withheld audit lines for delivered signatures, and
 PR #27 fixes both defects.
 The run used the `OP_VAULT` filter because the unfiltered list included a non-test key.
 
+[The signing record](signing-live-2026-09-28.json) covers live acceptance of one `walleterm sign` command and SEP-43 `signMessage`.
+The CLI signed a SEP-53 message and a transaction with no upper time limit.
+The `classic` suite made 31 submissions, and the `contracts` suite made 16. All 47 had the expected results.
+The OpenZeppelin runner signed an entry that expired about 200 ledgers ahead. The counter changed from 4 to 6.
+The Kit page signed a transaction, a transaction with no upper time limit, and a message through the bridge.
+A second tab restored the shared session, signed, followed a wallet switch, and cleared after a disconnection.
+The record also covers the tunnel DNS regression and its fix in PR #47.
+An unanswered prompt while 1Password was locked ended after 60 seconds with the PR #43 message.
+
 ## Tracked summaries and local records
 
 Git includes this index, acceptance summaries, site records, the browser QA report, and the mobile proof summaries.
