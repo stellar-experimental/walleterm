@@ -10,9 +10,9 @@ use std::time::Duration;
 use ed25519_dalek::{Signer as _, SigningKey};
 use serde_json::{Value, json};
 use stellar_xdr::{
-    DataValue, Hash, ManageDataOp, Memo, MuxedAccount, Operation, OperationBody, Preconditions,
-    SequenceNumber, String64, TimeBounds, TimePoint, Transaction, TransactionEnvelope, TransactionExt,
-    TransactionV1Envelope, Uint256,
+    DataValue, ManageDataOp, Memo, MuxedAccount, Operation, OperationBody, Preconditions, SequenceNumber,
+    String64, TimeBounds, TimePoint, Transaction, TransactionEnvelope, TransactionExt, TransactionV1Envelope,
+    Uint256,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
@@ -361,10 +361,6 @@ pub fn transaction_request(id: &str, fixture: &Fixture) -> Value {
         "network_passphrase": TESTNET,
         "xdr": transaction(&fixture.key, fixture.controls.now(), 180),
     })
-}
-
-pub fn unused_hash() -> Hash {
-    Hash([0; 32])
 }
 
 pub mod tx {

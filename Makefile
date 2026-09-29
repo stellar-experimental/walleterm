@@ -1,6 +1,6 @@
 PREFIX ?= $(HOME)/.local
 
-.PHONY: build install install-skill release test test-kit test-package
+.PHONY: build install install-skill release test test-kit test-package test-fixtures
 
 SKILL_HOME ?= $(HOME)
 SKILL_ROOT := $(abspath $(dir $(lastword $(MAKEFILE_LIST)))/.agents/skills)
@@ -84,5 +84,14 @@ test-package:
 test-kit:
 	cargo build --locked --features test-host --bin walleterm-test-host
 	bun install --cwd fixtures/kit --frozen-lockfile --ignore-scripts
+	bunx --no-install tsc --noEmit -p fixtures/kit/tsconfig.json
 	bun fixtures/kit/check.mts
 	bun fixtures/kit/tabs.mts
+	bun fixtures/kit/live/check.mts
+
+# Local contract host tests use mock keys and make no network requests.
+test-fixtures:
+	cargo +1.93.0 test --locked --manifest-path fixtures/contracts/Cargo.toml --workspace
+	cargo +1.93.0 test --locked --manifest-path fixtures/cap71/Cargo.toml --workspace
+	cargo +1.93.0 test --locked --manifest-path fixtures/cap85/contracts/Cargo.toml --workspace
+	cargo +1.93.0 test --locked --manifest-path fixtures/cap85/contracts-sdk27/Cargo.toml --workspace

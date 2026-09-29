@@ -1,6 +1,6 @@
 // SEP-43 live acceptance page: the real Stellar Wallets Kit 2.7.0 with WalletermModule,
 // the WalletermConnect header, and the documented guarded onChange hook.
-// Every action runs on Stellar testnet. The coordinator drives it through window.acceptance.
+// Every action runs on Stellar testnet. An operator drives it through window.acceptance.
 import { StellarWalletsKit } from '@creit.tech/stellar-wallets-kit/sdk';
 import { ModuleType, Networks } from '@creit.tech/stellar-wallets-kit/types';
 import type { ModuleInterface } from '@creit.tech/stellar-wallets-kit/types';

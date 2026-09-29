@@ -32,6 +32,7 @@ interface PageBridge {
   pending(): { index: number; type: string; messageId: number; payloadLength: number }[];
   respond(index: number, originalXdr: string, signedXdr: string): unknown;
   requests: Record<string, unknown>[];
+  unsupported: { type: string; messageId: number }[];
 }
 interface PageWindow {
   addEventListener(name: string, listener: (event: PageEvent) => void): void;
@@ -41,9 +42,9 @@ interface PageWindow {
 }
 
 const skill = fileURLToPath(new URL('../.agents/skills/walleterm-site-bridge/', import.meta.url));
-const bridge = join(skill, 'scripts/legacy-freighter.ts');
+const bridge = join(skill, 'scripts/freighter-page.ts');
 
-test('a reviewed V1 XDR crosses the legacy page bridge once', () => {
+test('a reviewed V1 XDR crosses the Freighter page bridge once', () => {
   const directory = mkdtempSync(join(tmpdir(), 'walleterm-site-bridge-'));
   try {
     const signer = Keypair.random(); // Isolated mock key. Never import it into 1Password.
@@ -85,7 +86,7 @@ test('a reviewed V1 XDR crosses the legacy page bridge once', () => {
         signer.publicKey(),
         '--origin',
         'https://site.example',
-        '--legacy-flag',
+        '--window-flag',
       ],
       { encoding: 'utf8' },
     );
@@ -248,4 +249,44 @@ test('a reviewed V1 XDR crosses the legacy page bridge once', () => {
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
+});
+
+test('the Freighter page bridge answers access and allowed-status requests', () => {
+  const key = Keypair.random().publicKey(); // Isolated mock key. Never import it into 1Password.
+  const source = execFileSync(
+    process.execPath,
+    [bridge, 'inject', '--public-key', key, '--origin', 'https://site.example'],
+    {
+      encoding: 'utf8',
+    },
+  );
+  const events: ((event: PageEvent) => void)[] = [];
+  const replies: Record<string, unknown>[] = [];
+  const window: PageWindow = {
+    addEventListener: (_name, listener) => {
+      events.push(listener);
+    },
+    postMessage: (message) => {
+      replies.push(message);
+    },
+  };
+  vm.runInNewContext(source, { window, location: { origin: 'https://site.example' }, Date, Error });
+  const types = ['REQUEST_PUBLIC_KEY', 'REQUEST_ALLOWED_STATUS', 'SET_ALLOWED_STATUS', 'REQUEST_USER_INFO'];
+  types.forEach((type, messageId) =>
+    events[0]({
+      source: window,
+      origin: 'https://site.example',
+      data: { source: 'FREIGHTER_EXTERNAL_MSG_REQUEST', messageId, type },
+    }),
+  );
+  // The page objects come from another realm. Compare plain copies.
+  const plain = (value: unknown) => JSON.parse(JSON.stringify(value));
+  assert.deepEqual(plain(replies), [
+    { source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE', messagedId: 0, publicKey: key },
+    { source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE', messagedId: 1, isAllowed: true },
+    { source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE', messagedId: 2, isAllowed: true },
+  ]);
+  assert.deepEqual(plain(window.__walletermBridge?.unsupported), [
+    { type: 'REQUEST_USER_INFO', messageId: 3 },
+  ]);
 });

@@ -1,5 +1,0 @@
-{
-  "checked_known_source_references": 700,
-  "out_of_range": [],
-  "limit": "Checks explicit known file paths only. It does not prove that each cited line supports its claim."
-}

@@ -52,7 +52,7 @@ Walleterm computes the digest from the artifact. 1Password signs only those 32 b
 1Password does not display the network, amount, destination, or contract policy. Review the artifact first.
 Use Stellar CLI to construct, inspect, and submit transactions.
 Use Stellar Raven for protocol research and contract discovery.
-Companion skill: ~/.agents/skills/walleterm/SKILL.md (install with make install-skill).
+Agent skills: npx skills add stellar-experimental/walleterm -g
 "#;
 
 /// Everything `run` touches, so tests can inject a mock agent socket and failing writers.

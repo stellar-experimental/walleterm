@@ -1,5 +1,5 @@
 //! The service launcher with mock tunnels, and the real supervisor with a mock cloudflared.
-//! Ported from bridge/launch.test.ts and bridge/tunnel-child.test.ts in the legacy TypeScript tests at 52a7fc3. Nothing here reaches Cloudflare.
+//! Nothing here reaches Cloudflare.
 
 mod support;
 

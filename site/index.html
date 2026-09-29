@@ -478,24 +478,24 @@ svg { display: block; }
         <div class="install-copy">
           <p class="eyebrow">Install</p>
           <h2 class="title" id="install-title">Start on your Mac.</h2>
-          <p class="lede muted">Turn on the SSH agent in the 1Password desktop app. Then install with Homebrew, or with the script if you do not use Homebrew.</p>
+          <p class="lede muted">Turn on the SSH agent in the 1Password desktop app. Then install with the script, or with Homebrew.</p>
           <div class="commands">
             <div class="tabs" role="tablist" aria-label="Install method">
-              <button type="button" role="tab" id="tab-brew" aria-controls="install-brew" aria-selected="true">Homebrew</button>
-              <button type="button" role="tab" id="tab-script" aria-controls="install-script" aria-selected="false" tabindex="-1">Script</button>
+              <button type="button" role="tab" id="tab-script" aria-controls="install-script" aria-selected="true">Script</button>
+              <button type="button" role="tab" id="tab-brew" aria-controls="install-brew" aria-selected="false" tabindex="-1">Homebrew</button>
             </div>
-            <div role="tabpanel" id="install-brew" aria-labelledby="tab-brew">
-              <pre>brew tap stellar-experimental/walleterm https://github.com/stellar-experimental/walleterm
-brew install --cask stellar-experimental/walleterm/walleterm
-npx skills add stellar-experimental/walleterm -g -s walleterm -s walleterm-site-bridge
-walleterm list --human</pre>
-              <p class="note">Update with <code>brew upgrade --cask walleterm</code>. The cask also installs cloudflared.</p>
-            </div>
-            <div role="tabpanel" id="install-script" aria-labelledby="tab-script" hidden>
+            <div role="tabpanel" id="install-script" aria-labelledby="tab-script">
               <pre>curl -fsSL https://walleterm.com/install.sh | sh
-npx skills add stellar-experimental/walleterm -g -s walleterm -s walleterm-site-bridge
+npx skills add stellar-experimental/walleterm -g
 walleterm list --human</pre>
               <p class="note">Run the script again to update. It installs into <code>~/.local/bin</code>. <a href="https://github.com/stellar-experimental/walleterm/blob/main/site/install.sh">Read the script</a>.</p>
+            </div>
+            <div role="tabpanel" id="install-brew" aria-labelledby="tab-brew" hidden>
+              <pre>brew tap stellar-experimental/walleterm https://github.com/stellar-experimental/walleterm
+brew install --cask stellar-experimental/walleterm/walleterm
+npx skills add stellar-experimental/walleterm -g
+walleterm list --human</pre>
+              <p class="note">Update with <code>brew upgrade --cask walleterm</code>. The cask also installs cloudflared.</p>
             </div>
             <button class="copy" type="button">Copy</button>
           </div>

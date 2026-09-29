@@ -106,48 +106,12 @@ Custom fixture contracts remain in `fixtures/`.
 ## Validation
 
 Offline tests use isolated mock keys and make no live signing requests.
-The explicit live runner uses existing dedicated testnet 1Password keys:
-
-```sh
-cargo build --locked --features test-host --bin walleterm-test-host
-WALLETERM_BINARY=/isolated/prefix/bin/walleterm \
-  bun --no-env-file tests/contract-auth-demo-live.ts /path/to/public-test-keys.json --vault Private
-```
-
-The SDK half uses the Rust bridge on loopback through the test host's production mode.
-That mode uses the real 1Password signer and explicit vault discovery, as `walleterm tunnel` does.
-
-The runner records reviewed entries, transaction hashes, ledgers, and counter values.
-It checks missing authorization, changed nonces, and changed calls through enforcing simulation.
-It never submits those negative controls.
-It preserves pending submission evidence and stops after uncertain results.
-
-The [2026-09-26 acceptance record](../evidence/contract-auth-demo-2026-09-26.json) records the completed testnet checks and limits.
-That record and the Chrome test below predate the merge of the audited `main` fixes.
-At that time, all 270 offline tests passed. The independent Astra review reported no remaining actionable findings.
-The CLI and SDK each signed a C-account entry before a separate envelope signature.
-The accepted transactions changed the counter from 0 to 3 across the recorded runs.
-The first run found a ledger-response size limit before SDK authorization signing.
-The bridge then read `getHealth.latestLedger`, and the final live run passed.
-The bridge no longer reads a ledger (2026-09-28). The records above predate that change.
-
-A later visible Chrome test used freshly rebuilt tunnel and demo services.
-It signed the explicit C-account authorization, then signed the transaction separately.
-One submission changed the counter from 3 to 4 in ledger 4889644.
-Independent RPC checks verified both signatures and the accepted transaction.
-The acceptance record keeps this browser result separate from the earlier runner results.
-
-The [2026-09-28 rerun](../evidence/live-rerun-2026-09-28.json) tested the integrated source from a temporary installation.
-The runner passed again. The CLI and SDK increments changed the counter from 4 to 6.
-Its six negative controls requested no signatures.
-A headless Chrome demo run through public tunnels changed the counter from 6 to 7.
-It reloaded the page before and after the envelope signature. The record passed validation each time.
-A later check on 2026-09-28 verified a fresh 1Password approval prompt after the user locked 1Password.
-The OpenZeppelin adapter passed live acceptance on 2026-09-28 with `tests/openzeppelin-auth-live.ts`.
-The CLI and the SDK each signed one authorization entry for an existing OpenZeppelin account.
-Two increments changed its counter from 2 to 4. Six negative controls requested no signature and were not submitted.
-[The OpenZeppelin record](../evidence/openzeppelin-live-2026-09-28.json) holds both results.
-See [the runner notes](OPENZEPPELIN.md#live-acceptance-runner) for its checks, controls, and command.
+`tests/contract-auth-demo-live.ts` runs the demo flow live with dedicated testnet keys.
+It signs a C-account entry through the CLI and through the SDK, each before a separate envelope signature.
+It checks missing authorization, changed nonces, and changed calls through enforcing simulation. It never submits those controls.
+It stops after an uncertain result and keeps the pending submission evidence.
+See [live tests](LIVE-TESTS.md) for setup and commands.
+[The live signing record](../evidence/signing-live-2026-09-28.json) holds the latest contract and OpenZeppelin results.
 
 Protocol references:
 [Contract authorization](https://developers.stellar.org/docs/build/guides/auth/contract-authorization),

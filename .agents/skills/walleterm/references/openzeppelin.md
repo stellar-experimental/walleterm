@@ -9,7 +9,7 @@ The pinned `multisig_account_example.wasm` file has SHA-256 `0c20d69644a16562f98
 The pinned Ed25519 verifier WASM file has SHA-256 `875b095d57291172d2f103b02240cdb72bc4157fc0d5ce7dfbc934b1d84209b4`.
 The pinned simple threshold policy WASM file has SHA-256 `9525e49335e2dd8bd6d547980e4273ad47104c2f1d155e49f835c452545bc16a`.
 The pinned weighted threshold policy WASM file has SHA-256 `0e228b679436e405cd96ea5944ec6dfd618ce7b9ae7262864b72e0afaf792ee4`.
-These file hashes came from the 2026-09-25 build manifest. Check the deployed contract code independently.
+These are hashes of the pinned build. Check the deployed contract code independently.
 Other code hashes or policy configurations require their own checks.
 
 ## Required `AuthPayload`
@@ -31,7 +31,7 @@ Live tests covered `External` signers and one `Delegated(G-address)` signer with
 ## Digest and order
 
 1. Simulate the call and retain the C-account auth entry, invocation tree, nonce, and credential variant.
-   Use `address_v2`. Choose an expiration ledger and put it in the credential. Walleterm refuses only ledger 0.
+   Use `address_v2`. Choose an expiration ledger and put it in the credential.
 2. Select one context rule ID for each auth context.
 3. Send the unsigned entry to `walleterm sign` with the entry shape and the `openzeppelin-ed25519` adapter:
    `{"public_key":"G...","network_passphrase":"...","auth_entry_xdr":"...","address":"C...","adapter":{"type":"openzeppelin-ed25519","verifier":"C...","context_rule_ids":[0]}}`.
@@ -42,9 +42,6 @@ Live tests covered `External` signers and one `Delegated(G-address)` signer with
    For several signers, send the same entry once for each selected key. Merge the raw `signature` values into one `AuthPayload`.
 7. Re-simulate in enforce mode. Sign the final G-account transaction envelope separately with the transaction shape.
 
-Inspect the final envelope fee after enforce simulation. Repeated CLI 27.1.0 simulations can increase it.
-For a confirmed return value, decode `resultMetaXdr`; `getTransaction` may not include `returnValue`.
-
 A zero-signature enforce simulation may expose the host payload and verifier digest for comparison.
 Treat that output as an optional diagnostic. The deterministic XDR and hash calculation defines the signed digest.
 
@@ -54,11 +51,9 @@ Match the serialized IDs to the IDs inside `AuthPayload` exactly.
 
 The example's default rule may have a simple or weighted threshold policy.
 Check the live rule, signer set, verifier, threshold, and weights before selecting keys.
-A rule without a policy needs every rule signer. Missing one returned `3002` in the 2026-09-25 testnet run.
+A rule without a policy needs every rule signer. A missing signer can fail with `3002`.
 An extra signer outside the selected rules can fail with `3016`.
 Changing signers does not update policy thresholds. Update both in one authorized transaction when required.
-
-The [acceptance snapshot](acceptance.md) lists live coverage at the pinned code.
 
 ## Tested delegated G signer
 

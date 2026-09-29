@@ -6,6 +6,24 @@ on:
 permissions:
   contents: read
 jobs:
+  fixtures:
+    runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      CARGO_PROFILE_DEV_DEBUG: 0
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install 1.93.0 --profile minimal
+      # Only main saves the cache. Each fixture workspace has its own target directory.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: |
+            fixtures/contracts -> target
+            fixtures/cap71 -> target
+            fixtures/cap85/contracts -> target
+            fixtures/cap85/contracts-sdk27 -> target
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - run: make test-fixtures
   offline:
     runs-on: macos-15
     # CI builds start clean, so debug info and incremental state only cost compile and link time.

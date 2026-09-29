@@ -3,9 +3,9 @@
 This file maps each network restriction, hard-coded network value, and hard-coded limit in the repository.
 Use it to find the code to change before Walleterm opens mainnet or a custom network.
 A change that adds, changes, or removes one of these items must update this file in the same change.
-`scripts/networks.test.ts` fails when a product file names a testnet value and this file does not name that file.
+`tests/networks.test.ts` fails when a product file names a testnet value and this file does not name that file.
 
-Inventory base: `main` at `0865ac8` on 2026-09-28. Each location names a file and a symbol.
+Each location names a file and a symbol.
 This file has no line numbers, because line numbers drift.
 
 ## Current policy
@@ -79,33 +79,33 @@ The bridge and the SDK call testnet `TESTNET`.
 
 | Location | What it states | Change |
 | --- | --- | --- |
-| `.agents/skills/walleterm/SKILL.md` | "Use dedicated testnet keys in this project." | Change with the project rule in `AGENTS.md`. |
-| `.agents/skills/walleterm-site-bridge/SKILL.md` | The description names testnet websites. The workflow confirms the testnet passphrase. The message notes name the testnet rule. | Change with the bridge. |
+| `.agents/skills/walleterm/SKILL.md` | "Use dedicated keys. Use testnet unless the user's grant names another network." | Change with the bridge network support. |
+| `.agents/skills/walleterm-site-bridge/SKILL.md` | The description names "Stellar testnet websites". The review step confirms the `Test SDF Network ; September 2015` passphrase. "Use dedicated testnet keys." | Change with the bridge. |
 | `.agents/skills/walleterm-site-bridge/agents/openai.yaml` | `short_description` names testnet sites. | Change with the bridge. |
-| `.agents/skills/walleterm-site-bridge/references/service.md` | "This bridge supports testnet only." "Mainnet fails before signing." The example uses the testnet passphrase. `getNetwork` returns testnet. | Change with the bridge and the SDK. |
-| `.agents/skills/walleterm-site-bridge/references/message-signing.md` | The testnet rule does not limit a message. Use dedicated testnet keys. | Change with the bridge. |
-| `.agents/skills/walleterm-site-bridge/references/interception.md` | Hash with the confirmed testnet passphrase. | Change with the bridge. |
-| `.agents/skills/walleterm-site-bridge/references/legacy-freighter.md` and `.agents/skills/walleterm-site-bridge/scripts/legacy-freighter.ts` `TESTNET` | The helper supports only testnet. It answers network requests with `TESTNET`, the testnet passphrase, and the testnet Horizon URL. It hashes with the testnet passphrase. | Add each accepted network. |
-| `.agents/skills/walleterm/references/` `acceptance.md`, `classic-native.md`, `fee-bump.md`, `openzeppelin.md` | Records of past testnet runs. `classic-native.md` uses a `$PASSPHRASE` variable. | None. |
+| `.agents/skills/walleterm-site-bridge/references/service.md` | "The bridge supports testnet only." "Mainnet fails before signing." The example uses the testnet passphrase. | Change with the bridge and the SDK. |
+| `.agents/skills/walleterm-site-bridge/references/message-signing.md` | "The testnet rule therefore does not limit it." "Connect only dedicated testnet keys." | Change with the bridge. |
+| `.agents/skills/walleterm-site-bridge/references/freighter.md` and `.agents/skills/walleterm-site-bridge/scripts/freighter-page.ts` `TESTNET` | The helper supports only testnet. It answers network requests with `TESTNET`, the testnet passphrase, and the testnet Horizon URL. It hashes with the testnet passphrase. | Add each accepted network. |
 
 ## Docs and site copy
 
 | Location | What it states | Change |
 | --- | --- | --- |
-| `AGENTS.md` "Work process" | "Use dedicated testnet accounts and contracts. Never use mainnet funds." | A project rule. Change it only with the user's approval. |
+| `AGENTS.md` "Work process", `CONTRIBUTING.md` "Rules" | "Use dedicated testnet accounts and contracts. Never use mainnet funds." | A project rule. Change it only with the user's approval. |
 | `docs/BRIDGE-PROTOCOL.md` | The introduction, "Errors", "Approval", "Transaction envelopes", "Authorization preimages", and "Messages" state testnet only. | Change with the bridge. |
 | `docs/SEP-43.md` | The summary, "Network", the transaction policy, the Kit notes, and the deviations state testnet only. The testnet network ID limits a relayed SEP-45 challenge to testnet services. | Change with the SDK. |
-| `docs/INTERFACE.md` | The tunnel text says testnet. The sign section says that the CLI accepts any network. The notice examples use testnet. | Change the tunnel text with the bridge. |
+| `docs/INTERFACE.md` | The command text says that `tunnel` is the testnet bridge. The sign section says that the CLI accepts any network. The notice examples use testnet. | Change the tunnel text with the bridge. |
 | `docs/WEB-BRIDGE.md` | The setup uses testnet, Friendbot, and the testnet USDC issuer. "Add end-to-end encryption before any mainnet use." | Change with the bridge and the demo. |
-| `docs/PLAN.md` | "Keep the testnet website bridge in `tunnel` and `demo`." | Change with the bridge. |
-| `README.md` | Websites use testnet and dedicated testnet keys. The bridge supports testnet transactions. The CLI example uses `--network testnet`. | Change with the bridge. |
+| `docs/DEMO.md`, `docs/CONNECTION-UI.md` | The demo and the connection component use testnet. | Change with the demo and the SDK. |
+| `docs/LIVE-TESTS.md` | The live suites run on testnet with Friendbot funding. | None. Live tests stay on testnet. |
+| `README.md` | The website bridge signs for testnet only. The CLI example uses `--network testnet`. | Change with the bridge. |
 | `site/index.html` footer | "An experimental project for Stellar. Use testnet accounts." | Change the Paper design first, then the site. |
 | `Casks/walleterm.rb` | No network text. | None. |
 
 ## Hard-coded limits
 
 No limit below depends on the network, unless the last column says so.
-`docs/INTERFACE.md` and `docs/BRIDGE-PROTOCOL.md` state most of these values. `docs/SEP-43.md`, `docs/CONNECTION-LIFECYCLE.md`, `docs/WEB-BRIDGE.md`, the site-bridge skill, and `site/index.html` repeat some of them.
+`docs/INTERFACE.md` and `docs/BRIDGE-PROTOCOL.md` state most of these values.
+`docs/SEP-43.md`, `docs/WEB-BRIDGE.md`, `docs/CONNECTION-LIFECYCLE.md`, `docs/CONNECTION-UI.md`, `docs/DEMO.md`, `CONTRIBUTING.md`, the site-bridge skill, and `site/index.html` repeat some of them.
 Update those statements in the same change.
 
 ### Signing core and CLI
@@ -217,11 +217,11 @@ When the bridge or the SDK opens a network, update the tests that assert `networ
 | Live harness core | `tests/live-utils.ts` | The testnet passphrase, the `soroban-testnet` RPC, the `horizon-testnet` Horizon, and Friendbot. |
 | Live runners | `tests/classic.ts`, `tests/cap71.ts`, `tests/cap85.ts`, `tests/contracts.ts`, `tests/extended-contracts.ts`, `tests/openzeppelin-auth-live.ts`, `tests/contract-auth-demo-live.ts`, `tests/cli-pipeline.ts`, `tests/live.ts` | Testnet only. `classic.ts`, `cap71.ts`, and `cap85.ts` assert the testnet passphrase. `cap85.ts` also checks RPC `getNetwork`. `cli-pipeline.ts` uses `--network testnet`. |
 | Submission guard | `tests/submission.ts` | Refuses a pending submission from another passphrase. Any network. |
-| Offline Bun tests | `tests/*.test.ts`, `demo/contracts.test.ts`, `tests/browser/*.test.ts` | Mock keys and testnet values. `tests/browser/kit.test.ts`, `sdk-artifact.test.ts`, and `sep43.test.ts` assert `network_unsupported`. |
+| Offline Bun tests | `tests/*.test.ts`, `tests/browser/*.test.ts` | Mock keys and testnet values. `tests/browser/kit.test.ts`, `sdk-artifact.test.ts`, and `sep43.test.ts` assert `network_unsupported`. |
 | Rust tests | `tests/support/mod.rs` `TESTNET`, `tests/bridge.rs`, `tests/cli.rs`, `tests/tunnel.rs`, `tests/vectors.rs` | `tests/bridge.rs` asserts `network_unsupported`. `tests/tunnel.rs` asserts the "ready on Stellar testnet" text. |
 | Kit fixtures | `fixtures/kit/check.mts`, `tab.mts`, `tabs.mts`, and `fixtures/kit/live/` | Testnet. `live/page.mts` uses the testnet Horizon and RPC. `live/negatives.mts` asserts that `Networks.PUBLIC` fails. |
 | Contract fixtures | `fixtures/README.md`, `fixtures/cap71/README.md`, `fixtures/cap85/README.md` | Records of testnet runs. |
-| Evidence | `evidence/` | Historical testnet records. |
+| Evidence | `evidence/` | Records of testnet runs. |
 | Test host | `src/bin/walleterm-test-host.rs` | Runs the production bridge rules for the browser tests. It never ships. |
 
 ## Opening other networks
@@ -250,7 +250,7 @@ Other rules:
 
 These are open choices. This file does not select one.
 
-1. Scope. Choose the components that open. `walleterm sign` accepts any passphrase now. The bridge, the SDK, and the demo accept only testnet.
+1. Scope. Choose the components that open. `walleterm sign` accepts any passphrase. The bridge, the SDK, and the demo accept only testnet.
 2. The bridge network set. Options: one network for each tunnel process, a fixed list, or any passphrase in each request.
    The bridge reads no ledger, so it needs only a passphrase.
 3. The network input. `walleterm tunnel` has no network input.
@@ -282,7 +282,7 @@ These are open choices. This file does not select one.
 
 ### Sources
 
-- Stellar CLI 28.0.0, commit `300aaf69ab100536678bdb641428b06f06b318ea`. This is the installed binary and the CI version.
+- Stellar CLI 28.0.0, commit `300aaf69ab100536678bdb641428b06f06b318ea`. This is the CI version.
   The inventory used `stellar network --help`, `stellar network add --help`, and `stellar network ls --long` with an empty `--config-dir` on 2026-09-28.
 - Stellar CLI source at tag `v28.0.0`, read through the GitHub API on 2026-09-28:
   `cmd/soroban-cli/src/config/network.rs` (`Args::resolve`, `DEFAULTS`, `Network::helper_url`), `config/network/passphrase.rs`,

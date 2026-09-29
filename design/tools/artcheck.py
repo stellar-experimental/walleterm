@@ -243,7 +243,6 @@ def flat_edge_sag(path, lab_target, keep):
 
 # References left out of the standing-mascot bands, and why.
 EXCLUDE = {
-    "02-request-line-draft.png": "superseded draft",
     "07-balance-scale.png": "tomato ground hides the fill edge",
     "08-bridge-walk.png": "walking pose, legs are not standing",
 }

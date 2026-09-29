@@ -1,9 +1,0 @@
-{
-  "baseline": "40d6cca9db732a0db16d154c80d4a153bf33c6b7",
-  "tracked_file_count": 199,
-  "tracked_test_snapshots": [],
-  "manifest_test_snapshots": [],
-  "generated_snapshot_files": 16,
-  "ignore_rule": "**/test_snapshots/",
-  "conclusion": "No test_snapshots file is tracked in the audited revision. Native test runs generate ignored diagnostic snapshots."
-}

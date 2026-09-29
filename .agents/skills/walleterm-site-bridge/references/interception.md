@@ -1,61 +1,58 @@
-# Manual website interception
+# Website interception
 
-Use this path when a site cannot use the Walleterm browser client or export unsigned XDR.
-Prefer public-key connection or unsigned-XDR export when the site supports it.
-Inspect the deployed wallet adapter. A Wallets Kit button can use Freighter, WalletConnect, or another provider.
-Check whether the site uses an external wallet or signs with an in-page keystore.
-Identify its request method, response shape, network fields, and submission owner.
-Repository code can differ from the deployed code. Confirm the loaded transport before injecting an adapter.
-Inspect the resources loaded by the active route when script tags omit its modules.
-Record source versions and loaded resource hashes in the task's evidence, not in reusable instructions.
+Use this path when the website cannot add the Walleterm SDK or Kit module.
+First check for a simpler path: many websites accept a public key or export unsigned XDR.
+In this path, the agent captures each request, runs `walleterm sign` outside the browser, and returns one result.
+It does not use `walleterm tunnel`.
 
-Intercept only the selected website origin. Give it the selected public key.
-Capture signing requests for agent review. Run `walleterm sign` outside the browser.
-This manual path uses a review queue. It does not use the automatic public tunnel service.
+## Find the seam
 
-Classify the captured request before choosing a signing path:
+A **seam** is the point where the website hands a request to its wallet and waits for the answer.
+Answer at exactly one seam. Choose the highest seam that still carries the exact unsigned artifact.
 
-- For transaction envelopes, use the transaction steps below and the matching direct `walleterm` reference.
-- For authorization entries, inspect the complete invocation tree and use the matching direct `walleterm` reference.
-- For messages, challenges, or application key derivation, use [message signing](message-signing.md).
+Inspect the deployed code, not only the repository. Read the modules that the active route loads.
+Find the wallet library, the request method, the request and response fields, the network fields, and who submits.
+A wallet button does not identify the transport. Confirm the call that actually runs.
 
-For WalletConnect, verify the chain ID, method, and session response before writing a compatible adapter.
+| Seam | How to recognize it | How to answer it |
+| --- | --- | --- |
+| Page messages | `window.postMessage` requests to an extension content script | Add a page listener that answers the same messages. It works after page load. See [Freighter](freighter.md). |
+| Injected provider | The website reads a global object, such as `window.rabet`, `window.hanaWallet.stellar`, `window.bitkeep.stellar`, or `window.kleverWallet.stellar` | Define an object with the same methods and result shapes before the website reads it. Read the wallet's own API documentation. |
+| Stellar Wallets Kit | `StellarWalletsKit` calls and a picker with many wallets | The Kit calls one module for the selected wallet. Answer at that module's transport, which is one of the other seams. |
+| Popup, redirect, or remote relay | Albedo intents, a web-wallet popup, WalletConnect, or a mobile wallet | The page cannot answer these. Use the website's own signing function, or an unsigned-XDR export. |
+| In-page keystore | The website generates or imports a secret key | Replace the website's signing function. See [in-page signing](#in-page-signing). |
 
-Use [legacy Freighter](legacy-freighter.md) only for its exact `window.postMessage` protocol.
-Its helper captures XDR without automatic signing. It does not provide a general Freighter or Wallets Kit implementation.
-For another transport, make only the site-specific adapter that the task requires.
+Answer only the request types that the website sends. Record every other request type as unsupported.
+Missing account or network fields do not establish identity or network permission. Treat them as unknown.
+Record wallet library versions and loaded resource hashes in the task's evidence, not in this skill.
 
-## In-page signing
+Classify each captured request:
 
-Some sites offer only local key generation or secret-key import. Wallet extension injection does not replace that signer.
-Use a public-only identity and adapt the site's signing boundary when the task permits a temporary local adapter.
-Keep private-key creation, import, storage, and export controls outside that adapter.
-For a synchronous SDK signer, capture the unsigned envelope before the site's submission call.
-Pause submission until the original request receives its reviewed signed envelope.
-Preserve the site's transaction construction, simulation, submission, and result handling when practical.
-Verify the actual signing path. A changed wallet label does not prove interception.
-Report the temporary adapter separately from native website integration. Keep site-specific patches in task evidence.
+- A transaction envelope: use the skill's review steps and the matching direct `walleterm` reference.
+- An authorization entry or preimage: inspect the complete invocation tree, then use the matching direct `walleterm` reference.
+- A message, challenge, or key derivation: use [message signing](message-signing.md).
 
 ## Return one reviewed transaction
 
-Save the request ID, origin, selected key, `accountToSign`, network fields, and exact unsigned XDR.
-Wallet adapters can omit signing-account or network fields. Treat missing fields as unknown.
-Confirm the selected key, XDR sources, authorization principals, live signer weights, and network against the user's grant.
-Decode it with `stellar tx decode`. Compute its hash with the confirmed testnet passphrase.
-XDR alone does not identify the network. Check the material terms against the user's grant.
-For Soroban transactions, inspect every authorization invocation tree, including nested token transfers.
-Read the matching core `walleterm` reference for its signing format.
+1. Save the request ID, origin, selected key, signing-account and network fields, and exact unsigned XDR.
+2. Complete the skill's review steps. Compute the hash with the confirmed network passphrase. XDR alone does not name the network.
+3. Before signing, recheck that the request is still pending and that the XDR, key, network, and expiry are unchanged.
+4. Record the original hash and selected key in a durable attempt record. A new page capture can reuse a request number.
+5. Send one `walleterm sign` request with the transaction shape. Require a successful exit, `ok: true`, `verified: true`, the same key, and the reviewed hash as `digest`.
+6. Decode `signed_transaction_xdr`. It is the same envelope with one appended signature. Verify its body and hash.
+7. Return the result only to its pending request, in the exact response format of the wallet transport.
+8. The website can submit immediately. Verify ledger acceptance and resulting state.
 
-The transaction shape of `walleterm sign` returns `signed_transaction_xdr`: the same envelope with one appended signature.
-It keeps the body and existing signatures. It does not check ledger state, signer thresholds, or user authority.
-Review Soroban contract effects and authorization separately.
+Cancel an unsigned request before signing begins. Later cancellation cannot undo a signature.
+Close the page bridge after all requests settle.
 
-Before signing, recheck the live pending request, exact unsigned XDR, selected key, network, and expiry.
-Record the original hash and selected key in a durable attempt before calling the signer.
-Use that attempt for recovery. A new page capture can reuse a local request number.
-Unsigned cancellation must stop before signing begins. Later cancellation cannot undo a signature.
-Send one `walleterm sign` request with the transaction shape. Require a successful exit, `ok: true`, and `verified: true`.
-Require the same public key and the reviewed hash as `digest`. Decode `signed_transaction_xdr` and verify its body and hash.
-Return the signature only to its pending request. The website can submit immediately after receiving it.
-Record the original hash before that return. Query it after any uncertain result before a replacement request.
-Verify ledger acceptance and resulting state. Close the manual browser bridge after all requests settle.
+## In-page signing
+
+Some websites offer only local key generation or secret-key import. An injected wallet does not replace that signer.
+Use a public-only identity and adapt the website's signing function when the task permits a temporary adapter.
+Keep private-key creation, import, storage, and export controls outside that adapter.
+For a synchronous signer, capture the unsigned envelope before the website's submission call.
+Pause submission until the original request receives its reviewed signed envelope.
+Keep the website's construction, simulation, submission, and result handling when practical.
+Verify the signing path that actually runs. A changed wallet label does not prove interception.
+Report the temporary adapter separately from a native website integration. Keep site-specific patches in task evidence.

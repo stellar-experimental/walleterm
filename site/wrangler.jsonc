@@ -1,10 +1,10 @@
-// Serves site/ as static assets at walleterm.com. Deploy: wrangler deploy -c site/wrangler.jsonc
+// Deploy needs CLOUDFLARE_ACCOUNT_ID for the account that owns walleterm.com.
+// Deploy: wrangler deploy -c site/wrangler.jsonc
 {
   "name": "walleterm-site",
-  "account_id": "ba55b7ae9acfb3ed152103e3497c0752",
   "compatibility_date": "2026-09-28",
   "assets": { "directory": "." },
   "routes": [{ "pattern": "walleterm.com", "custom_domain": true }],
   "workers_dev": false,
-  "preview_urls": false
+  "preview_urls": false,
 }

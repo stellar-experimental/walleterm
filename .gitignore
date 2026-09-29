@@ -2,7 +2,9 @@
 /node_modules/
 /fixtures/**/target/
 /fixtures/.oz-src/
-/fixtures/vendor/
+
+# Past review records. They stay on the maintainer's machine and in Git history.
+/audit/
 
 # Local configuration and credentials.
 .env
@@ -30,24 +32,9 @@ __pycache__/
 # Never delete unresolved submission journals as part of cleanup.
 /evidence/*
 !/evidence/README.md
-!/evidence/acceptance-summary.json
-!/evidence/protocol-acceptance.json
-!/evidence/stellarterm-testnet-2026-09-25.json
-!/evidence/sdf-demo-bridge-2026-09-25.json
-!/evidence/confidential-token-2026-09-26.json
-!/evidence/contract-auth-demo-2026-09-26.json
-!/evidence/live-rerun-2026-09-28.json
-!/evidence/openzeppelin-live-2026-09-28.json
-!/evidence/sep43-live-2026-09-28.json
 !/evidence/signing-live-2026-09-28.json
-!/evidence/tunnel-testnet-2026-09-25.json
-!/evidence/browser-qa-2026-09-25/
-/evidence/browser-qa-2026-09-25/*
-!/evidence/browser-qa-2026-09-25/report.md
-!/evidence/mobile-poc/
-/evidence/mobile-poc/*
-!/evidence/mobile-poc/README.md
-!/evidence/mobile-poc/*.json
+!/evidence/sep43-live-2026-09-28.json
+!/evidence/protocol-acceptance.json
 
 /dist/
 /fixtures/kit/node_modules/

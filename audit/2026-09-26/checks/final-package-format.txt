@@ -1,3 +1,0 @@
-$ prettier --check "**/*.ts" ".agents/**/*.ts"
-Checking formatting...
-All matched files use Prettier code style!

@@ -2,14 +2,13 @@
 
 These contracts are test fixtures. Do not use them as production accounts.
 The build does not access keys or change network state.
-X01-X06 passed on testnet; X07 recorded observations. See `../../docs/PROTOCOL-UPDATES.md` for the limits.
+X01-X06 passed on protocol 28 testnet with the earlier signer. X07 recorded observations.
+[The protocol record](../../evidence/protocol-acceptance.json) holds the transaction hashes and limits.
 
 Specification: [CAP-0085](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0085.md).
-Testnet reports protocol 28, which activates CAP-85. The installed
-`@stellar/stellar-sdk` 17.1.0 carries the CAP-85 XDR
-(`contractExecutableExternalRef`, `scvExecutableTag`, `createContractV2`).
-The local `stellar` CLI is 27.1.0; its XDR lacks CAP-85, so the runner never
-uses it for these types.
+Testnet protocol 28 activates CAP-85.
+`@stellar/stellar-sdk` 17.1.0 carries the CAP-85 XDR: `contractExecutableExternalRef`, `scvExecutableTag`, and `createContractV2`.
+The runner builds all CAP-85 XDR with that SDK. It does not use the `stellar` CLI for these types.
 
 ## Layout
 
@@ -44,7 +43,7 @@ trusted manager: Wasm gives `#2`, another owner gives `#3`.
 `cap85_legacy_account` (SDK 27). Same signature scheme. It matches every
 context, so an `ExternalRef` creation context fails to decode.
 
-## Observed legacy limits (offline, SDK 28 test host)
+## SDK 27 account limits (offline, SDK 28 test host)
 
 `contracts/account/src/test.rs` runs the SDK 27 wasm binaries inside the
 protocol 28 test host:
@@ -62,7 +61,7 @@ X07 records the baseline simple account and the OpenZeppelin 0.7.x account.
 
 | Row | Content |
 |-----|---------|
-| X01 | Upload five wasm files, deploy the manager (admin key B), point `target` at v1 with B's auth entry. Read the entry through the contract and through the ledger. Negatives: stale version `Error(Contract, #2)`; unknown Wasm hash `Error(Storage, MissingValue)` with host diagnostic `Wasm does not exist`; key C signing B's admin entry `Error(Contract, #5)` with `signer does not belong to account`. |
+| X01 | Upload five wasm files. Deploy the manager with admin key B. Point `target` at v1 with B's auth entry. Read the entry through the contract and through the ledger. Negative cases: a stale version gives `Error(Contract, #2)`. An unknown Wasm hash gives `Error(Storage, MissingValue)` with the host diagnostic `Wasm does not exist`. Key C that signs B's admin entry gives `Error(Contract, #5)` with `signer does not belong to account`. |
 | X02 | Deploy a target through `ExternalRef` with deployer A. Check the derived address, the instance executable (owner and tag), `version() == 1`, the resolved Wasm hash, and one `ping` with its before and after counts. |
 | X03 | B moves the reference to v2. Same address reports `version() == 2`, the resolved hash is v2, and one `ping` grows the counter by 2. |
 | X04 | The SDK 28 account (owner key C) authorizes a creation through `ExternalRef`. Check the derived address, owner, tag, v2 version, and resolved hash. The account rejects a Wasm creation with `Error(Contract, #2)`. |

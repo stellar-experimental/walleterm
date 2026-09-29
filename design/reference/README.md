@@ -1,7 +1,6 @@
 # Illustration references
 
-These images set the walleterm illustration style. ChatGPT image generation made them on 2026-09-28 from the project owner's direction.
-The files are the unchanged originals. Only the names changed.
+These images define the walleterm illustration style. Keep their original bytes.
 Read [the illustration standard](../ILLUSTRATION.md) before you draw from them.
 
 `metrics.json` holds the measured style bands. `uv run design/tools/artcheck.py baseline` writes it again from these files.
@@ -9,7 +8,6 @@ Read [the illustration standard](../ILLUSTRATION.md) before you draw from them.
 | File | Size | Ground | Picture | Idea it can carry | Baseline |
 | --- | --- | --- | --- | --- | --- |
 | `01-moon-green-field.png` | 1672 × 941 | moss | Mascot under a cream moon, wordmark at left | Social preview, hero | yes |
-| `02-request-line-draft.png` | 1672 × 941 | cream | Line leaves the wallet front, not the fold | Superseded by 04 | no: draft |
 | `03-night-oval.png` | 1672 × 941 | black | Mascot inside a cream oval | Night section, avatar | yes |
 | `04-request-line.png` | 1672 × 941 | cream | One arc from the fold to a moss dot | One request goes out | yes |
 | `05-door-threshold.png` | 1254 × 1254 | cream | Mascot faces a tall moss door, red light under it | Approval, a threshold | yes |
@@ -28,15 +26,14 @@ Read [the illustration standard](../ILLUSTRATION.md) before you draw from them.
 `artcheck.py` names the excluded files and the reasons in its `EXCLUDE` table.
 Keep these files outside `site/`, so they do not deploy with the website.
 
-The files stay in plain Git with their original bytes. Git LFS would add a required tool to every clone and CI run.
-GitHub source archives would then hold pointer files, not images. Lossless recompression saves only 12%.
+Keep the original image files in Git. This keeps clone and archive workflows independent of Git LFS.
 
 The site uses 01 (hero), 04 (How it works), 10 (Boundaries), 08 (Websites), and 11 (Install).
 
 ## Feature studies
 
-[`studies/v2-feature-studies.png`](studies/v2-feature-studies.png) is a contact sheet of 16 picture ideas, one for each walleterm feature.
-It is 2094 × 1550 and was added on 2026-09-28 with its original bytes.
+[`studies/v2-feature-studies.png`](studies/v2-feature-studies.png) contains 16 picture ideas for walleterm features.
+The image size is 2094 × 1550.
 Use it for composition: the shapes and ground that carry each idea. Do not use it for style.
 Its lines are ruler-straight and its mascot is simplified. The hand-drawn traits come from the references above.
 `artcheck.py` reads only this folder's top level, so the sheet stays out of `metrics.json`.
@@ -45,7 +42,7 @@ Its lines are ruler-straight and its mascot is simplified. The hand-drawn traits
 | --- | --- | --- |
 | 01 | cream | List public Ed25519 keys |
 | 02 | deep moss | Keys remain inside 1Password |
-| 03 | cream | Sign an explicit 32-byte digest |
+| 03 | cream | Sign a transaction, authorization, or message |
 | 04 | moss | Verify the returned Ed25519 signature |
 | 05 | black | Temporary HTTPS tunnel for a website |
 | 06 | cream | Single-use eight-digit connection code |

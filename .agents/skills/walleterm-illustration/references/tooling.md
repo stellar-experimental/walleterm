@@ -28,7 +28,7 @@
 - The simulator cannot scroll without Appium. To see pictures below the fold, serve a small page that shows each `art/*.svg` at its site size.
 - An iPad Pro simulator gives desktop-class Safari at 2x. Its first launch can show a system banner over the top of the page.
 - Desktop Safari: `agent-browser -p safari` has the same defect. It starts Safari, but its user agent reads `HeadlessChrome`.
-  Drive `safaridriver` directly instead. It needs `safaridriver --enable` once, with an administrator password (done on this Mac).
+  Drive `safaridriver` directly instead. It needs `safaridriver --enable` once, with an administrator password.
   Run `safaridriver --port 4444` as a background task, then:
 
   ```sh
@@ -40,7 +40,7 @@
   ```
 
   On a Retina screen the screenshot is 2x: a 1440×900 window gives 2880×1696 pixels of page. Safari allows one automation session at a time.
-- The simulators here run iOS 27.0 (iPhone 18 Pro, newest Safari) and iOS 26.5 (iPhone 17 Pro, the previous Safari).
+- Test the newest iOS Safari and the previous one. Install a simulator runtime for each.
 
 ## Shell
 
@@ -54,9 +54,3 @@
 - `artcheck.py` runs with `uv run`. Its dependencies are inline in the script, and its cache folder is ignored.
 - A render is identical from run to run, because every drawing has a fixed seed. A changed number means the drawing changed.
 - Compare full-page renders pixel by pixel only where the layout did not move. A text change above a picture shifts every pixel below it.
-
-## Git
-
-- Other sessions may share the main checkout. Work in a worktree under `walleterm-v2-worktrees/`.
-- A merged pull request's branch is deleted on GitHub. A later push to that name creates it again with old history.
-  Check `gh pr view` before a push, and start follow-up work on a new branch from `origin/main`.

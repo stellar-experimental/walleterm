@@ -1,4 +1,4 @@
-// The real SDK against the Rust bridge (tests/browser/host.ts). Ported from bridge/auth-lifecycle.test.ts.
+// The real SDK against the Rust bridge (tests/browser/host.ts).
 import { test, expect, onTestFinished } from 'bun:test';
 import { Address, Keypair, Networks, StrKey, xdr } from '@stellar/stellar-sdk';
 import { createHost } from './host.ts';

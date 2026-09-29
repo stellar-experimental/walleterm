@@ -390,9 +390,9 @@ async function main() {
   } = parseArgs({ args: process.argv.slice(3), options: { vault: { type: 'string' } } });
   if (vault !== undefined && !vault.trim()) throw Error('Provide a nonempty --vault name or ID.');
   const metadata = JSON.parse(readFileSync(metadataFile, 'utf8'));
-  const dedicated = metadata.keys?.find((key: { name: string }) => key.name === 'walleterm-v2-test-a');
+  const dedicated = metadata.keys?.[0]; // Key A: the array order selects keys A, B, and C.
   if (!dedicated || !/^[a-f0-9]{64}$/.test(dedicated.raw_public_key_hex))
-    throw Error('The dedicated test-a public key is missing.');
+    throw Error('The dedicated key A public key is missing.');
   const signer = StrKey.encodeEd25519PublicKey(Buffer.from(dedicated.raw_public_key_hex, 'hex'));
   const evidence = dirname(metadataFile);
   // Journals live beside the metadata file, with the other live journals that the checks below read.
