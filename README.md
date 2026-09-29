@@ -33,7 +33,9 @@ npx skills add stellar-experimental/walleterm -g
 ```
 
 The script installs `walleterm` and its `stellar-walleterm` alias into `~/.local/bin`. It does not use `sudo`.
-It checks the release checksum and the Developer ID signature. Run it again to update.
+It checks the release checksum and the Developer ID team before it replaces the command. Run it again to update.
+Set `WALLETERM_INSTALL_DIR` for another directory, or `WALLETERM_VERSION=0.2.0` for one release.
+The script is [`site/install.sh`](site/install.sh). Read it before you run it.
 `npx skills add` installs the `walleterm` signing skill and the `walleterm-site-bridge` website skill for your agents.
 
 You can also install with Homebrew. The cask also installs cloudflared. Update with `brew upgrade --cask walleterm`.

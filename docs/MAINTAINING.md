@@ -52,6 +52,8 @@ Deploy with Wrangler. Set `CLOUDFLARE_ACCOUNT_ID` to the Cloudflare account that
 CLOUDFLARE_ACCOUNT_ID=<account ID> wrangler deploy -c site/wrangler.jsonc
 ```
 
+Deploy after each release. The site also serves `site/install.sh` at `https://walleterm.com/install.sh`.
+
 ## Live test records
 
 Git ignores local live-test state: signer metadata, submission journals, checkpoints, and raw records.

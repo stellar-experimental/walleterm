@@ -249,6 +249,16 @@ svg { display: block; }
   font: 400 14px var(--sans); cursor: pointer; user-select: none;
 }
 .copy:hover { background: rgb(244 237 220 / 0.16); }
+.tabs { position: absolute; top: 14px; left: 14px; display: flex; gap: 4px; }
+.tabs button {
+  height: 32px; padding-inline: 12px; border: 0; border-radius: var(--control-radius);
+  background: none; color: rgb(244 237 220 / 0.64); font: 400 14px var(--sans); cursor: pointer;
+}
+.tabs button:hover { color: var(--moon); }
+.tabs button[aria-selected="true"] { background: rgb(244 237 220 / 0.1); color: var(--moon); }
+.tabs button:focus-visible, .copy:focus-visible { outline: 2px solid var(--moon); outline-offset: 2px; }
+.commands .note { padding: 0 32px 24px; font-size: 14px; color: rgb(244 237 220 / 0.64); }
+.commands .note code { color: var(--moon); }
 .site-footer {
   display: flex; align-items: flex-end; justify-content: space-between; gap: 32px;
   padding-top: 40px;
@@ -308,6 +318,7 @@ svg { display: block; }
   .how .inner { gap: 56px; }
   .terminal { padding: 24px 20px; font-size: 14px; }
   .commands pre { padding: 64px 20px 24px; font-size: 13px; }
+  .commands .note { padding: 0 20px 20px; font-size: 13px; }
   /* Titles shrink with the column so the longest line still fits: 7.2 and 9.6 font sizes wide. */
   .hero h1 { font-size: min(46px, calc((100vw - 2 * var(--gutter)) / 7.2)); }
   .title { font-size: min(36px, calc((100vw - 2 * var(--gutter)) / 9.6)); }
@@ -467,13 +478,26 @@ svg { display: block; }
         <div class="install-copy">
           <p class="eyebrow">Install</p>
           <h2 class="title" id="install-title">Start on your Mac.</h2>
-          <p class="lede muted">Turn on the SSH agent in the 1Password desktop app. Then run these commands. Homebrew installs everything else.</p>
+          <p class="lede muted">Turn on the SSH agent in the 1Password desktop app. Then install with Homebrew, or with the script if you do not use Homebrew.</p>
           <div class="commands">
-            <pre id="commands">brew tap stellar-experimental/walleterm https://github.com/stellar-experimental/walleterm
+            <div class="tabs" role="tablist" aria-label="Install method">
+              <button type="button" role="tab" id="tab-brew" aria-controls="install-brew" aria-selected="true">Homebrew</button>
+              <button type="button" role="tab" id="tab-script" aria-controls="install-script" aria-selected="false" tabindex="-1">Script</button>
+            </div>
+            <div role="tabpanel" id="install-brew" aria-labelledby="tab-brew">
+              <pre>brew tap stellar-experimental/walleterm https://github.com/stellar-experimental/walleterm
 brew install --cask stellar-experimental/walleterm/walleterm
 npx skills add stellar-experimental/walleterm -g -s walleterm -s walleterm-site-bridge
 walleterm list --human</pre>
-            <button class="copy" type="button" data-copy="commands">Copy</button>
+              <p class="note">Update with <code>brew upgrade --cask walleterm</code>. The cask also installs cloudflared.</p>
+            </div>
+            <div role="tabpanel" id="install-script" aria-labelledby="tab-script" hidden>
+              <pre>curl -fsSL https://walleterm.com/install.sh | sh
+npx skills add stellar-experimental/walleterm -g -s walleterm -s walleterm-site-bridge
+walleterm list --human</pre>
+              <p class="note">Run the script again to update. It installs into <code>~/.local/bin</code>. <a href="https://github.com/stellar-experimental/walleterm/blob/main/site/install.sh">Read the script</a>.</p>
+            </div>
+            <button class="copy" type="button">Copy</button>
           </div>
         </div>
       </div>
@@ -499,9 +523,28 @@ walleterm list --human</pre>
 </main>
 
 <script>
-  document.querySelectorAll("[data-copy]").forEach((button) => {
+  const tabs = [...document.querySelectorAll('[role="tab"]')];
+  const select = (tab) => {
+    for (const t of tabs) {
+      const on = t === tab;
+      t.setAttribute("aria-selected", on);
+      t.tabIndex = on ? 0 : -1;
+      document.getElementById(t.getAttribute("aria-controls")).hidden = !on;
+    }
+  };
+  tabs.forEach((tab, i) => {
+    tab.addEventListener("click", () => select(tab));
+    tab.addEventListener("keydown", (event) => {
+      const step = { ArrowRight: 1, ArrowLeft: -1 }[event.key];
+      if (!step) return;
+      const next = tabs[(i + step + tabs.length) % tabs.length];
+      select(next);
+      next.focus();
+    });
+  });
+  document.querySelectorAll(".copy").forEach((button) => {
     button.addEventListener("click", async () => {
-      const text = document.getElementById(button.dataset.copy).textContent;
+      const text = button.parentElement.querySelector('[role="tabpanel"]:not([hidden]) pre').textContent;
       try {
         await navigator.clipboard.writeText(text);
         button.textContent = "Copied";
