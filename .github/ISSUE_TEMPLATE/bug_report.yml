@@ -1,0 +1,45 @@
+name: Bug report
+description: Report a problem with walleterm, its website bridge, the SDK, or the agent skills.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Never paste private keys, recovery phrases, connection codes, or 1Password exports.
+        Report a vulnerability privately through the security link on the new issue page.
+  - type: input
+    id: version
+    attributes:
+      label: walleterm version
+      description: The output of `walleterm --version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Install method
+      options:
+        - Install script (curl)
+        - Homebrew cask
+        - From source
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version
+      placeholder: macOS 26.1 on Apple silicon
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps
+      description: The commands you ran or the actions you took, in order.
+    validations:
+      required: true
+  - type: textarea
+    id: result
+    attributes:
+      label: Expected and actual result
+      description: Include the JSON error or the command output. Remove any private data.
+    validations:
+      required: true
