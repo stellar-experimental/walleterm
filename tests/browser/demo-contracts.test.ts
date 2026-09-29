@@ -12,7 +12,7 @@ import {
   rpc,
   xdr,
 } from '@stellar/stellar-sdk';
-import { addressCredentials, attachAuthSignature, inspectAuthEntry } from '../sdk/authorization.ts';
+import { addressCredentials, attachAuthSignature, inspectAuthEntry } from '../../sdk/authorization.ts';
 import {
   DEMO_WASM,
   assembleAuthorizedContract,
@@ -21,8 +21,8 @@ import {
   prepareContract,
   validateContractReview,
   verifyContractResult,
-} from './site/contracts.ts';
-import type { DemoRpc } from './site/contracts.ts';
+} from '../../demo/site/contracts.ts';
+import type { DemoRpc } from '../../demo/site/contracts.ts';
 
 // Isolated mock keys. This suite makes no network calls and requests no 1Password signatures.
 function fixture({
@@ -195,7 +195,7 @@ function fixture({
   };
 }
 const loadWasm = async (file: string) =>
-  new Uint8Array(readFileSync(new URL(`../fixtures/wasm/${file}`, import.meta.url)));
+  new Uint8Array(readFileSync(new URL(`../../fixtures/wasm/${file}`, import.meta.url)));
 
 test('counter preparation requires an explicit custom account entry and does not request any signature', async () => {
   const f = fixture();

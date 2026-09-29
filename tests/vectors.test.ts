@@ -36,7 +36,7 @@ const HOST_ONLY = [
   'The requested account differs from the selected account.',
   'Use time bounds that are valid now and end within five minutes.',
 ];
-// Reviewed change (audit/2026-09-28-sign-design/DESIGN.md, PR A): no request reads a ledger.
+// The signing rules in docs/INTERFACE.md require no ledger read.
 // These frozen cases failed a ledger window or value check. They now sign. tests/vectors.rs lists them too.
 const NOW_SIGNS = [
   'auth-window-61',

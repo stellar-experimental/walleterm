@@ -1,5 +1,5 @@
 import { requestError } from '../sdk/errors.ts';
-// Contract-account acceptance for docs/TEST-MATRIX.md rows C01-C13.
+// Contract-account acceptance for docs/LIVE-TESTS.md rows C01-C13.
 // Exports runContracts(ctx). ctx comes from tests/live-utils.ts.
 // `bun tests/contracts.ts` runs the offline self-test: no network, no agent.
 //
@@ -1363,7 +1363,7 @@ const ROWS: Row[] = [
   },
 ];
 
-export const NOT_IMPLEMENTED = ['CAP-71 delegate credentials', 'passkeys: out of scope and not planned'];
+export const NOT_IMPLEMENTED = ['passkeys: out of scope and not planned'];
 
 export async function runContracts(ctx: LiveContext) {
   const manifest: Manifest = JSON.parse(readFileSync(new URL('manifest.json', WASM_DIR), 'utf8'));

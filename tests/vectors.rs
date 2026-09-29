@@ -12,7 +12,7 @@ use walleterm::error::Error;
 use walleterm::stellar::verify;
 use walleterm::util::{hex, lower_hex, sha256};
 
-/// Reviewed behavior changes from `audit/2026-09-28-sign-design/DESIGN.md` (PR A). `"ok"` means the case now signs.
+/// The signing rules in `docs/INTERFACE.md` define these expectations. `"ok"` means the case signs.
 /// No request reads a ledger, so every `latest_ledger` window and value check is gone. Expiration ledger 0 still fails.
 /// A transaction needs no time bounds. Only a nonzero `max_time` at or before now fails.
 /// A request for another key runs `bridge::admit`, which refuses it with `address_mismatch`.
