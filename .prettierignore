@@ -1,5 +1,4 @@
 dist/
 evidence/
 fixtures/**/target/
-fixtures/vendor/
 fixtures/.oz-src/
