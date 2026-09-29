@@ -37,12 +37,13 @@ jobs:
           bun-version: '1.4.2'
       - name: Install offline test tools
         run: |
-          rustup toolchain install 1.93.0 --profile minimal --target wasm32v1-none --component rustfmt,clippy
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt,clippy
+          rustup toolchain install 1.93.0 --profile minimal --target wasm32v1-none
           case "$(uname -m)" in
-            arm64) target=aarch64; checksum=416483409db89d9bf58163023d2c9d67cda24a5645042a98c0b8c1378cfc659d; deny=fe67d82a10d8597a3549364cb733a3f9cc1bfff9031b7ae46384a9f2a72090c3 ;;
-            x86_64) target=x86_64; checksum=9408343ed9cad961e529b3fdcd124ddc38fe1fa4766098e3c109d78e8d847305; deny=248da7f581724e470071990c088ffc55c811981715f4cbdb258621fb79f8b7a6 ;;
+            arm64) target=aarch64; checksum=accddc9a44dc51e99e5fc6d976fb87a327f8b5cd71bc72c0dab3ac685dfbc7ec; deny=fe67d82a10d8597a3549364cb733a3f9cc1bfff9031b7ae46384a9f2a72090c3 ;;
+            x86_64) target=x86_64; checksum=edae3f5c8380c75110a08dedffe599ef2fc7555ff4cbf37576193e26a9e4589f; deny=248da7f581724e470071990c088ffc55c811981715f4cbdb258621fb79f8b7a6 ;;
           esac
-          curl -fsSL "https://github.com/stellar/stellar-cli/releases/download/v28.0.0/stellar-cli-28.0.0-${target}-apple-darwin.tar.gz" -o "$RUNNER_TEMP/stellar.tar.gz"
+          curl -fsSL "https://github.com/stellar/stellar-cli/releases/download/v28.1.0/stellar-cli-28.1.0-${target}-apple-darwin.tar.gz" -o "$RUNNER_TEMP/stellar.tar.gz"
           echo "$checksum  $RUNNER_TEMP/stellar.tar.gz" | shasum -a 256 -c -
           mkdir -p "$RUNNER_TEMP/stellar-bin"
           tar -xzf "$RUNNER_TEMP/stellar.tar.gz" -C "$RUNNER_TEMP/stellar-bin"

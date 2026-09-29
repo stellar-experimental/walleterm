@@ -38,7 +38,7 @@ bun)
   --no-env-file) mkdir -p "$3" ;;
   *) exit 90 ;;
   esac ;;
-rustc) echo 'rustc 1.93.0 (mock)' ;;
+rustc) echo 'rustc 1.98.1 (mock)' ;;
 security) echo '  1) AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA "Developer ID Application: Mock (T4GBHCYB7P)"' ;;
 cargo)
   case "$1" in

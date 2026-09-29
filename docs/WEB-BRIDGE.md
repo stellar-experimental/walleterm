@@ -90,7 +90,7 @@ Use only dedicated testnet keys. Enter codes only into websites that you trust.
 | `walleterm sign` | Local 1Password signing for agents. See [INTERFACE.md](INTERFACE.md) |
 
 The bridge makes no Stellar RPC or Horizon call. It does not construct or submit a transaction.
-The demo build bundles the pinned Stellar SDK 17.1.0.
+The demo build bundles the pinned Stellar SDK 17.2.0.
 
 ## Integrate a website
 

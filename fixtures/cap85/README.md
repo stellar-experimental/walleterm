@@ -7,7 +7,7 @@ X01-X06 passed on protocol 28 testnet with the earlier signer. X07 recorded obse
 
 Specification: [CAP-0085](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0085.md).
 Testnet protocol 28 activates CAP-85.
-`@stellar/stellar-sdk` 17.1.0 carries the CAP-85 XDR: `contractExecutableExternalRef`, `scvExecutableTag`, and `createContractV2`.
+`@stellar/stellar-sdk` 17.2.0 carries the CAP-85 XDR: `contractExecutableExternalRef`, `scvExecutableTag`, and `createContractV2`.
 The runner builds all CAP-85 XDR with that SDK. It does not use the `stellar` CLI for these types.
 
 ## Layout

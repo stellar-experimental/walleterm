@@ -2,7 +2,7 @@
 name = "walleterm-tools"
 version = "0.0.0"
 edition = "2024"
-rust-version = "1.93"
+rust-version = "1.98"
 publish = false
 license = "Apache-2.0"
 description = "Maintainer tools for walleterm: package, install, and release. Never shipped."

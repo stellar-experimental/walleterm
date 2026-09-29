@@ -230,7 +230,7 @@ When the bridge or the SDK opens a network, update the tests that assert `networ
 
 ### The Stellar CLI model
 
-Stellar CLI 28.0.0 resolves one network from three fields: an RPC URL, optional RPC headers, and a passphrase.
+Stellar CLI 28.1.0 resolves one network from three fields: an RPC URL, optional RPC headers, and a passphrase.
 
 1. `--rpc-url` and `--network-passphrase` define a network directly. `STELLAR_RPC_URL` and `STELLAR_NETWORK_PASSPHRASE` do the same. These take effect even when a name is also set.
 2. `--network` or `-n` names a stored or built-in network. `STELLAR_NETWORK` does the same.
@@ -284,9 +284,10 @@ These are open choices. This file does not select one.
 
 ### Sources
 
-- Stellar CLI 28.0.0, commit `300aaf69ab100536678bdb641428b06f06b318ea`. This is the CI version.
+- Stellar CLI 28.1.0, commit `c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd`. This is the CI version.
   The inventory used `stellar network --help`, `stellar network add --help`, and `stellar network ls --long` with an empty `--config-dir` on 2026-09-28.
-- Stellar CLI source at tag `v28.0.0`, read through the GitHub API on 2026-09-28:
+  On 2026-09-29, the same commands gave the same output with 28.1.0, except one help alias label.
+- Stellar CLI source at tag `v28.0.0`, read through the GitHub API on 2026-09-28. These parts did not change in `v28.1.0`:
   `cmd/soroban-cli/src/config/network.rs` (`Args::resolve`, `DEFAULTS`, `Network::helper_url`), `config/network/passphrase.rs`,
   `config/locator.rs` (`read_network`), and `cli.rs` (`set_env_from_config`, `set_env_value_from_config`).
 - Stellar Raven `stellarDocs` search on 2026-09-28: the Stellar CLI manual for `stellar network add`, and the Stellar Lab custom network fields.

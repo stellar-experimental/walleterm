@@ -2,7 +2,7 @@
 
 These contracts are immutable test fixtures. Do not use them as production accounts.
 The isolated workspace pins `soroban-sdk = 27.0.2`. `Cargo.lock` pins all dependencies.
-The adapter uses the JavaScript SDK `17.1.0`.
+The adapter uses the JavaScript SDK `17.2.0`.
 
 ## Contracts
 

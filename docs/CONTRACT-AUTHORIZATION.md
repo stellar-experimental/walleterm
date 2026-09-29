@@ -117,4 +117,4 @@ See [live tests](LIVE-TESTS.md) for setup and commands.
 Protocol references:
 [Contract authorization](https://developers.stellar.org/docs/build/guides/auth/contract-authorization),
 [Signing Soroban invocations](https://developers.stellar.org/docs/build/guides/transactions/signing-soroban-invocations).
-This implementation uses `@stellar/stellar-sdk` 17.1.0.
+This implementation uses `@stellar/stellar-sdk` 17.2.0.

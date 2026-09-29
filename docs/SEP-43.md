@@ -27,7 +27,7 @@ After a connection, the Walleterm SDK and its header component drive the interfa
 | [SEP-45](https://github.com/stellar/stellar-protocol/blob/9cd703075d87a6ce293752b1532e7b68efe12ae1/ecosystem/sep-0045.md) | v0.1.1, Draft. One abuse case only. |
 | [Stellar Wallets Kit](https://github.com/Creit-Tech/Stellar-Wallets-Kit/tree/v2.7.0) | v2.7.0, commit `4bdda712`. npm `@creit.tech/stellar-wallets-kit@2.7.0`. |
 | [Freighter](https://github.com/stellar/freighter/tree/5.48.0) | Extension 5.48.0, commit `a9409f4d`, with `@stellar/freighter-api` 6.0.1. |
-| `@stellar/stellar-sdk` | 17.1.0: `base/auth`, `contract/assembled_transaction`, `contract/signer`, `base/keypair`. |
+| `@stellar/stellar-sdk` | 17.2.0: `base/auth`, `contract/assembled_transaction`, `contract/signer`, `base/keypair`. |
 
 The `stellar-protocol` links use commit `9cd70307`. Research used Stellar Raven, GitHub, npm, and JSR.
 
@@ -60,7 +60,7 @@ signMessage(message: string, opts?: SignOptions): Promise<Result<{ signedMessage
 getNetwork(): Promise<Result<{ network: string; networkPassphrase: string }>>;
 ```
 
-These methods never reject. SDK 17.1.0 `AssembledTransaction` and Freighter read `{ ..., error }`.
+These methods never reject. SDK 17.2.0 `AssembledTransaction` and Freighter read `{ ..., error }`.
 The SDK types a SEP-43 result as `{ signedTxXdr: string } & { error? }`. Empty strings keep that type.
 So a `Walleterm` object is a Stellar SDK `contract.Signer`. Its `address` is an empty string without a session.
 `signerAddress` is always the selected G-address. `opts.address` names the signing key.

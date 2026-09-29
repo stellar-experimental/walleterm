@@ -79,7 +79,7 @@ Key A pays for every transaction. Keys B and C, and the deployed C-accounts, sig
   `C-run-scope` records the selected rows and the fresh execution scope.
 - C09 is a coverage reference. The runner records it as `covered_by`, not `passed`.
 - Each signed entry records the credential variant that the RPC returned.
-  SDK 17.1.0 simulates with upgraded authorization, so expect `address_v2`.
+  SDK 17.2.0 simulates with upgraded authorization, so expect `address_v2`.
   The runner makes no V1 credential claim.
 - Positive cases: record simulation, sign each address entry, enforce simulation, sign the envelope with A, submit, then check the counter.
 - Negative cases: enforce simulation must fail with the expected error text.
