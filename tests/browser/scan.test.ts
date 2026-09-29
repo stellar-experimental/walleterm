@@ -1,4 +1,4 @@
-import { onTestFinished, test } from 'bun:test';
+import { onTestFinished, spyOn, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import jsQR from 'jsqr';
@@ -133,6 +133,25 @@ test('canceling before camera permission resolves stops the late stream', async 
   await assert.rejects(scanning, /Canceled/);
   assert.ok(f.stopped());
   assert.equal(f.mock.srcObject, null);
+});
+test('a scan with no QR code stops after 2 minutes with a plain reason', async () => {
+  const deadlines = new Map<number, AbortController>();
+  const timeout = spyOn(AbortSignal, 'timeout').mockImplementation((milliseconds) => {
+    const controller = new AbortController();
+    deadlines.set(milliseconds, controller);
+    return controller.signal;
+  });
+  onTestFinished(() => timeout.mockRestore());
+  const { requested, grant, getUserMedia } = permission();
+  const f = browser(getUserMedia);
+  const scanning = scanConnection(f.video);
+  await requested;
+  deadlines.get(120000)!.abort();
+  await assert.rejects(scanning, {
+    name: 'TimeoutError',
+    message: 'The camera found no tunnel QR code in 2 minutes.',
+  });
+  grant.resolve(f.stream);
 });
 test('canceling an unanswered camera request settles before permission responds', async () => {
   const { requested, grant, getUserMedia } = permission();

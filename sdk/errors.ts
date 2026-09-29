@@ -8,6 +8,17 @@ export interface RequestError extends Error {
   requestState?: RequestState;
 }
 
+/** A deadline whose reason says what timed out. `AbortSignal.timeout` says only "signal timed out". */
+export function deadline(milliseconds: number, message: string): AbortSignal {
+  const controller = new AbortController();
+  AbortSignal.timeout(milliseconds).addEventListener(
+    'abort',
+    () => controller.abort(Object.assign(Error(message), { name: 'TimeoutError' })),
+    { once: true },
+  );
+  return controller.signal;
+}
+
 // JavaScript permits throwing any value. Normalize it at each catch boundary.
 export function requestError(value: unknown): RequestError {
   return value instanceof Error ? value : Error(String(value));

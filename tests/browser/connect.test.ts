@@ -1,4 +1,4 @@
-import { onTestFinished, test } from 'bun:test';
+import { onTestFinished, spyOn, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { browserScript } from './support.ts';
@@ -89,7 +89,8 @@ function fixture(scanConnection: ScanMock, WalletermClient?: unknown) {
         querySelector() {},
         replaceChildren() {},
         focus() {
-          focused = name;
+          // A browser does not focus a disabled control.
+          if (!this.disabled) focused = name;
         },
       };
       nodes.set(name, value);
@@ -510,14 +511,33 @@ test('opening the connection dialog focuses Scan and leaves camera access to an 
 });
 
 test('camera denial keeps manual entry available without input focus', async () => {
+  let failure: unknown;
   const f = fixture(async () => {
-    throw Error('Permission denied');
+    throw failure;
   });
+  failure = vm.runInContext("Error('Permission denied')", f.context);
   f.ui.open();
   await f.ui.scan();
   assert.equal(f.node('form').hidden, false);
   assert.equal(f.focused(), 'scan');
-  assert.match(f.node('status').textContent ?? '', /Permission denied/);
+  assert.equal(f.node('status').textContent, 'Permission denied. Enter the connection details instead.');
+});
+
+test('a blocked camera gets a plain message', async () => {
+  let failure: unknown;
+  const f = fixture(async () => {
+    throw failure;
+  });
+  failure = vm.runInContext(
+    "Object.assign(Error('Permission denied'), { name: 'NotAllowedError' })",
+    f.context,
+  );
+  f.ui.open();
+  await f.ui.scan();
+  assert.equal(
+    f.node('status').textContent,
+    'The browser blocked the camera. Enter the connection details instead.',
+  );
 });
 
 test('a successful scan fills the details and focuses Continue', async () => {
@@ -824,6 +844,46 @@ test('a connection disables its inputs and prevents duplicate requests until fai
   assert.equal(f.node('url').disabled, false);
   assert.equal(f.node('continue').disabled, false);
   assert.deepEqual(busy, [true, false]);
+});
+
+test('a timed-out connection returns to the connect step with a plain message', async () => {
+  const deadlines: AbortController[] = [];
+  const timeout = spyOn(AbortSignal, 'timeout').mockImplementation(() => {
+    const controller = new AbortController();
+    deadlines.push(controller);
+    return controller.signal;
+  });
+  onTestFinished(() => timeout.mockRestore());
+  const f = fixture(
+    () => {},
+    class {
+      async connect({ signal }: { signal: AbortSignal }) {
+        await new Promise((_resolve, reject) =>
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true }),
+        );
+      }
+      async disconnect() {}
+    },
+  );
+  f.ui.open();
+  f.node('url').value = 'https://bridge.example';
+  f.node('code').value = '12345678';
+  const pending = f.ui.connect();
+  // The wallet picker was open when the connection window closed.
+  f.node('form').hidden = true;
+  f.node('picker').hidden = false;
+  f.node('#wt-title').textContent = 'Choose a wallet';
+  assert.equal(deadlines.length, 1);
+  deadlines[0].abort();
+  await pending;
+  assert.equal(
+    f.node('status').textContent,
+    'The connection timed out after 5 minutes. Use the current code from your tunnel terminal.',
+  );
+  assert.equal(f.node('#wt-title').textContent, 'Connect Walleterm');
+  assert.equal(f.node('form').hidden, false);
+  assert.equal(f.node('picker').hidden, true);
+  assert.equal(f.focused(), 'code');
 });
 
 test('wallet selection locks immediately and accepts only the first click', async () => {

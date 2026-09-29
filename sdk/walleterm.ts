@@ -5,7 +5,7 @@ import { base64, inspectAuthPreimage, verifyPreimageSignature } from './preimage
 import type { AuthAdapter, AuthSignOptions } from './authorization.js';
 export * from './authorization.js';
 export * from './preimage.js';
-import { requestError, sep43Error, walletermError, WalletermError } from './errors.js';
+import { deadline, requestError, sep43Error, walletermError, WalletermError } from './errors.js';
 export { WalletermError };
 export type { Sep43Code, Sep43Error, Sep43Reason } from './errors.js';
 // Browser adapter for Walleterm bridge protocol version 3.
@@ -130,19 +130,39 @@ export class WalletermClient {
     { keepalive = false, token = this.token }: { keepalive?: boolean; token?: string | null } = {},
   ): Promise<BridgeResponse<P>> {
     const timeout = ['/v1/signers', '/v1/select'].includes(path) ? 135000 : 15000;
-    const response = await this.fetch(`${this.url}${path}`, {
-      method: data === undefined ? 'GET' : 'POST',
-      mode: 'cors',
-      credentials: 'omit',
-      referrerPolicy: 'no-referrer',
-      signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(timeout)]) : AbortSignal.timeout(timeout),
-      headers: {
-        ...(data === undefined ? {} : { 'Content-Type': 'application/json' }),
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      ...(data === undefined ? {} : { body: JSON.stringify(data) }),
-      keepalive,
-    });
+    let response: Response;
+    try {
+      response = await this.fetch(`${this.url}${path}`, {
+        method: data === undefined ? 'GET' : 'POST',
+        mode: 'cors',
+        credentials: 'omit',
+        referrerPolicy: 'no-referrer',
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(timeout)])
+          : AbortSignal.timeout(timeout),
+        headers: {
+          ...(data === undefined ? {} : { 'Content-Type': 'application/json' }),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        ...(data === undefined ? {} : { body: JSON.stringify(data) }),
+        keepalive,
+      });
+    } catch (errorValue) {
+      // A caller's cancellation keeps its own reason. Browser network errors do not say what to check.
+      const error = requestError(errorValue);
+      if (signal?.aborted) throw error;
+      if (error.name === 'TimeoutError')
+        throw walletermError(
+          'bridge_unavailable',
+          'The tunnel did not answer in time. Check that walleterm tunnel is running and 1Password is unlocked.',
+        );
+      if (error.name === 'TypeError')
+        throw walletermError(
+          'bridge_unavailable',
+          'The website could not reach the tunnel. Check the tunnel URL and that walleterm tunnel is running.',
+        );
+      throw error;
+    }
     let result;
     try {
       result = await response.json();
@@ -184,7 +204,7 @@ export class WalletermClient {
     code,
     selectWallet,
     walletScope = 'selected',
-    signal = AbortSignal.timeout(300000),
+    signal = connectDeadline(),
   }: ConnectOptions) {
     if (!['selected', 'available'].includes(walletScope))
       throw walletermError('invalid_request', 'The wallet scope is invalid.');
@@ -445,7 +465,7 @@ export class WalletermClient {
     {
       networkPassphrase,
       address,
-      signal = AbortSignal.timeout(300000),
+      signal = deadline(300000, 'The signing request timed out after 5 minutes.'),
       onProgress,
     }: {
       networkPassphrase: string;
@@ -610,6 +630,12 @@ export interface WalletermOptions extends ClientOptions {
   storageKey?: string | null;
   ui?: AccessInterface | null;
 }
+/** The time to pair and choose a wallet. The bridge ends a session without a wallet after 5 minutes. */
+export const connectDeadline = () =>
+  deadline(
+    300000,
+    'The connection timed out after 5 minutes. Use the current code from your tunnel terminal.',
+  );
 async function settle<T extends Record<string, string>>(
   empty: T,
   work: () => Promise<T>,

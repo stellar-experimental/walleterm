@@ -1,4 +1,4 @@
-import { requestError } from './errors.js';
+import { deadline, requestError } from './errors.js';
 // Camera access starts only when the calling site asks to scan.
 import type { Connection, SignalOptions } from './types.js';
 
@@ -31,11 +31,11 @@ export async function scanConnection(
   const lifetime = new AbortController();
   const signal = AbortSignal.any([
     lifetime.signal,
-    AbortSignal.timeout(120000),
+    deadline(120000, 'The camera found no tunnel QR code in 2 minutes.'),
     ...(callerSignal ? [callerSignal] : []),
   ]);
   if (!globalThis.isSecureContext || !navigator.mediaDevices?.getUserMedia)
-    throw Error('Camera access requires HTTPS. Enter the tunnel URL and code instead.');
+    throw Error('Camera access requires HTTPS.');
   signal?.throwIfAborted();
   const abortable = <T>(promise: Promise<T>): Promise<T> =>
     new Promise<T>((resolve, reject) => {

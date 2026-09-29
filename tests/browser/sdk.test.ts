@@ -86,6 +86,82 @@ test('the caller can cancel discovery and selection before their long deadline',
   }
 });
 
+test('a lost or silent tunnel gets a plain message, and a caller cancellation keeps its reason', async () => {
+  const failing = (failure: Error) =>
+    new WalletermClient('https://bridge.example', {
+      fetch: async () => {
+        throw failure;
+      },
+    });
+  await assert.rejects(failing(TypeError('Failed to fetch')).request('/v1/account'), {
+    message:
+      'The website could not reach the tunnel. Check the tunnel URL and that walleterm tunnel is running.',
+    ext: ['walleterm:bridge_unavailable'],
+    status: 503,
+  });
+  await assert.rejects(failing(new DOMException('signal timed out', 'TimeoutError')).request('/v1/signers'), {
+    message:
+      'The tunnel did not answer in time. Check that walleterm tunnel is running and 1Password is unlocked.',
+    ext: ['walleterm:bridge_unavailable'],
+  });
+  // The caller's own deadline is not a tunnel failure. Its caller explains it.
+  const controller = new AbortController();
+  controller.abort(new DOMException('signal timed out', 'TimeoutError'));
+  const client = new WalletermClient('https://bridge.example', {
+    fetch: async (_url, options) => {
+      throw requestSignal(options).reason;
+    },
+  });
+  await assert.rejects(client.request('/v1/signers', undefined, controller.signal), {
+    name: 'TimeoutError',
+    message: 'signal timed out',
+  });
+});
+
+test('the default connection and signing deadlines give plain reasons', async () => {
+  const deadlines = new Map<number, AbortController>();
+  const timeout = spyOn(AbortSignal, 'timeout').mockImplementation((milliseconds) => {
+    const controller = new AbortController();
+    deadlines.set(milliseconds, controller);
+    return controller.signal;
+  });
+  onTestFinished(() => timeout.mockRestore());
+  const client = new WalletermClient('https://bridge.example', {
+    page: null,
+    fetch: async (input) => {
+      const url = requestUrl(input);
+      if (url.endsWith('/v1/connect')) return Response.json({ token: 'session', wallet_scope: 'selected' });
+      if (url.endsWith('/v1/signers')) return Response.json({ signers: [], grant_id: 'grant' });
+      if (url.endsWith('/cancel')) return Response.json({ state: 'canceled' });
+      return Response.json({ state: 'signing' });
+    },
+  });
+  const picker = Promise.withResolvers<void>();
+  const connecting = client.connect({
+    code: '01234567',
+    selectWallet: (_keys, { signal }) => {
+      picker.resolve();
+      return new Promise((_resolve, reject) =>
+        signal.addEventListener('abort', () => reject(signal.reason), { once: true }),
+      );
+    },
+  });
+  // The picker is open when the connection window closes.
+  await picker.promise;
+  deadlines.get(300000)!.abort();
+  await assert.rejects(connecting, {
+    name: 'TimeoutError',
+    message: 'The connection timed out after 5 minutes. Use the current code from your tunnel terminal.',
+  });
+  deadlines.clear();
+  client.token = 'session';
+  client.account = { address: mockKey.publicKey(), networkPassphrase: Networks.TESTNET };
+  const signing = client.signTransaction(unsignedXdr, {
+    onProgress: () => deadlines.get(300000)?.abort(),
+  });
+  await assert.rejects(signing, { message: 'The signing request timed out after 5 minutes.' });
+});
+
 test('an empty wallet picker can refresh discovery within its current connection', async () => {
   let listings = 0;
   const client = new WalletermClient('https://bridge.example', {
@@ -192,7 +268,7 @@ test('failed remote disconnection retains credentials until an explicit local di
   client.token = 'session';
   client.account = { address: mockKey.publicKey(), networkPassphrase: Networks.TESTNET };
   const generation = client.generation;
-  await assert.rejects(client.disconnect(), /Offline/);
+  await assert.rejects(client.disconnect(), /could not reach the tunnel/);
   assert.equal(client.token, 'session');
   assert.equal(active.signal.aborted, false);
   client.forgetConnection();
