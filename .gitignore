@@ -35,6 +35,7 @@ __pycache__/
 !/evidence/signing-live-2026-09-28.json
 !/evidence/sep43-live-2026-09-28.json
 !/evidence/protocol-acceptance.json
+!/evidence/demo-walkthrough-live-2026-09-29.json
 
 /dist/
 /fixtures/kit/node_modules/
