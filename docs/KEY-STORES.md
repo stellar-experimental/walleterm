@@ -13,6 +13,8 @@ The research date is 2026-09-29. Check the [upstream watch list](#upstream-watch
 - The Keychain returns stored bytes to the caller. An Ed25519 seed in the Keychain enters walleterm's memory at each signature.
 - Three designs meet the requirement. [Options](#options-that-meet-the-requirement) compares them.
 - The owner leans to option B: the Secure Enclave signs with P-256 for an OpenZeppelin smart account.
+- CAP-72, still a draft, would let a G-account use such a contract signer for Soroban authorization only.
+  See [Stellar protocol context](#stellar-protocol-context).
 - No store code exists yet. The owner asked for this record first.
 
 ## Requirements
@@ -239,6 +241,48 @@ Not verified: Proton Pass `pass-cli ssh-agent` shows no approval step, and Stron
 - A native store, such as the Secure Enclave or a future TPM, needs its own adapter.
 - `--store` selects one store for each command. The bridge `Deps` closures in `src/bridge.rs` are the seam for `tunnel`.
 
+## Stellar protocol context
+
+These facts were checked on 2026-09-29 with Stellar Raven, the `stellar-raven-jev` CLI, and the CAP files on GitHub.
+
+### Delegated signing between G- and C-addresses
+
+| CAP | Direction | Status | What it permits |
+| --- | --- | --- | --- |
+| CAP-71 | A C-account delegates to any address | Final. Live since protocol 27. | A custom account calls `delegate_account_auth(address)` inside `__check_auth`. The delegate can be a G-account or a contract. `SOROBAN_CREDENTIALS_ADDRESS_WITH_DELEGATES` carries every delegate signature in one entry. CAP-71-02 adds address-bound V2 credentials. |
+| CAP-72 | A G-account delegates to a contract | Draft. Protocol TBD. Last edit 2025-09-19 (`7699c72c`). | A new G-account signer type, `SIGNER_KEY_TYPE_SC_DELEGATED`. It authorizes only `SorobanAuthorizationEntry` values through `delegate_account_auth`. The CAP says these signers "can not be used to sign the transactions directly". Fees are a non-goal. |
+
+- The Zipper upgrade guide calls CAP-71 delegation "explicitly foundational to CAP-0072".
+- For option B, CAP-72 would let a G-account add the smart account as a delegated signer.
+  The Secure Enclave could then approve Soroban calls for that G-account, such as SAC transfers of its balances.
+  Envelopes, classic operations, and fees would still need Ed25519.
+- The walleterm CLI signs only `address_v2` credentials. The skill reference `delegation.md` covers `address_with_delegates` entries.
+
+### Recent protocol upgrades
+
+| Protocol | Testnet | Mainnet | CAPs |
+| --- | --- | --- | --- |
+| 28 "Adapter" | 2026-08-27 | 2026-09-16 | CAP-83 (validators can vote to drop the transaction set), CAP-85 (externally managed contract executables), CAP-86 (sparse map host functions) |
+| 27 "Zipper" | 2026-06-18 | 2026-07-08 | CAP-71, with CAP-71-01 (authentication delegation) and CAP-71-02 (address-bound credentials) |
+| 26 "Yardstick" | 2026-04-16 | 2026-05-06 | CAP-73 (SAC creates G-account balances), CAP-77 (freeze ledger entries), CAP-78 (limited TTL extensions), CAP-79 (muxed strkey conversions), CAP-80 (ZK BN254), CAP-82 (checked 256-bit arithmetic) |
+| 25 "X-Ray" | 2026-01-07 | 2026-01-22 | CAP-74 (BN254), CAP-75 (Poseidon and Poseidon2) |
+| 24 | 2025-10-21 | 2025-10-22 | None. A stability upgrade after Whisk. |
+| 23 "Whisk" | 2025-08-14 | 2025-09-03 | CAP-62 and CAP-66 (state archival), CAP-67 (unified events) |
+
+- The next signature CAP is CAP-87, ML-DSA verification. It is "Awaiting Decision" with protocol TBD. It verifies full messages, not digests.
+- The Stellar Raven docs index still said "Protocol 28 (Testnet, TBD)" on 2026-09-29. The live page gives the dates above.
+
+### Legacy credentials after protocol 28
+
+The sources disagree about the legacy `SOROBAN_CREDENTIALS_ADDRESS` (V1) credential.
+
+- The Zipper upgrade guide says V1 "remains valid until the Protocol 28 upgrade".
+- The js-stellar-sdk v17.0.0 notes say V2 is "mandatory in protocol 28".
+- CAP-71-02 has a section "No deprecation of `SOROBAN_CREDENTIALS_ADDRESS`". It says protocol 28 or later "may" deprecate V1.
+- The Protocol 28 upgrade guide lists only CAP-83, CAP-85, and CAP-86 as breaking changes.
+
+Walleterm signs only V2, so the answer does not change it. A testnet submission with a V1 entry would settle the question.
+
 ## Open decisions
 
 - The names for `--store`. Proposal: `1password`, `secure-enclave`, `bitwarden`, `gpg-agent`.
@@ -255,6 +299,9 @@ The values were current on 2026-09-29.
 | Secure Enclave key types | P-256, ML-KEM, ML-DSA. No Curve25519. | CryptoKit `SecureEnclave` in the newest SDK |
 | Passwords app SSH keys | None | macOS release notes |
 | CAP-72 contract signers for G-accounts | Draft, no target protocol | [CAP index](https://github.com/stellar/stellar-protocol/tree/master/core) |
+| CAP-87 ML-DSA verification | Awaiting Decision, protocol TBD | [CAP index](https://github.com/stellar/stellar-protocol/tree/master/core) |
+| Newest protocol | 28, on mainnet since 2026-09-16 | [Software versions](https://developers.stellar.org/docs/networks/software-versions) |
+| V1 address credentials after protocol 28 | Sources disagree | A testnet submission with a V1 entry |
 | OpenZeppelin `stellar-contracts` | v0.7.2 audited. v0.8.0-rc.3 not audited. | [Releases](https://github.com/OpenZeppelin/stellar-contracts/releases) |
 | Bitwarden new SSH agent | Behind `SSHAgentV2` in v2026.9.0 | Bitwarden desktop release notes |
 | Ledger Stellar app | 6.0.3 on `master`. 6.1.0 on `develop`. | [LedgerHQ/app-stellar](https://github.com/LedgerHQ/app-stellar) |
@@ -289,3 +336,9 @@ The values were current on 2026-09-29.
 | [trezor-firmware Stellar messages](https://github.com/trezor/trezor-firmware/blob/main/common/protob/messages-stellar.proto) | Core 2.12.4 and 2.12.5 |
 | [stellar/stellar-cli](https://github.com/stellar/stellar-cli) | v28.1.0 |
 | [kalepail/walleterm](https://github.com/kalepail/walleterm) | `9290543` |
+| [Stellar software versions](https://developers.stellar.org/docs/networks/software-versions) | Page dated 2026-09-24 |
+| [CAP index](https://github.com/stellar/stellar-protocol/blob/master/core/README.md), [CAP-71](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0071.md), [CAP-71-02](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0071-02.md), [CAP-72](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0072.md) | Read 2026-09-29. CAP-72 last changed in `7699c72c`. |
+| [Zipper, Protocol 27 upgrade guide](https://stellar.org/blog/foundation-news/stellar-zipper-protocol-27-upgrade-guide) | Read 2026-09-29 |
+| [Adapter, Protocol 28 upgrade guide](https://stellar.org/blog/developers/adapter-protocol-28-upgrade-guide) | Read 2026-09-29 |
+| [js-stellar-sdk v17.0.0](https://github.com/stellar/js-stellar-sdk/releases/tag/v17.0.0) | 2026-08-20 |
+| [Delegate auth example](https://developers.stellar.org/docs/build/smart-contracts/example-contracts/delegate-auth) | Read 2026-09-29 |

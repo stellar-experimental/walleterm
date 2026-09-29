@@ -23,7 +23,9 @@ The research date is 2026-09-29.
   - OpenZeppelin Stellar Channels: `submitSorobanTransaction({ func, auth })`. The service pays fees, subject to a fair use policy.
     Only an API key stays on the Mac. That key is a bearer token, not a signing key.
   - A 1Password G-account as the source. 1Password signs the envelope, and the Secure Enclave signs the authorization entry.
-- SDF discontinued Launchtube. CAP-72 is a draft, and it would not cover envelopes or fees.
+- SDF discontinued Launchtube.
+- CAP-72, a draft, would let a G-account add this smart account as a delegated signer for Soroban authorization.
+  It would not cover envelopes, classic operations, or fees. See [Stellar protocol context](KEY-STORES.md#stellar-protocol-context).
 
 | Works from the smart account | Does not work |
 | --- | --- |
@@ -245,6 +247,8 @@ Each step ends when its check passes.
    Sign one SAC transfer with the Secure Enclave and submit it with a 1Password fee payer. Run an enforcing simulation first.
    Check: record the hash, ledger, balances, and contract versions in `evidence/`.
 7. Later: `tunnel --store secure-enclave`, a Channels submission, and an x402 client.
+8. When CAP-72 ships, add the smart account as a delegated signer of a testnet G-account.
+   Check: one SAC transfer of the G-account's balance, signed by the Secure Enclave, succeeds. Record its hash in `evidence/`.
 
 ## Open items
 
