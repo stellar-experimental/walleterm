@@ -13,6 +13,9 @@ const memory = () => {
     async put(event: ActivityEvent) {
       events.push(event);
     },
+    async clear() {
+      events.length = 0;
+    },
   };
 };
 const tick = () => new Promise((resolve) => setTimeout(resolve, 5));
@@ -145,7 +148,9 @@ test('transaction history survives clearing and preserves earlier state snapshot
 
 test('history loading merges with new activity instead of overwriting it', async () => {
   const loading = Promise.withResolvers<ActivityEvent[]>();
-  const history = new ActivityHistory({ store: { load: () => loading.promise, async put() {} } });
+  const history = new ActivityHistory({
+    store: { load: () => loading.promise, async put() {}, async clear() {} },
+  });
   await tick();
   assert.equal(history.loading, true);
   history.record('action', 'New action');
@@ -191,7 +196,9 @@ test('restored history drops stored credentials and events with malformed metada
       data: {},
     },
   ];
-  const history = new ActivityHistory({ store: { load: async () => stored, async put() {} } });
+  const history = new ActivityHistory({
+    store: { load: async () => stored, async put() {}, async clear() {} },
+  });
   await history.ready;
   assert.deepEqual(
     history.events.map((event) => event.id),
@@ -214,6 +221,7 @@ test('storage and decoding failures do not block wallet response delivery', asyn
       async put() {
         throw Error('Quota');
       },
+      async clear() {},
     },
     decodeSigned() {
       throw Error('Invalid XDR');
@@ -406,4 +414,35 @@ test('a failed read ends its group, so a recovery is a new event', async () => {
     ['network', 'Read testnet account · 200'],
   ]);
   assert.equal(field(history.events[2].data, 'repeats'), 2);
+});
+
+test('clearing deletes every event from the tab and the store, and a late request stays cleared', async () => {
+  const store = memory(),
+    history = new ActivityHistory({ store });
+  await history.ready;
+  let release!: (response: Response) => void;
+  const tracked = history.wrapFetch(() => new Promise<Response>((resolve) => (release = resolve)));
+  history.record('action', 'Before clearing');
+  history.transaction({ hash: 'h1', state: 'review' }, 'Write a note');
+  const sent = tracked('https://horizon-testnet.stellar.org/transactions', {
+    method: 'POST',
+    body: new URLSearchParams({ tx: 'signed-envelope' }),
+  });
+  await tick();
+  assert.equal(history.events.length, 3);
+  await history.clear();
+  assert.equal(history.events.length, 0);
+  assert.equal(store.events.length, 0);
+  // The submission that started before clearing completes, but its event does not come back.
+  release(Response.json({ hash: 'h1', ledger: 5, successful: true }));
+  await sent;
+  await tick();
+  assert.equal(history.events.length, 0);
+  assert.equal(store.events.length, 0);
+  // The same journal state is recorded again after clearing.
+  history.transaction({ hash: 'h1', state: 'review' }, 'Write a note');
+  assert.equal(history.events[0].title, 'Write a note · Transaction prepared');
+  const restored = new ActivityHistory({ store });
+  await restored.ready;
+  assert.equal(restored.events.length, 1);
 });

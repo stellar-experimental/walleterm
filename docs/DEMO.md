@@ -106,6 +106,7 @@ The activity log sits below the walkthrough.
 - Filter events by type.
 - Copy JSON, hashes, signatures, or XDR from an expanded event.
 - Select Export JSON to save all events, including events outside the current filter.
+- Select Clear to delete all events from this browser. The demo asks first. The current transaction and the wallet connection stay.
 - Select Show more activity to display older events.
 
 Events without data are plain rows. They have no expansion control and no JSON details.
@@ -136,7 +137,7 @@ It does not inspect request headers or read private key fields.
 It observes response copies. It does not delay delivery or consume the original response.
 
 The log stores events in IndexedDB for the current browser and website origin.
-A reload or a cleared transaction keeps the history. A new tunnel origin has separate browser storage.
+A reload or a cleared transaction keeps the history. Only Clear deletes it. A new tunnel origin has separate browser storage.
 A storage failure leaves the tab usable and shows an export notice.
 The transaction recovery record is separate from the activity log.
 
