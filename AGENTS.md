@@ -37,11 +37,12 @@ Target macOS first. Permit human approval through 1Password.
   - `lib.rs` exports the modules to the tests and the test host.
   - Bridge protocol version 3: `bridge.rs`, `http.rs`, `vault.rs`, `cancel.rs`.
   - Services: `service.rs`, `tunnel.rs`, `dns.rs`, `process.rs`, `qr.rs`, and `demo.rs` with the embedded website.
-  - `bin/walleterm-test-host.rs` needs the `test-host` feature. It never enters a release.
+  - `src/bin/walleterm-test-host.rs` needs the `test-host` feature. It never enters a release.
 - `tools/` holds maintainer commands: package, install, release, and fixture manifests. It never ships.
 - TypeScript stays only where a browser or JavaScript runtime needs it.
   - `sdk/` is the browser SDK. `demo/site/` is the demo website. `scripts/build.ts` builds both with Bun.
-- Every test lives under `tests/`. Browser tests go in `tests/browser/` and run the real SDK against the Rust test host.
+- Product tests live under `tests/`. Browser tests go in `tests/browser/` and run the real SDK against the Rust test host.
+- `tools/tests/` tests the maintainer commands. Each fixture workspace keeps its contract tests; `make test-fixtures` runs them.
 - `fixtures/` holds test contracts, pinned WASM, and the Stellar Wallets Kit check.
 - `fixtures/parity/` holds frozen signing vectors and CLI transcripts. Never regenerate a file to make a failing test pass.
 - `site/` and `design/` hold the website and its art. `evidence/` holds live run records. `Casks/` holds the Homebrew cask.

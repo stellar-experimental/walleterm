@@ -347,7 +347,7 @@ A safe adapter needs these changes:
 ### Recommendation
 
 Do not build this adapter until a user account lists a `Delegated` C-address signer.
-The change adds a second request shape, a new review display, and a new live deployment.
+The adapter would need a second request shape, a new review display, and a new live deployment.
 An `External` Ed25519 signer gives the same key-to-account control with one entry and one signature.
 Native CAP-71 delegation is a separate path.
 Until then, do not sign a `__check_auth` root without a recomputation of its digest from the outer entry.

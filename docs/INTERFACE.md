@@ -84,7 +84,8 @@ Every rule failure returns `invalid_input` with exit code 2. It makes no agent c
 
 Preimages and entries permit 256 invocation contexts and 32 levels.
 No shape reads a ledger. The network refuses an expired authorization.
-Expiration ledger 0 is the only expiry rule. Simulation leaves it at 0 when the caller never sets it.
+The CLI refuses expiration ledger 0 with `invalid_input`, because ledger 0 is always in the past.
+Simulation leaves the expiration at 0 when the caller never sets it. This is the only expiry check.
 
 The CLI checks no transaction signer role and no preimage bound address.
 A multisig co-signer signs envelopes and entries for another account. The calling agent checks account signers and thresholds.

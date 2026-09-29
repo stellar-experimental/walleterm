@@ -9,7 +9,7 @@
     "first_transaction": "2026-09-28T17:29:22Z",
     "last_page_result": "2026-09-28T17:40:00Z"
   },
-  "operator": "The coordinator ran every live step. The worker wrote the procedure and this summary and ran no live step.",
+  "operator": "The maintainer ran every live step. The author of the procedure and this summary ran no live step.",
   "source": {
     "revision": "a9450672ad6e8e7ff4c9dfb7843d372d7208c519",
     "branch": "test/sep43-live-acceptance (PR #25)",

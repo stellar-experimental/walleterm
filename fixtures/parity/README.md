@@ -8,7 +8,7 @@ The tests compare exact bytes, digests, signatures, errors, and command output.
 | `vectors.json` | JavaScript SDK 17.1.0 on Bun 1.4.2 | 99 | `5cacc734b910b20ea4f0e9822af7138260853c57df2700f096079bda247ca799` |
 | `cli.json` | Scripted mock agent transcripts | 28 | `3c4a7e9306657f2eeb9cb7df7af0c4cf3498b8d65fa4732d3caef8cc94a6940f` |
 
-The `vectors.json` producer is in Git history at `ee3e06d`, path `audit/2026-09-28-rust-port/evidence/gen-vectors.ts.txt`.
+The `vectors.json` producer exists only in Git history: commit `ee3e06d`, file `audit/2026-09-28-rust-port/evidence/gen-vectors.ts.txt`.
 
 ## Coverage
 
