@@ -88,6 +88,7 @@ Then run `stellar message verify "<message>" --signature "$sig" --public-key G..
 
 The 1Password prompt identifies the process and key. It does not show Stellar transaction details.
 Cached approval can permit later signatures without a new prompt.
+The user can set 1Password to ask for approval of each request. Do not assume that a prompt appears for each signature.
 `signing_refused` reports a generic SSH agent failure. It does not prove that the user denied the request.
 Create and manage private keys inside 1Password. Never read or export private-key fields.
 The fixed macOS socket is the only runtime socket. The CLI does not use `SSH_AUTH_SOCK`.
