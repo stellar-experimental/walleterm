@@ -71,7 +71,7 @@ The bridge and the SDK call testnet `TESTNET`.
 | `demo/site/contracts.ts` `CONTRACT_RPC` and `demoRpc` | Simulates, sends, and reads contract calls. | `https://soroban-testnet.stellar.org` | An RPC URL for each network. Stellar CLI has no built-in mainnet RPC. |
 | `demo/site/contracts.ts` `build`, `deployment`, `signDemoAuthorization`, and the XDR parsers | `Networks.TESTNET` for builds, contract IDs, and authorization preimages. | Testnet | Use the chosen passphrase. Contract IDs change with the network ID. |
 | `demo/site/contracts.ts` `DEMO_WASM` | The demo uploads and deploys its own contracts by WASM hash. It has no fixed contract ID. | Two SHA-256 hashes | None for the hashes. An upload costs real fees on mainnet. |
-| `demo/site/activity.ts` `ActivityHistory.wrapFetch` and `categories` | Logs only the testnet Horizon and Friendbot origins. Labels: "Fund testnet account", "Read testnet data", and "Testnet". | Testnet hosts | Match the chosen hosts and names. |
+| `demo/site/activity.ts` `ActivityHistory.wrapFetch` and `categories` | Logs only the testnet Horizon, Friendbot, and Soroban RPC origins. Names RPC calls by method. Labels: "Fund testnet account", "Read testnet account", "Read testnet data", and "Testnet". | Testnet hosts | Match the chosen hosts and names. |
 | `demo/site/index.html` and `demo/site/app.ts` status text | "Stellar testnet", "Submit to testnet", and testnet account notes. | Text | Change the copy. |
 | `src/demo.rs` `CSP` | `connect-src` permits any HTTPS host and loopback HTTP. | Any HTTPS host | None. A local network on `localhost` also fits. |
 
@@ -197,6 +197,7 @@ Update those statements in the same change.
 | `demo/site/app.ts` `requestSignature` | 5 minutes, or the transaction `max_time` if earlier | Signing deadline | No |
 | `demo/site/app.ts` `horizon`, `sourceAccount` | 15 seconds, 30 seconds | Horizon and Friendbot calls | No |
 | `demo/site/app.ts` submit handler | 10 attempts, 1 second apart | RPC result polling | No |
+| `demo/site/contracts.ts` `MAX_SETS`, `readWalkthrough` | 50 contract sets for each wallet. One `getLedgerEntries` request with 102 keys reads all of them. | Walkthrough state | Yes. An RPC provider can accept fewer keys in one request. |
 | `demo/site/app.ts` `build`, `demo/site/contracts.ts` `build` | `fee: '100'` stroops | Transaction fee | Yes. Network settings and surge pricing set the fee. |
 | `demo/site/app.ts` `build` | 0.01 XLM payment, 0.1 XLM offer at 10 USDC | Action amounts | Yes. They move real funds on mainnet. |
 | `demo/site/code-view.ts` `MAX_HIGHLIGHT_LENGTH`, `MAX_TOKENS` | 50000 characters, 12000 tokens | Code display | No |

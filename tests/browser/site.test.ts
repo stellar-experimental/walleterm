@@ -6,12 +6,15 @@ import { browserScript } from './support.ts';
 import * as sdk from '@stellar/stellar-sdk';
 import { createAuthEntry } from '../../sdk/authorization.ts';
 import {
+  MAX_SETS,
   authorizationExpiry,
+  contractSet,
   deployment,
   hex,
   signDemoAuthorization,
   validateContractReview,
 } from '../../demo/site/contracts.ts';
+import * as walkthrough from '../../demo/site/walkthrough.ts';
 import type { ContractReview } from '../../demo/site/contracts.ts';
 
 // The page reads and writes only these element members.
@@ -96,6 +99,13 @@ function contextFor(html: string, extras: Record<string, unknown> = {}) {
     clearInterval() {},
     Option: class {},
     navigator: { locks: { request: async (_name: string, fn: () => unknown) => fn() } },
+    // The walkthrough presentation is pure. Ledger reads fail unless a test supplies them.
+    ...walkthrough,
+    MAX_SETS,
+    contractSet,
+    readWalkthrough: async () => {
+      throw Error('This test does not read the walkthrough.');
+    },
     // app.ts imports its SDK classes, and browserScript() removes imports. Each test's SDK mock supplies them.
     ...(extras.StellarSdk as Record<string, unknown> | undefined),
     ...extras,
@@ -1090,6 +1100,13 @@ test('a built transaction waits for Sign before it is signed', async () => {
     WalletermClient: class {},
     crypto: { randomUUID: () => 'id-0000000000000000' },
     navigator: { locks: { request: async (_name: string, fn: () => unknown) => fn() } },
+    // The walkthrough presentation is pure. Ledger reads fail unless a test supplies them.
+    ...walkthrough,
+    MAX_SETS,
+    contractSet,
+    readWalkthrough: async () => {
+      throw Error('This test does not read the walkthrough.');
+    },
     localStorage: storage,
     fetch: async () => ok({ account_id: 'GSOURCE', sequence: '1' }),
   });
@@ -1277,7 +1294,9 @@ async function completedFixture(state = 'submitted') {
   });
   f.run(app());
   f.run('connection.onChange({wallet: client, account:{address:next}})');
-  return { ...f, store, events, previous, next, reads: () => reads, signs: () => signs };
+  // Connecting reads the account once for the account line. Count only the reads after it.
+  const connected = reads;
+  return { ...f, store, events, previous, next, reads: () => reads - connected, signs: () => signs };
 }
 
 test('completed transactions permit another action after wallet switching without a separate clear step', async () => {
@@ -1410,6 +1429,9 @@ async function confirmationFixture(
     },
     address,
     fetch: async (url: string, options?: RequestInit) => {
+      // The account line reads the account after connecting and after a result. No confirmation path here reads it.
+      if (url === `https://horizon-testnet.stellar.org/accounts/${address}` && !options?.method)
+        return ok({ account_id: address, sequence: '1', balances: [] });
       requests.push({ url, method: options?.method || 'GET', body: options?.body });
       if (url === 'https://horizon-testnet.stellar.org/ledgers?order=desc&limit=1')
         return ok({ _embedded: { records: [{ closed_at: new Date().toISOString() }] } });
@@ -1472,7 +1494,12 @@ for (const state of ['signed', 'unknown', 'submitting'] as const) {
         state === 'signed' ? 1 : 0,
       );
       if (state === 'signed')
-        assert.equal(new URLSearchParams(String(f.requests[0]!.body)).get('tx'), f.original.signed_xdr);
+        assert.equal(
+          new URLSearchParams(String(f.requests.find((request) => request.method === 'POST')!.body)).get(
+            'tx',
+          ),
+          f.original.signed_xdr,
+        );
       const restored = f.load();
       assert.equal(restored.run('pending.hash'), f.original.hash);
       assert.equal(restored.run('pending.state'), unresolved);
@@ -1612,4 +1639,260 @@ test('submission transport errors and tx_bad_seq still preserve uncertainty with
     assert.equal(calls, 1);
     assert.equal(f.signs(), 0);
   }
+});
+
+// The walkthrough section with a controlled ledger. Mock keys only; nothing here signs or submits.
+function walkthroughPage(read: (signer: string, pickSet: (latest: number) => number) => Promise<unknown>) {
+  const key = sdk.Keypair.random(),
+    signer = key.publicKey();
+  let stored: string | null = null;
+  const records: [string, string][] = [];
+  const prepared: [string, number][] = [];
+  const reads: number[] = [];
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
+    StellarSdk: sdk,
+    crypto,
+    contractHex: hex,
+    // Journal records in these tests use a classic envelope. Their contract review is not under test.
+    validateContractReview() {},
+    localStorage: {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => {
+        stored = value;
+      },
+      removeItem: () => {
+        stored = null;
+      },
+    },
+    createActivityLog: () => ({
+      record(category: string, title: string) {
+        records.push([category, title]);
+      },
+      transaction() {},
+      wrapFetch: (fetcher: unknown) => fetcher,
+    }),
+    fetch: async () => ok({ account_id: signer, sequence: '1', balances: [] }),
+    demoRpc: () => ({}),
+    readWalkthrough: async (_server: unknown, address: string, pickSet: (latest: number) => number) => {
+      reads.push(reads.length);
+      return read(address, pickSet);
+    },
+    prepareContract: async (_server: unknown, _signer: string, stage: string, set: number) => {
+      prepared.push([stage, set]);
+      throw Object.assign(Error('Your smart account is already deployed.'), { walkthrough: 'done' });
+    },
+  });
+  f.run(app());
+  return {
+    ...f,
+    key,
+    signer,
+    records,
+    prepared,
+    reads: () => reads.length,
+    stored: () => stored,
+    connect: async (address = signer) => {
+      f.context.nextAddress = address;
+      f.run('connection.onChange({wallet:{address:nextAddress}, account:{address:nextAddress}})');
+      for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+    },
+  };
+}
+function ledgerFor(
+  signer: string,
+  set: number,
+  { account = true, target = true, count = 0 as number | undefined, latest = set, code = true } = {},
+) {
+  return {
+    signer,
+    set,
+    latest,
+    code: { account: code, target: code },
+    account: { id: deployment(signer, 'account', set).id, exists: account },
+    target: { id: deployment(signer, 'target', set).id, exists: target },
+    ...(account && target ? { count } : {}),
+  };
+}
+
+test('the walkthrough reads the ledger on connect and offers only the next step', async () => {
+  const f = walkthroughPage(async (signer, pickSet) => ledgerFor(signer, pickSet(1), { target: false }));
+  assert.equal(f.el('walkthrough-progress-label').textContent, 'Connect a wallet to see your progress.');
+  assert.equal(f.el('walkthrough-deploy-account-action').hidden, true);
+  await f.connect();
+  assert.equal(f.reads(), 1);
+  assert.equal(f.el('walkthrough-progress-label').textContent, 'Set 1 · 1 of 3 done');
+  assert.equal(f.el('walkthrough-code-status').textContent, 'Ready');
+  assert.equal(f.el('walkthrough-code-action').hidden, true);
+  const account = deployment(f.signer, 'account').id;
+  assert.equal(
+    f.el('walkthrough-deploy-account-status').textContent,
+    `${account.slice(0, 6)}…${account.slice(-6)}`,
+  );
+  assert.equal(f.el('walkthrough-deploy-account-copy').hidden, false);
+  assert.equal(f.el('walkthrough-deploy-account-action').hidden, true);
+  assert.equal(f.el('walkthrough-deploy-target-action').hidden, false);
+  assert.equal(f.el('walkthrough-deploy-target-action').textContent, 'Deploy counter');
+  assert.equal(f.el('walkthrough-deploy-target-action').disabled, false);
+  assert.equal(f.el('walkthrough-increment-action').hidden, true);
+  assert.equal(f.el('walkthrough-increment-status').textContent, 'After step 2');
+  assert.equal(f.el('walkthrough-new-set').hidden, true);
+  assert.ok(
+    f.records.some(([category, title]) => category === 'walkthrough' && /Set 1 · 1 of 3 done/.test(title)),
+  );
+});
+
+test('a stale ledger read never replaces the state of a newer wallet', async () => {
+  let release!: (value: unknown) => void;
+  const first = new Promise((resolve) => (release = resolve));
+  const f = walkthroughPage(async (signer, pickSet) =>
+    signer === f.signer ? first : ledgerFor(signer, pickSet(0), { account: false, target: false }),
+  );
+  await f.connect();
+  const other = sdk.Keypair.random().publicKey();
+  await f.connect(other);
+  assert.equal(f.el('walkthrough-progress-label').textContent, 'Set 1 · 0 of 3 done');
+  release(ledgerFor(f.signer, 1, { count: 9 }));
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(f.run('ledger.signer'), other);
+  assert.equal(f.el('walkthrough-progress-label').textContent, 'Set 1 · 0 of 3 done');
+});
+
+test('a finished walkthrough repeats its counter step and offers the next set up to the limit', async () => {
+  let latest = 3;
+  const picks: number[] = [];
+  const f = walkthroughPage(async (signer, pickSet) => {
+    const set = pickSet(latest);
+    picks.push(set);
+    return set > latest
+      ? ledgerFor(signer, set, { account: false, target: false, latest })
+      : ledgerFor(signer, set, { count: 2, latest });
+  });
+  await f.connect();
+  assert.equal(f.el('walkthrough-progress-label').textContent, 'Set 3 · 3 of 3 done');
+  assert.equal(f.el('walkthrough-increment-action').textContent, 'Increase again');
+  assert.equal(f.el('walkthrough-increment-status').textContent, 'Count: 2');
+  assert.equal(f.el('walkthrough-new-set').hidden, false);
+  await f.click('walkthrough-new-set');
+  assert.deepEqual(picks, [3, 4]);
+  assert.equal(f.el('walkthrough-progress-label').textContent, 'Set 4 · 0 of 3 done');
+  assert.equal(f.el('walkthrough-deploy-account-action').textContent, 'Deploy smart account');
+  // A new set that has nothing deployed does not offer another set.
+  assert.equal(f.el('walkthrough-new-set').hidden, true);
+  latest = MAX_SETS;
+  await f.connect(sdk.Keypair.random().publicKey());
+  assert.equal(f.el('walkthrough-new-set').hidden, true);
+  assert.match(f.el('walkthrough-note').textContent, /all 50 contract sets/);
+});
+
+test('a step that the ledger already has closes the window and refreshes without an error event', async () => {
+  const f = walkthroughPage(async (signer, pickSet) =>
+    ledgerFor(signer, pickSet(1), { account: false, target: false, latest: 0 }),
+  );
+  await f.connect();
+  await f.click('walkthrough-deploy-account-action');
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(f.prepared, [['deploy-account', 1]]);
+  assert.equal(f.el('review').open, false);
+  assert.match(f.el('status').textContent, /already deployed\. The walkthrough shows the current state\./);
+  assert.ok(!f.records.some(([category]) => category === 'error'));
+  assert.ok(
+    f.records.some(
+      ([category, title]) => category === 'action' && title === 'Started: Deploy your smart account',
+    ),
+  );
+  assert.equal(f.reads(), 2);
+  assert.equal(f.stored(), null);
+});
+
+function finishedStep(f: ReturnType<typeof walkthroughPage>, stage: 'deploy-account' | 'increment', set = 1) {
+  const tx = new sdk.TransactionBuilder(new sdk.Account(f.signer, '1'), {
+    fee: '100',
+    networkPassphrase: sdk.Networks.TESTNET,
+  })
+    .addOperation(sdk.Operation.manageData({ name: 'walkthrough', value: 'done' }))
+    .setTimeout(180)
+    .build();
+  const record = {
+    kind: stage === 'increment' ? 'contract_counter' : 'contract_setup',
+    address: f.signer,
+    hash: hex(tx.hash()),
+    xdr: tx.toXDR(),
+    state: 'submitted',
+    result: { hash: hex(tx.hash()), ledger: 5, successful: true },
+    contract: {
+      stage,
+      accountId: deployment(f.signer, 'account', set).id,
+      targetId: deployment(f.signer, 'target', set).id,
+      authorizations: [],
+      authorizationReady: true,
+      ...(stage === 'increment' ? { before: 2 } : {}),
+    },
+  };
+  f.context.finished = record;
+  f.run('pending=finished; save(); render()');
+  return record;
+}
+
+test('Continue appears only after the confirmed result is verified, and the retry only reads', async () => {
+  const f = walkthroughPage(async (signer, pickSet) => ledgerFor(signer, pickSet(1), { target: false }));
+  await f.connect();
+  finishedStep(f, 'deploy-account');
+  assert.equal(f.el('continue').hidden, true);
+  assert.equal(f.el('done').hidden, true);
+  assert.equal(f.el('check').hidden, false);
+  assert.equal(f.el('check').textContent, 'Check result again');
+  let verifications = 0;
+  f.context.verifyContractResult = async () => {
+    verifications++;
+    return { account: 'verified' };
+  };
+  f.context.demoRpc = () => ({
+    sendTransaction: async () => assert.fail('A retry must not submit.'),
+  });
+  await f.click('check');
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(verifications, 1);
+  assert.deepEqual(f.run('pending.result.verification'), { account: 'verified' });
+  assert.ok(
+    f.records.some(([category, title]) => category === 'walkthrough' && title === 'Smart account deployed'),
+  );
+  assert.equal(f.el('check').hidden, true);
+  assert.equal(f.el('continue').hidden, false);
+  assert.equal(f.el('continue').textContent, 'Continue: Deploy the counter');
+  await f.click('continue');
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.deepEqual(f.prepared, [['deploy-target', 1]]);
+});
+
+test('a failed verification keeps the confirmed result and offers only the read-only retry', async () => {
+  const f = walkthroughPage(async (signer, pickSet) => ledgerFor(signer, pickSet(1), { count: 4 }));
+  await f.connect();
+  finishedStep(f, 'increment');
+  f.context.verifyContractResult = async () => {
+    throw Error('The confirmed counter differs from the reviewed increment.');
+  };
+  await f.click('check');
+  assert.equal(f.run('pending.state'), 'submitted');
+  assert.equal(f.run('pending.result.ledger'), 5);
+  assert.match(f.run('pending.result.verification_error') as string, /differs from the reviewed increment/);
+  assert.equal(f.el('continue').hidden, true);
+  assert.equal(f.el('check').hidden, false);
+  assert.ok(f.records.some(([category, title]) => category === 'error' && title === 'Action failed'));
+});
+
+test('an unfinished walkthrough transaction fixes the set and marks its step in progress', async () => {
+  const f = walkthroughPage(async (signer, pickSet) =>
+    ledgerFor(signer, pickSet(1), { account: true, target: false, latest: 2 }),
+  );
+  const record = finishedStep(f, 'deploy-account', 2);
+  f.run("pending.state='review'; pending.contract.stage='deploy-target'; save()");
+  await f.connect();
+  assert.equal(f.run('ledger.set'), 2);
+  assert.equal(record.contract.accountId, f.run('ledger.account.id'));
+  assert.equal(f.el('walkthrough-deploy-target-status').textContent, 'In progress');
+  assert.equal(f.el('walkthrough-deploy-target-action').textContent, 'View transaction');
+  assert.equal(f.el('walkthrough-deploy-target-action').disabled, false);
+  assert.equal(f.el('walkthrough-new-set').hidden, true);
+  assert.equal(f.el('review-eyebrow').textContent, 'Walkthrough · Set 2 · Step 2 of 3');
+  assert.equal(f.el('review-title').textContent, 'Deploy the counter');
 });

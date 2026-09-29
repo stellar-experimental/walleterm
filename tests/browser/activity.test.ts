@@ -75,7 +75,10 @@ test('transport history preserves the original request, response body, and abort
   const returned = await tracked('https://bridge.example/v1/connect', options);
   assert.equal(returned, response);
   assert.equal((await returned.json()).token, 'response-secret');
-  await until(() => history.events.length === 2);
+  // A write has one event. It starts when the request is sent and completes in place.
+  await until(() => history.events[0]?.title === 'Connect website · 200');
+  assert.equal(history.events.length, 1);
+  assert.equal(typeof field(history.events[0].data, 'duration_ms'), 'number');
   const serialized = JSON.stringify(history.events);
   for (const secret of ['12345678', 'header-secret', 'response-secret'])
     assert.equal(serialized.includes(secret), false);
@@ -98,12 +101,16 @@ test('unchanged signing polls collapse while changed states and signatures remai
     method: 'POST',
     body: JSON.stringify({ id: 'request-1' }),
   });
-  await until(() => history.events.length === 2);
+  await until(() => history.events[0]?.title === 'Request signature · 200');
   for (let i = 0; i < 3; i++) {
     await tracked('https://bridge.example/v1/requests/request-1');
     await tick();
   }
+  // The first poll is a new event. Identical polls count on it.
   assert.equal(history.events.length, 2);
+  assert.equal(history.events[0].title, 'Signing update · 200');
+  assert.equal(field(history.events[0].data, 'repeats'), 3);
+  assert.equal(typeof field(history.events[0].data, 'last_time'), 'string');
   result = { ...result, state: 'signed', signed_xdr: 'envelope' };
   await tracked('https://bridge.example/v1/requests/request-1');
   await until(() => history.events.length === 3);
@@ -241,8 +248,122 @@ test('non-JSON responses remain readable and unrelated requests stay outside the
   const response = new Response('Service unavailable', { status: 503 });
   const returned = await history.wrapFetch(async () => response)('https://bridge.example/v1/signers');
   assert.equal(await returned.text(), 'Service unavailable');
-  await until(() => history.events.length === 2);
+  await until(() => history.events.length === 1);
   assert.equal(history.events[0].category, 'error');
+  assert.equal(history.events[0].title, 'List wallets · unreadable response');
   await history.wrapFetch(async () => new Response('module'))('https://demo.example/stellar-sdk.js');
-  assert.equal(history.events.length, 2);
+  assert.equal(history.events.length, 1);
+});
+
+const RPC = 'https://soroban-testnet.stellar.org';
+const rpcCall = (method: string, params: unknown, id = 1) => ({
+  method: 'POST',
+  body: JSON.stringify({ jsonrpc: '2.0', id, method, params }),
+});
+
+test('a write that stops keeps one event with its request and error', async () => {
+  const history = new ActivityHistory({ store: memory() });
+  await history.ready;
+  let release!: () => void;
+  const tracked = history.wrapFetch(
+    () => new Promise((_resolve, reject) => (release = () => reject(Error('Tunnel closed')))),
+  );
+  const sent = tracked('https://horizon-testnet.stellar.org/transactions', {
+    method: 'POST',
+    body: new URLSearchParams({ tx: 'signed-envelope' }),
+  });
+  // The event exists before the response, so a reload keeps evidence of the submission.
+  assert.equal(history.events.length, 1);
+  assert.equal(history.events[0].title, 'Submit transaction · sent');
+  release();
+  await assert.rejects(sent, /Tunnel closed/);
+  assert.equal(history.events.length, 1);
+  assert.equal(history.events[0].title, 'Submit transaction · stopped');
+  assert.equal(history.events[0].category, 'error');
+  assert.equal(field(field(history.events[0].data, 'body'), 'tx'), 'signed-envelope');
+});
+
+test('RPC calls are named by method, and errors inside HTTP 200 are errors with their numeric code', async () => {
+  const history = new ActivityHistory({ store: memory() });
+  await history.ready;
+  const responses: Record<string, unknown> = {
+    getLedgerEntries: { jsonrpc: '2.0', id: 1, error: { code: -32602, message: 'invalid keys' } },
+    simulateTransaction: { jsonrpc: '2.0', id: 1, result: { error: 'HostError: auth', latestLedger: 5 } },
+    sendTransaction: { jsonrpc: '2.0', id: 1, result: { status: 'ERROR', hash: 'h1' } },
+    getTransaction: { jsonrpc: '2.0', id: 1, result: { status: 'FAILED', ledger: 9 } },
+    getLatestLedger: { jsonrpc: '2.0', id: 1, result: { sequence: 9 } },
+  };
+  const tracked = history.wrapFetch(async (_url, options) =>
+    Response.json(responses[JSON.parse(String(options?.body)).method]),
+  );
+  for (const method of Object.keys(responses)) await tracked(RPC, rpcCall(method, { key: method }));
+  await until(() => history.events.length === 5);
+  assert.deepEqual(history.events.map((event) => [event.category, event.title]).reverse(), [
+    ['error', 'Read ledger entries · RPC error'],
+    ['error', 'Simulate transaction · simulation failed'],
+    ['error', 'Send transaction · ERROR'],
+    ['error', 'Check transaction · FAILED'],
+    ['network', 'Read latest ledger · 200'],
+  ]);
+  assert.equal(field(field(field(history.events[4].data, 'response'), 'error'), 'code'), -32602);
+  assert.equal(safeData({ code: '12345678' }) && field(safeData({ code: '12345678' }), 'code'), '[redacted]');
+});
+
+test('identical reads group into one event, while a changed result or a failure is new', async () => {
+  const history = new ActivityHistory({ store: memory() });
+  await history.ready;
+  let ledger = 10,
+    status = 'NOT_FOUND';
+  const tracked = history.wrapFetch(async () =>
+    Response.json({
+      jsonrpc: '2.0',
+      id: ledger,
+      result: { status, latestLedger: ledger++, oldestLedger: 1 },
+    }),
+  );
+  // Each poll has a new JSON-RPC ID and ledger position. The result is the same.
+  for (let id = 1; id <= 3; id++) {
+    await tracked(RPC, rpcCall('getTransaction', { hash: 'h1' }, id));
+    await tick();
+  }
+  assert.equal(history.events.length, 1);
+  assert.equal(history.events[0].title, 'Check transaction · NOT_FOUND');
+  assert.equal(field(history.events[0].data, 'repeats'), 3);
+  await tracked(RPC, rpcCall('getTransaction', { hash: 'h2' }, 4));
+  await until(() => history.events.length === 2);
+  status = 'SUCCESS';
+  await tracked(RPC, rpcCall('getTransaction', { hash: 'h1' }, 5));
+  await until(() => history.events.length === 3);
+  assert.equal(history.events[0].title, 'Check transaction · SUCCESS');
+  const failing = history.wrapFetch(async () => new Response('{}', { status: 503 }));
+  for (let i = 0; i < 2; i++) await failing('https://horizon-testnet.stellar.org/ledgers?order=desc&limit=1');
+  await until(() => history.events.length === 5);
+  assert.ok(history.events.slice(0, 2).every((event) => event.category === 'error'));
+});
+
+test('transaction events name the action and the signature, and verification has its own event', async () => {
+  const history = new ActivityHistory({ store: memory() });
+  await history.ready;
+  const record = {
+    hash: 'h1',
+    state: 'waiting',
+    result: undefined as unknown,
+    contract: { authorizations: [{}], authorizationReady: false },
+  };
+  history.transaction(record, 'Deploy the counter');
+  record.state = 'review';
+  record.hash = 'h2';
+  record.contract.authorizationReady = true;
+  history.transaction(record, 'Deploy the counter');
+  record.state = 'submitted';
+  record.result = { ledger: 7 };
+  history.transaction(record, 'Deploy the counter');
+  record.result = { ledger: 7, verification: { stage: 'deploy-target' } };
+  history.transaction(record, 'Deploy the counter');
+  await tick();
+  assert.deepEqual(history.events.map((event) => event.title).reverse(), [
+    'Deploy the counter · Authorization signature requested',
+    'Deploy the counter · Authorization signed and verified',
+    'Deploy the counter · Transaction confirmed',
+  ]);
 });

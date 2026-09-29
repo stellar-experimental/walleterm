@@ -4,16 +4,20 @@ import { createCodeView, highlightConnectionCommand } from './code-view.js';
 import { WalletermConnect } from '../../sdk/connect.ts';
 import { createActivityLog } from './activity.ts';
 import {
+  MAX_SETS,
   assembleAuthorizedContract,
   authorizationExpiry,
+  contractSet,
   demoRpc,
   hex as contractHex,
   prepareContract,
+  readWalkthrough,
   signDemoAuthorization,
   validateContractReview,
   verifyContractResult,
 } from './contracts.ts';
-import type { ContractReview } from './contracts.ts';
+import type { ContractReview, ContractStage, WalkthroughLedger } from './contracts.ts';
+import { stepButtons, stepTitles, transactionPhases, walkthroughView } from './walkthrough.ts';
 import {
   Account,
   Asset,
@@ -59,6 +63,11 @@ interface TransactionResult {
   successful: boolean;
   result_xdr: string;
 }
+interface ContractResult {
+  ledger?: number;
+  verification?: unknown;
+  verification_error?: string;
+}
 interface Page<T> {
   _embedded: { records: T[] };
 }
@@ -76,6 +85,7 @@ class HorizonError extends Error {
     super(message);
   }
 }
+type UserStage = 'deploy-account' | 'deploy-target' | 'increment';
 interface Elements {
   review: HTMLDialogElement;
   'transaction-details': HTMLDetailsElement;
@@ -83,13 +93,21 @@ interface Elements {
   payment: HTMLButtonElement;
   offer: HTMLButtonElement;
   'cancel-offer': HTMLButtonElement;
-  'contract-setup': HTMLButtonElement;
-  'contract-counter': HTMLButtonElement;
   sign: HTMLButtonElement;
   submit: HTMLButtonElement;
   check: HTMLButtonElement;
   clear: HTMLButtonElement;
+  continue: HTMLButtonElement;
+  done: HTMLButtonElement;
   'cancel-request': HTMLButtonElement;
+  'walkthrough-refresh': HTMLButtonElement;
+  'walkthrough-new-set': HTMLButtonElement;
+  'walkthrough-code-action': HTMLButtonElement;
+  'walkthrough-deploy-account-action': HTMLButtonElement;
+  'walkthrough-deploy-target-action': HTMLButtonElement;
+  'walkthrough-increment-action': HTMLButtonElement;
+  'walkthrough-deploy-account-copy': HTMLButtonElement;
+  'walkthrough-deploy-target-copy': HTMLButtonElement;
 }
 function $<K extends string>(id: K): K extends keyof Elements ? Elements[K] : HTMLElement {
   const element = document.getElementById(id);
@@ -119,10 +137,20 @@ let pending: Journal | null = null;
 let signingController: AbortController | null = null;
 let signingDeadline = 0;
 let selectedAction: Action | null = null;
+let selectedStage: ContractStage | null = null;
+let selectedSet = 1;
 let busy = false,
   journalBlocked = false,
   actionPhase = '',
   actionProgress = '';
+// Live ledger state for the walkthrough. A read applies only while its generation and wallet are current.
+let ledger: WalkthroughLedger | null = null;
+let ledgerReading = false,
+  ledgerError = '',
+  ledgerChecked = 0,
+  ledgerGeneration = 0,
+  chosenSet = 0;
+let testnetAccount: HorizonAccount | 'missing' | null = null;
 // The connection component shares its session with the site's other tabs. It checks the session after a reload.
 const connection = new WalletermConnect($('wallet-connection'), {
   onBusyChange: () => render(),
@@ -141,6 +169,14 @@ const connection = new WalletermConnect($('wallet-connection'), {
       { previous_address: previousAddress, account },
     );
     status(account ? 'Wallet connected. Choose a testnet action.' : 'The website is disconnected.');
+    if (account?.address !== previousAddress) {
+      chosenSet = 0;
+      ledger = null;
+      ledgerError = '';
+      testnetAccount = null;
+      void refreshWalkthrough();
+      void refreshAccount();
+    }
     render();
   },
 });
@@ -149,19 +185,26 @@ function progressLabel(text: string) {
   actionProgress = text;
   render();
 }
+// Status text is for the page. The activity log records the events that caused it.
 function status(text: string) {
-  activity.record('status', text);
   $('status').textContent = text;
   if ($('review').open || busy) $('review-status').textContent = text;
+}
+// A notice also goes to the activity log, because no other event records its fact.
+function notice(text: string) {
+  activity.record('status', text);
+  status(text);
 }
 const actionNames = {
   note: 'Write a note',
   payment: 'Pay 0.01 test XLM',
   offer: 'Offer 0.1 test XLM',
   cancel_offer: 'Cancel newest offer',
-  contract_setup: 'Set up contract demo',
-  contract_counter: 'Increment contract counter',
+  contract_setup: 'Walkthrough step',
+  contract_counter: 'Increase the counter',
 };
+const actionTitle = (kind: Action, stage?: ContractStage | null) =>
+  stage ? stepTitles[stage] : actionNames[kind];
 const stateNames = {
   review: 'Ready to sign',
   waiting: 'Waiting for a signature',
@@ -175,15 +218,37 @@ const stateNames = {
   expired: 'Transaction expired',
   failed: 'Transaction failed',
 };
+const verifiedTitles = {
+  'upload-account': 'Smart account code uploaded',
+  'upload-target': 'Counter code uploaded',
+  'deploy-account': 'Smart account deployed',
+  'deploy-target': 'Counter deployed',
+  increment: 'Counter increased',
+};
+const short = (value = '') => (value.length > 14 ? `${value.slice(0, 6)}…${value.slice(-6)}` : value);
+// The Stellar RPC client rejects a JSON-RPC error as a plain object. Keep its message.
+function demoError(value: unknown): RequestError {
+  const plain =
+    value && typeof value === 'object' && !(value instanceof Error) ? (value as { message?: unknown }) : null;
+  return requestError(
+    typeof plain?.message === 'string' ? Object.assign(Error(plain.message), plain) : value,
+  );
+}
 function openReview() {
   if (!$('review').open) $('review').showModal();
 }
 function closeReview() {
   $('review').close();
-  (pending || (busy && selectedAction) ? $('open-review') : $('actions-title')).focus();
+  (pending || (busy && selectedAction)
+    ? $('open-review')
+    : selectedStage
+      ? $('walkthrough-title')
+      : $('actions-title')
+  ).focus();
 }
 $('open-review').onclick = openReview;
 $('close-review').onclick = closeReview;
+$('done').onclick = closeReview;
 $('review').addEventListener('cancel', (event) => {
   event.preventDefault();
   closeReview();
@@ -266,10 +331,85 @@ async function sourceAccount() {
     }
   }
 }
+// The offer needs an authorized testnet USDC trustline with room for 1 USDC.
+function usdcReady(source: HorizonAccount) {
+  const trustline = (source.balances ?? []).find(
+    (b) => 'asset_code' in b && b.asset_code === 'USDC' && b.asset_issuer === ISSUER,
+  );
+  return (
+    !!trustline &&
+    'asset_code' in trustline &&
+    trustline.is_authorized !== false &&
+    Number(trustline.limit) - Number(trustline.balance) - Number(trustline.buying_liabilities || '0') >= 1
+  );
+}
+// Read the live account for the classic workspace. Contract transactions also spend fees from it.
+async function refreshAccount() {
+  const signer = account?.address;
+  if (!signer) {
+    testnetAccount = null;
+    return render();
+  }
+  try {
+    const source = await horizon<HorizonAccount>(`/accounts/${signer}`);
+    if (account?.address === signer) testnetAccount = source;
+  } catch (errorValue) {
+    if (account?.address === signer)
+      testnetAccount = requestError(errorValue).status === 404 ? 'missing' : null;
+  }
+  render();
+}
+// An unfinished contract journal fixes the set. Otherwise show the newer of the chosen and latest started set.
+function walkthroughSet(signer: string, latest: number) {
+  if (pending?.contract && !hasFinishedTransaction() && pending.address === signer)
+    return contractSet(signer, pending.contract);
+  return Math.max(chosenSet, latest, 1);
+}
+async function refreshWalkthrough() {
+  const generation = ++ledgerGeneration,
+    signer = account?.address;
+  if (!signer) {
+    ledger = null;
+    ledgerReading = false;
+    ledgerError = '';
+    return render();
+  }
+  ledgerReading = true;
+  render();
+  try {
+    const state = await readWalkthrough(demoRpc(), signer, (latest) => walkthroughSet(signer, latest));
+    if (generation !== ledgerGeneration || account?.address !== signer) return;
+    const summary = (value: WalkthroughLedger | null) =>
+      value && JSON.stringify({ ...value, count: undefined, done: walkthroughView(value).done });
+    if (summary(state) !== summary(ledger)) {
+      const done = walkthroughView(state).done;
+      activity.record('walkthrough', `Walkthrough checked · Set ${state.set} · ${done} of 3 done`, {
+        ...state,
+        done,
+      });
+    }
+    ledger = state;
+    ledgerError = '';
+    ledgerChecked = Date.now();
+  } catch (errorValue) {
+    if (generation !== ledgerGeneration || account?.address !== signer) return;
+    const message = demoError(errorValue).message;
+    // A failed request already has its own event. Record only a failure of the checks themselves.
+    const request = errorValue instanceof TypeError || !(errorValue instanceof Error);
+    if (message !== ledgerError && !request)
+      activity.record('error', 'Walkthrough check failed', { message });
+    ledgerError = message;
+  } finally {
+    if (generation === ledgerGeneration) {
+      ledgerReading = false;
+      render();
+    }
+  }
+}
 function save() {
   if (pending) localStorage.setItem(STORAGE, JSON.stringify(pending));
   else localStorage.removeItem(STORAGE);
-  activity.transaction(pending);
+  activity.transaction(pending, pending ? actionTitle(pending.kind, pending.contract?.stage) : undefined);
 }
 function readJournal(): Journal | null {
   const raw = localStorage.getItem(STORAGE);
@@ -361,18 +501,248 @@ function hasFinishedTransaction() {
 function connectedTo(address: string) {
   return !!wallet?.address && account?.address === address;
 }
+// The walkthrough state for the connected wallet. An unfinished transaction marks its own step.
+function currentWalkthrough() {
+  const signer = wallet?.address ? account?.address : undefined;
+  const state = signer && ledger?.signer === signer ? ledger : null;
+  const unfinished =
+    pending?.contract && !hasFinishedTransaction() && pending.address === signer ? pending.contract : null;
+  const active =
+    unfinished && state && contractSet(signer!, unfinished) === state.set ? unfinished.stage : undefined;
+  return { state, view: walkthroughView(state, active) };
+}
+// After a finished walkthrough transaction: the step to offer next, from a ledger read of the same set.
+function continueStage(): ContractStage | null {
+  const record = pending?.contract;
+  if (!pending || !record || !hasFinishedTransaction() || ledgerReading) return null;
+  const { state, view } = currentWalkthrough();
+  if (!state || state.signer !== pending.address || state.set !== contractSet(pending.address, record))
+    return null;
+  const result = (pending.result || {}) as ContractResult;
+  if (pending.state === 'submitted' && !result.verification) return null;
+  // A confirmed deployment that the ledger read does not show yet offers nothing.
+  if (pending.state === 'submitted' && view.next === record.stage && record.stage !== 'increment')
+    return null;
+  return view.next;
+}
+// The fee of an unsigned contract call changes after its authorization is signed and simulated.
+function feeText(record: Journal) {
+  try {
+    const fee = `${(Number(classicTransaction(record.xdr).fee) / 1e7).toFixed(7).replace(/\.?0+$/, '')} XLM`;
+    return record.contract?.authorizations.length && !record.contract.authorizationReady
+      ? `${fee} · estimate`
+      : fee;
+  } catch {
+    return '';
+  }
+}
+function summaryRows(record: Journal): [label: string, value: string, full?: string, note?: string][] {
+  const review = record.contract;
+  const rows: [string, string, string?, string?][] = [
+    ['Network', 'Stellar testnet'],
+    ['Wallet', short(record.address), record.address],
+  ];
+  if (record.recipient) rows.push(['Recipient', short(record.recipient), record.recipient]);
+  if (review?.stage === 'upload-account') rows.push(['Contract code', 'Smart account program']);
+  if (review?.stage === 'upload-target') rows.push(['Contract code', 'Counter program']);
+  if (review && !review.stage.startsWith('upload'))
+    rows.push([
+      'Smart account',
+      short(review.accountId),
+      review.accountId,
+      review.stage === 'deploy-account' ? 'created by this step' : undefined,
+    ]);
+  if (review?.stage === 'deploy-target' || review?.stage === 'increment')
+    rows.push([
+      'Counter',
+      short(review.targetId),
+      review.targetId,
+      review.stage === 'deploy-target' ? 'created by this step' : undefined,
+    ]);
+  if (review?.before !== undefined) rows.push(['Counter value', `${review.before} → ${review.before + 1}`]);
+  const fee = feeText(record);
+  if (fee) rows.push(['Fee', fee]);
+  return rows;
+}
+function confirmedText(record: Journal) {
+  if (!record.contract || record.state !== 'submitted') return '';
+  const result = (record.result || {}) as ContractResult;
+  if (result.verification_error) return `The result is not verified: ${result.verification_error}`;
+  if (!result.verification) return 'Checking the result…';
+  const review = record.contract;
+  return review.stage === 'increment'
+    ? `Counter increased from ${review.before} to ${review.before! + 1}.`
+    : `${verifiedTitles[review.stage]}.`;
+}
+function renderClassic() {
+  const funded = testnetAccount && testnetAccount !== 'missing' ? testnetAccount : null;
+  const native = funded?.balances?.find((b) => b.asset_type === 'native');
+  $('account-status').hidden = !testnetAccount;
+  $('account-status').textContent =
+    testnetAccount === 'missing'
+      ? 'This account is not on testnet yet. The first action funds it through Friendbot.'
+      : native
+        ? `Testnet account funded · ${Number(native.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} XLM`
+        : '';
+  $('offer-requirement').textContent =
+    funded && usdcReady(funded)
+      ? 'The USDC trustline is ready.'
+      : 'It needs an authorized USDC trustline to GBBD…LFLA5 with room for 1 USDC. Create it with direct signing.';
+}
+function renderWalkthrough() {
+  const connected = !!account?.address && !!wallet?.address;
+  const { state, view } = currentWalkthrough();
+  const blocked =
+    !connected ||
+    busy ||
+    ledgerReading ||
+    connection.working ||
+    connection.state === 'unreachable' ||
+    journalBlocked ||
+    (!!pending && !hasFinishedTransaction());
+  $('walkthrough-progress-label').textContent = !connected
+    ? 'Connect a wallet to see your progress.'
+    : state
+      ? `Set ${state.set} · ${view.done} of 3 done`
+      : ledgerReading
+        ? 'Checking the ledger…'
+        : 'Progress unknown.';
+  $('walkthrough-bar').setAttribute('data-done', String(view.done));
+  $('walkthrough-checked').textContent = !connected
+    ? ''
+    : ledgerReading
+      ? 'Checking…'
+      : state && ledgerChecked
+        ? `Checked ${new Date(ledgerChecked).toLocaleTimeString()}`
+        : '';
+  $('walkthrough-refresh').disabled = !connected || ledgerReading;
+  $('walkthrough-error').hidden = !ledgerError;
+  $('walkthrough-error').textContent = ledgerError
+    ? `The demo could not read the ledger. ${ledgerError}`
+    : '';
+  const code = view.code;
+  $('walkthrough-code').setAttribute('data-state', code.state);
+  $('walkthrough-code-mark').textContent = code.state === 'done' ? '✓' : '';
+  $('walkthrough-code-detail').textContent =
+    code.state === 'done'
+      ? 'Both programs are on testnet. Every wallet uses the same code.'
+      : code.stage === 'upload-account'
+        ? 'The smart account code is not on testnet. Upload it once, and every wallet can use it.'
+        : code.stage === 'upload-target'
+          ? 'The counter code is not on testnet. Upload it once, and every wallet can use it.'
+          : 'Both programs must be on testnet. Every wallet uses the same code.';
+  $('walkthrough-code-status').textContent =
+    code.state === 'done' ? 'Ready' : code.state === 'active' ? 'In progress' : '';
+  // An upload shows its signature count where the finished row says when it applies.
+  $('walkthrough-code-meta').textContent =
+    code.state === 'next' || code.state === 'active' ? '1 signature' : 'Before you start';
+  $('walkthrough-code-action').hidden = code.state !== 'next' && code.state !== 'active';
+  $('walkthrough-code-action').textContent =
+    code.state === 'active' ? 'View transaction' : code.stage ? stepButtons[code.stage] : '';
+  $('walkthrough-code-action').disabled = code.state !== 'active' && blocked;
+  const locked: Record<UserStage, string> = {
+    'deploy-account': 'After the contract code',
+    'deploy-target': 'After step 1',
+    increment: 'After step 2',
+  };
+  view.steps.forEach((step, index) => {
+    const id = `walkthrough-${step.stage}`;
+    const address =
+      step.stage === 'deploy-account'
+        ? state?.account.id
+        : step.stage === 'deploy-target'
+          ? state?.target.id
+          : undefined;
+    const shown = step.state === 'done' && address;
+    $(id).setAttribute('data-state', step.state);
+    $(`${id}-mark`).textContent = step.state === 'done' ? '✓' : String(index + 1);
+    $(`${id}-status`).textContent =
+      step.state === 'active'
+        ? 'In progress'
+        : step.state === 'locked'
+          ? locked[step.stage]
+          : shown
+            ? short(address)
+            : step.stage === 'increment' && state?.count !== undefined
+              ? `Count: ${state.count}`
+              : '';
+    $(`${id}-status`).classList.toggle('mono', !!shown);
+    if (step.stage !== 'increment') $(`${id}-copy`).hidden = !shown;
+    const button = $(`${id}-action`) as HTMLButtonElement;
+    button.hidden = !(
+      step.state === 'next' ||
+      step.state === 'active' ||
+      (step.stage === 'increment' && step.state === 'done')
+    );
+    button.textContent =
+      step.state === 'active'
+        ? 'View transaction'
+        : step.state === 'done'
+          ? 'Increase again'
+          : stepButtons[step.stage];
+    button.disabled = step.state !== 'active' && blocked;
+  });
+  const complete = !!state && state.account.exists && state.target.exists;
+  const full = !!state && state.latest >= MAX_SETS;
+  $('walkthrough-new-set').hidden = !complete || full;
+  $('walkthrough-new-set').disabled = blocked;
+  $('walkthrough-note').textContent = full
+    ? `This wallet has used all ${MAX_SETS} contract sets.`
+    : 'Contract addresses are fixed for each wallet and set. Start a new set to repeat the deploy steps.';
+}
+function renderPhases(progress: string) {
+  const list = $('review-phases');
+  if (!pending) {
+    list.hidden = true;
+    return list.replaceChildren();
+  }
+  const words = {
+    done: 'Done.',
+    current: 'Current step.',
+    failed: 'Failed.',
+    unknown: 'Result unknown.',
+    pending: 'Not started.',
+  };
+  const phases = transactionPhases(pending, progress, confirmedText(pending));
+  list.replaceChildren(
+    ...phases.map((phase, index) => {
+      const item = document.createElement('li'),
+        mark = document.createElement('span'),
+        text = document.createElement('div'),
+        label = document.createElement('strong'),
+        word = document.createElement('span');
+      item.className = `review-phase is-${phase.state}${busy && phase.state === 'current' ? ' is-working' : ''}`;
+      if (phase.state === 'current') item.setAttribute('aria-current', 'step');
+      mark.className = 'phase-mark';
+      mark.setAttribute('aria-hidden', 'true');
+      mark.textContent =
+        phase.state === 'done'
+          ? '✓'
+          : phase.state === 'failed'
+            ? '×'
+            : phase.state === 'unknown'
+              ? '?'
+              : String(index + 1);
+      word.className = 'visually-hidden';
+      word.textContent = words[phase.state];
+      label.textContent = phase.label;
+      text.append(label, word);
+      if (phase.detail) {
+        const detail = document.createElement('span');
+        detail.textContent = phase.detail;
+        text.append(detail);
+      }
+      item.append(mark, text);
+      return item;
+    }),
+  );
+  list.hidden = false;
+}
 function render() {
   connection.sync();
   connection.setBusy(busy && !signingController);
   $('connection-hint').hidden = !!account;
-  for (const name of [
-    'note',
-    'payment',
-    'offer',
-    'cancel-offer',
-    'contract-setup',
-    'contract-counter',
-  ] as const)
+  for (const name of ['note', 'payment', 'offer', 'cancel-offer'] as const)
     $(name).disabled =
       !account ||
       !wallet?.address ||
@@ -381,8 +751,15 @@ function render() {
       connection.working ||
       (!!pending && !hasFinishedTransaction()) ||
       journalBlocked;
+  renderClassic();
+  renderWalkthrough();
   const kind = pending?.kind || selectedAction;
-  const title = kind ? actionNames[kind] : 'Your transaction';
+  const stage = pending?.contract?.stage || selectedStage;
+  const title = kind ? actionTitle(kind, stage) : 'Your transaction';
+  const set = pending?.contract ? contractSet(pending.address, pending.contract) : selectedSet;
+  $('review-eyebrow').textContent = stage
+    ? `Walkthrough · Set ${set} · ${stage.startsWith('upload') ? 'Before you start' : `Step ${['deploy-account', 'deploy-target', 'increment'].indexOf(stage) + 1} of 3`}`
+    : 'Demo transaction';
   const state = pending
     ? stateNames[pending.state]
     : busy
@@ -418,12 +795,17 @@ function render() {
   $('review-countdown').textContent = countdown;
   $('review-progress').hidden = !progress;
   $('review-status').hidden = !!progress;
+  renderPhases(['signing', 'submitting'].includes(actionPhase) ? progress + countdown : '');
   $('record-state').classList.toggle('demo-loading', !!progress);
   $('review-title').textContent = title;
   $('record-title').textContent = title;
   $('record-state').textContent = progress ? progress + countdown : state;
   $('transaction-record').hidden = !pending && !(busy && selectedAction);
   const needsStatusCheck = pending && ['submitting', 'unknown'].includes(pending.state);
+  const unverified =
+    pending?.contract &&
+    pending.state === 'submitted' &&
+    !((pending.result || {}) as ContractResult).verification;
   $('review-note').textContent = busy
     ? 'This action continues if you close this window.'
     : needsStatusCheck
@@ -436,30 +818,25 @@ function render() {
   $('transaction-details').hidden = !pending;
   $('review-summary').replaceChildren();
   if (!pending) {
-    for (const name of ['sign', 'submit', 'check', 'cancel-request', 'clear'] as const) $(name).hidden = true;
+    for (const name of ['sign', 'submit', 'check', 'cancel-request', 'clear', 'continue', 'done'] as const)
+      $(name).hidden = true;
     return;
   }
-  for (const [label, value] of [
-    ['Status', state],
-    ['Network', 'Stellar testnet'],
-    ['Wallet', pending.address],
-    ...(pending.recipient ? [['Recipient', pending.recipient]] : []),
-    ...(pending.contract
-      ? [
-          ['Smart account', pending.contract.accountId],
-          ['Contract', pending.contract.targetId],
-          ['Action', pending.contract.stage],
-          ...(pending.contract.before === undefined
-            ? []
-            : [['Counter', `${pending.contract.before} → ${pending.contract.before + 1}`]]),
-          ['Next signature', pending.contract.authorizationReady ? 'Transaction' : 'Contract authorization'],
-        ]
-      : []),
-  ]) {
+  for (const [label, value, full, note] of summaryRows(pending)) {
     const term = document.createElement('dt'),
       detail = document.createElement('dd');
     term.textContent = label;
     detail.textContent = value;
+    if (full) {
+      detail.title = full;
+      detail.className = 'mono';
+    }
+    if (note) {
+      const extra = document.createElement('span');
+      extra.className = 'summary-note';
+      extra.textContent = ` · ${note}`;
+      detail.append(extra);
+    }
     $('review-summary').append(term, detail);
   }
   updateDetails(
@@ -481,9 +858,14 @@ function render() {
   $('submit').hidden = pending.state !== 'signed' && !(busy && actionPhase === 'submitting');
   $('submit').disabled = busy || connection.working || journalBlocked || !pending.signed_xdr;
   $('submit').textContent = busy && actionPhase === 'submitting' ? 'Submitting…' : 'Submit to testnet';
-  $('check').hidden = !needsStatusCheck || (busy && actionPhase !== 'checking');
+  $('check').hidden = !(needsStatusCheck || unverified) || (busy && actionPhase !== 'checking');
   $('check').disabled = busy || connection.working || journalBlocked;
-  $('check').textContent = busy && actionPhase === 'checking' ? 'Checking…' : 'Check transaction status';
+  $('check').textContent =
+    busy && actionPhase === 'checking'
+      ? 'Checking…'
+      : unverified
+        ? 'Check result again'
+        : 'Check transaction status';
   $('sign').hidden = pending.state !== 'review' && !(busy && actionPhase === 'signing');
   $('sign').disabled =
     busy ||
@@ -495,11 +877,11 @@ function render() {
   $('sign').textContent =
     busy && actionPhase === 'signing'
       ? 'Signing…'
-      : pending.contract
-        ? pending.contract.authorizationReady
+      : pending.contract?.authorizations.length && !pending.contract.authorizationReady
+        ? 'Sign authorization'
+        : pending.contract
           ? 'Sign transaction'
-          : 'Sign contract authorization'
-        : 'Sign';
+          : 'Sign';
   $('cancel-request').hidden = pending.state !== 'waiting' || !signingController;
   $('cancel-request').disabled = !signingController || signingController.signal.aborted;
   $('cancel-request').textContent = signingController?.signal.aborted
@@ -519,6 +901,17 @@ function render() {
       : ['waiting', 'signing_unknown'].includes(pending.state)
         ? 'Clear stopped request'
         : 'Start another request';
+  const next = busy ? null : continueStage();
+  $('continue').hidden = !next;
+  $('continue').disabled = busy || connection.working || journalBlocked || !connectedTo(pending.address);
+  $('continue').textContent = !next
+    ? 'Continue'
+    : next === pending.contract?.stage
+      ? pending.state === 'submitted'
+        ? 'Increase again'
+        : 'Try again'
+      : `Continue: ${stepTitles[next]}`;
+  $('done').hidden = !hasFinishedTransaction() || !!next || !!unverified || busy;
 }
 async function action(fn: () => Promise<void>, phase = 'preparing') {
   if (busy || journalBlocked || connection.working) return;
@@ -544,13 +937,23 @@ async function action(fn: () => Promise<void>, phase = 'preparing') {
       await fn();
     });
   } catch (errorValue) {
-    const error = requestError(errorValue);
-    activity.record('error', 'Action failed', {
-      action: pending?.kind || selectedAction,
-      message: error.message,
-    });
-    if (error.status === 401) account = null;
-    status(error.message);
+    const error = demoError(errorValue);
+    if ((errorValue as { walkthrough?: string })?.walkthrough === 'done') {
+      // The ledger already has this step. Show the current walkthrough instead of a failure.
+      selectedAction = null;
+      closeReview();
+      status(`${error.message} The walkthrough shows the current state.`);
+      void refreshWalkthrough();
+    } else {
+      activity.record('error', 'Action failed', {
+        action: pending
+          ? actionTitle(pending.kind, pending.contract?.stage)
+          : selectedAction && actionTitle(selectedAction, selectedStage),
+        message: error.message,
+      });
+      if (error.status === 401) account = null;
+      status(error.message);
+    }
   } finally {
     busy = false;
     actionPhase = '';
@@ -558,21 +961,18 @@ async function action(fn: () => Promise<void>, phase = 'preparing') {
     render();
   }
 }
-async function build(kind: Action) {
+async function build(kind: Action, stage: ContractStage | null, set: number) {
   if (!account || pending) return;
   const source = await sourceAccount();
+  testnetAccount = source;
   if (kind === 'contract_setup' || kind === 'contract_counter') {
+    if (!stage) throw Error('Choose a walkthrough step.');
     progressLabel('Checking the demo contracts and their code…');
-    const prepared = await prepareContract(
-      demoRpc(),
-      account.address!,
-      kind === 'contract_counter',
-      async (file) => {
-        const response = await fetch(`/fixtures/${file}`, { signal: AbortSignal.timeout(15000) });
-        if (!response.ok) throw Error('The demo contract file is unavailable.');
-        return new Uint8Array(await response.arrayBuffer());
-      },
-    );
+    const prepared = await prepareContract(demoRpc(), account.address!, stage, set, async (file) => {
+      const response = await fetch(`/fixtures/${file}`, { signal: AbortSignal.timeout(15000) });
+      if (!response.ok) throw Error('The demo contract file is unavailable.');
+      return new Uint8Array(await response.arrayBuffer());
+    });
     pending = {
       kind,
       address: account.address!,
@@ -585,8 +985,8 @@ async function build(kind: Action) {
     render();
     status(
       prepared.review.authorizationReady
-        ? 'Review the setup transaction before signing it.'
-        : 'Review the exact contract authorization before signing it.',
+        ? 'Review the transaction, then sign it.'
+        : 'Review the authorization, then sign it. The transaction follows.',
     );
     return;
   }
@@ -599,15 +999,7 @@ async function build(kind: Action) {
     operation = Operation.payment({ destination: recipient, amount: '0.0100000', asset: Asset.native() });
   }
   if (kind === 'offer') {
-    const trustline = source.balances.find(
-      (b) => 'asset_code' in b && b.asset_code === 'USDC' && b.asset_issuer === ISSUER,
-    );
-    if (
-      !trustline ||
-      !('asset_code' in trustline) ||
-      trustline.is_authorized === false ||
-      Number(trustline.limit) - Number(trustline.balance) - Number(trustline.buying_liabilities || '0') < 1
-    )
+    if (!usdcReady(source))
       throw Error(
         `This account needs an authorized USDC trustline to ${ISSUER} with free capacity. Create it with direct signing; this demo cannot.`,
       );
@@ -736,13 +1128,8 @@ async function requestSignature() {
         authorization.xdr = signedXdr;
         authorization.signed = true;
         save();
-        activity.record('authorization', 'Contract authorization signed', {
-          authorizer: authorization.address,
-          signer: record.address,
-          signed_auth_entry_xdr: signedXdr,
-        });
       }
-      actionProgress = 'Checking the signed contract authorization…';
+      actionProgress = 'Checking the signed authorization by simulation…';
       render();
       const assembled = await assembleAuthorizedContract(demoRpc(), record.xdr, record.contract);
       record.xdr = assembled.toXDR();
@@ -751,7 +1138,7 @@ async function requestSignature() {
       record.state = 'review';
       save();
       status(
-        'Contract authorization verified by simulation. Review the final fee, then sign the transaction.',
+        'Simulation accepted the signed authorization. Review the final fee, then sign the transaction.',
       );
       return;
     }
@@ -793,10 +1180,13 @@ async function requestSignature() {
     if (signingController === controller) signingController = null;
   }
 }
-function startAction(kind: Action) {
+function startAction(kind: Action, stage: ContractStage | null = null) {
   if (!account || (pending && !hasFinishedTransaction()) || busy || journalBlocked || connection.working)
     return;
   selectedAction = kind;
+  selectedStage = stage;
+  selectedSet = stage && ledger?.signer === account.address ? ledger.set : 1;
+  activity.record('action', `Started: ${actionTitle(kind, stage)}`, stage ? { stage, set: selectedSet } : {});
   $('transaction-details').open = false;
   openReview();
   status('Preparing your transaction. Keep this window open to see its details.');
@@ -813,17 +1203,96 @@ function startAction(kind: Action) {
       }
       render();
     }
-    await build(kind);
+    await build(kind, stage, selectedSet);
   });
 }
+const startStep = (stage: ContractStage) =>
+  startAction(stage === 'increment' ? 'contract_counter' : 'contract_setup', stage);
 for (const kind of ['note', 'payment', 'offer'] as const) $(kind).onclick = () => startAction(kind);
 $('cancel-offer').onclick = () => startAction('cancel_offer');
-$('contract-setup').onclick = () => startAction('contract_setup');
-$('contract-counter').onclick = () => startAction('contract_counter');
+$('continue').onclick = () => {
+  const next = continueStage();
+  return next ? startStep(next) : undefined;
+};
+// A row with an unfinished transaction opens it. Otherwise the row starts its step.
+$('walkthrough-code-action').onclick = () => {
+  const code = currentWalkthrough().view.code;
+  if (code.state === 'active') return openReview();
+  return code.stage ? startStep(code.stage) : undefined;
+};
+for (const stage of ['deploy-account', 'deploy-target', 'increment'] as const)
+  $(`walkthrough-${stage}-action`).onclick = () => {
+    const step = currentWalkthrough().view.steps.find((row) => row.stage === stage);
+    return step?.state === 'active' ? openReview() : startStep(stage);
+  };
+for (const [stage, kind] of [
+  ['deploy-account', 'account'],
+  ['deploy-target', 'target'],
+] as const) {
+  const button = $(`walkthrough-${stage}-copy`);
+  button.onclick = async () => {
+    const address = ledger?.[kind].id;
+    if (!address) return;
+    try {
+      await navigator.clipboard.writeText(address);
+      button.textContent = 'Copied';
+      setTimeout(() => (button.textContent = 'Copy'), 1500);
+    } catch {
+      status('Copy failed. The full address is in Activity.');
+    }
+  };
+}
+$('walkthrough-refresh').onclick = () => refreshWalkthrough();
+// A new set gives this wallet a new smart account and counter. Only a finished set offers it.
+$('walkthrough-new-set').onclick = () => {
+  if (!ledger || busy || ledgerReading || (pending && !hasFinishedTransaction()) || ledger.latest >= MAX_SETS)
+    return;
+  chosenSet = ledger.latest + 1;
+  activity.record('action', `Started contract set ${chosenSet}`, { set: chosenSet });
+  return refreshWalkthrough();
+};
 $('cancel-request').onclick = () => {
   signingController?.abort(Error('The signing request was canceled.'));
   render();
 };
+// Record the verified effect of a confirmed walkthrough transaction. A failure keeps the confirmed result.
+async function verifyContract(record: Journal) {
+  const review = record.contract!;
+  try {
+    const verification = await verifyContractResult(demoRpc(), record.address, review);
+    const { verification_error: _failed, ...result } = (record.result || {}) as ContractResult;
+    record.result = { ...result, verification };
+    save();
+    activity.record(
+      'walkthrough',
+      review.stage === 'increment'
+        ? `Counter increased ${review.before} → ${review.before! + 1}`
+        : verifiedTitles[review.stage],
+      {
+        action: stepTitles[review.stage],
+        set: contractSet(record.address, review),
+        hash: record.hash,
+        ledger: result.ledger,
+        verification,
+      },
+    );
+    status(
+      review.stage === 'increment'
+        ? `Counter increased from ${review.before} to ${review.before! + 1}. Your smart account authorized the call.`
+        : `${verifiedTitles[review.stage]}. Continue with the next step.`,
+    );
+  } catch (errorValue) {
+    record.result = {
+      ...((record.result || {}) as ContractResult),
+      verification_error: requestError(errorValue).message,
+    };
+    save();
+    throw errorValue;
+  } finally {
+    void refreshWalkthrough();
+    void refreshAccount();
+  }
+}
 async function confirmed(result: TransactionResult) {
   if (!pending) throw Error('The transaction record is missing.');
   if (
@@ -855,21 +1324,13 @@ async function confirmed(result: TransactionResult) {
       const offerResult = inner?.type === 'manageSellOffer' ? inner.manageSellOfferResult : undefined;
       const offer = offerResult?.type === 'manageSellOfferSuccess' ? offerResult.success.offer : undefined;
       if (offer?.type !== 'manageOfferCreated')
-        status('The offer transaction succeeded without a resting offer. It can have traded immediately.');
+        notice('The offer transaction succeeded without a resting offer. It can have traded immediately.');
     } catch {
-      status('The original transaction succeeded on testnet. Offer details are unavailable.');
+      notice('The original transaction succeeded on testnet. Offer details are unavailable.');
     }
   }
-  if (result.successful && pending.contract) {
-    const verification = await verifyContractResult(demoRpc(), pending.address, pending.contract);
-    pending.result = { ...(pending.result as Record<string, unknown>), verification };
-    save();
-    status(
-      pending.contract.stage === 'increment'
-        ? `Contract authorization verified. Counter changed from ${pending.contract.before} to ${pending.contract.before! + 1}.`
-        : 'Setup step confirmed. Select Set up contract demo to continue, or Increment counter when ready.',
-    );
-  }
+  if (result.successful && pending.contract) await verifyContract(pending);
+  else void refreshAccount();
 }
 $('submit').onclick = () =>
   action(async () => {
@@ -894,6 +1355,7 @@ $('submit').onclick = () =>
           pending.result = {
             rejected: true,
             response: sent.status,
+            code: sent.errorResult.result.type,
             result_xdr: sent.errorResult?.toXdr('base64'),
             hash: pending.hash,
           };
@@ -940,12 +1402,21 @@ $('submit').onclick = () =>
       } else {
         pending.state = 'unknown';
         save();
-        status(`Submission is uncertain. Check the original hash. ${error.message}`);
+        notice(`Submission is uncertain. Check the original hash. ${error.message}`);
       }
     }
   }, 'submitting');
 $('check').onclick = () =>
   action(async () => {
+    // A confirmed walkthrough transaction whose effect could not be read: read it again. Nothing is sent.
+    if (
+      pending?.contract &&
+      pending.state === 'submitted' &&
+      !((pending.result || {}) as ContractResult).verification
+    ) {
+      status('Checking the confirmed result on the ledger.');
+      return verifyContract(pending);
+    }
     if (!pending || !['submitting', 'unknown'].includes(pending.state)) return;
     status('Reading the ledger and checking the original transaction hash.');
     // Read the latest ledger first. Horizon ingests ledgers in order, so a later 404 covers that ledger.
@@ -968,7 +1439,7 @@ $('check').onclick = () =>
           pending.contract &&
           authorizationExpiry(pending.contract) >= (await demoRpc().getLatestLedger()).sequence
         ) {
-          status(
+          notice(
             `The original transaction expired. Its contract authorization remains valid through ledger ${authorizationExpiry(pending.contract)}. Check again later.`,
           );
           return;
@@ -977,7 +1448,7 @@ $('check').onclick = () =>
         save();
         status('The transaction expired without reaching the ledger. It can never apply.');
       } else
-        status(
+        notice(
           'The original hash is not found yet. This does not prove failure. Do not submit a replacement.',
         );
     }
@@ -995,34 +1466,46 @@ $('clear').onclick = () =>
       ['waiting', 'signing_unknown'].includes(pending.state) &&
       authorizationExpiry(pending.contract) >= (await demoRpc().getLatestLedger()).sequence
     ) {
-      status(
+      notice(
         `Wait until after ledger ${authorizationExpiry(pending.contract)} before clearing this unknown authorization result.`,
       );
       return;
     }
-    const cleared = pending.state;
+    const cleared = pending;
     pending = null;
     save();
+    activity.record(
+      'transaction',
+      `${actionTitle(cleared.kind, cleared.contract?.stage)} · ${
+        cleared.state === 'review'
+          ? 'Transaction discarded'
+          : cleared.state === 'signed'
+            ? 'Signed transaction cleared'
+            : 'Stopped request cleared'
+      }`,
+      { hash: cleared.hash, state: cleared.state },
+    );
     selectedAction = null;
     closeReview();
+    selectedStage = null;
     status(
-      cleared === 'review'
+      cleared.state === 'review'
         ? 'The transaction was discarded. Choose another action.'
-        : cleared === 'signed'
+        : cleared.state === 'signed'
           ? 'The signed transaction was cleared without submission. Choose another action.'
           : 'The stopped request was cleared. Decline any 1Password prompt that appears.',
     );
   }, 'clearing');
 try {
   pending = readJournal();
-  activity.transaction(pending);
+  activity.transaction(pending, pending ? actionTitle(pending.kind, pending.contract?.stage) : undefined);
   if (pending && ['waiting', 'signing_unknown'].includes(pending.state))
-    status(
+    notice(
       'A signing request was open when the page closed. Decline the 1Password prompt if it appears, then clear this record.',
     );
 } catch {
   journalBlocked = true;
-  status('The local demo journal could not be read. Preserve it before continuing.');
+  notice('The local demo journal could not be read. Preserve it before continuing.');
 }
 render();
 if (pending && !hasFinishedTransaction()) {

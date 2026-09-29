@@ -266,25 +266,26 @@ try {
     name: dedicated.name,
     network: Networks.TESTNET,
   });
-  for (let step = 0; step < 4; step++) {
+  // Walk the setup steps in order. A step that the ledger already has is skipped.
+  for (const stage of ['upload-account', 'upload-target', 'deploy-account', 'deploy-target'] as const) {
     let prepared: ContractPreparation;
     try {
       prepared = await prepareContract(
         server,
         signer,
-        false,
+        stage,
+        1,
         async (file) => new Uint8Array(readFileSync(new URL(`../fixtures/wasm/${file}`, import.meta.url))),
       );
     } catch (error) {
-      if (error instanceof Error && error.message === 'The contract demo is ready. Select Increment counter.')
-        break;
+      if ((error as { walkthrough?: string }).walkthrough === 'done') continue;
       throw error;
     }
     await submit(await authorize(prepared, 'cli'));
   }
   for (const method of ['cli', 'sdk'] as const) {
     const prepared = await authorize(
-      await prepareContract(server, signer, true, async () => {
+      await prepareContract(server, signer, 'increment', 1, async () => {
         throw Error('No upload is expected.');
       }),
       method,
