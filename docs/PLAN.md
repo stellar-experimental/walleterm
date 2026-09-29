@@ -46,4 +46,6 @@ See [live tests](LIVE-TESTS.md) for setup and recovery commands.
 Passkeys and CAP-72 contract signers are not planned and are out of scope.
 New C-account formats require adapters for their digest and signature rules.
 The existing tests do not establish compatibility with every smart account.
-[Agentic payments](AGENTIC-PAYMENTS.md) records x402 and MPP compatibility research and the pending work.
+[Agentic payments](AGENTIC-PAYMENTS.md) records x402 and MPP compatibility and ranks the future work.
+x402 needs no runtime change. Its next step is a pinned testnet fixture and a live payment.
+MPP Charge waits for upstream changes. MPP push and MPP Session are out of scope.

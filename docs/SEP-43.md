@@ -122,6 +122,7 @@ The SDK contract client joins `ext` with commas, so `ext` stays an array.
 It signs `SHA-256(preimage bytes)` and returns the Base64 64-byte signature.
 Freighter and SDK `KeypairSigner.signAuthEntry` use the same rule.
 `AssembledTransaction.signAuthEntries({ signAuthEntry: wallet })` works for G-address entries.
+An x402 client can use this method as its signer. See [agentic payments](AGENTIC-PAYMENTS.md).
 
 ```ts
 const preimage = buildAuthorizationEntryPreimage(entry, expirationLedger, Networks.TESTNET);
