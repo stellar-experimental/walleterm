@@ -18,6 +18,7 @@ import {
 } from './contracts.ts';
 import type { ContractReview, ContractStage, WalkthroughLedger } from './contracts.ts';
 import { stepButtons, stepTitles, transactionPhases, walkthroughView } from './walkthrough.ts';
+import type { RowState } from './walkthrough.ts';
 import {
   Account,
   Asset,
@@ -234,17 +235,26 @@ function demoError(value: unknown): RequestError {
     typeof plain?.message === 'string' ? Object.assign(Error(plain.message), plain) : value,
   );
 }
+// The button that opened the window gets focus back when it closes.
+let opener: HTMLButtonElement | null = null;
 function openReview() {
-  if (!$('review').open) $('review').showModal();
+  if ($('review').open) return;
+  const active = document.activeElement as HTMLButtonElement | null;
+  opener = active?.tagName === 'BUTTON' ? active : null;
+  $('review').showModal();
 }
 function closeReview() {
   $('review').close();
-  (pending || (busy && selectedAction)
-    ? $('open-review')
-    : selectedStage
-      ? $('walkthrough-title')
-      : $('actions-title')
-  ).focus();
+  const target =
+    opener?.isConnected && !opener.disabled && opener.getClientRects().length
+      ? opener
+      : pending || (busy && selectedAction)
+        ? $('open-review')
+        : selectedStage
+          ? $('walkthrough-title')
+          : $('actions-title');
+  // Focus must not scroll the page away from where the reader was.
+  target.focus({ preventScroll: true });
 }
 $('open-review').onclick = openReview;
 $('close-review').onclick = closeReview;
@@ -625,9 +635,27 @@ function renderWalkthrough() {
   $('walkthrough-error').textContent = ledgerError
     ? `The demo could not read the ledger. ${ledgerError}`
     : '';
+  // Each row: its state, its mark, a status, and at most one button. Only the next step's button is primary.
+  const row = (
+    id: string,
+    rowState: RowState,
+    mark: string,
+    status: string,
+    action?: string,
+    mono = false,
+  ) => {
+    $(id).setAttribute('data-state', rowState);
+    $(`${id}-mark`).textContent = rowState === 'done' ? '✓' : mark;
+    $(`${id}-status`).textContent = rowState === 'active' ? 'In progress' : status;
+    $(`${id}-status`).classList.toggle('mono', mono);
+    const button = $(`${id}-action`) as HTMLButtonElement;
+    button.hidden = !action;
+    button.textContent = rowState === 'active' ? 'View transaction' : action || '';
+    button.disabled = rowState !== 'active' && blocked;
+    button.classList.toggle('primary', rowState === 'next');
+  };
   const code = view.code;
-  $('walkthrough-code').setAttribute('data-state', code.state);
-  $('walkthrough-code-mark').textContent = code.state === 'done' ? '✓' : '';
+  const upload = code.state === 'next' || code.state === 'active';
   $('walkthrough-code-detail').textContent =
     code.state === 'done'
       ? 'Both programs are on testnet. Every wallet uses the same code.'
@@ -636,15 +664,15 @@ function renderWalkthrough() {
         : code.stage === 'upload-target'
           ? 'The counter code is not on testnet. Upload it once, and every wallet can use it.'
           : 'Both programs must be on testnet. Every wallet uses the same code.';
-  $('walkthrough-code-status').textContent =
-    code.state === 'done' ? 'Ready' : code.state === 'active' ? 'In progress' : '';
   // An upload shows its signature count where the finished row says when it applies.
-  $('walkthrough-code-meta').textContent =
-    code.state === 'next' || code.state === 'active' ? '1 signature' : 'Before you start';
-  $('walkthrough-code-action').hidden = code.state !== 'next' && code.state !== 'active';
-  $('walkthrough-code-action').textContent =
-    code.state === 'active' ? 'View transaction' : code.stage ? stepButtons[code.stage] : '';
-  $('walkthrough-code-action').disabled = code.state !== 'active' && blocked;
+  $('walkthrough-code-meta').textContent = upload ? '1 signature' : 'Before you start';
+  row(
+    'walkthrough-code',
+    code.state,
+    '',
+    code.state === 'done' ? 'Ready' : '',
+    upload && code.stage ? stepButtons[code.stage] : undefined,
+  );
   const locked: Record<UserStage, string> = {
     'deploy-account': 'After the contract code',
     'deploy-target': 'After step 1',
@@ -658,34 +686,26 @@ function renderWalkthrough() {
         : step.stage === 'deploy-target'
           ? state?.target.id
           : undefined;
-    const shown = step.state === 'done' && address;
-    $(id).setAttribute('data-state', step.state);
-    $(`${id}-mark`).textContent = step.state === 'done' ? '✓' : String(index + 1);
-    $(`${id}-status`).textContent =
-      step.state === 'active'
-        ? 'In progress'
-        : step.state === 'locked'
-          ? locked[step.stage]
-          : shown
-            ? short(address)
-            : step.stage === 'increment' && state?.count !== undefined
-              ? `Count: ${state.count}`
-              : '';
-    $(`${id}-status`).classList.toggle('mono', !!shown);
+    const shown = step.state === 'done' && !!address;
     if (step.stage !== 'increment') $(`${id}-copy`).hidden = !shown;
-    const button = $(`${id}-action`) as HTMLButtonElement;
-    button.hidden = !(
-      step.state === 'next' ||
-      step.state === 'active' ||
-      (step.stage === 'increment' && step.state === 'done')
-    );
-    button.textContent =
-      step.state === 'active'
-        ? 'View transaction'
-        : step.state === 'done'
+    row(
+      id,
+      step.state,
+      String(index + 1),
+      step.state === 'locked'
+        ? locked[step.stage]
+        : shown
+          ? short(address)
+          : step.stage === 'increment' && state?.count !== undefined
+            ? `Count: ${state.count}`
+            : '',
+      step.state === 'next' || step.state === 'active'
+        ? stepButtons[step.stage]
+        : step.stage === 'increment' && step.state === 'done'
           ? 'Increase again'
-          : stepButtons[step.stage];
-    button.disabled = step.state !== 'active' && blocked;
+          : undefined,
+      shown,
+    );
   });
   const complete = !!state && state.account.exists && state.target.exists;
   const full = !!state && state.latest >= MAX_SETS;
@@ -716,9 +736,10 @@ function renderPhases(progress: string) {
         text = document.createElement('div'),
         label = document.createElement('strong'),
         word = document.createElement('span');
-      item.className = `review-phase is-${phase.state}${busy && phase.state === 'current' ? ' is-working' : ''}`;
+      item.className = busy && phase.state === 'current' ? 'review-phase working' : 'review-phase';
+      item.setAttribute('data-state', phase.state);
       if (phase.state === 'current') item.setAttribute('aria-current', 'step');
-      mark.className = 'phase-mark';
+      mark.className = 'mark';
       mark.setAttribute('aria-hidden', 'true');
       mark.textContent =
         phase.state === 'done'

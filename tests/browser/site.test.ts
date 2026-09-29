@@ -1950,3 +1950,29 @@ test('a journal that changes during a ledger read gets a new read for its own se
   assert.equal(record.contract.accountId, f.run('ledger.account.id'));
   assert.equal(f.el('walkthrough-deploy-target-status').textContent, 'In progress');
 });
+
+test('closing the window returns focus to its opener without scrolling the page', async () => {
+  const f = walkthroughPage(async (signer, pickSet) =>
+    ledgerFor(signer, pickSet(1), { account: false, target: false, latest: 0 }),
+  );
+  await f.connect();
+  const focused: [string, unknown][] = [];
+  const button = (id: string) =>
+    Object.assign(f.el(id), {
+      tagName: 'BUTTON',
+      isConnected: true,
+      getClientRects: () => [{}],
+      focus: (options: unknown) => focused.push([id, JSON.parse(JSON.stringify(options))]),
+    });
+  const opener = button('walkthrough-deploy-account-action');
+  button('open-review');
+  f.context.document.activeElement = opener;
+  f.run('openReview()');
+  f.click('close-review');
+  assert.deepEqual(focused, [['walkthrough-deploy-account-action', { preventScroll: true }]]);
+  // A disabled opener cannot take focus. The current transaction bar takes it, still without a scroll.
+  opener.disabled = true;
+  f.run("openReview(); pending = { kind: 'note' }");
+  f.click('close-review');
+  assert.deepEqual(focused.at(-1), ['open-review', { preventScroll: true }]);
+});

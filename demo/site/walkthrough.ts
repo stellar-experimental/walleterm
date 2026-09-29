@@ -17,8 +17,8 @@ export const stepButtons: Record<ContractStage, string> = {
   increment: 'Increase counter',
 };
 
-/** `unknown`: no ledger state yet. `active`: an unfinished transaction belongs to this row. */
-export type RowState = 'unknown' | 'locked' | 'next' | 'done' | 'active';
+/** `pending`: no ledger state yet. `active`: an unfinished transaction belongs to this row. */
+export type RowState = 'pending' | 'locked' | 'next' | 'done' | 'active';
 export type UserStage = 'deploy-account' | 'deploy-target' | 'increment';
 export interface WalkthroughView {
   code: { state: RowState; stage?: 'upload-account' | 'upload-target' };
@@ -43,7 +43,7 @@ export function walkthroughView(ledger: WalkthroughLedger | null, active?: Contr
     for (const step of steps) if (step.stage === active) step.state = 'active';
     return { code, steps, done: states.filter((state) => state === 'done').length, next };
   };
-  if (!ledger) return rows({ state: 'unknown' }, ['unknown', 'unknown', 'unknown'], null);
+  if (!ledger) return rows({ state: 'pending' }, ['pending', 'pending', 'pending'], null);
   const upload = !ledger.code.account ? 'upload-account' : !ledger.code.target ? 'upload-target' : undefined;
   const code: WalkthroughView['code'] = upload ? { state: 'next', stage: upload } : { state: 'done' };
   const account: RowState = ledger.account.exists ? 'done' : upload ? 'locked' : 'next';
