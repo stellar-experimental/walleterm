@@ -80,9 +80,16 @@ impl Controls {
 }
 
 fn is_event(line: &str) -> bool {
-    ["Connected ", "Selected wallet ", "Disconnected ", "The connection with ", "Incorrect connection code "]
-        .iter()
-        .any(|prefix| line.starts_with(prefix))
+    [
+        "Connected ",
+        "Selected wallet ",
+        "Disconnected ",
+        "The connection with ",
+        "Incorrect connection code ",
+        "Could not list the wallets ",
+    ]
+    .iter()
+    .any(|prefix| line.starts_with(prefix))
 }
 
 pub struct Options {

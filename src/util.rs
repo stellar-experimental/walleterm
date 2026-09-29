@@ -128,17 +128,23 @@ pub fn parse_iso_millis(text: &str) -> Option<i64> {
     Some(days * 86_400_000 + h * 3_600_000 + m * 60_000 + s * 1000 + milli)
 }
 
-/// A local wall-clock time for the terminal, such as `3:04 PM`.
-pub fn local_clock(ms: i64) -> String {
+/// The local hour, minute, and second of Unix milliseconds. UTC when the local time is unavailable.
+fn local_parts(ms: i64) -> (i64, i64, i64) {
     let seconds = ms.div_euclid(1000) as libc::time_t;
     // SAFETY: `localtime_r` reads `seconds` and writes only into `tm`, which it fully owns.
     let mut tm: libc::tm = unsafe { std::mem::zeroed() };
     let local = unsafe { !libc::localtime_r(&seconds, &mut tm).is_null() };
-    let (hour, minute) = if local {
-        (tm.tm_hour as i64, tm.tm_min as i64)
+    if local {
+        (tm.tm_hour as i64, tm.tm_min as i64, tm.tm_sec as i64)
     } else {
-        (ms.rem_euclid(86_400_000) / 3_600_000, ms / 60_000 % 60)
-    };
+        let day = ms.rem_euclid(86_400_000);
+        (day / 3_600_000, day / 60_000 % 60, day / 1000 % 60)
+    }
+}
+
+/// A local wall-clock time for the terminal, such as `3:04 PM`.
+pub fn local_clock(ms: i64) -> String {
+    let (hour, minute, _) = local_parts(ms);
     clock(hour, minute)
 }
 
@@ -146,6 +152,13 @@ pub fn local_clock(ms: i64) -> String {
 pub fn clock(hour: i64, minute: i64) -> String {
     let twelve = if hour % 12 == 0 { 12 } else { hour % 12 };
     format!("{twelve}:{minute:02} {}", if hour < 12 { "AM" } else { "PM" })
+}
+
+/// The time prefix of each tunnel and demo event line, such as `5:24:07 PM  `.
+pub fn stamp(ms: i64) -> String {
+    let (hour, minute, second) = local_parts(ms);
+    let twelve = if hour % 12 == 0 { 12 } else { hour % 12 };
+    format!("{twelve}:{minute:02}:{second:02} {}  ", if hour < 12 { "AM" } else { "PM" })
 }
 
 /// The time left until a deadline, in whole minutes rounded up, such as `in 5 minutes`. A passed deadline is `now`.
@@ -225,6 +238,9 @@ mod tests {
         assert_eq!(minutes_left(0), "now");
         assert_eq!(minutes_left(-5_000), "now");
         assert!(local_clock(1_800_000_000_000).ends_with('M'));
+        let prefix = stamp(1_800_000_000_000);
+        assert!(prefix.ends_with("M  ") && prefix.matches(':').count() == 2, "{prefix}");
+        assert!(prefix.starts_with(local_clock(1_800_000_000_000).split(' ').next().unwrap()));
     }
 
     #[test]

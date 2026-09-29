@@ -1,0 +1,174 @@
+{
+  "observed_at": "2026-09-29",
+  "network": "testnet",
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "subject": "The tunnel terminal lines, the connect dialog text, the demo USDC trustline step, an offer and its cancellation, and declined 1Password prompts",
+  "status": "passed_with_findings",
+  "window_utc": {
+    "first_transaction": "2026-09-29T21:24:07Z",
+    "last_transaction": "2026-09-29T21:25:37Z"
+  },
+  "operator": "The maintainer approved or declined each 1Password prompt. An agent drove the local demo page in Chrome.",
+  "source": {
+    "revision": "977fd19",
+    "branch": "ux-review-fixes",
+    "base": "main 666fb1f"
+  },
+  "install": {
+    "kind": "A release walleterm binary built with make build in the worktree (walleterm 0.2.0-16-g977fd19). The tunnel and the demo used ports 18787 and 18788. The page and the bridge used loopback origins."
+  },
+  "vault_filter": {
+    "argument": "--vault Wallace",
+    "filtered_wallet_list": "walleterm-v2-test-a, walleterm-v2-test-b, walleterm-v2-test-c"
+  },
+  "components": {
+    "bridge_protocol_version": 3
+  },
+  "account": "GBMU6VU5VT7BKVIGS5D3VXDYHN7CYYZMF2KYLAKYL2L6BE3DWLSF5IR5",
+  "account_name": "walleterm-v2-test-b",
+  "terminal_checks": [
+    {
+      "case": "startup",
+      "status": "passed",
+      "observed": "The code expires at 5:21 PM (in 5 minutes). It works once. The block says to enter the URL and code in the website or to scan with its Scan tunnel button."
+    },
+    {
+      "case": "incorrect codes",
+      "status": "passed",
+      "observed": "Five lines 'Incorrect connection code from https://probe.example (attempt N of 5).', then a block 'Too many incorrect codes. New connections pause until 5:17 PM (in 1 minute). Then use this new code.'"
+    },
+    {
+      "case": "rejected Origin",
+      "status": "passed",
+      "observed": "HTTP 403 with access-control-allow-origin: http://probe.example and 'Serve the website over HTTPS. Plain HTTP works only on localhost and 127.0.0.1.'"
+    },
+    {
+      "case": "idle expiry",
+      "status": "passed",
+      "observed": "One line without a QR code: 'The previous code expired. Enter code <new code> with <tunnel URL>. It expires at 5:26 PM (in 5 minutes).'"
+    },
+    {
+      "case": "connect",
+      "status": "passed",
+      "observed": "'Connected http://127.0.0.1:18788. Wallet scope: available, wallet changes allowed.' then a block 'The code was used. Use this new code for the next website.'"
+    },
+    {
+      "case": "select",
+      "status": "passed",
+      "observed": "'Selected wallet GBMU6VU…SF5IR5 for http://127.0.0.1:18788.'"
+    },
+    {
+      "case": "disconnect",
+      "status": "passed",
+      "observed": "'Disconnected http://127.0.0.1:18788.'"
+    }
+  ],
+  "dialog_checks": [
+    {
+      "case": "grant text",
+      "status": "passed",
+      "observed": "Next, you choose one active wallet. This website can then switch among all listed wallets."
+    },
+    {
+      "case": "help text",
+      "status": "passed",
+      "observed": "The walleterm tunnel command prints the Tunnel URL and the Connection code. The code works once and expires after 5 minutes."
+    },
+    {
+      "case": "URL with a path",
+      "status": "passed",
+      "observed": "aria-invalid true, Continue disabled, 'Use the Tunnel URL exactly as walleterm tunnel prints it. It starts with https:// and has no path.'"
+    },
+    {
+      "case": "picker text",
+      "status": "passed",
+      "observed": "This website can switch among all listed wallets. Walleterm signs each request from this website. 1Password can ask you to approve. The connection lasts one hour."
+    }
+  ],
+  "transactions": [
+    {
+      "action": "Add USDC trustline",
+      "operation": "changeTrust USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 limit 100.0000000",
+      "sequence": "20897184853524519",
+      "hash": "94b5eb95b5d2d510d475eb2ac3e84791645c0d1f3409a9039951ecd44aafeced",
+      "ledger": 4938692,
+      "successful": true,
+      "fee_charged_stroops": 100,
+      "page_after": "The USDC trustline is on testnet. You can place the offer now. The card then showed 'The USDC trustline is ready.', the Circle faucet line, and an enabled Offer."
+    },
+    {
+      "action": "Offer 0.1 test XLM",
+      "operation": "manageSellOffer selling XLM buying USDC:GBBD47…ZLLFLA5 amount 0.1000000 price 10 offerId 0",
+      "sequence": "20897184853524520",
+      "hash": "795478a17650d97eae4097fcedc0d4d2d657985f99a23d74399a7092b5005d14",
+      "ledger": 4938701,
+      "successful": true,
+      "fee_charged_stroops": 100,
+      "resting_offer_id": "839277"
+    },
+    {
+      "action": "Cancel newest offer",
+      "operation": "manageSellOffer amount 0.0000000 offerId 839277",
+      "sequence": "20897184853524521",
+      "hash": "2760b4159f44475bd56f66383ab896d1912978b450966c3393ca3ad78e679bc1",
+      "ledger": 4938710,
+      "successful": true,
+      "fee_charged_stroops": 100,
+      "open_offers_after": 0
+    }
+  ],
+  "signatures_not_submitted": [
+    {
+      "action": "Write a note",
+      "status": "observed",
+      "hash": "255c4d96274dccaa4aee076c9f7cf9d0eb12476445037034b848ca97940ea926",
+      "sequence": "20897184853524522",
+      "note": "Planned as the declined prompt. 1Password reused the earlier approval and showed no prompt, so it signed. The page cleared it without submission. Horizon returns 404 for this hash."
+    }
+  ],
+  "refusals": [
+    {
+      "case": "1Password locked, vault check prompt canceled",
+      "status": "finding",
+      "state": "denied",
+      "page": "The selected 1Password vault is unavailable. Check --vault and the 1Password CLI.",
+      "phase": "The signing request was declined. Nothing was signed.",
+      "terminal": "No line.",
+      "findings": [
+        "The message blames --vault when the person canceled the prompt.",
+        "The tunnel printed no line for a request that ended before signing."
+      ]
+    },
+    {
+      "case": "SSH key approval declined",
+      "status": "passed",
+      "hash": "d26b102248de546b10f06a2393d5686253af26fc53039ee3fa95d1f2ffe5438c",
+      "sequence": "20897184853524522",
+      "state": "denied",
+      "page": "1Password did not sign. You declined the prompt, or 1Password refused the request.",
+      "phase": "The signing request was declined. Nothing was signed.",
+      "terminal": "1Password did not sign d26b1022… (account GBMU6VU…, sequence 20897184853524522) for http://127.0.0.1:18788. You declined the prompt, or 1Password refused the request."
+    }
+  ],
+  "final_account_state": {
+    "sequence": "20897184853524521",
+    "balances": [
+      {
+        "asset": "USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+        "balance": "0.0000000",
+        "limit": "100.0000000",
+        "authorized": true
+      },
+      {
+        "asset": "XLM",
+        "balance": "10003.0070348"
+      }
+    ],
+    "open_offers": 0
+  },
+  "limits": [
+    "The page used the loopback bridge, not the Cloudflare URL.",
+    "The Cloudflare 524 limit was measured by the bridge agent with a local slow server, not with a slow vault lookup.",
+    "The findings in refusals[0] are fixed after this record; see the follow-up in the PR."
+  ]
+}

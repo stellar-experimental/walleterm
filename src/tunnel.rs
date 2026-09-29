@@ -13,7 +13,7 @@ use tokio::time::Instant;
 use crate::bridge::{BoxFuture, PairingFn, Rotation};
 use crate::cancel::Cancel;
 use crate::error::{Error, Result};
-use crate::util::{iso_millis, local_clock, minutes_left, now_ms, parse_iso_millis};
+use crate::util::{local_clock, minutes_left, now_ms, parse_iso_millis, stamp};
 
 /// Health probes run this often after startup.
 pub const HEALTH_INTERVAL: Duration = Duration::from_secs(15);
@@ -100,7 +100,7 @@ pub async fn wait_for_tunnel(tunnel: &mut Tunnel, timeout: Duration, stop: &Canc
     let deadline = Instant::now() + timeout;
     loop {
         if let Some(code) = *tunnel.exited.borrow() {
-            return Err(Error::new("internal", format!("The tunnel exited before startup ({code}).")));
+            return Err(tunnel_exited(code));
         }
         tokio::select! {
             chunk = tunnel.output.recv() => {
@@ -110,11 +110,11 @@ pub async fn wait_for_tunnel(tunnel: &mut Tunnel, timeout: Duration, stop: &Canc
                     let code = tokio::select! {
                         code = exited => code.ok().and_then(|c| *c).unwrap_or(1),
                         () = tokio::time::sleep_until(deadline) => {
-                            return Err(Error::new("internal", "The tunnel did not return a URL within 30 seconds."));
+                            return Err(no_url());
                         }
                         () = stop.cancelled() => return Err(stopped()),
                     };
-                    return Err(Error::new("internal", format!("The tunnel exited before startup ({code}).")));
+                    return Err(tunnel_exited(code));
                 };
                 seen.push_str(&chunk);
                 if seen.len() > RETAINED_OUTPUT {
@@ -131,15 +131,30 @@ pub async fn wait_for_tunnel(tunnel: &mut Tunnel, timeout: Duration, stop: &Canc
             }
             changed = tunnel.exited.changed() => {
                 if changed.is_err() {
-                    return Err(Error::new("internal", "The tunnel exited before startup (1)."));
+                    return Err(tunnel_exited(1));
                 }
             }
             () = tokio::time::sleep_until(deadline) => {
-                return Err(Error::new("internal", "The tunnel did not return a URL within 30 seconds."));
+                return Err(no_url());
             }
             () = stop.cancelled() => return Err(stopped()),
         }
     }
+}
+
+/// Startup errors print once, before the command exits.
+fn tunnel_exited(code: i32) -> Error {
+    Error::new(
+        "internal",
+        format!("cloudflared stopped before the tunnel started (exit code {code}). Run the command again."),
+    )
+}
+
+fn no_url() -> Error {
+    Error::new(
+        "internal",
+        "cloudflared did not report a tunnel URL within 30 seconds. Check the Internet connection and run the command again.",
+    )
 }
 
 pub fn stopped() -> Error {
@@ -315,7 +330,9 @@ pub async fn launch(
             stopping.clone(),
             starting.clone(),
         );
+        let (deps, label) = (deps.clone(), label.to_owned());
         Arc::new(move |requested: i32| {
+            let (deps, label) = (deps.clone(), label.clone());
             let (controller, shared, service, temporary, finished, code, stopping, starting) = (
                 controller.clone(),
                 shared.clone(),
@@ -347,6 +364,12 @@ pub async fn launch(
                             result = 1;
                         }
                         temporary.lock().unwrap().take();
+                        // A normal stop says so. A terminal shows `^C` without a line end, so a new line comes first.
+                        if result == 0 {
+                            let start = if deps.output.columns().is_some() { "\n" } else { "" };
+                            deps.output
+                                .write(&format!("{start}{}{label} stopped.\n", stamp(now_ms() as i64)));
+                        }
                         *code.lock().unwrap() = Some(result);
                         finished.notify_waiters();
                         result
@@ -516,7 +539,7 @@ pub async fn launch(
                     let origin = shared.origin.lock().unwrap().clone();
                     text.push_str(&format!(
                         "\nPublic URL: {origin}\nScan this QR code with your phone camera to open the site:\n{}\n",
-                        crate::qr::for_terminal(&origin, deps.output.columns())
+                        crate::qr::for_terminal(&origin, deps.output.columns(), "open the printed URL")
                     ));
                 }
             }
@@ -546,7 +569,6 @@ pub async fn launch(
         return fail(if controller.is_cancelled() { stopped() } else { output_failed() }).await;
     }
     shared.started.store(true, Ordering::SeqCst);
-    let label = label.to_owned();
     // Recovery stops the old tunnel under the start lock, so shutdown waits for that stop too.
     let retire = {
         let (shared, starting) = (shared.clone(), starting.clone());
@@ -561,17 +583,7 @@ pub async fn launch(
             })
         })
     };
-    tokio::spawn(monitor(
-        label,
-        deps,
-        shared,
-        service,
-        controller,
-        connect,
-        retire,
-        print_connection,
-        stop_all,
-    ));
+    tokio::spawn(monitor(deps, shared, service, controller, connect, retire, print_connection, stop_all));
     Ok(running)
 }
 
@@ -598,7 +610,7 @@ fn pairing_text(pairing: &Value, reason: Option<&str>, now: i64, columns: Option
         reason.map(|r| format!("{r}\n")).unwrap_or_default(),
         field("url"),
         field("code"),
-        crate::qr::for_terminal(&pairing.to_string(), columns),
+        crate::qr::for_terminal(&pairing.to_string(), columns, "use the printed URL and code"),
         expiry(pairing, now),
     )
 }
@@ -621,7 +633,8 @@ fn rotation_text(pairing: &Value, rotation: Rotation, now: i64, columns: Option<
             pairing_text(pairing, Some(&reason), now, columns)
         }
         Rotation::Expired => format!(
-            "The previous code expired. Enter code {} with {}. It expires at {}.\n",
+            "{}The previous code expired, so the QR code above no longer works. Enter code {} with {}. It expires at {}.\n",
+            stamp(now),
             pairing["code"].as_str().unwrap_or_default(),
             pairing["url"].as_str().unwrap_or_default(),
             expiry(pairing, now),
@@ -631,7 +644,6 @@ fn rotation_text(pairing: &Value, rotation: Rotation, now: i64, columns: Option<
 
 #[allow(clippy::too_many_arguments)]
 async fn monitor(
-    label: String,
     deps: Arc<LaunchDeps>,
     shared: Arc<Shared>,
     service: Arc<dyn Service>,
@@ -652,7 +664,7 @@ async fn monitor(
     };
     let report = |message: &str, last: &mut Instant| -> bool {
         *last = Instant::now();
-        deps.output.write(&format!("[{}] {label}: {message}\n", iso_millis(now_ms() as i64)))
+        deps.output.write(&format!("{}{message}\n", stamp(now_ms() as i64)))
     };
     macro_rules! say {
         ($message:expr) => {
@@ -707,7 +719,7 @@ async fn monitor(
             if restarts.len() >= MAX_RESTARTS {
                 if !paused {
                     say!(
-                        "Tunnel recovery is paused until the restart limit clears. The local service stays available."
+                        "Tunnel recovery paused after three restarts in ten minutes. It resumes later. The local service stays available."
                     );
                 }
                 paused = true;

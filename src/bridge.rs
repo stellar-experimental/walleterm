@@ -185,9 +185,13 @@ impl Scope {
     fn as_str(self) -> &'static str {
         if self == Scope::Selected { "selected" } else { "available" }
     }
-    /// The scope for the terminal: its protocol name and what it permits.
+    /// What the scope permits, for the terminal.
     fn describe(self) -> &'static str {
-        if self == Scope::Selected { "selected, one wallet" } else { "available, wallet changes allowed" }
+        if self == Scope::Selected {
+            "It can use one wallet."
+        } else {
+            "It can switch among the listed wallets."
+        }
     }
 }
 
@@ -524,18 +528,27 @@ impl Bridge {
         }
     }
 
-    /// The terminal records each produced or withheld signature once per state.
+    /// The terminal prints one line for each request that ends: signed, not signed, or not sent.
     /// A signature that the bridge already sent was not withheld. Its later ending prints no line.
     fn log_result(&self, r: &mut Record) {
-        if r.logged == Some(r.state) {
+        let before = r.logged;
+        if before == Some(r.state) {
             return;
         }
         r.logged = Some(r.state);
+        let (what, origin) = (about(r), &r.origin);
+        let reason = r.error.as_ref().and_then(|e| e["message"].as_str()).unwrap_or_default();
         match r.state {
-            RequestState::Signed => self.log(&format!("Signed {} for {}.\n", about(r), r.origin)),
+            RequestState::Signed => self.log(&format!("Signed {what} for {origin}.\n")),
+            RequestState::Denied | RequestState::Expired => {
+                self.log(&format!("Did not sign {what} for {origin}. {reason}\n"))
+            }
+            // A produced signature that never reached the website, or a signing call that did not finish.
+            RequestState::Unknown if !r.delivered && before == Some(RequestState::Signed) => {
+                self.log(&format!("Did not send the signature for {what} to {origin}. {reason}\n"))
+            }
             RequestState::Unknown if !r.delivered => {
-                let message = r.error.as_ref().and_then(|e| e["message"].as_str()).unwrap_or_default();
-                self.log(&format!("Signature withheld or stopped for {}: {message}\n", about(r)));
+                self.log(&format!("Signing did not finish for {what} for {origin}. {reason}\n"))
             }
             _ => {}
         }
@@ -713,6 +726,17 @@ impl Bridge {
         // Shutdown waits for this lookup and its cleanup to end.
         self.idle.notify_waiters();
         result
+    }
+
+    /// The wallets for a website call. A failure prints one line with the website and the reason.
+    async fn wallets(&self, req: &HttpRequest) -> std::result::Result<Vec<SignerInfo>, Fail> {
+        self.keys().await.map_err(|e| {
+            if !self.closing() {
+                let site = req.origin.as_deref().unwrap_or_default();
+                self.log(&format!("Could not list the wallets for {site}. {}\n", e.message));
+            }
+            listing_failure(e)
+        })
     }
 
     /// Verify and attach with the scope of the last check before signing. Returns the result field and value.
@@ -911,7 +935,9 @@ impl Bridge {
         let still_signing =
             self.state.lock().unwrap().records.get(key).is_some_and(|r| r.state == RequestState::Signing);
         if !still_signing {
-            self.log(&format!("1Password returned a signature after cancellation. Withheld {hash}.\n"));
+            self.log(&format!(
+                "1Password signed after the request stopped. The tunnel did not send the signature for {hash}.\n"
+            ));
         }
         let result = Self::finish(&artifact, &passphrase, &public_key, checked_at, &signature)?;
         let mut state = self.state.lock().unwrap();
@@ -1153,7 +1179,7 @@ impl Bridge {
         });
         state.tokens.insert(session.token.clone(), session.id.clone());
         state.sessions.insert(session.id.clone(), session);
-        self.log(&format!("Connected {site}. Wallet scope: {}.\n", scope.describe()));
+        self.log(&format!("Connected {site}. {}\n", scope.describe()));
         Self::rotate(&mut state, Rotation::Used, now);
         reply(201, body)
     }
@@ -1163,7 +1189,7 @@ impl Bridge {
         req: &HttpRequest,
         session_id: &str,
     ) -> std::result::Result<Reply, Fail> {
-        let signers = self.keys().await.map_err(listing_failure)?;
+        let signers = self.wallets(req).await?;
         let mut state = self.state.lock().unwrap();
         self.website(&state, req)?;
         let s = state.sessions.get_mut(session_id).ok_or_else(Self::disconnected)?;
@@ -1240,7 +1266,7 @@ impl Bridge {
             }
             offered.unzip()
         };
-        let signers = self.keys().await.map_err(listing_failure)?;
+        let signers = self.wallets(req).await?;
         let mut state = self.state.lock().unwrap();
         self.website(&state, req)?;
         let s = state.sessions.get(session_id).ok_or_else(Self::disconnected)?;
@@ -1403,7 +1429,8 @@ impl Bridge {
         // No display shows a message except this line. The signature binds nothing that the text does not name.
         if let Artifact::Message(text) = &artifact {
             self.log(&format!(
-                "Message request from {origin} for {public_key} ({} bytes, digest {hash}, no network, site, or expiry binding): {}\n",
+                "Message request from {origin} for {} ({} bytes, digest {hash}, no network, site, or expiry binding): {}\n",
+                short(&public_key),
                 text.len(),
                 crate::cli::go_quote(text)
             ));
@@ -1545,22 +1572,19 @@ fn address_of(r: &Record) -> String {
     r.identity.get("address").and_then(Value::as_str).unwrap_or_default().to_owned()
 }
 
-/// A request as the terminal names it: its hash, signer, and kind.
+/// A request as the terminal names it: its kind, the full hash to look up, and the short signer.
 fn about(r: &Record) -> String {
+    let (hash, key) = (&r.hash, short(&r.public_key));
     match &r.artifact {
-        Artifact::Transaction(_) => format!(
-            "{} (account {}, sequence {})",
-            r.hash,
-            r.public_key,
-            r.details["sequence"].as_str().unwrap_or_default()
-        ),
-        Artifact::Message(_) => format!("{} (signer {}, SEP-53 message)", r.hash, r.public_key),
-        _ => format!(
-            "{} (signer {}, authorization {})",
-            r.hash,
-            r.public_key,
-            r.details["address"].as_str().unwrap_or_default()
-        ),
+        Artifact::Transaction(_) => {
+            let sequence = r.details["sequence"].as_str().unwrap_or_default();
+            format!("transaction {hash} (account {key}, sequence {sequence})")
+        }
+        Artifact::Message(_) => format!("SEP-53 message {hash} (signer {key})"),
+        _ => {
+            let address = short(r.details["address"].as_str().unwrap_or_default());
+            format!("authorization entry {hash} (signer {key}, address {address})")
+        }
     }
 }
 
@@ -1592,10 +1616,12 @@ pub fn production(socket: std::path::PathBuf, vault: Option<String>) -> Deps {
                 Ok(hex(&signature))
             })
         }),
+        // Each terminal line starts with the local time, as the tunnel status lines do.
         log: Box::new(|line| {
             use std::io::Write;
+            let text = format!("{}{line}", crate::util::stamp(crate::util::now_ms() as i64));
             let mut out = std::io::stdout().lock();
-            let _ = out.write_all(line.as_bytes()).and_then(|()| out.flush());
+            let _ = out.write_all(text.as_bytes()).and_then(|()| out.flush());
         }),
         now: Box::new(crate::util::now_ms),
     }

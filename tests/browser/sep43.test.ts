@@ -81,7 +81,8 @@ function holdable() {
   };
 }
 // Connection lines are not about signing. These tests read only the signing lines.
-const signingLines = (lines: string[]) => lines.filter((line) => !/^(Connected|Selected wallet) /.test(line));
+const signingLines = (lines: string[]) =>
+  lines.filter((line) => !/^(Connected|Selected wallet|Could not list the wallets) /.test(line));
 function transaction(source = key.publicKey()) {
   return new TransactionBuilder(new Account(source, '10'), {
     fee: '100',
@@ -156,9 +157,11 @@ test('signMessage signs SEP-53 text and the tunnel prints one escaped line', asy
     expect(key.verifyMessage(message, Buffer.from(result.signedMessage, 'base64'))).toBe(true);
   }
   const digest = Buffer.from(hash(Buffer.from(`Stellar Signed Message:\n${text}`))).toString('hex');
+  // The terminal shortens a G-address as the connection dialog does.
+  const signer = `${key.publicKey().slice(0, 7)}…${key.publicKey().slice(-6)}`;
   expect(signingLines(lines).slice(0, 2)).toEqual([
-    `Message request from ${site} for ${key.publicKey()} (67 bytes, digest ${digest}, no network, site, or expiry binding): "sep43.example asks for proof of key control.\\nNonce: 5f1c \\u202egpj.exe"\n`,
-    `Signed ${digest} (signer ${key.publicKey()}, SEP-53 message) for ${site}.\n`,
+    `Message request from ${site} for ${signer} (67 bytes, digest ${digest}, no network, site, or expiry binding): "sep43.example asks for proof of key control.\\nNonce: 5f1c \\u202egpj.exe"\n`,
+    `Signed SEP-53 message ${digest} (signer ${signer}) for ${site}.\n`,
   ]);
   expect(f.calls()).toBe(3);
 });

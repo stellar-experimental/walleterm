@@ -16,7 +16,8 @@ walleterm --version
 
 `tunnel` starts the testnet signing bridge for websites. `demo` starts an example website.
 Each command runs its own local server and Cloudflare Quick Tunnel, and prints its public URL and a QR code.
-`tunnel` also prints one line for each connection event and each signature result. No line holds a code or a token.
+`tunnel` also prints one line for each connection event and each request that ends. No line holds a code or a token.
+Event and status lines start with the local time. Ctrl+C prints a last line, such as "Walleterm tunnel stopped."
 Both commands need cloudflared. The bridge also needs macOS and the 1Password SSH agent.
 See [the website bridge guide](WEB-BRIDGE.md) and [the bridge protocol](BRIDGE-PROTOCOL.md).
 

@@ -16,32 +16,41 @@ Enter both in the website. Or scan the QR code with the website's Scan tunnel bu
 The QR code appears when the terminal is wide enough. A narrow terminal shows the required width instead.
 The terminal needs no input. Ctrl+C stops the bridge.
 
-The terminal prints one line for each connection event and for each produced, refused, or withheld signature:
+The terminal prints one line for each connection event and for each request that ends.
+Each line starts with the local time. A line names the request kind, its full hash, and the short signer address:
 
 ```text
-Connected https://example.com. Wallet scope: selected, one wallet.
-Selected wallet GABCDEF…UVWXYZ for https://example.com.
-Signed <hash> (account G..., sequence 11) for https://example.com.
-1Password did not sign <hash> (account G..., sequence 12) for https://example.com. You declined the prompt, or 1Password refused the request.
-Disconnected https://example.com.
-The connection with https://example.com expired.
-Incorrect connection code from https://example.com (attempt 1 of 5).
+5:24:07 PM  Connected https://example.com. It can use one wallet.
+5:24:15 PM  Selected wallet GABCDEF…UVWXYZ for https://example.com.
+5:25:02 PM  Signed transaction <hash> (account GABCDEF…UVWXYZ, sequence 11) for https://example.com.
+5:26:40 PM  1Password did not sign transaction <hash> (account GABCDEF…UVWXYZ, sequence 12) for https://example.com. You declined the prompt, or 1Password refused the request.
+5:27:03 PM  Did not sign transaction <hash> (account GABCDEF…UVWXYZ, sequence 13) for https://example.com. The website canceled this request.
+5:27:30 PM  Could not list the wallets for https://example.com. 1Password did not allow the vault check. Unlock 1Password and approve its prompt, then try again.
+5:28:11 PM  Disconnected https://example.com.
+6:25:15 PM  The connection with https://example.com expired.
+6:30:00 PM  Incorrect connection code from https://example.com (attempt 1 of 5).
 ```
+
+The kinds are `transaction`, `authorization entry`, and `SEP-53 message`.
+Two more lines report a request that signing started but did not complete:
+
+- "Did not send the signature for … to …" means that 1Password signed, but the website never received the signature.
+- "Signing did not finish for … for …" means that the signing call stopped. Decline the 1Password prompt if it is still open.
 
 These lines hold no code, token, or grant ID. The Origin in each line is a claim that the browser sends.
 Before it signs a message, it prints one line with the origin, key, byte count, digest, and escaped text:
 
 ```text
-Message request from https://example.com for G... (43 bytes, digest <hex>, no network, site, or expiry binding): "example.com asks..."
+5:24:30 PM  Message request from https://example.com for GABCDEF…UVWXYZ (43 bytes, digest <hex>, no network, site, or expiry binding): "example.com asks..."
 ```
 
 Each code works once and expires after five minutes. The terminal shows the expiry in local time.
 After a website uses the code, the terminal prints a new code block with a QR code:
 "The code was used. Use this new code for the next website."
 An unused code that expires prints one line, so that idle rotation does not bury the signing lines:
-"The previous code expired. Enter code 12345678 with https://…. It expires at 3:09 PM (in 5 minutes)."
-The QR code above that line no longer works. Enter the new code in the website instead.
+"The previous code expired, so the QR code above no longer works. Enter code 12345678 with https://…. It expires at 3:09 PM (in 5 minutes)."
 Five incorrect codes replace the code and pause connection for one minute. The new block says when connections resume.
+Ctrl+C prints a last line, such as "5:40:12 PM  Walleterm tunnel stopped."
 A website session lasts one hour after the first key selection. Wallet changes do not renew it.
 Restart the bridge to revoke all website sessions.
 
@@ -62,6 +71,9 @@ Restart the tunnel to change the vault. Then reconnect the website with the new 
 - The bridge reads only item metadata and public keys. It matches the full public key against the SSH agent list.
   Comments never establish vault membership.
 - A lookup failure stops wallet discovery. It never returns an unfiltered list. An empty vault returns no wallets.
+- The error names the cause from the 1Password CLI text. A dismissed or unanswered prompt, or a locked 1Password, gives
+  "1Password did not allow the vault check. Unlock 1Password and approve its prompt, then try again."
+  A missing vault and an unreachable 1Password app each get their own message.
 - Selection and signing check vault membership again.
 - Agent discovery permits 10 seconds. The vault lookup then permits 100 seconds, including the public key reads.
   Public key reads run in batches of four. A failed read cancels the batch and waits for cleanup.

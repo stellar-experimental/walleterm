@@ -15,6 +15,11 @@ use walleterm::bridge::{Rotation, SignerInfo};
 const SITE: &str = "https://site-one.example";
 const SITE_TWO: &str = "https://site-two.example";
 
+/// A G-address as the terminal shortens it.
+fn short(key: &str) -> String {
+    format!("{}…{}", &key[..7], &key[key.len() - 6..])
+}
+
 fn signer(key: &str, comment: &str) -> SignerInfo {
     SignerInfo { public_key: key.to_owned(), fingerprint: None, comment: Some(comment.to_owned()) }
 }
@@ -156,9 +161,9 @@ async fn two_origins_have_separate_authority() {
     assert_eq!(
         f.controls.logs(),
         vec![format!(
-            "Signed {} (account {}, sequence 11) for {SITE}.\n",
+            "Signed transaction {} (account {}, sequence 11) for {SITE}.\n",
             approved.body["hash"].as_str().unwrap(),
-            f.public_key
+            short(&f.public_key)
         )]
     );
     f.close().await;
@@ -327,14 +332,13 @@ async fn the_terminal_names_each_connection_event_without_secrets() {
     assert_eq!(f.post("/v1/disconnect", json!({}), &a).await.status, 401);
     f.controls.advance(3_600_001);
     assert_eq!(f.get("/v1/account", &b).await.status, 401);
-    let short = |key: &str| format!("{}…{}", &key[..7], &key[key.len() - 6..]);
     assert_eq!(
         f.controls.events(),
         vec![
             format!("Incorrect connection code from {SITE} (attempt 1 of 5).\n"),
-            format!("Connected {SITE}. Wallet scope: selected, one wallet.\n"),
+            format!("Connected {SITE}. It can use one wallet.\n"),
             format!("Selected wallet {} for {SITE}.\n", short(&f.public_key)),
-            format!("Connected {SITE_TWO}. Wallet scope: available, wallet changes allowed.\n"),
+            format!("Connected {SITE_TWO}. It can switch among the listed wallets.\n"),
             format!("Selected wallet {} for {SITE_TWO}.\n", short(&f.public_key)),
             format!("Selected wallet {} for {SITE_TWO}.\n", short(&other)),
             format!("Disconnected {SITE}.\n"),
@@ -421,9 +425,9 @@ async fn refusal_and_key_removal_never_sign_and_end_denied() {
     assert_eq!(
         f.controls.logs(),
         vec![format!(
-            "1Password did not sign {} (account {}, sequence 11) for {SITE}. You declined the prompt, or 1Password refused the request.\n",
+            "1Password did not sign transaction {} (account {}, sequence 11) for {SITE}. You declined the prompt, or 1Password refused the request.\n",
             r.body["hash"].as_str().unwrap(),
-            f.public_key
+            short(&f.public_key)
         )]
     );
     *f.controls.sign_error.lock().unwrap() = None;
@@ -439,7 +443,80 @@ async fn refusal_and_key_removal_never_sign_and_end_denied() {
         r.body["error"],
         json!({"code": -4, "message": "The selected key is no longer available in 1Password.", "ext": ["walleterm:rejected"], "requestState": "denied"})
     );
+    assert_eq!(
+        f.controls.logs().last().unwrap(),
+        &format!(
+            "Did not sign transaction {} (account {}, sequence 11) for {SITE}. The selected key is no longer available in 1Password.\n",
+            r.body["hash"].as_str().unwrap(),
+            short(&f.public_key)
+        )
+    );
+    assert_eq!(f.controls.logs().len(), 2, "one line for each request");
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
+    f.close().await;
+}
+
+/// Each request that ends without a signature prints one line with its kind, hash, signer, website, and reason.
+/// A later cancel of the same request prints nothing more. A failed wallet list prints the website and reason.
+#[tokio::test]
+async fn each_request_that_ends_unsigned_prints_one_line_and_a_failed_wallet_list_prints_its_reason() {
+    let f = Fixture::new(Options::default()).await;
+    let a = f.connect(SITE).await;
+    let vault =
+        "1Password did not allow the vault check. Unlock 1Password and approve its prompt, then try again.";
+    let about = |r: &Response| {
+        format!(
+            "transaction {} (account {}, sequence 11)",
+            r.body["hash"].as_str().unwrap(),
+            short(&f.public_key)
+        )
+    };
+    // A website cancel while the job waits for its wallet check.
+    let listings = f.controls.listings.load(Ordering::SeqCst);
+    let release = f.controls.hold_listing();
+    f.post("/v1/requests", transaction_request("canceled", &f), &a).await;
+    until(|| f.controls.listings.load(Ordering::SeqCst) > listings).await;
+    let canceled = f.post("/v1/requests/canceled/cancel", json!({}), &a).await;
+    assert_eq!(f.post("/v1/requests/canceled/cancel", json!({}), &a).await.body["state"], "denied");
+    drop(release);
+    // A failed vault check during the job.
+    *f.controls.signers.lock().unwrap() = Err(walleterm::error::Error::new("bridge_unavailable", vault));
+    f.post("/v1/requests", transaction_request("vault", &f), &a).await;
+    let failed = f.result(&a, "vault").await;
+    assert_eq!(failed.body["state"], "denied");
+    assert_eq!(failed.body["error"]["code"], -2);
+    // A request that expires before its job starts.
+    let listings = f.controls.listings.load(Ordering::SeqCst);
+    let release = f.controls.hold_listing();
+    f.post("/v1/requests", transaction_request("first", &f), &a).await;
+    f.post("/v1/requests", transaction_request("late", &f), &a).await;
+    until(|| f.controls.listings.load(Ordering::SeqCst) > listings).await;
+    f.controls.advance(181_000);
+    let _ = release.send(());
+    let late = f.result(&a, "late").await;
+    let first = f.result(&a, "first").await;
+    assert_eq!(
+        (late.body["state"].clone(), first.body["state"].clone()),
+        (json!("expired"), json!("expired"))
+    );
+    assert_eq!(
+        f.controls.logs(),
+        vec![
+            format!("Did not sign {} for {SITE}. The website canceled this request.\n", about(&canceled)),
+            format!("Did not sign {} for {SITE}. {vault}\n", about(&failed)),
+            format!("Did not sign {} for {SITE}. The signing request expired.\n", about(&late)),
+            format!("Did not sign {} for {SITE}. The signing request expired.\n", about(&first)),
+        ]
+    );
+    // The wallet list for a website also fails, and the terminal names the website and the reason.
+    let b = f.open(SITE_TWO, "selected").await;
+    let r = f.get("/v1/signers", &b).await;
+    assert_eq!((r.status, r.body["error"]["message"].clone()), (502, json!(vault)));
+    assert_eq!(
+        f.controls.events().last().unwrap(),
+        &format!("Could not list the wallets for {SITE_TWO}. {vault}\n")
+    );
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
     f.close().await;
 }
 
@@ -671,8 +748,11 @@ async fn expiry_aborts_active_signing_and_switching_never_extends_the_deadline()
     assert_eq!(f.get("/v1/account", &a).await.status, 401);
     let cancel = f.controls.sign_cancels.lock().unwrap()[0].clone();
     tokio::time::timeout(Duration::from_secs(2), cancel.cancelled()).await.expect("the signer saw the abort");
-    until(|| f.controls.logs().last().is_some_and(|l| l.contains("Signature withheld or stopped"))).await;
-    assert!(f.controls.logs().last().unwrap().ends_with(": The website connection expired.\n"));
+    until(|| {
+        f.controls.logs().last().is_some_and(|l| l.starts_with("Signing did not finish for transaction "))
+    })
+    .await;
+    assert!(f.controls.logs().last().unwrap().ends_with(". The website connection expired.\n"));
     assert_eq!(f.controls.events().last().unwrap(), &format!("The connection with {SITE} expired.\n"));
     f.close().await;
 }
@@ -918,10 +998,9 @@ async fn end_during_signing(revoke: bool) {
         assert_eq!(r.body["error"]["code"], -1);
     }
     let logs = f.controls.logs();
-    assert!(
-        logs[0].starts_with("Signature withheld or stopped for ") && logs[0].contains(" (account G"),
-        "{logs:?}"
-    );
+    assert!(logs[0].starts_with("Signing did not finish for transaction "), "{logs:?}");
+    let reason = if revoke { "The website disconnected." } else { "The website canceled this request." };
+    assert!(logs[0].ends_with(&format!(" for {SITE}. {reason}\n")), "{logs:?}");
     // The job's own cancellation ends the wait on the signer, so the late-signature line may not appear.
     assert!(logs.len() <= 2, "{logs:?}");
     f.close().await;
@@ -977,8 +1056,8 @@ async fn closing_the_bridge_aborts_signing_and_reports_it() {
     assert!(cancel.is_cancelled(), "the signer saw the abort");
     let logs = f.controls.logs();
     assert_eq!(logs.len(), 1, "{logs:?}");
-    assert!(logs[0].starts_with("Signature withheld or stopped for "));
-    assert!(logs[0].ends_with(": The tunnel stopped.\n"), "{}", logs[0]);
+    assert!(logs[0].starts_with("Signing did not finish for transaction "));
+    assert!(logs[0].ends_with(". The tunnel stopped.\n"), "{}", logs[0]);
 }
 
 /// main #27: the terminal reports a withheld signature only when the bridge never sent it.
@@ -992,7 +1071,7 @@ async fn ended_signature(ending: &str, delivered: bool) {
     let envelope =
         TransactionEnvelope::from_xdr_base64(request["xdr"].as_str().unwrap(), Limits::none()).unwrap();
     let hash = walleterm::util::hex(&support::tx::hash(&envelope));
-    let about = format!("{hash} (account {}, sequence 11)", f.public_key);
+    let about = format!("transaction {hash} (account {}, sequence 11)", short(&f.public_key));
     let signed = format!("Signed {about} for {SITE}.\n");
     assert_eq!(f.controls.logs()[0], signed);
     if delivered {
@@ -1027,7 +1106,8 @@ async fn ended_signature(ending: &str, delivered: bool) {
     };
     let mut want = vec![signed];
     if !delivered {
-        want.push(format!("Signature withheld or stopped for {about}: {reason}\n"));
+        // The signature exists but never reached the website.
+        want.push(format!("Did not send the signature for {about} to {SITE}. {reason}\n"));
     }
     assert_eq!(f.controls.logs(), want, "{ending}, delivered {delivered}");
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
@@ -1091,8 +1171,12 @@ async fn canceling_a_signed_request_logs_a_withheld_line_only_when_undelivered()
         assert_eq!(logs.len(), if delivered { 1 } else { 2 }, "{logs:?}");
         assert!(logs[0].starts_with("Signed "));
         if !delivered {
-            assert!(logs[1].starts_with("Signature withheld or stopped for "));
-            assert!(logs[1].ends_with(": The website canceled this request.\n"), "{}", logs[1]);
+            assert!(logs[1].starts_with("Did not send the signature for transaction "));
+            assert!(
+                logs[1].ends_with(&format!(" to {SITE}. The website canceled this request.\n")),
+                "{}",
+                logs[1]
+            );
         }
         f.close().await;
     }
@@ -1453,7 +1537,7 @@ async fn shutdown_before_the_signature_resumes_withholds_it() {
     f.bridge.close().await;
     let logs = f.controls.logs();
     assert!(logs.iter().all(|line| !line.starts_with("Signed ")), "{logs:?}");
-    assert!(logs.iter().any(|line| line.starts_with("Signature withheld")), "{logs:?}");
+    assert!(logs.iter().any(|line| line.starts_with("Signing did not finish for transaction ")), "{logs:?}");
     f.close().await;
 }
 
@@ -1548,7 +1632,7 @@ async fn a_message_signs_and_prints_one_escaped_line() {
         let digest = walleterm::message::digest(text.as_bytes());
         assert!(f.key.verifying_key().verify_strict(&digest, &signature).is_ok(), "{id}");
     }
-    let (key, hash) = (&f.public_key, message_hash(text));
+    let (key, hash) = (short(&f.public_key), message_hash(text));
     let logs = f.controls.logs();
     assert_eq!(
         logs[..2],
@@ -1556,7 +1640,7 @@ async fn a_message_signs_and_prints_one_escaped_line() {
             format!(
                 "Message request from {SITE} for {key} (34 bytes, digest {hash}, {WITHOUT_BINDING}): \"example.com asks\\n\\x00\\u202egpj.exe\\u2066 é\"\n"
             ),
-            format!("Signed {hash} (signer {key}, SEP-53 message) for {SITE}.\n"),
+            format!("Signed SEP-53 message {hash} (signer {key}) for {SITE}.\n"),
         ]
     );
     assert!(logs[2].starts_with(&format!("Message request from {SITE} for {key} (1024 bytes, digest ")));
@@ -1644,9 +1728,9 @@ async fn message_refusal_and_cancellation_never_deliver_a_signature() {
     assert!(r.body.get("signed_message").is_none(), "{}", r.body);
     assert_eq!(r.body["error"]["ext"], json!(["walleterm:result_unknown"]));
     let withheld = format!(
-        "Signature withheld or stopped for {} (signer {}, SEP-53 message): ",
+        "Signing did not finish for SEP-53 message {} (signer {}) for {SITE}. ",
         message_hash(text),
-        f.public_key
+        short(&f.public_key)
     );
     assert!(f.controls.logs().iter().any(|l| l.starts_with(&withheld)), "{:?}", f.controls.logs());
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 3);

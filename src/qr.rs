@@ -38,14 +38,15 @@ pub fn width(rendered: &str) -> usize {
     rendered.lines().map(|l| l.replace(START, "").replace(END, "").chars().count()).max().unwrap_or(0)
 }
 
-/// The QR code, or a note when the terminal is too narrow for it.
-pub fn for_terminal(text: &str, columns: Option<usize>) -> String {
+/// The QR code, or a note when the terminal is too narrow for it. `instead` says what to use then,
+/// such as "use the printed URL and code".
+pub fn for_terminal(text: &str, columns: Option<usize>, instead: &str) -> String {
     let rendered = terminal(text);
     let needed = width(&rendered);
     match columns {
-        Some(columns) if columns < needed => format!(
-            "This QR code needs {needed} terminal columns. Widen this terminal or use the printed URL and code.\n"
-        ),
+        Some(columns) if columns < needed => {
+            format!("This QR code needs {needed} terminal columns. Widen this terminal or {instead}.\n")
+        }
         _ => rendered,
     }
 }
@@ -63,9 +64,13 @@ mod tests {
         let w = width(&text);
         assert!(w > 29 && w % 2 == 1, "{w}");
         assert_eq!(lines.len(), w.div_ceil(2));
-        let narrow = for_terminal("https://bridge-name.trycloudflare.com", Some(19));
+        let narrow = for_terminal("https://bridge-name.trycloudflare.com", Some(19), "open the printed URL");
         assert!(narrow.starts_with("This QR code needs ") && !narrow.contains('\x1b'));
-        assert_eq!(for_terminal("x", None), terminal("x"));
+        assert!(
+            narrow.ends_with(" terminal columns. Widen this terminal or open the printed URL.\n"),
+            "{narrow}"
+        );
+        assert_eq!(for_terminal("x", None, "open the printed URL"), terminal("x"));
     }
 
     /// `tests/browser/scan.test.ts` decodes this terminal code with the SDK scanner's jsQR decoder.

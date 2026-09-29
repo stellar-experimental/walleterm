@@ -18,6 +18,7 @@ The QR code contains `{"walleterm":3,"url":"...","code":"...","expires_at":"..."
 A code works once and expires after five minutes. The terminal shows each expiry in local time, such as "3:04 PM (in 5 minutes)".
 After a use or a lockout, the tunnel prints a new code block with its reason, the URL, and a QR code.
 When an unused code expires, the tunnel prints one line with the new code and no QR code. So idle rotation stays short.
+That line says that the QR code above it no longer works.
 A website that sends the last expired code gets "The connection code expired." This attempt does not count as incorrect.
 Five incorrect codes replace the code and pause connection for one minute. The new block says when connections resume.
 The bridge checks the code, session, and request deadlines against the wall clock once each second.
@@ -206,10 +207,12 @@ A request expires after five minutes, independent of the authorization expiry.
 The bridge keeps sessions and requests in memory. A restart ends all of them.
 The browser SDK shares one session token among the tabs of a website. The bridge treats them as one client.
 A wallet change, a disconnection, or an expiry applies to every tab. Each tab generates random request IDs.
-The bridge never retries a signing request. The terminal prints a line for each produced, refused, or withheld signature.
+The bridge never retries a signing request. The terminal prints one line for each request that ends.
+The line says that the request was signed, not signed, signed but not sent, or stopped during signing, and why.
+It names the kind, the full hash, and the short signer address. Each terminal line starts with the local time.
 It also prints one line for each message request before signing.
 Each connection event prints one line: a connected website with its wallet scope, a changed wallet, a disconnection,
-an expired connection, and an incorrect code. These lines hold no code, token, or grant ID.
+an expired connection, an incorrect code, and a failed wallet list. These lines hold no code, token, or grant ID.
 A signature is withheld only when the bridge never sent it to the website.
 A signed transaction applies at most once, because its sequence number limits it.
 An authorization applies at most once, because its nonce limits it. Both stay usable until the network refuses them.
