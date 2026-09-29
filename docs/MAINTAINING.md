@@ -8,7 +8,7 @@ Releases run on the maintainer's Apple silicon Mac. The Developer ID signing key
 Store the notary credentials once:
 
 ```sh
-xcrun notarytool store-credentials walleterm-notary --apple-id <Apple ID> --team-id T4GBHCYB7P
+xcrun notarytool store-credentials walleterm-notary --apple-id <Apple ID> --team-id 4JWM8JNM37
 ```
 
 `make release VERSION=0.2.0` builds, signs, and notarizes `release/0.2.0/walleterm-0.2.0-darwin-arm64.zip`.

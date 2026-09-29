@@ -39,7 +39,7 @@ bun)
   *) exit 90 ;;
   esac ;;
 rustc) echo 'rustc 1.93.0 (mock)' ;;
-security) echo '  1) AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA "Developer ID Application: Mock (T4GBHCYB7P)"' ;;
+security) echo '  1) AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA "Developer ID Application: Mock (4JWM8JNM37)"' ;;
 cargo)
   case "$1" in
   build)
@@ -54,7 +54,7 @@ cargo)
 codesign)
   case "$1" in
   -dvv)
-    printf 'Authority=Developer ID Application: Mock\nTeamIdentifier=T4GBHCYB7P\nflags=0x10000(runtime)\n' >&2
+    printf 'Authority=Developer ID Application: Mock\nTeamIdentifier=4JWM8JNM37\nflags=0x10000(runtime)\n' >&2
     if [ "$mode" = details-error ]; then exit 7; fi ;;
   -d)
     if [ "$mode" = entitlements-error ]; then echo 'Mock entitlement read failed' >&2; exit 7; fi

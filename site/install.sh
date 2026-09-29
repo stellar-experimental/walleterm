@@ -8,7 +8,7 @@
 set -eu
 
 REPOSITORY="stellar-experimental/walleterm"
-TEAM_ID="T4GBHCYB7P"
+TEAM_ID="4JWM8JNM37"
 
 fail() {
   echo "walleterm install: $*" >&2

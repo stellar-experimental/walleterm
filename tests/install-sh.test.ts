@@ -43,7 +43,7 @@ afterAll(() => rmSync(tools, { recursive: true, force: true }));
 
 function release({
   checksum,
-  team = 'T4GBHCYB7P',
+  team = '4JWM8JNM37',
   arm64 = '1',
 }: {
   checksum?: string;
@@ -113,7 +113,7 @@ test('refuses a binary from another signing team', () => {
   release({ team: 'ABCDE12345' });
   const result = install();
   expect(result.status).toBe(1);
-  expect(result.err).toContain('not signed by Developer ID team T4GBHCYB7P');
+  expect(result.err).toContain('not signed by Developer ID team 4JWM8JNM37');
   expect(existsSync(join(root, 'home', '.local', 'bin', 'walleterm'))).toBe(false);
 });
 
