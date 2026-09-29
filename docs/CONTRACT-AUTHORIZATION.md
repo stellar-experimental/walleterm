@@ -10,14 +10,15 @@ The envelope signature approves the assembled transaction.
 
 1. Start `walleterm tunnel` and `walleterm demo` in separate terminals.
 2. Connect the demo to the tunnel and select a dedicated testnet key.
-3. Select **Set up contract demo** until both contracts exist.
-4. Review each setup transaction, sign it, and submit it.
-5. Select **Increment counter**.
-6. Select **Sign contract authorization** to sign the C-account entry.
-7. Review the assembled transaction and select **Sign transaction**.
-8. Select **Submit to testnet**.
+3. In **Smart account walkthrough**, the demo reads the ledger and shows the next step.
+4. If the contract code is missing, select the upload button, then sign and submit the upload.
+5. Select **Deploy smart account**. Select **Sign authorization**, then **Sign transaction**, then **Submit to testnet**.
+6. Select **Continue: Deploy the counter** and do the same three steps.
+7. Select **Continue: Increase the counter**. Select **Sign authorization** to sign the C-account entry.
+8. Review the assembled transaction and select **Sign transaction**, then **Submit to testnet**.
+9. Select **Increase again** to repeat the call, or **Start a new set** to repeat the deploy steps.
 
-Setup uploads missing fixture code and deploys deterministic contracts for the selected key.
+Setup uploads missing fixture code and deploys deterministic contracts for the selected key and set.
 Deployment uses fresh explicit G-account authorization entries.
 The counter uses explicit C-account authorization.
 The demo never sends SourceAccount credentials to the authorization signer.

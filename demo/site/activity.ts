@@ -21,14 +21,17 @@ export interface ActivityStore {
 interface HistoryOptions {
   store?: ActivityStore;
   decodeSigned?: (xdr: string) => Record<string, unknown>;
-  changed?: () => void;
+  /** Called after each new or changed event, with the changed event's ID. */
+  changed?: (id?: string) => void;
 }
 interface TransactionRecord {
   hash: string;
   state: string;
   result?: unknown;
   signed_xdr?: string;
+  contract?: { authorizations: unknown[]; authorizationReady: boolean };
 }
+type Fields = { [key: string]: Data };
 
 export function safeData(value: unknown, depth = 0): Data {
   if (depth > 12) return '[nested data omitted]';
@@ -40,7 +43,10 @@ export function safeData(value: unknown, depth = 0): Data {
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [
       key,
-      secretField.test(key.replace(/[-_]/g, '')) ? '[redacted]' : safeData(item, depth + 1),
+      // A numeric code is an error code, such as a JSON-RPC error. Connection codes are strings.
+      secretField.test(key.replace(/[-_]/g, '')) && !(key === 'code' && typeof item === 'number')
+        ? '[redacted]'
+        : safeData(item, depth + 1),
     ]),
   );
 }
@@ -99,14 +105,65 @@ function browserStore(): ActivityStore {
   };
 }
 
+const RPC = 'https://soroban-testnet.stellar.org';
+const HORIZON = 'https://horizon-testnet.stellar.org';
+const FRIENDBOT = 'https://friendbot.stellar.org';
+const rpcNames: Record<string, string> = {
+  getLedgerEntries: 'Read ledger entries',
+  simulateTransaction: 'Simulate transaction',
+  sendTransaction: 'Send transaction',
+  getTransaction: 'Check transaction',
+  getLatestLedger: 'Read latest ledger',
+  getNetwork: 'Read network',
+};
+// These RPC methods only read. Identical repeats group into one event.
+const rpcReads = new Set([
+  'getLedgerEntries',
+  'simulateTransaction',
+  'getTransaction',
+  'getLatestLedger',
+  'getNetwork',
+]);
+// Ledger position fields change on every response. They do not make a read different.
+const ledgerPosition = new Set([
+  'latestLedger',
+  'latestLedgerCloseTime',
+  'oldestLedger',
+  'oldestLedgerCloseTime',
+]);
+const fields = (data: Data | undefined): Fields =>
+  data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+
+// Classify a response. JSON-RPC reports errors inside HTTP 200 responses.
+function outcome(ok: boolean, status: number, data: Data, rpcMethod?: string, lookup = false) {
+  // A missing Horizon account or transaction is an answer, not a failure.
+  if (!ok && lookup && status === 404) return { error: false, label: 'not found' };
+  if (!ok) return { error: true, label: String(status) };
+  if (!rpcMethod) return { error: false, label: String(status) };
+  const response = fields(data),
+    result = fields(response.result);
+  if (response.error) return { error: true, label: 'RPC error' };
+  if (rpcMethod === 'simulateTransaction' && result.error) return { error: true, label: 'simulation failed' };
+  if (
+    (rpcMethod === 'sendTransaction' || rpcMethod === 'getTransaction') &&
+    typeof result.status === 'string'
+  )
+    return {
+      error: ['ERROR', 'TRY_AGAIN_LATER', 'FAILED'].includes(result.status),
+      label: result.status,
+    };
+  return { error: false, label: String(status) };
+}
+
 export class ActivityHistory {
   store: ActivityStore;
   decodeSigned: (xdr: string) => Record<string, unknown>;
-  changed: () => void;
+  changed: (id?: string) => void;
   events: ActivityEvent[] = [];
   loading = true;
   unsaved = false;
-  polls = new Map<string, string>();
+  // The last event of each read, and the fingerprint of its response.
+  reads = new Map<string, { fingerprint: string; event: ActivityEvent }>();
   transactionState: string | null = null;
   ready: Promise<void>;
   constructor({
@@ -136,6 +193,14 @@ export class ActivityHistory {
         this.changed();
       });
   }
+  private persist(event: ActivityEvent) {
+    Promise.resolve()
+      .then(() => this.store.put(event))
+      .catch(() => {
+        this.unsaved = true;
+        this.changed();
+      });
+  }
   record(category: string, title: string, data: unknown = {}) {
     // Activity failures must never change a wallet request or transaction outcome.
     try {
@@ -148,16 +213,23 @@ export class ActivityHistory {
         data: safeData(data),
       };
       this.events.unshift(event);
-      this.changed();
-      Promise.resolve()
-        .then(() => this.store.put(event))
-        .catch(() => {
-          this.unsaved = true;
-          this.changed();
-        });
+      this.changed(event.id);
+      this.persist(event);
       return event;
     } catch {
       return null;
+    }
+  }
+  /** Complete or extend an event in place. It keeps its ID, time, and position. */
+  update(event: ActivityEvent, change: { category?: string; title?: string; data?: unknown }) {
+    try {
+      if (change.category) event.category = change.category;
+      if (change.title) event.title = change.title;
+      if (change.data !== undefined) event.data = safeData(change.data);
+      this.changed(event.id);
+      this.persist(event);
+    } catch {
+      /* Activity failures must never change an outcome. */
     }
   }
   signedData(xdr: string) {
@@ -167,12 +239,19 @@ export class ActivityHistory {
       return { decoding_error: 'The demo could not decode the returned transaction.' };
     }
   }
-  transaction(record: TransactionRecord | null | undefined) {
+  /** Record a changed journal state. `label` names the action, for example "Write a note". */
+  transaction(record: TransactionRecord | null | undefined, label?: string) {
     if (!record) {
       this.transactionState = null;
       return;
     }
-    const state = `${record.hash}:${record.state}:${JSON.stringify(record.result || null)}`;
+    // A verification result has its own event. It does not repeat the confirmed state.
+    const {
+      verification: _verified,
+      verification_error: _failed,
+      ...result
+    } = fields(safeData(record.result));
+    const state = `${record.hash}:${record.state}:${JSON.stringify(result)}`;
     if (state === this.transactionState) return;
     this.transactionState = state;
     const titles: Record<string, string> = {
@@ -188,7 +267,15 @@ export class ActivityHistory {
       denied: 'Signature declined',
       expired: 'Transaction expired',
     };
-    this.record('transaction', titles[record.state] || 'Transaction updated', {
+    // A contract call with an authorization entry has two signatures. Name the one that changed.
+    const authorization = !!record.contract?.authorizations.length;
+    const title =
+      authorization && record.state === 'waiting' && !record.contract!.authorizationReady
+        ? 'Authorization signature requested'
+        : authorization && record.state === 'review' && record.contract!.authorizationReady
+          ? 'Authorization signed and verified'
+          : titles[record.state] || 'Transaction updated';
+    this.record('transaction', label ? `${label} · ${title}` : title, {
       ...record,
       ...(record.signed_xdr ? this.signedData(record.signed_xdr) : {}),
     });
@@ -205,15 +292,13 @@ export class ActivityHistory {
           typeof input === 'string' || input instanceof URL ? String(input) : input.url,
           globalThis.location?.origin,
         );
-        source =
-          url.origin === 'https://horizon-testnet.stellar.org' ||
-          url.origin === 'https://friendbot.stellar.org'
-            ? 'network'
-            : /^\/v1\/(connect|signers|select|account|disconnect|requests(?:\/[^/]+(?:\/cancel)?)?)$/.test(
-                  url.pathname,
-                )
-              ? 'walleterm'
-              : null;
+        source = [HORIZON, FRIENDBOT, RPC].includes(url.origin)
+          ? 'network'
+          : /^\/v1\/(connect|signers|select|account|disconnect|requests(?:\/[^/]+(?:\/cancel)?)?)$/.test(
+                url.pathname,
+              )
+            ? 'walleterm'
+            : null;
         route = url.pathname;
         method = options.method || (input instanceof Request ? input.method : 'GET');
         if (typeof options.body === 'string' && options.body.startsWith('{'))
@@ -223,7 +308,10 @@ export class ActivityHistory {
         /* Unrecognized requests pass through unchanged. */
       }
       if (!source || !url) return fetcher(input, options);
-      const polling = source === 'walleterm' && method === 'GET' && /^\/v1\/requests\//.test(route);
+      const rpcMethod =
+        url.origin === RPC && typeof fields(body).method === 'string'
+          ? (fields(body).method as string)
+          : undefined;
       const labels: Record<string, string> = {
         '/v1/connect': 'Connect website',
         '/v1/signers': 'List wallets',
@@ -233,18 +321,21 @@ export class ActivityHistory {
         '/v1/requests': 'Request signature',
       };
       const name =
-        labels[route] ||
-        (source === 'walleterm'
-          ? route.endsWith('/cancel')
-            ? 'Cancel signing request'
-            : 'Signing update'
-          : url.origin === 'https://friendbot.stellar.org'
+        source === 'walleterm'
+          ? labels[route] || (route.endsWith('/cancel') ? 'Cancel signing request' : 'Signing update')
+          : url.origin === FRIENDBOT
             ? 'Fund testnet account'
-            : route === '/transactions'
-              ? 'Submit transaction'
-              : route.startsWith('/transactions/')
-                ? 'Check transaction'
-                : 'Read testnet data');
+            : rpcMethod
+              ? rpcNames[rpcMethod] || `RPC ${rpcMethod}`
+              : route === '/transactions'
+                ? 'Submit transaction'
+                : route.startsWith('/transactions/')
+                  ? 'Check transaction'
+                  : /^\/accounts\/[^/]+\/offers$/.test(route)
+                    ? 'Read open offers'
+                    : route.startsWith('/accounts/')
+                      ? 'Read testnet account'
+                      : 'Read testnet data';
       const request = {
         source,
         method,
@@ -255,7 +346,18 @@ export class ActivityHistory {
           : {}),
         ...(body ? { body } : {}),
       };
-      if (!polling) this.record(source, `${name} · request`, request);
+      // A read repeats safely. A write gets its event when it starts, so a reload keeps evidence of it.
+      const read = rpcMethod ? rpcReads.has(rpcMethod) : method === 'GET' && url.origin !== FRIENDBOT;
+      const readKey = rpcMethod
+        ? `${rpcMethod}:${JSON.stringify(fields(body).params ?? null)}`
+        : `${method}:${url.href}`;
+      const started = performance.now();
+      const sent = read ? null : this.record(source, `${name} · sent`, request);
+      const finish = (category: string, title: string, data: Record<string, unknown>) => {
+        // A failed read ends its group, so a later success is a new event.
+        if (category === 'error') this.reads.delete(readKey);
+        return sent ? this.update(sent, { category, title, data }) : this.record(category, title, data);
+      };
       try {
         const response = await fetcher(input, options);
         // Observe a clone without delaying delivery, consuming the original body, or changing cancellation.
@@ -265,30 +367,54 @@ export class ActivityHistory {
             .json()
             .then((result) => {
               const data = safeData(result);
-              const fields = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
-              const key = `${url!.origin}${route}`,
-                fingerprint = JSON.stringify(data);
-              if (polling && this.polls.get(key) === fingerprint) return;
-              if (source === 'walleterm' && fields.id && fields.state)
-                this.polls.set(`${url!.origin}/v1/requests/${fields.id}`, fingerprint);
-              if (polling) this.polls.set(key, fingerprint);
+              const lookup =
+                url!.origin === HORIZON &&
+                method === 'GET' &&
+                /^\/(accounts|transactions)\/[^/]+$/.test(route);
+              const { error, label } = outcome(response.ok, response.status, data, rpcMethod, lookup);
               const signed =
-                source === 'walleterm' && typeof fields.signed_xdr === 'string'
-                  ? this.signedData(fields.signed_xdr)
+                source === 'walleterm' && typeof fields(data).signed_xdr === 'string'
+                  ? this.signedData(fields(data).signed_xdr as string)
                   : {};
-              this.record(
-                response.ok ? source : 'error',
-                `${name} · ${response.ok ? 'response' : 'failed'}`,
-                {
-                  ...request,
-                  status: response.status,
-                  response: data,
-                  ...signed,
-                },
-              );
+              const entry = {
+                ...request,
+                status: response.status,
+                duration_ms: Math.round(performance.now() - started),
+                response: data,
+                ...signed,
+              };
+              const category = error ? 'error' : source!,
+                title = `${name} · ${label}`;
+              if (!read || error) return finish(category, title, entry);
+              const { id: _id, ...response_ } = fields(data);
+              const fingerprint = JSON.stringify([
+                response.status,
+                rpcMethod
+                  ? Object.fromEntries(
+                      Object.entries(fields(response_.result)).filter(([key]) => !ledgerPosition.has(key)),
+                    )
+                  : data,
+              ]);
+              const previous = this.reads.get(readKey);
+              if (previous?.fingerprint === fingerprint && this.events.includes(previous.event)) {
+                const earlier = fields(previous.event.data);
+                return this.update(previous.event, {
+                  data: {
+                    ...earlier,
+                    repeats: (typeof earlier.repeats === 'number' ? earlier.repeats : 1) + 1,
+                    last_time: new Date().toISOString(),
+                  },
+                });
+              }
+              const event = this.record(category, title, entry);
+              if (event) this.reads.set(readKey, { fingerprint, event });
             })
             .catch(() =>
-              this.record('error', `${name} · unreadable response`, { ...request, status: response.status }),
+              finish('error', `${name} · unreadable response`, {
+                ...request,
+                status: response.status,
+                duration_ms: Math.round(performance.now() - started),
+              }),
             );
         } catch {
           /* A response without a clone still belongs to the caller. */
@@ -296,7 +422,11 @@ export class ActivityHistory {
         return response;
       } catch (errorValue) {
         const error = requestError(errorValue);
-        this.record('error', `${name} · request stopped`, { ...request, error: safeData(error) });
+        finish('error', `${name} · stopped`, {
+          ...request,
+          duration_ms: Math.round(performance.now() - started),
+          error: safeData(error),
+        });
         throw error;
       }
     };
@@ -305,10 +435,11 @@ export class ActivityHistory {
 
 const categories: Record<string, string> = {
   action: 'Action',
-  status: 'Status',
-  walleterm: 'Walleterm',
+  walkthrough: 'Walkthrough',
   transaction: 'Transaction',
+  walleterm: 'Walleterm',
   network: 'Testnet',
+  status: 'Status',
   error: 'Error',
 };
 function values(data: unknown, key: string, found: string[] = []): string[] {
@@ -365,6 +496,14 @@ export function createActivityLog(
     node.onclick = () => copy(value, node);
     return node;
   };
+  const clock = (time: string) =>
+    new Date(time).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
   const row = (event: ActivityEvent): HTMLElement => {
     if (rows.has(event.id)) return rows.get(event.id)!;
     const expandable =
@@ -380,15 +519,17 @@ export function createActivityLog(
     kind.textContent = categories[event.category] || 'Event';
     const title = document.createElement('strong');
     title.textContent = event.title;
+    const repeats = fields(event.data).repeats;
+    if (typeof repeats === 'number') {
+      const count = document.createElement('span');
+      count.className = 'activity-repeats';
+      count.textContent = ` ×${repeats}`;
+      count.title = `Repeated ${repeats} times with the same result. Last at ${clock(String(fields(event.data).last_time))}.`;
+      title.append(count);
+    }
     const time = document.createElement('time');
     time.dateTime = event.time;
-    time.textContent = new Date(event.time).toLocaleString(undefined, {
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
+    time.textContent = clock(event.time);
     summary.append(kind, title, time);
     node.append(summary);
     if (!expandable) {
@@ -419,7 +560,16 @@ export function createActivityLog(
     rows.set(event.id, node);
     return node;
   };
-  const history = new ActivityHistory({ decodeSigned, changed: () => render() });
+  const history = new ActivityHistory({
+    decodeSigned,
+    changed: (id) => {
+      // A changed event gets a new row. An open row stays open.
+      const open = !!id && (rows.get(id) as HTMLDetailsElement | undefined)?.open === true;
+      if (id) rows.delete(id);
+      render();
+      if (open) rows.get(id!)?.setAttribute('open', '');
+    },
+  });
   function render() {
     const term = $('search').value.toLowerCase(),
       category = $('filter').value;
@@ -468,54 +618,15 @@ export function createActivityLog(
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  const actions: Record<string, string> = {
-    note: 'Write a note selected',
-    payment: 'Payment selected',
-    offer: 'Offer selected',
-    'cancel-offer': 'Cancel offer selected',
-    sign: 'Sign selected',
-    submit: 'Submit selected',
-    check: 'Check transaction selected',
-    'cancel-request': 'Cancel signing selected',
-    clear: 'Clear transaction selected',
-    'open-review': 'Transaction opened',
-    'close-review': 'Transaction closed',
-  };
-  const walletActions: Record<string, string> = {
-    scan: 'Camera scan selected',
-    'stop-scan': 'Camera scan stopped',
-    close: 'Connection dialog closed',
-    refresh: 'Wallet refresh selected',
-    disconnect: 'Disconnect selected',
-    copy: 'Wallet address copy selected',
-  };
+  // Camera scans leave no request of their own. Other controls are recorded by the request or state they change.
+  const scans: Record<string, string> = { scan: 'Camera scan started', 'stop-scan': 'Camera scan stopped' };
   document.addEventListener(
     'click',
     (event) => {
       const target = event.target instanceof Element ? event.target.closest('button') : null;
       if (!target || element.contains(target) || target.disabled) return;
-      const title =
-        actions[target.id] ||
-        walletActions[target.dataset.wt || ''] ||
-        (target.classList.contains('wt-trigger')
-          ? 'Wallet connection opened'
-          : target.classList.contains('wt-wallet-row')
-            ? 'Wallet selected'
-            : null);
-      if (title)
-        history.record(
-          'action',
-          title,
-          target.classList.contains('wt-wallet-row') ? { public_key: target.title } : {},
-        );
-    },
-    true,
-  );
-  document.addEventListener(
-    'submit',
-    (event) => {
-      if (event.target instanceof Element && event.target.matches('[data-wt="form"]'))
-        history.record('action', 'Connection submitted');
+      const title = scans[target.dataset.wt || ''];
+      if (title) history.record('action', title);
     },
     true,
   );

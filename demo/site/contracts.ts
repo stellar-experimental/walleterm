@@ -64,9 +64,20 @@ const bytes = (hex: string) => Uint8Array.from(hex.match(/../g) || [], (pair) =>
 export const hex = (value: Uint8Array) =>
   Array.from(value, (byte) => byte.toString(16).padStart(2, '0')).join('');
 
-export function deployment(signer: string, kind: 'account' | 'target') {
+// Each set is one smart account and one counter. A new set repeats the deploy steps with new contract IDs.
+export const MAX_SETS = 50;
+export type ContractKind = 'account' | 'target';
+function checkSet(set: number) {
+  if (!Number.isSafeInteger(set) || set < 1 || set > MAX_SETS) throw Error('The contract set is invalid.');
+}
+
+export function deployment(signer: string, kind: ContractKind, set = 1) {
   if (!StrKey.isValidEd25519PublicKey(signer)) throw Error('The demo signer is invalid.');
-  const salt = hash(new TextEncoder().encode(`walleterm-contract-demo-v1:${kind}:${signer}`));
+  checkSet(set);
+  // Set 1 keeps the first demo salt, so saved reviews and deployed contracts keep their IDs.
+  const salt = hash(
+    new TextEncoder().encode(`walleterm-contract-demo-v1:${kind}:${signer}${set === 1 ? '' : `:${set}`}`),
+  );
   const operation = Operation.createCustomContract({
     address: new Address(signer),
     wasmHash: bytes(DEMO_WASM[kind].hash),
@@ -92,17 +103,36 @@ export function deployment(signer: string, kind: 'account' | 'target') {
   );
   return { id, operation };
 }
+const ids = new Map<string, string>();
+export function contractId(signer: string, kind: ContractKind, set: number) {
+  const key = `${signer}:${kind}:${set}`;
+  let id = ids.get(key);
+  if (!id) ids.set(key, (id = deployment(signer, kind, set).id));
+  return id;
+}
+/** The set of a saved review, found from its contract IDs. */
+export function contractSet(signer: string, review: Pick<ContractReview, 'accountId' | 'targetId'>) {
+  for (let set = 1; set <= MAX_SETS; set++)
+    if (
+      contractId(signer, 'account', set) === review.accountId &&
+      contractId(signer, 'target', set) === review.targetId
+    )
+      return set;
+  throw Error('The contract review belongs to a different signer.');
+}
 
-async function instance(server: DemoRpc, id: string, expectedHash: string) {
-  const result = await server.getLedgerEntries(new Contract(id).getFootprint());
-  if (!result.entries.length) return null;
-  const entry = result.entries[0].val;
+function instanceData(entry: xdr.LedgerEntryData, expectedHash: string) {
   if (entry.type !== 'contractData' || entry.contractData.val.type !== 'scvContractInstance')
     throw Error('The demo contract instance is invalid.');
   const executable = entry.contractData.val.instance.executable;
   if (executable.type !== 'contractExecutableWasm' || hex(executable.wasmHash.toBytes()) !== expectedHash)
     throw Error('The demo contract code does not match its recorded version.');
   return entry.contractData.val.instance;
+}
+const codeKey = (kind: ContractKind) =>
+  xdr.LedgerKey.contractCode(new xdr.LedgerKeyContractCode({ hash: bytes(DEMO_WASM[kind].hash) }));
+async function codeOnLedger(server: DemoRpc, kind: ContractKind) {
+  return (await server.getLedgerEntries(codeKey(kind))).entries.length > 0;
 }
 function build(signer: string, sequence: string, operation: xdr.Operation) {
   return new TransactionBuilder(new Account(signer, sequence), {
@@ -135,19 +165,89 @@ export async function readCounter(
     throw Error('The contract counter is invalid.');
   return value;
 }
+async function checkOwner(server: DemoRpc, signer: string, accountId: string) {
+  const owner = await read(server, signer, accountId, 'owner');
+  if (!(owner instanceof Uint8Array) || hex(owner) !== hex(StrKey.decodeEd25519PublicKey(signer)))
+    throw Error('The smart account belongs to a different signer.');
+}
 async function verifiedSetup(
   server: DemoRpc,
   signer: string,
   review: Pick<ContractReview, 'accountId' | 'targetId'>,
 ) {
-  const account = await instance(server, review.accountId, DEMO_WASM.account.hash);
-  const target = await instance(server, review.targetId, DEMO_WASM.target.hash);
-  if (account) {
-    const owner = await read(server, signer, review.accountId, 'owner');
-    if (!(owner instanceof Uint8Array) || hex(owner) !== hex(StrKey.decodeEd25519PublicKey(signer)))
-      throw Error('The smart account belongs to a different signer.');
-  }
+  // One ledger request for both instances, matched by key.
+  const keys = [review.accountId, review.targetId].map((id) => new Contract(id).getFootprint());
+  const result = await server.getLedgerEntries(...keys);
+  const found = new Map(result.entries.map((entry) => [entry.key.toXDR('base64'), entry.val]));
+  const read = (index: number, expected: string) => {
+    const entry = found.get(keys[index].toXDR('base64'));
+    return entry ? instanceData(entry, expected) : null;
+  };
+  const account = read(0, DEMO_WASM.account.hash),
+    target = read(1, DEMO_WASM.target.hash);
+  if (account) await checkOwner(server, signer, review.accountId);
   return { account, target };
+}
+
+export interface WalkthroughLedger {
+  signer: string;
+  set: number;
+  /** The highest set with a deployed contract, or 0. */
+  latest: number;
+  code: Record<ContractKind, boolean>;
+  account: { id: string; exists: boolean };
+  target: { id: string; exists: boolean };
+  /** Present when both contracts of the set exist. */
+  count?: number;
+}
+/**
+ * Read the walkthrough state in one ledger request: both code entries and every set's two instances.
+ * Entries are matched by key, so missing sets never hide later ones. `pickSet` chooses the set to show.
+ */
+export async function readWalkthrough(
+  server: DemoRpc,
+  signer: string,
+  pickSet: (latest: number) => number,
+): Promise<WalkthroughLedger> {
+  const kinds = ['account', 'target'] as const;
+  const instances = Array.from({ length: MAX_SETS }, (_, index) =>
+    kinds.map((kind) => ({
+      kind,
+      set: index + 1,
+      key: new Contract(contractId(signer, kind, index + 1)).getFootprint(),
+    })),
+  ).flat();
+  const result = await server.getLedgerEntries(...kinds.map(codeKey), ...instances.map((item) => item.key));
+  const found = new Map(result.entries.map((entry) => [entry.key.toXDR('base64'), entry.val]));
+  const deployed = new Set<string>();
+  let latest = 0;
+  for (const item of instances) {
+    const entry = found.get(item.key.toXDR('base64'));
+    if (!entry) continue;
+    instanceData(entry, DEMO_WASM[item.kind].hash);
+    deployed.add(`${item.kind}:${item.set}`);
+    latest = Math.max(latest, item.set);
+  }
+  const set = pickSet(latest);
+  checkSet(set);
+  const state: WalkthroughLedger = {
+    signer,
+    set,
+    latest,
+    code: {
+      account: found.has(codeKey('account').toXDR('base64')),
+      target: found.has(codeKey('target').toXDR('base64')),
+    },
+    account: { id: contractId(signer, 'account', set), exists: deployed.has(`account:${set}`) },
+    target: { id: contractId(signer, 'target', set), exists: deployed.has(`target:${set}`) },
+  };
+  if (state.account.exists) await checkOwner(server, signer, state.account.id);
+  if (state.account.exists && state.target.exists)
+    state.count = await readCounter(server, signer, {
+      accountId: state.account.id,
+      targetId: state.target.id,
+    });
+  return state;
 }
 function expectedInvocation(operation: xdr.Operation) {
   const body = operation.body;
@@ -169,51 +269,55 @@ function freshNonce() {
   return BigInt('0x' + hex(random)) & 0x7fffffffffffffffn;
 }
 
+/** The requested step is already on the ledger. The page refreshes instead of reporting a failure. */
+export const stepDone = (message: string) => Object.assign(Error(message), { walkthrough: 'done' as const });
+
+/**
+ * Build the requested walkthrough step for one set. The ledger decides: a completed step and a missing earlier
+ * step both stop here, before any signature request.
+ */
 export async function prepareContract(
   server: DemoRpc,
   signer: string,
-  increment: boolean,
+  stage: ContractStage,
+  set: number,
   loadWasm: (file: string) => Promise<Uint8Array>,
 ): Promise<ContractPreparation> {
-  const accountDeployment = deployment(signer, 'account'),
-    targetDeployment = deployment(signer, 'target');
+  const accountDeployment = deployment(signer, 'account', set),
+    targetDeployment = deployment(signer, 'target', set);
   const review: ContractReview = {
-    stage: 'increment',
+    stage,
     accountId: accountDeployment.id,
     targetId: targetDeployment.id,
     authorizations: [],
     authorizationReady: false,
   };
+  const increment = stage === 'increment';
   const setup = await verifiedSetup(server, signer, review);
-  let operation: xdr.Operation | undefined;
-  if (increment) {
-    if (!setup.account || !setup.target)
-      throw Error('Set up the contract demo before incrementing the counter.');
+  let operation: xdr.Operation;
+  if (stage === 'upload-account' || stage === 'upload-target') {
+    const kind = stage === 'upload-account' ? 'account' : 'target';
+    if (await codeOnLedger(server, kind)) throw stepDone('This contract code is already on testnet.');
+    const wasm = await loadWasm(DEMO_WASM[kind].file);
+    if (hex(hash(wasm)) !== DEMO_WASM[kind].hash) throw Error('The demo contract file failed verification.');
+    operation = Operation.uploadContractWasm({ wasm });
+  } else if (stage === 'deploy-account') {
+    if (setup.account) throw stepDone('Your smart account is already deployed.');
+    if (!(await codeOnLedger(server, 'account'))) throw Error('Upload the smart account code first.');
+    operation = accountDeployment.operation;
+  } else if (stage === 'deploy-target') {
+    if (setup.target) throw stepDone('The counter is already deployed.');
+    if (!setup.account) throw Error('Deploy your smart account first.');
+    if (!(await codeOnLedger(server, 'target'))) throw Error('Upload the counter code first.');
+    operation = targetDeployment.operation;
+  } else {
+    if (!setup.account || !setup.target) throw Error('Deploy your smart account and the counter first.');
     review.before = await readCounter(server, signer, review);
     operation = new Contract(review.targetId).call(
       'ping',
       nativeToScVal(review.accountId, { type: 'address' }),
       xdr.ScVal.scvU32(1),
     );
-  } else {
-    for (const kind of ['account', 'target'] as const) {
-      if (setup[kind]) continue;
-      const code = await server.getLedgerEntries(
-        xdr.LedgerKey.contractCode(new xdr.LedgerKeyContractCode({ hash: bytes(DEMO_WASM[kind].hash) })),
-      );
-      if (!code.entries.length) {
-        const wasm = await loadWasm(DEMO_WASM[kind].file);
-        if (hex(hash(wasm)) !== DEMO_WASM[kind].hash)
-          throw Error('The demo contract file failed verification.');
-        review.stage = kind === 'account' ? 'upload-account' : 'upload-target';
-        operation = Operation.uploadContractWasm({ wasm });
-      } else {
-        review.stage = kind === 'account' ? 'deploy-account' : 'deploy-target';
-        operation = kind === 'account' ? accountDeployment.operation : targetDeployment.operation;
-      }
-      break;
-    }
-    if (!operation) throw Error('The contract demo is ready. Select Increment counter.');
   }
   const source = await server.getAccount(signer);
   const template = build(signer, source.sequenceNumber(), operation);
@@ -344,11 +448,8 @@ export function validateContractReview(transactionXdr: string, signer: string, r
     typeof review.authorizationReady !== 'boolean'
   )
     throw Error('The contract review is invalid.');
-  if (
-    review.accountId !== deployment(signer, 'account').id ||
-    review.targetId !== deployment(signer, 'target').id
-  )
-    throw Error('The contract review belongs to a different signer.');
+  // Both IDs must belong to one set of this signer.
+  const set = contractSet(signer, review);
   const transaction = TransactionBuilder.fromXDR(transactionXdr, Networks.TESTNET);
   if (
     'innerTransaction' in transaction ||
@@ -405,7 +506,7 @@ export function validateContractReview(transactionXdr: string, signer: string, r
       throw Error('The saved counter action is invalid.');
   } else {
     const kind = review.stage === 'deploy-account' ? 'account' : 'target';
-    const body = deployment(signer, kind).operation.body;
+    const body = deployment(signer, kind, set).operation.body;
     if (
       body.type !== 'invokeHostFunction' ||
       host.hostFunction.toXdr('base64') !== body.value.hostFunction.toXdr('base64')

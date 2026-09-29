@@ -1,0 +1,98 @@
+{
+  "observed_at": "2026-09-29",
+  "network": "testnet",
+  "network_passphrase": "Test SDF Network ; September 2015",
+  "subject": "The demo smart account walkthrough: live ledger state, a repeated counter step, a new contract set, and each signature phase",
+  "status": "passed",
+  "window_utc": {
+    "first_transaction": "2026-09-29T15:18:42Z",
+    "last_transaction": "2026-09-29T15:19:57Z"
+  },
+  "operator": "The maintainer approved each 1Password prompt. An agent drove the demo page in agent-browser.",
+  "source": {
+    "revision": "81a8fa14f756b24b9503ae43c6495784480829a5",
+    "branch": "demo-contract-walkthrough",
+    "base": "main 13c533c"
+  },
+  "install": {
+    "kind": "A debug walleterm binary built from the worktree. The tunnel and the demo used ports 18787 and 18788, not the default ports."
+  },
+  "vault_filter": {
+    "argument": "--vault Wallace",
+    "filtered_wallet_list": "one key"
+  },
+  "components": {
+    "bridge_protocol_version": 3,
+    "stellar_sdk": "17.1.0"
+  },
+  "account": "GDOV24Q3XUDQ3FM53GB2EHYMAJI6OXVZELW2NOUJXCBZC2CPB4AAHXMN",
+  "contracts": {
+    "set_1": {
+      "smart_account": "CADNDEZLZ7ONA46TCOUFL2TVQZ6MYJFH2YDQ2ZQLJ7Z7XB3G4XUGLHT3",
+      "counter": "CBVFLAUZ7RRHQN2D45LPIKP3NTAPDMWK5X53NIEE7ACLCMTA43ALB5HZ",
+      "note": "Deployed earlier on 2026-09-29 by the previous demo. The first read found them with the set 1 salt."
+    },
+    "set_2": {
+      "smart_account": "CBM7EKBLUIZHEPICTBLEP3IPSCPJMJCXF4ZAHRLEG4UVIDRIG44KFWCY",
+      "counter": "CAC4ECYJ74BURGR54SDBZLFI2VDVMLCC63SKH2NNLSMMODZ7W6XK34ZU"
+    },
+    "wasm_sha256": {
+      "smart_account": "87248e34b98c4acc825f68ea8b4666c9e8b89b43ef7cdf86ef9f284ad08a823d",
+      "counter": "04a9a33cd3f56a0f16aca0db6b18e4b624416f3393cfeb1e0ce8bcc0d47fcdf5"
+    }
+  },
+  "state_before": {
+    "page": "Set 1 · 3 of 3 done. Count: 2. Account funded · 9,999.98 XLM.",
+    "latest_set": 1
+  },
+  "steps": [
+    {
+      "step": "Set 1 · Increase again",
+      "signatures": ["contract authorization for the set 1 smart account", "transaction envelope"],
+      "hash": "e1061010ee89d0a761d238914218e0b893c45da76ce24b8773e16d8be92b7529",
+      "ledger": 4934307,
+      "result": "success",
+      "verified": { "count_before": 2, "count_after": 3 }
+    },
+    {
+      "step": "Start a new set, then Set 2 · Deploy your smart account",
+      "signatures": ["deployment authorization for the wallet", "transaction envelope"],
+      "hash": "94c62e49c17b21037ca0abea805b7fcceb0e0a3fdba1365500d6c4ccc75af888",
+      "ledger": 4934313,
+      "result": "success",
+      "verified": { "instance": "CBM7EKBLUIZHEPICTBLEP3IPSCPJMJCXF4ZAHRLEG4UVIDRIG44KFWCY", "owner": "the wallet" }
+    },
+    {
+      "step": "Continue: Deploy the counter",
+      "signatures": ["deployment authorization for the wallet", "transaction envelope"],
+      "hash": "4d9120b993c1cad781c3d430c5f49448e63ae33eac61cb29aa756fdf62bb534b",
+      "ledger": 4934317,
+      "result": "success",
+      "verified": { "instance": "CAC4ECYJ74BURGR54SDBZLFI2VDVMLCC63SKH2NNLSMMODZ7W6XK34ZU" }
+    },
+    {
+      "step": "Continue: Increase the counter",
+      "signatures": ["contract authorization for the set 2 smart account", "transaction envelope"],
+      "hash": "97c4f08210ee588cb7a7870376b749214bf31e1893af11f98bb0eba51b02b7b1",
+      "ledger": 4934322,
+      "result": "success",
+      "verified": { "count_before": 0, "count_after": 1 }
+    }
+  ],
+  "state_after": {
+    "page": "Set 2 · 3 of 3 done. Count: 1. Increase again and Start a new set offered. Account funded · 9,999.95 XLM.",
+    "latest_set": 2,
+    "set_1_count": 3,
+    "set_2_count": 1
+  },
+  "independent_checks": [
+    "Horizon returned successful: true, the listed ledger, and the wallet as source for each of the four hashes.",
+    "readWalkthrough from the worktree, run outside the page after the session, returned set 1 count 3 and set 2 count 1, with latest set 2."
+  ],
+  "findings": [],
+  "limits": [
+    "Both contract codes were already on testnet, so this run did not upload code. Offline browser checks and unit tests cover the upload rows.",
+    "Failure states, the read-only result check, and the stale-read guard were tested offline, not live."
+  ],
+  "public_record_excludes": ["private keys", "signatures", "connection codes", "vault identifiers"]
+}
