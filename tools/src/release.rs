@@ -7,7 +7,7 @@ use std::process::Command;
 
 use crate::{Result, Scratch, run, sha256_hex};
 
-const TEAM_ID: &str = "4JWM8JNM37";
+const TEAM_ID: &str = "T4GBHCYB7P";
 const NOTARY_PROFILE: &str = "walleterm-notary";
 const REPOSITORY: &str = "stellar-experimental/walleterm";
 
