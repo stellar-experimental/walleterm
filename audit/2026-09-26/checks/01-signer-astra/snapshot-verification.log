@@ -1,1 +1,0 @@
-{"revision": "40d6cca9db732a0db16d154c80d4a153bf33c6b7", "files": 199, "all_match": true, "check_copies_match": {"main.go": true, "service.go": true, "main_test.go": true, "go.mod": true}}

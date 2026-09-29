@@ -1,8 +1,0 @@
-{
-  "archive": "checks/source-baseline.tar.gz",
-  "bytes": 1236209,
-  "sha256": "64a69d5432d8a1e3caec6463c982ca9b9a493c917d6bc8cf27ea7d11f896b082",
-  "tracked_files": 199,
-  "matches_manifest": true,
-  "contents": "Tracked baseline source only; excludes credentials, runtime state, node_modules, and caches."
-}

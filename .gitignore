@@ -4,6 +4,9 @@
 /fixtures/.oz-src/
 /fixtures/vendor/
 
+# Past review records. They stay on the maintainer's machine and in Git history.
+/audit/
+
 # Local configuration and credentials.
 .env
 .env.*
