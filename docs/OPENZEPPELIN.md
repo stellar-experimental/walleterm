@@ -265,7 +265,7 @@ This check cannot stop a signature holder from building another artifact that th
 
 `tests/openzeppelin-auth-live.ts` runs live acceptance for this adapter. It deploys nothing.
 It uses the `oz_basic_a` account that the contract acceptance suite (`tests/contracts.ts`) deploys.
-Rule 0 of that account holds one `External` Ed25519 signer: the dedicated key `walleterm-v2-test-a`.
+Rule 0 of that account holds one `External` Ed25519 signer: the dedicated key A of the live test metadata.
 The runner reads the contract IDs from `live/contracts-state.json` beside the metadata file.
 
 Before each signing request, the runner checks the live code hashes, the rule count, and the complete rule 0.
