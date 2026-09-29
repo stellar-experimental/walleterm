@@ -79,7 +79,7 @@ test('transport history preserves the original request, response body, and abort
   assert.equal(returned, response);
   assert.equal((await returned.json()).token, 'response-secret');
   // A write has one event. It starts when the request is sent and completes in place.
-  await until(() => history.events[0]?.title === 'Connect website · 200');
+  await until(() => history.events[0]?.title === 'Connect website');
   assert.equal(history.events.length, 1);
   assert.equal(typeof field(history.events[0].data, 'duration_ms'), 'number');
   const serialized = JSON.stringify(history.events);
@@ -104,14 +104,14 @@ test('unchanged signing polls collapse while changed states and signatures remai
     method: 'POST',
     body: JSON.stringify({ id: 'request-1' }),
   });
-  await until(() => history.events[0]?.title === 'Request signature · 200');
+  await until(() => history.events[0]?.title === 'Request signature');
   for (let i = 0; i < 3; i++) {
     await tracked('https://bridge.example/v1/requests/request-1');
     await tick();
   }
   // The first poll is a new event. Identical polls count on it.
   assert.equal(history.events.length, 2);
-  assert.equal(history.events[0].title, 'Signing update · 200');
+  assert.equal(history.events[0].title, 'Signing update');
   assert.equal(field(history.events[0].data, 'repeats'), 3);
   assert.equal(typeof field(history.events[0].data, 'last_time'), 'string');
   result = { ...result, state: 'signed', signed_xdr: 'envelope' };
@@ -311,7 +311,7 @@ test('RPC calls are named by method, and errors inside HTTP 200 are errors with 
     ['error', 'Simulate transaction · simulation failed'],
     ['error', 'Send transaction · ERROR'],
     ['error', 'Check transaction · FAILED'],
-    ['network', 'Read latest ledger · 200'],
+    ['network', 'Read latest ledger'],
   ]);
   assert.equal(field(field(field(history.events[4].data, 'response'), 'error'), 'code'), -32602);
   assert.equal(safeData({ code: '12345678' }) && field(safeData({ code: '12345678' }), 'code'), '[redacted]');
@@ -409,9 +409,9 @@ test('a failed read ends its group, so a recovery is a new event', async () => {
   }
   await until(() => history.events.length === 3);
   assert.deepEqual(history.events.map((event) => [event.category, event.title]).reverse(), [
-    ['network', 'Read testnet account · 200'],
+    ['network', 'Read testnet account'],
     ['error', 'Read testnet account · 503'],
-    ['network', 'Read testnet account · 200'],
+    ['network', 'Read testnet account'],
   ]);
   assert.equal(field(history.events[2].data, 'repeats'), 2);
 });
