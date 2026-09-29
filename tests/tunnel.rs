@@ -953,11 +953,10 @@ fn the_tunnel_command_reports_a_busy_port_without_starting_cloudflared() {
     let busy = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let port = busy.local_addr().unwrap().port();
     let output = std::process::Command::new(env!("CARGO_BIN_EXE_walleterm"))
-        .args(["tunnel", "--port", &port.to_string()])
+        .args(["tunnel", "--port", &port.to_string(), "--vault", "Private"])
         .env_clear()
         .env("PATH", format!("{}:/bin:/usr/bin", dir.display()))
         .env("HOME", std::env::var("HOME").unwrap())
-        .env("OP_VAULT", "Private")
         .current_dir(&dir)
         .output()
         .unwrap();
@@ -970,6 +969,40 @@ fn the_tunnel_command_reports_a_busy_port_without_starting_cloudflared() {
     assert!(tunnels(&dir).is_empty(), "cloudflared never started");
     drop(busy);
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn the_tunnel_uses_only_the_vault_flag_and_ignores_old_configuration() {
+    let (dir, _cleanup) = scratch();
+    mock_cloudflared(&dir);
+    // The removed parser must not read even an invalid UTF-8 dotenv file.
+    std::fs::write(dir.join(".env"), b"OP_VAULT=Old\n\xff").unwrap();
+    let busy = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    for vault in [None, Some("Private Keys")] {
+        let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_walleterm"));
+        command.args(["tunnel", "--port", &busy.local_addr().unwrap().port().to_string()]);
+        if let Some(vault) = vault {
+            command.args(["--vault", vault]);
+        }
+        let output = command
+            .env_clear()
+            .env("PATH", format!("{}:/bin:/usr/bin", dir.display()))
+            .env("HOME", std::env::var("HOME").unwrap())
+            .env("OP_VAULT", "Old")
+            .current_dir(&dir)
+            .output()
+            .unwrap();
+        let stdout = String::from_utf8(output.stdout).unwrap();
+        assert_eq!(output.status.code(), Some(1), "{stdout}");
+        let banner = match vault {
+            Some(_) => "Website wallets: 1Password vault \"Private Keys\".\n",
+            None => {
+                "Website wallets: every Ed25519 key in the 1Password SSH agent. Use --vault to limit them.\n"
+            }
+        };
+        assert_eq!(stdout, format!("{banner}The local port is in use. Choose another --port.\n"));
+        assert!(tunnels(&dir).is_empty());
+    }
 }
 
 // ---------- Review P4: supervisor generations, shutdown during startup, and bounded output ----------

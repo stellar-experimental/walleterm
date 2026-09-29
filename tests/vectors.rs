@@ -8,8 +8,8 @@ use base64::engine::general_purpose::STANDARD;
 use ed25519_dalek::{Signer, SigningKey};
 use serde_json::{Value, json};
 use walleterm::artifact::{self, Artifact, Scope, Signed};
-use walleterm::authorization::verify;
 use walleterm::error::Error;
+use walleterm::stellar::verify;
 use walleterm::util::{hex, lower_hex, sha256};
 
 /// Reviewed behavior changes from `audit/2026-09-28-sign-design/DESIGN.md` (PR A). `"ok"` means the case now signs.
@@ -321,7 +321,7 @@ fn a_hash_sent_as_text_is_hashed_again() {
 fn every_parity_file_matches_its_recorded_hash() {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/parity");
     let readme = std::fs::read_to_string(format!("{dir}/README.md")).unwrap();
-    for name in ["vectors.json", "cli.json", "dotenv.json"] {
+    for name in ["vectors.json", "cli.json"] {
         let bytes = std::fs::read(format!("{dir}/{name}")).unwrap();
         let row = readme.lines().find(|l| l.starts_with(&format!("| `{name}`"))).unwrap();
         let recorded = row.trim_end_matches(" |").rsplit('`').nth(1).unwrap();

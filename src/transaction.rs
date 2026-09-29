@@ -8,9 +8,8 @@ use stellar_xdr::{
     TransactionSignaturePayloadTaggedTransaction, TransactionV1Envelope,
 };
 
-use crate::authorization::verify;
 use crate::error::{Result, fail};
-use crate::stellar::{self, Decode};
+use crate::stellar::{self, Decode, verify};
 use crate::util::{hex, sha256, valid_passphrase};
 
 pub const TESTNET: &str = "Test SDF Network ; September 2015";

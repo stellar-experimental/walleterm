@@ -22,6 +22,7 @@ git)
       source="$5"
       mkdir -p "$source/demo/site/vendor" "$source/Casks"
       echo '{"dependencies":{}}' > "$source/package.json"
+      printf '[[package]]\nname = "walleterm"\nversion = "0.0.0"\n' > "$source/Cargo.lock"
       echo 'Mock license text.' > "$source/demo/site/vendor/syntax.LICENSE"
       printf 'cask "walleterm" do\n  version "0.0.0"\n  sha256 "0000"\nend\n' > "$source/Casks/walleterm.rb"
     else

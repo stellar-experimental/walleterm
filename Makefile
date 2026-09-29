@@ -61,7 +61,7 @@ test:
 	cargo clippy --locked --features test-host --bin walleterm-test-host -- -D warnings
 	cargo build --locked --features test-host --bin walleterm-test-host
 	bun run typecheck
-	bun run test
+	bun run test:built
 
 # The release package. Two concurrent builds must give identical files. The binary runs from an unrelated
 # directory with only the system PATH: no Go, Bun, Node, Rust, or source tree.

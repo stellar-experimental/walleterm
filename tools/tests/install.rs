@@ -105,8 +105,16 @@ fn install_switches_links_and_keeps_the_old_version_after_a_failed_build() {
     assert_eq!(installed(&prefix), "first");
     assert_eq!(releases(&prefix), first);
 
-    // A new build adds a release and keeps the old one for running processes and rollback.
+    // An oversized executable must fail before the installed links can change.
     std::fs::remove_file(fake.join("fail")).unwrap();
+    std::fs::File::create(fake.join("content")).unwrap().set_len(10_000_001).unwrap();
+    let (ok, output) = install(&fake, &prefix);
+    assert!(!ok, "{output}");
+    assert_eq!(installed(&prefix), "first");
+    assert_eq!(releases(&prefix), first);
+
+    // A new build adds a release and keeps the old one for running processes and rollback.
+    std::fs::write(fake.join("content"), "second").unwrap();
     let (ok, output) = install(&fake, &prefix);
     assert!(ok, "{output}");
     assert_eq!(installed(&prefix), "second");

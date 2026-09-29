@@ -1,4 +1,4 @@
-//! `OP_VAULT` filtering through the 1Password CLI. It reads item metadata and public key fields only.
+//! `--vault` filtering through the 1Password CLI. It reads item metadata and public key fields only.
 
 use std::ffi::OsStr;
 use std::path::Path;
@@ -108,7 +108,7 @@ pub async fn allowed_keys(vault: &str, cancel: &Cancel) -> Result<Vec<String>> {
 /// `allowed_keys` with another CLI program. Only tests pass a program other than `op`.
 pub async fn allowed_keys_with(program: &OsStr, vault: &str, cancel: &Cancel) -> Result<Vec<String>> {
     if js_blank(vault) {
-        return Err(unavailable("Set OP_VAULT to a 1Password vault name or ID."));
+        return Err(unavailable("Set --vault to a 1Password vault name or ID."));
     }
     let lookup = Cancel::any(&[cancel], LOOKUP);
     let listed = op(
@@ -118,7 +118,7 @@ pub async fn allowed_keys_with(program: &OsStr, vault: &str, cancel: &Cancel) ->
     )
     .await;
     let items: Value = listed.ok().and_then(|text| serde_json::from_str(&text).ok()).ok_or_else(|| {
-        unavailable("The selected 1Password vault is unavailable. Check OP_VAULT and the 1Password CLI.")
+        unavailable("The selected 1Password vault is unavailable. Check --vault and the 1Password CLI.")
     })?;
     let Some(items) = items.as_array().filter(|items| items.len() <= MAX_ITEMS) else {
         return Err(unavailable("The selected vault returned an invalid key list."));
@@ -172,14 +172,14 @@ pub async fn allowed_keys_with(program: &OsStr, vault: &str, cancel: &Cancel) ->
 /// Agent listing is bounded by ten seconds; discovery never returns an unfiltered list after a vault failure.
 pub const AGENT_LIST: Duration = Duration::from_secs(10);
 
-/// The wallets a website may see: agent Ed25519 keys, filtered by `OP_VAULT` when it is set and not empty.
+/// The wallets a website may see: agent Ed25519 keys, filtered by `--vault` when it is supplied.
 pub async fn discover(
     socket: &Path,
     vault: Option<&str>,
     program: &OsStr,
     cancel: &Cancel,
 ) -> Result<Vec<crate::bridge::SignerInfo>> {
-    let listed = crate::agent::nonblocking::list(socket, AGENT_LIST, cancel)
+    let listed = crate::agent::list(socket, AGENT_LIST, cancel)
         .await
         .map_err(|e| if cancel.is_cancelled() { e } else { unavailable(&e.message) })?;
     let signers: Vec<crate::bridge::SignerInfo> = listed
@@ -190,7 +190,7 @@ pub async fn discover(
             comment: Some(s.comment),
         })
         .collect();
-    let Some(vault) = vault.filter(|v| !v.is_empty()) else {
+    let Some(vault) = vault else {
         return Ok(signers);
     };
     let allowed = allowed_keys_with(program, vault, cancel).await?;

@@ -29,10 +29,10 @@ Read `.agents/skills/walleterm-illustration/references/paper.md` before any `sit
 ## Code layout
 
 - `src/` holds the one `walleterm` binary. Keep new runtime code in Rust.
-  - Signing core: `stellar.rs`, `transaction.rs`, `authorization.rs`, `preimage.rs`.
-  - CLI and 1Password agent: `main.rs`, `cli.rs`, `agent.rs`, `platform.rs`, `error.rs`, `json.rs`.
-  - Bridge protocol version 3: `bridge.rs`, `http.rs`, `ledger.rs`, `vault.rs`, `config.rs`, `cancel.rs`.
-  - Services: `service.rs`, `tunnel.rs`, `process.rs`, `qr.rs`, and `demo.rs` with the embedded website.
+  - Signing core: `artifact.rs`, `stellar.rs`, `transaction.rs`, `authorization.rs`, `preimage.rs`, `message.rs`.
+  - CLI, 1Password agent, and shared helpers: `main.rs`, `cli.rs`, `agent.rs`, `platform.rs`, `error.rs`, `json.rs`, `util.rs`.
+  - Bridge protocol version 3: `bridge.rs`, `http.rs`, `vault.rs`, `cancel.rs`.
+  - Services: `service.rs`, `tunnel.rs`, `dns.rs`, `process.rs`, `qr.rs`, and `demo.rs` with the embedded website.
   - `bin/walleterm-test-host.rs` needs the `test-host` feature. It never enters a release.
 - `tools/` holds maintainer commands: package, install, release, and fixture manifests. It never ships.
 - TypeScript stays only where a browser or JavaScript runtime needs it.

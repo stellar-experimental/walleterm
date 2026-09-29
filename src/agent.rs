@@ -1,21 +1,21 @@
 //! The 1Password SSH agent protocol (RFC 9987): list identities and sign one 32-byte digest.
-//! Parsing is pure. The blocking client below serves the CLI; the bridge adds its own async IO.
+//! The CLI and bridge use the same asynchronous client and pure wire parser.
 
-use std::io::{self, Read, Write};
-use std::os::fd::AsRawFd;
 use std::os::unix::fs::{FileTypeExt, MetadataExt, PermissionsExt};
-use std::os::unix::net::UnixStream;
 use std::path::Path;
-use std::time::Instant;
+use std::time::{Duration, Instant};
+
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use tokio::net::UnixStream;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use serde::Serialize;
 
-use crate::authorization::verify;
+use crate::cancel::Cancel;
 use crate::error::{Error, Result};
-use crate::platform::{current_uid, wait_ready};
-use crate::stellar::account_address;
+use crate::platform::current_uid;
+use crate::stellar::{account_address, verify};
 use crate::util::sha256;
 
 pub const MAX_FRAME: u32 = 1 << 20;
@@ -223,165 +223,92 @@ pub fn verify_signature(signer: &Signer, digest: &[u8; 32], signature: &[u8; 64]
     }
 }
 
-/// One connection that lists and signs, bounded by one absolute deadline.
-/// The socket is non-blocking; `poll` waits for each step, so no step can outlive the deadline.
+/// One connection shared by CLI and bridge callers. Every exchange uses the same absolute deadline.
+/// Dropping a pending operation closes its owned connection; signing is never retried.
 pub struct Agent {
     stream: UnixStream,
     deadline: Instant,
 }
 
+/// Check both sides of the await. A buffered response must not defeat an expired deadline.
+async fn bounded<T>(deadline: Instant, work: impl Future<Output = Result<T>>) -> Result<T> {
+    if Instant::now() >= deadline {
+        return Err(timeout());
+    }
+    let result = tokio::time::timeout_at(deadline.into(), work).await.unwrap_or_else(|_| Err(timeout()));
+    if Instant::now() >= deadline { Err(timeout()) } else { result }
+}
+
 impl Agent {
-    pub fn connect(path: &Path, deadline: Instant) -> Result<Self> {
+    pub async fn connect(path: &Path, deadline: Instant) -> Result<Self> {
         check_socket(path)?;
-        if Instant::now() >= deadline {
-            return Err(timeout());
-        }
-        let stream = UnixStream::connect(path).map_err(|_| unavailable())?;
-        stream.set_nonblocking(true).map_err(|_| unavailable())?;
+        let stream =
+            bounded(deadline, async { UnixStream::connect(path).await.map_err(|_| unavailable()) }).await?;
         Ok(Self { stream, deadline })
     }
 
-    /// Wait for the socket. `Ok(false)` means the deadline passed.
-    fn wait(&self, events: libc::c_short) -> Result<()> {
-        match wait_ready(self.stream.as_raw_fd(), events, self.deadline) {
-            Ok(true) => Ok(()),
-            Ok(false) => Err(timeout()),
-            Err(_) => Err(unavailable()),
-        }
-    }
-
-    /// Every read and write first checks the deadline. A readable or writable socket never extends it.
-    fn check(&self) -> Result<()> {
-        if Instant::now() >= self.deadline { Err(timeout()) } else { Ok(()) }
-    }
-
-    /// Fill `buf`. A close before its first byte returns `closed()`; any later close is a truncated frame.
-    fn read_full(&mut self, buf: &mut [u8], closed: fn() -> Error) -> Result<()> {
-        let mut filled = 0;
-        while filled < buf.len() {
-            self.check()?;
-            match self.stream.read(&mut buf[filled..]) {
-                Ok(0) if filled == 0 => return Err(closed()),
-                Ok(0) => return Err(truncated()),
-                Ok(n) => filled += n,
-                Err(e) if e.kind() == io::ErrorKind::WouldBlock => self.wait(libc::POLLIN)?,
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-                Err(_) => return Err(truncated()),
-            }
-        }
-        Ok(())
-    }
-
-    /// Send one request frame and read one response frame. `closed` reports a close before any response byte.
-    pub fn exchange(&mut self, body: &[u8], closed: fn() -> Error) -> Result<Vec<u8>> {
+    /// Send once. Only a close before any response bytes uses the operation-specific error.
+    async fn exchange(&mut self, body: &[u8], closed: fn() -> Error) -> Result<Vec<u8>> {
         let out = frame(body);
-        let mut sent = 0;
-        while sent < out.len() {
-            self.check()?;
-            match self.stream.write(&out[sent..]) {
-                Ok(0) => return Err(unavailable()),
-                Ok(n) => sent += n,
-                Err(e) if e.kind() == io::ErrorKind::WouldBlock => self.wait(libc::POLLOUT)?,
-                Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-                Err(_) => return Err(unavailable()),
-            }
-        }
+        bounded(self.deadline, async { self.stream.write_all(&out).await.map_err(|_| unavailable()) })
+            .await?;
         let mut header = [0u8; 4];
-        self.read_full(&mut header, closed)?;
+        bounded(self.deadline, async {
+            let first = self.stream.read(&mut header).await.map_err(|_| truncated())?;
+            if first == 0 {
+                return Err(closed());
+            }
+            self.stream.read_exact(&mut header[first..]).await.map_err(|_| truncated())?;
+            Ok(())
+        })
+        .await?;
         let mut response = vec![0u8; frame_length(header)?];
-        self.read_full(&mut response, truncated)?;
+        bounded(self.deadline, async {
+            self.stream.read_exact(&mut response).await.map_err(|_| truncated())?;
+            Ok(())
+        })
+        .await?;
         Ok(response)
     }
 
-    /// Live runs listed keys without a prompt, so a close before the identities answer stays a truncated frame.
-    pub fn list(&mut self) -> Result<Vec<Signer>> {
-        let body = self.exchange(&identities_request(), truncated)?;
-        parse_identities(&body)
+    pub async fn list(&mut self) -> Result<Vec<Signer>> {
+        parse_identities(&self.exchange(&identities_request(), truncated).await?)
     }
 
-    /// Sign once and verify. This never retries the signing exchange.
-    pub fn sign(&mut self, signer: &Signer, digest: &[u8; 32]) -> Result<[u8; 64]> {
-        let body = self.exchange(&sign_request(&signer.blob, digest), closed)?;
+    pub async fn sign(&mut self, signer: &Signer, digest: &[u8; 32]) -> Result<[u8; 64]> {
+        let body = self.exchange(&sign_request(&signer.blob, digest), closed).await?;
         let signature = parse_signature(&body)?;
         verify_signature(signer, digest, &signature)?;
         Ok(signature)
     }
 }
 
-/// The async client for the bridge. One connection lists and signs; dropping it closes the socket.
-pub mod nonblocking {
-    use std::path::Path;
-    use std::time::Duration;
+/// List within one deadline. Cancellation drops the connection.
+pub async fn list(path: &Path, limit: Duration, cancel: &Cancel) -> Result<Vec<Signer>> {
+    let deadline = Instant::now() + limit;
+    cancel.run(async { Agent::connect(path, deadline).await?.list().await }).await
+}
 
-    use tokio::io::{AsyncReadExt, AsyncWriteExt};
-    use tokio::net::UnixStream;
-
-    use super::{
-        Signer, check_socket, frame, frame_length, identities_request, parse_identities, parse_signature,
-    };
-    use super::{closed, sign_request, timeout, truncated, unavailable, verify_signature};
-    use crate::cancel::Cancel;
-    use crate::error::{Error, Result};
-
-    /// `closed` reports a close before any response byte, as in the blocking client.
-    async fn exchange(stream: &mut UnixStream, body: &[u8], closed: fn() -> Error) -> Result<Vec<u8>> {
-        stream.write_all(&frame(body)).await.map_err(|_| unavailable())?;
-        let mut header = [0u8; 4];
-        let first = stream.read(&mut header).await.map_err(|_| truncated())?;
-        if first == 0 {
-            return Err(closed());
-        }
-        stream.read_exact(&mut header[first..]).await.map_err(|_| truncated())?;
-        let mut response = vec![0u8; frame_length(header)?];
-        stream.read_exact(&mut response).await.map_err(|_| truncated())?;
-        Ok(response)
-    }
-
-    async fn connect(path: &Path) -> Result<UnixStream> {
-        check_socket(path)?;
-        UnixStream::connect(path).await.map_err(|_| unavailable())
-    }
-
-    async fn bounded<T>(
-        limit: Duration,
-        cancel: &Cancel,
-        work: impl Future<Output = Result<T>>,
-    ) -> Result<T> {
-        cancel.run(async { tokio::time::timeout(limit, work).await.unwrap_or_else(|_| Err(timeout())) }).await
-    }
-
-    /// List Ed25519 identities within `limit`.
-    pub async fn list(path: &Path, limit: Duration, cancel: &Cancel) -> Result<Vec<Signer>> {
-        bounded(limit, cancel, async {
-            let mut stream = connect(path).await?;
-            parse_identities(&exchange(&mut stream, &identities_request(), truncated).await?)
-        })
-        .await
-    }
-
-    /// Sign one digest with the listed key and verify the result. Cancellation drops the connection.
-    /// It cannot prove that 1Password stopped; the caller treats a canceled signing as unknown.
-    pub async fn sign(
-        path: &Path,
-        public_key: &str,
-        digest: &[u8; 32],
-        limit: Duration,
-        cancel: &Cancel,
-    ) -> Result<[u8; 64]> {
-        bounded(limit, cancel, async {
-            let mut stream = connect(path).await?;
-            let signers = parse_identities(&exchange(&mut stream, &identities_request(), truncated).await?)?;
+/// List and sign on one connection. Cancellation cannot prove that 1Password stopped signing.
+pub async fn sign(
+    path: &Path,
+    public_key: &str,
+    digest: &[u8; 32],
+    limit: Duration,
+    cancel: &Cancel,
+) -> Result<[u8; 64]> {
+    let deadline = Instant::now() + limit;
+    cancel
+        .run(async {
+            let mut agent = Agent::connect(path, deadline).await?;
+            let signers = agent.list().await?;
             let Some(signer) = signers.iter().find(|s| s.public_key == public_key) else {
                 return Err(Error::new(
                     "key_not_found",
                     "The selected public key is not available from the agent.",
                 ));
             };
-            let request = sign_request(&signer.blob, digest);
-            let signature = parse_signature(&exchange(&mut stream, &request, closed).await?)?;
-            verify_signature(signer, digest, &signature)?;
-            Ok(signature)
+            agent.sign(signer, digest).await
         })
         .await
-    }
 }

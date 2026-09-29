@@ -122,17 +122,21 @@ fn deps(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
     }
 }
 
-/// With WALLETERM_TEST_HOST_PRODUCTION, the live harnesses get the production signer and `OP_VAULT` discovery,
+/// With WALLETERM_TEST_HOST_PRODUCTION, the live harnesses get the production signer and explicit vault discovery,
 /// as `walleterm tunnel` wires them, on loopback without a tunnel. Log lines still reach the harness.
 fn dependencies(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
     if std::env::var_os("WALLETERM_TEST_HOST_PRODUCTION").is_none() {
         return deps(rpc, offset);
     }
     let socket = walleterm::platform::agent_socket().expect("the 1Password SSH agent socket");
-    let directory = std::env::current_dir().expect("a working directory");
-    let vault =
-        walleterm::config::load_vault(&directory, std::env::var("OP_VAULT").ok()).expect("a readable .env");
-    let mut production = walleterm::bridge::production(socket, vault.vault);
+    let args: Vec<String> = std::env::args().skip(1).collect();
+    let args: Vec<&str> = args.iter().map(String::as_str).collect();
+    let vault = match args.as_slice() {
+        [] => None,
+        ["--vault", value] if !walleterm::util::js_blank(value) => Some((*value).to_owned()),
+        _ => panic!("Use walleterm-test-host [--vault <name-or-id>]."),
+    };
+    let mut production = walleterm::bridge::production(socket, vault);
     production.log = Box::new(|line| send(&json!({ "log": line })));
     production
 }

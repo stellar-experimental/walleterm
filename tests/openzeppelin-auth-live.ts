@@ -1,12 +1,13 @@
 // Explicit live acceptance for the openzeppelin-ed25519 adapter. Uses one existing OpenZeppelin account whose
 // rule 0 holds one External Ed25519 signer: the pre-existing dedicated 1Password key test-a. Deploys nothing.
-// Usage: WALLETERM_BINARY=/isolated/prefix/bin/walleterm bun --no-env-file tests/openzeppelin-auth-live.ts /path/to/public-test-keys.json
+// Usage: WALLETERM_BINARY=/isolated/prefix/bin/walleterm bun --no-env-file tests/openzeppelin-auth-live.ts /path/to/public-test-keys.json [--vault Private]
 // The account, verifier, and target come from live/contracts-state.json beside the metadata file.
 // The runner checks their code, rule, and signer with read-only RPC calls before each signing request.
 // The website half uses the Rust bridge with its production signer on loopback. Build it first:
 // cargo build --locked --features test-host --bin walleterm-test-host
 import * as StellarSdk from '@stellar/stellar-sdk';
 import { spawn } from 'node:child_process';
+import { parseArgs } from 'node:util';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import {
@@ -384,6 +385,10 @@ async function main() {
   const metadataFile = process.argv[2],
     binary = process.env.WALLETERM_BINARY;
   if (!metadataFile || !binary) throw Error('Provide dedicated public test metadata and WALLETERM_BINARY.');
+  const {
+    values: { vault },
+  } = parseArgs({ args: process.argv.slice(3), options: { vault: { type: 'string' } } });
+  if (vault !== undefined && !vault.trim()) throw Error('Provide a nonempty --vault name or ID.');
   const metadata = JSON.parse(readFileSync(metadataFile, 'utf8'));
   const dedicated = metadata.keys?.find((key: { name: string }) => key.name === 'walleterm-v2-test-a');
   if (!dedicated || !/^[a-f0-9]{64}$/.test(dedicated.raw_public_key_hex))
@@ -535,7 +540,7 @@ async function main() {
     const verified = await verifyDeployment(server, d);
     record('deployment', 'verified', { deployment: d, ...verified, oz_commit: OPENZEPPELIN_AUTH_COMMIT });
     // The test host reports each call to the 1Password signer.
-    bridge = await createHost({ production: true, onSign: () => usage.signatures++ });
+    bridge = await createHost({ production: true, vault, onSign: () => usage.signatures++ });
     const origin = bridge.origin;
     client = new WalletermClient(origin, {
       page: null,

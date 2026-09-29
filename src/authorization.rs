@@ -1,7 +1,6 @@
 //! AddressV2 authorization entries: checks, adapter digests, and signature attachment.
-//! Schemas match `sdk/authorization.ts` and OpenZeppelin commit `OPENZEPPELIN_AUTH_COMMIT`.
+//! Schemas match `sdk/authorization.ts` and the OpenZeppelin commit pinned in `docs/OPENZEPPELIN.md`.
 
-use ed25519_dalek::{Signature, VerifyingKey};
 use serde_json::Value;
 use stellar_xdr::{
     ContractId, Hash, HashIdPreimage, HashIdPreimageSorobanAuthorizationWithAddress, ScAddress, ScBytes,
@@ -13,7 +12,6 @@ use crate::error::{Result, fail};
 use crate::stellar::{self, Decode};
 use crate::util::{sha256, valid_passphrase};
 
-pub const OPENZEPPELIN_AUTH_COMMIT: &str = "a5bd8cbd3d0bb8efbd5cf5e2edf9734f87e47640";
 pub const MAX_AUTH_XDR: usize = 32768;
 const MAX_CONTEXTS: usize = 256;
 const MAX_DEPTH: usize = 32;
@@ -209,12 +207,6 @@ fn map(pairs: Vec<(ScVal, ScVal)>) -> ScVal {
     ScVal::Map(Some(ScMap(entries.try_into().expect("a fixed small map"))))
 }
 
-/// Verify a raw Ed25519 signature strictly.
-pub fn verify(key: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> bool {
-    VerifyingKey::from_bytes(key)
-        .is_ok_and(|key| key.verify_strict(message, &Signature::from_bytes(signature)).is_ok())
-}
-
 /// Change only the credential signature value to the adapter's schema. The caller verified `raw` first.
 pub fn attach_auth_signature(checked: &CheckedAuth, raw: &[u8; 64]) -> String {
     let key = bytes(&checked.key);
@@ -252,32 +244,6 @@ pub fn attach_auth_signature(checked: &CheckedAuth, raw: &[u8; 64]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn verification_rejects_a_weak_key() {
-        // The compressed identity point, with an identity R and a zero S, verifies under a cofactor-free check.
-        let mut identity = [0u8; 32];
-        identity[0] = 1;
-        let mut signature = [0u8; 64];
-        signature[0] = 1;
-        assert!(!verify(&identity, b"any message", &signature));
-    }
-
-    #[test]
-    fn verification_rejects_a_noncanonical_scalar() {
-        use ed25519_dalek::{Signer, SigningKey};
-        let key = SigningKey::from_bytes(&[7; 32]);
-        let message = [1u8; 32];
-        let mut signature = key.sign(&message).to_bytes();
-        assert!(verify(&key.verifying_key().to_bytes(), &message, &signature));
-        // Replace S with the Ed25519 group order L; S must be below L.
-        const L: [u8; 32] = [
-            0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10,
-        ];
-        signature[32..].copy_from_slice(&L);
-        assert!(!verify(&key.verifying_key().to_bytes(), &message, &signature));
-    }
 
     #[test]
     fn json_u32_follows_number_is_integer() {

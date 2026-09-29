@@ -9,19 +9,16 @@ Each command owns its own server and tunnel. Stopping one command does not stop 
 In one terminal:
 
 ```sh
-export OP_VAULT=Private
-walleterm tunnel
+walleterm tunnel --vault Private
 ```
 
 The terminal shows the public bridge URL and an eight-digit connection code.
 It shows a QR code when the terminal is wide enough. Otherwise, use the URL and code.
 The terminal needs no input. It prints one line for each produced or withheld signature.
 
-`OP_VAULT` accepts a vault name or ID and limits website wallets to that vault.
-Save `OP_VAULT=Private` in `.env` in the directory where you start the tunnel.
-The tunnel reads only `OP_VAULT` from this file. An exported shell variable overrides it.
-The tunnel prints the active vault filter at startup. It warns about `OP_VAULT` in `.env.local` and similar files.
-Git ignores `.env`, and the installer does not copy it. Existing tunnels keep their startup environment.
+`--vault` accepts a vault name or ID and limits website wallets to that vault.
+The tunnel prints the active filter at startup. It ignores `OP_VAULT` and `.env` files.
+An empty or repeated `--vault` value fails before startup.
 Restart the tunnel after changing the setting. Reconnect the website with the new tunnel URL and code.
 Install the 1Password CLI with `brew install --cask 1password-cli` for vault filtering.
 Enable 1Password CLI integration in the desktop app, or sign in before starting the tunnel.
@@ -30,7 +27,7 @@ Public key reads run in batches of four. A failed read cancels the batch and wai
 After a reload, opening the wallet menu loads the list once. Otherwise the menu shows the existing list.
 Use Refresh to request an updated list.
 Selection and signing still check current vault membership. Switching wallets does not trigger a second refresh.
-An unset or empty `OP_VAULT` lists all available Ed25519 agent keys.
+Omitting `--vault` lists all available Ed25519 agent keys.
 The bridge permits 120 seconds for vault lookup, after the agent list completes.
 The SDK permits 135 seconds for wallet discovery and selection. Caller cancellation still stops the request.
 Stopping the bridge terminates its CLI child, with forced termination if needed.

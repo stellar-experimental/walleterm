@@ -868,21 +868,10 @@ impl Bridge {
         req: HttpRequest,
         body: BodyReader,
     ) -> std::result::Result<Reply, Fail> {
-        let (origin, route) = {
-            let state = self.state.lock().unwrap();
-            let origin = state.origin.clone();
-            let base = url::Url::parse(&origin).expect("the bridge origin is valid");
-            let route = base.join(&req.target).map(|u| u.path().to_owned()).unwrap_or_default();
-            (origin, route)
-        };
-        let public_host = url::Url::parse(&origin).ok().map(|u| {
-            let host = u.host_str().unwrap_or_default().to_owned();
-            u.port().map_or(host.clone(), |p| format!("{host}:{p}"))
-        });
-        let port = self.port();
-        let allowed =
-            [public_host.unwrap_or_default(), format!("127.0.0.1:{port}"), format!("localhost:{port}")];
-        if !req.host.as_ref().is_some_and(|h| allowed.contains(h)) {
+        let origin = self.state.lock().unwrap().origin.clone();
+        let base = url::Url::parse(&origin).expect("the bridge origin is valid");
+        let route = base.join(&req.target).map(|u| u.path().to_owned()).unwrap_or_default();
+        if !crate::http::allowed_host(&base, self.port(), req.host.as_deref()) {
             return Err(fail("invalid_request", "The request host is invalid.", Some(403)));
         }
         {
@@ -1468,7 +1457,7 @@ fn listing_failure(e: Error) -> Fail {
     Fail { status: 502, error: sep43(&Error::new(reason, &e.message), None) }
 }
 
-/// The production dependencies: the 1Password agent and `OP_VAULT` discovery.
+/// The production dependencies: the 1Password agent and `--vault` discovery.
 pub fn production(socket: std::path::PathBuf, vault: Option<String>) -> Deps {
     let socket = Arc::new(socket);
     let (list_socket, sign_socket) = (socket.clone(), socket);
@@ -1484,8 +1473,7 @@ pub fn production(socket: std::path::PathBuf, vault: Option<String>) -> Deps {
             let socket = sign_socket.clone();
             Box::pin(async move {
                 let limit = Duration::from_secs(125);
-                let signature =
-                    crate::agent::nonblocking::sign(&socket, &public_key, &digest, limit, &cancel).await?;
+                let signature = crate::agent::sign(&socket, &public_key, &digest, limit, &cancel).await?;
                 Ok(hex(&signature))
             })
         }),

@@ -1,8 +1,9 @@
-//! Canonical XDR and StrKey helpers shared by every signing path.
+//! Canonical XDR, StrKey, and strict Ed25519 helpers shared by every signing path.
 
 use base64::Engine as _;
 use base64::engine::DecodePaddingMode;
 use base64::engine::general_purpose::{GeneralPurpose, GeneralPurposeConfig, STANDARD};
+use ed25519_dalek::{Signature, VerifyingKey};
 use stellar_strkey::{Contract, ed25519};
 use stellar_xdr::{Limits, ReadXdr, WriteXdr};
 
@@ -83,6 +84,12 @@ pub fn is_contract(address: &str) -> bool {
 pub fn contract_id(address: &str) -> Option<[u8; 32]> {
     let contract = Contract::from_string(address).ok()?;
     (contract.to_string() == address).then_some(contract.0)
+}
+
+/// Verify a raw Ed25519 signature strictly.
+pub fn verify(key: &[u8; 32], message: &[u8], signature: &[u8; 64]) -> bool {
+    VerifyingKey::from_bytes(key)
+        .is_ok_and(|key| key.verify_strict(message, &Signature::from_bytes(signature)).is_ok())
 }
 
 #[cfg(test)]
@@ -177,5 +184,31 @@ mod tests {
         let last = alias.len() - 1;
         alias[last] = if alias[last] == b'A' { b'B' } else { b'A' };
         assert_eq!(account_key(std::str::from_utf8(&alias).unwrap()), None);
+    }
+
+    #[test]
+    fn verification_rejects_a_weak_key() {
+        // The compressed identity point, with an identity R and a zero S, verifies under a cofactor-free check.
+        let mut identity = [0u8; 32];
+        identity[0] = 1;
+        let mut signature = [0u8; 64];
+        signature[0] = 1;
+        assert!(!verify(&identity, b"any message", &signature));
+    }
+
+    #[test]
+    fn verification_rejects_a_noncanonical_scalar() {
+        use ed25519_dalek::{Signer, SigningKey};
+        let key = SigningKey::from_bytes(&[7; 32]);
+        let message = [1u8; 32];
+        let mut signature = key.sign(&message).to_bytes();
+        assert!(verify(&key.verifying_key().to_bytes(), &message, &signature));
+        // Replace S with the Ed25519 group order L; S must be below L.
+        const L: [u8; 32] = [
+            0xed, 0xd3, 0xf5, 0x5c, 0x1a, 0x63, 0x12, 0x58, 0xd6, 0x9c, 0xf7, 0xa2, 0xde, 0xf9, 0xde, 0x14,
+            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10,
+        ];
+        signature[32..].copy_from_slice(&L);
+        assert!(!verify(&key.verifying_key().to_bytes(), &message, &signature));
     }
 }

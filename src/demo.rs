@@ -68,13 +68,9 @@ impl Demo {
     pub fn handle(&self, req: &HttpRequest) -> Reply {
         let origin = self.origin.lock().unwrap().clone();
         let base = url::Url::parse(&origin).expect("the demo origin is valid");
-        let public = base
-            .host_str()
-            .map(|h| base.port().map_or(h.to_owned(), |p| format!("{h}:{p}")))
-            .unwrap_or_default();
-        let port = self.port.load(Ordering::SeqCst);
-        let allowed = [public, format!("127.0.0.1:{port}"), format!("localhost:{port}")];
-        if self.closing.load(Ordering::SeqCst) || !req.host.as_ref().is_some_and(|h| allowed.contains(h)) {
+        let port = u64::from(self.port.load(Ordering::SeqCst));
+        if self.closing.load(Ordering::SeqCst) || !crate::http::allowed_host(&base, port, req.host.as_deref())
+        {
             return empty(403);
         }
         let Ok(path) = base.join(&req.target).map(|u| u.path().to_owned()) else {

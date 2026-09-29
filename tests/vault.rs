@@ -1,4 +1,4 @@
-//! `OP_VAULT` discovery through a fake 1Password CLI. Ported from bridge/vault.test.ts and
+//! `--vault` discovery through a fake 1Password CLI. Ported from bridge/vault.test.ts and
 //! bridge/signer.test.ts in the legacy TypeScript tests at 52a7fc3.
 //! The fake CLI and its keys exist only inside each test directory.
 
@@ -161,16 +161,13 @@ async fn cli_failures_never_return_keys_or_diagnostics() {
         fake.mode(mode);
         let e = keys(&fake, VAULT).await.unwrap_err();
         assert_eq!(
-            e.message, "The selected 1Password vault is unavailable. Check OP_VAULT and the 1Password CLI.",
+            e.message, "The selected 1Password vault is unavailable. Check --vault and the 1Password CLI.",
             "{mode}"
         );
         assert!(!e.message.contains("CANARY"));
     }
     fake.mode("ok");
-    assert_eq!(
-        keys(&fake, " \t").await.unwrap_err().message,
-        "Set OP_VAULT to a 1Password vault name or ID."
-    );
+    assert_eq!(keys(&fake, " \t").await.unwrap_err().message, "Set --vault to a 1Password vault name or ID.");
     let missing =
         allowed_keys_with(OsStr::new("/nonexistent/walleterm/op"), VAULT, &Cancel::new()).await.unwrap_err();
     assert_eq!(missing.code, "bridge_unavailable");
@@ -308,9 +305,8 @@ async fn discovery_filters_agent_keys_by_the_vault_and_skips_the_cli_when_unset(
     let program = fake.program();
     let all = discover(&socket, None, program.as_os_str(), &Cancel::new()).await.unwrap();
     assert_eq!(all.len(), 2);
-    assert!(fake.calls().is_empty(), "no CLI call without OP_VAULT");
-    let empty = discover(&socket, Some(""), program.as_os_str(), &Cancel::new()).await.unwrap();
-    assert_eq!(empty.len(), 2);
+    assert!(fake.calls().is_empty(), "no CLI call without --vault");
+    assert!(discover(&socket, Some(""), program.as_os_str(), &Cancel::new()).await.is_err());
     let filtered = discover(&socket, Some(VAULT), program.as_os_str(), &Cancel::new()).await.unwrap();
     assert_eq!(
         filtered.iter().map(|s| s.public_key.clone()).collect::<Vec<_>>(),
@@ -321,28 +317,6 @@ async fn discovery_filters_agent_keys_by_the_vault_and_skips_the_cli_when_unset(
     fake.mode("fail");
     let e = discover(&socket, Some(VAULT), program.as_os_str(), &Cancel::new()).await.unwrap_err();
     assert_eq!(e.code, "bridge_unavailable");
-}
-
-#[tokio::test]
-async fn every_bun_dotenv_form_keeps_the_vault_filter() {
-    let texts = [
-        "\u{feff}OP_VAULT=Private\n",
-        "export\tOP_VAULT=Private\n",
-        "OP_VAULT=Private\nNOTE=\"example\nOP_VAULT=\n\"\n",
-    ];
-    for text in texts {
-        let fake = Fake::new();
-        std::fs::write(fake.0.join(".env"), text).unwrap();
-        let setting = walleterm::config::load_vault(&fake.0, None).unwrap();
-        assert_eq!(setting.vault.as_deref(), Some("Private"), "{text:?}");
-        let socket = mock_agent(&fake.0, &[[7; 32], [9; 32]]).await;
-        let found = discover(&socket, setting.vault.as_deref(), fake.program().as_os_str(), &Cancel::new())
-            .await
-            .unwrap();
-        let found: Vec<String> = found.into_iter().map(|s| s.public_key).collect();
-        assert_eq!(found, vec![account_address(&[7; 32])], "{text:?}");
-        assert!(fake.calls()[0].starts_with("item list --vault Private"), "{text:?}");
-    }
 }
 
 /// Review P3-S4: a failure in any batch position ends the batch without waiting for stalled reads.

@@ -43,15 +43,27 @@ fn section(title: &str, license: &str, dir: &Path) -> Result<Section> {
     Ok((format!("{title} ({license})"), texts))
 }
 
-/// Rust crates that the `walleterm` binary links: normal dependencies for Apple silicon, from the lockfile.
-fn rust_sections(root: &Path) -> Result<Vec<(String, Section)>> {
+/// The resolved Apple silicon workspace, including build, test, and test-host dependencies.
+pub fn metadata(root: &Path) -> Result<Value> {
     let text = run(
         "cargo",
-        &["metadata", "--format-version", "1", "--locked", "--filter-platform", "aarch64-apple-darwin"],
+        &[
+            "metadata",
+            "--format-version",
+            "1",
+            "--locked",
+            "--all-features",
+            "--filter-platform",
+            "aarch64-apple-darwin",
+        ],
         root,
         &environment(&[]),
     )?;
-    let metadata: Value = serde_json::from_str(&text).map_err(|e| format!("cargo metadata: {e}"))?;
+    serde_json::from_str(&text).map_err(|e| format!("cargo metadata: {e}"))
+}
+
+/// Rust crates reachable through normal dependencies. Workspace features provide a conservative upper bound.
+fn rust_sections(metadata: &Value) -> Result<Vec<(String, Section)>> {
     let packages: BTreeMap<&str, &Value> = metadata["packages"]
         .as_array()
         .into_iter()
@@ -139,14 +151,14 @@ fn browser_sections(root: &Path) -> Result<Vec<(String, Section)>> {
     Ok(sections.into_iter().collect())
 }
 
-pub fn notices(root: &Path) -> Result<String> {
+pub fn notices(root: &Path, metadata: &Value) -> Result<String> {
     let syntax =
         std::fs::read_to_string(root.join("demo/site/vendor/syntax.LICENSE")).map_err(|e| e.to_string())?;
     let mut parts = vec![
         "walleterm includes the following third-party software.".to_owned(),
         format!("== demo syntax highlighter (demo/site/vendor) ==\n\n{}", syntax.trim()),
     ];
-    let mut all: Vec<(String, Section)> = rust_sections(root)?;
+    let mut all: Vec<(String, Section)> = rust_sections(metadata)?;
     all.extend(browser_sections(root)?);
     all.sort();
     all.dedup_by(|a, b| a.0 == b.0);

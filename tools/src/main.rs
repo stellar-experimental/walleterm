@@ -1,6 +1,7 @@
 //! Maintainer tools: `package`, `install`, `release`, and the contract fixture manifests. They call Bun, Cargo, and the macOS signing tools
 //! with argument lists and checked exits. Nothing here ships in a release.
 
+mod budgets;
 mod fixtures;
 mod install;
 mod notices;

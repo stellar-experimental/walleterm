@@ -8,7 +8,7 @@ The binary name is `walleterm`. A `stellar-walleterm` alias enables Stellar CLI 
 ```text
 walleterm list [--human]
 walleterm sign < request.json
-walleterm tunnel [--port 8787]
+walleterm tunnel [--port 8787] [--vault <name-or-id>]
 walleterm demo [--port 8788]
 walleterm --help
 walleterm --version
@@ -33,8 +33,8 @@ The demo pays the source account of a recent testnet operation. It checks that t
 The review shows the selected payment recipient. Neither command accepts `--recipient`.
 
 Both commands run inside the one `walleterm` binary. It embeds the demo website files.
-No JavaScript runtime starts. The tunnel reads only `OP_VAULT` from `.env` in the working directory.
-The tunnel prints its wallet filter at startup. It warns about `OP_VAULT` in other `.env.*` files, which it ignores.
+No JavaScript runtime starts. The tunnel reads its vault filter only from `--vault` and prints it at startup.
+It ignores `OP_VAULT` and `.env` files.
 Public mode needs cloudflared. The signing bridge also needs macOS and the 1Password SSH agent.
 Each public service owns a private temporary Cloudflare configuration and a supervised child process.
 Startup waits up to 45 seconds for the public URL to answer. A failure names the last check error.
@@ -68,15 +68,16 @@ These interactive commands have no `--human` or `--public` flag.
 
 The public URL and connection code can go to a website. The connected website can then request signatures.
 A connected website can list available 1Password Ed25519 public keys, with their comments and fingerprints.
-Set `OP_VAULT` to a vault name or ID to limit website wallets to that vault.
-The tunnel reads `.env` from the command's working directory with Bun's `.env` syntax rules.
-An exported shell variable overrides the file.
-Restart the tunnel after changing this setting. The installer does not copy `.env`.
+Pass `--vault <name-or-id>` to limit website wallets to that vault.
+Both `--vault Private` and `--vault=Private` work. Quote a name that contains spaces.
+An empty, whitespace-only, missing, or repeated vault value fails with exit code 2 before startup.
+Only `tunnel` accepts this flag. Restart the tunnel to change it.
+Migrate `OP_VAULT=Private` to `walleterm tunnel --vault Private`.
 Vault filtering requires the 1Password CLI. The bridge reads only item metadata and public key fields.
 It matches full public keys against the agent list. Comments never establish vault membership.
 Lookup failures stop discovery. An empty vault returns no wallets.
-The bridge checks vault membership again before signing. An unset or empty `OP_VAULT` lists all Ed25519 agent keys.
-`OP_VAULT` does not change the local `list` or `sign` commands.
+The bridge checks vault membership again before signing. Omitting `--vault` lists all Ed25519 agent keys.
+`--vault` does not change the local `list` or `sign` commands.
 Agent discovery permits ten seconds. Vault lookup then permits 120 seconds, including public key reads.
 The SDK permits 135 seconds for discovery and selection. Caller cancellation still applies.
 CLI child cleanup escalates from SIGTERM to SIGKILL after 1.5 seconds when needed.

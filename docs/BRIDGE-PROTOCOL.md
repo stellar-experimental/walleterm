@@ -8,11 +8,11 @@ All routes return JSON. Errors contain `{ "error": { "code": -3, "message": "...
 `code` is a SEP-43 error code. `ext[0]` is a stable reason. The HTTP status stays meaningful.
 The public bridge URL contains no credential. The website exchanges the connection code for an origin-bound session token.
 A connected website can list available 1Password Ed25519 public keys, comments, and fingerprints.
-`OP_VAULT` limits this list to SSH keys in the selected vault, by name or ID.
+The tunnel flag `--vault` limits this list to SSH keys in the selected vault, by name or ID.
 The bridge uses the 1Password CLI to read only item metadata and public key fields.
 It matches full public keys against the agent list and checks membership again before signing.
 Lookup failures stop discovery. An empty vault returns no wallets.
-An unset or empty `OP_VAULT` lists all available Ed25519 agent keys.
+Omitting `--vault` lists all available Ed25519 agent keys.
 The SDK permits 135 seconds for discovery and selection, with caller cancellation.
 Vault lookup permits 120 seconds after agent discovery. Failed lookups never return an unfiltered list.
 
@@ -50,7 +50,7 @@ Later wallet changes preserve that expiry.
 Its selection body is `{public_key}`. Its signing requests omit `selection_revision`.
 `available` permits changes among the wallets covered by the first selection grant.
 The website must explain this broader permission before the first selection.
-An unset `OP_VAULT` means the grant can cover all available Ed25519 agent keys.
+Omitting `--vault` means the grant can cover all available Ed25519 agent keys.
 
 An `available` selection sends `{public_key, expected_revision}`.
 Its first selection also sends the `grant_id` returned with the displayed wallet list.
