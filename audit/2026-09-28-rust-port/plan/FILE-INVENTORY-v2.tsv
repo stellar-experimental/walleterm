@@ -1,0 +1,971 @@
+path	action	target_or_reason	observed_refs
+.agents/skills/walleterm-illustration/SKILL.md	rewrite	Keep TS art commands until phase 8 passes; preserve required visual checks	final-base
+.agents/skills/walleterm-illustration/agents/openai.yaml	keep	Skill metadata	final-base
+.agents/skills/walleterm-site-bridge/SKILL.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.agents/skills/walleterm-site-bridge/agents/openai.yaml	keep	Skill metadata	final-base
+.agents/skills/walleterm-site-bridge/references/interception.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.agents/skills/walleterm-site-bridge/references/legacy-freighter.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.agents/skills/walleterm-site-bridge/references/message-signing.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.agents/skills/walleterm-site-bridge/references/service.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.agents/skills/walleterm-site-bridge/scripts/classic-attach.py	rewrite	Replace with classic-attach.ts; preserve flags, independent crypto, CLI checks, exclusive output; remove Python	final-base
+.agents/skills/walleterm-site-bridge/scripts/legacy-freighter.ts	keep	Browser website interception requires JavaScript	final-base
+.agents/skills/walleterm-site-bridge/scripts/verify-signature.ts	delete	Merge independent Node crypto verification into classic-attach.ts	final-base
+.agents/skills/walleterm/SKILL.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.agents/skills/walleterm/references/acceptance.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.agents/skills/walleterm/references/classic-native.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.agents/skills/walleterm/references/contract-code.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.agents/skills/walleterm/references/delegation.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.agents/skills/walleterm/references/fee-bump.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.agents/skills/walleterm/references/openzeppelin.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.agents/skills/walleterm/references/structured-auth.md	rewrite	Preserve skill authority; update native build and runtime references	final-base
+.claude/skills/walleterm-illustration	keep	Existing illustration skill link	final-base
+.github/CODEOWNERS	rewrite	Protect Cargo.lock, native signer, tools, release and cask paths	final-base
+.github/workflows/test.yml	rewrite	Rust/Bun/fixture/build/package/browser checks; remove Go setup at cutover	final-base
+.gitignore	rewrite	Rust targets and generated assets; preserve journal exclusions; ignore Python caches	final-base
+.prettierignore	rewrite	Exclude generated Rust assets and build directories	final-base
+.prettierrc.json	keep	Existing browser TypeScript formatting	final-base
+AGENTS.md	rewrite	Native module boundaries; preserve signing rules and accepted scope	final-base
+Casks/walleterm.rb	rewrite	One-binary archive; update version and checksum only at release	final-base
+Makefile	rewrite	Rust build/install/test/release orchestration; preserve skill installation	final-base
+README.md	rewrite	One Rust binary; Rust source install; unchanged browser SDK and static website	final-base
+audit/.gitignore	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/.gitignore	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/ARCHITECTURE.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/CONCERNS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/FEATURES.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/INDEX.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/PLAN.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/PROGRESS.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/REPORT.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/RESEARCH.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/areas.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/01-signer.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/02-bridge.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/03-runtime.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/04-sdk.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/05-demo.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/06-contracts.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/07-verification.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/08-product.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/09-overall.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C01-signer-deadline.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C02-demo-url.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C03-pairing-limit.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C04-supervisor-child.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C05-remote-revision.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C06-component-destroy.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C07-unreadable-401.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C08-confirmation-binding.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C09-restored-journal.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C10-signed-review.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C11-rpc-authorization.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C12-oz-provenance.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C13-x06-recovery.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C14-cli-submission.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C15-sdk-distribution.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C16-directory-durability.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C17-checkpoint-versions.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C18-historical-evidence.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C19-fixture-snapshots.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/C20-platform-claims.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/COMMON.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/briefs/CONCERN.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/audit-fuzz.exit	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/audit-fuzz.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/audit-output-deadline.exit	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/audit-output-deadline.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/audit-tests.exit	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/audit-tests.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/audit_test.go.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/cache-location.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/coordinator-notes.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/coverage.out	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/evidence-manifest.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/1c907e9c727fbc05	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/3f5c6b7acd341547	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/4e8dae1eca66aba7	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/55cdcd1ad9bc3c2f	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/58840356299711e0	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/6c119d25c2c77623	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/82d90a2610700f79	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/fuzz-corpus/command-line-arguments/FuzzAuditInput/ae123a5f050076b9	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/go-test.exit	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/go-test.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/go-vet.exit	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/go-vet.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/go.mod	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/main.go.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/main_test.go.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/service.go.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/snapshot-verification.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/snapshot-verification.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/tool-versions.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-astra/verify_snapshot.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-daybreak/checks-summary.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/01-signer-daybreak/go-cover.out	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/02-bridge-astra/adversarial-tests.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/02-bridge-astra/adversarial.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/02-bridge-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/02-bridge-astra/evidence-index.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/02-bridge-astra/report-validation.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/02-bridge-astra/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/02-bridge-astra/snapshot-verification.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/02-bridge-astra/targeted-tests.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/02-bridge-astra/validate-report.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/02-bridge-daybreak/targeted-results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/bun-lifecycle.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/evidence-sha256.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/go-service.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/malformed-encoded.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/signer-shutdown.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/source-manifest-final.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/source-manifest.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/targeted-permitted.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/targeted.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/targeted.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-astra/verify_snapshot.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-daybreak/listener-shutdown-check.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-daybreak/orphan-recovery-check.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-daybreak/orphan-supervisor-check.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/03-runtime-daybreak/targeted-results.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-astra/COMMANDS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-astra/bun-server-permitted.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-astra/bun-server.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-astra/bun-targeted.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-astra/destroy-scan.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-astra/destroy-scan.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-astra/remote-switch-harness-error.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-astra/remote-switch.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-astra/remote-switch.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-astra/source-identity.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-astra/verify-source.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-daybreak/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/04-sdk-daybreak/sdk-regressions.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/05-demo-astra/COMMANDS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/05-demo-astra/adversarial.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/05-demo-astra/adversarial.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/05-demo-astra/artifact-manifest.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/05-demo-astra/code-view-offline.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/05-demo-astra/existing-offline.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/05-demo-astra/preflight.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/05-demo-astra/snapshot-integrity.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/05-demo-astra/verify-snapshot.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/05-demo-daybreak/targeted-results.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/06-contracts-astra/COMMANDS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/06-contracts-astra/provenance-repro.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/06-contracts-astra/provenance-result.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/06-contracts-astra/source-verification.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/06-contracts-astra/verify-source.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/06-contracts-astra/x06-recovery-repro.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/06-contracts-astra/x06-recovery-result.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/06-contracts-daybreak/results.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/06-contracts-daybreak/rpc-root-injection.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/07-verification-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/07-verification-astra/evidence-check.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/07-verification-astra/evidence-check.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/07-verification-astra/evidence-check.stderr	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/07-verification-astra/focused-tests.stderr	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/07-verification-astra/focused-tests.stdout	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/07-verification-astra/offline-probes.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/07-verification-astra/offline-probes.stderr	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/07-verification-astra/offline-probes.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/07-verification-daybreak/audit-checks-result.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/07-verification-daybreak/audit-checks.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/07-verification-daybreak/focused-tests.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/cargo-inventory.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/completion.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/distribution-probe.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/distribution-probe.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/document-inventory.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/frozen-source.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/install-baseline.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/install-probe.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/install-probe.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/missing-local-links.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/npm-inventory.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/platform-builds.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/static-audit.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/static-audit.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/stellar-tx-decode-help.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/stellar-tx-encode-help.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/stellar-tx-hash-help.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/stellar-tx-sign-help.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-astra/versions.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-daybreak/advisory-summary.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-daybreak/build-script-cleanup.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-daybreak/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-daybreak/doc-links.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-daybreak/doc-links.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-daybreak/install-evidence.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-daybreak/install-evidence.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-daybreak/osv-query.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/08-product-daybreak/tool-versions.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/09-overall-astra/COMMANDS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/09-overall-astra/integrity.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/09-overall-astra/verify.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/09-overall-daybreak/VALIDATION.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/09-overall-daybreak/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/BROWSER.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/README.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/archive-probes.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/artifact-format-notes.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/artifact-pattern-scan.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/audit-integrity.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/baseline-1.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/baseline-2.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/baseline-3.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/baseline-4.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/baseline-permitted-1.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/baseline-permitted-2.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/baseline-permitted-results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/baseline-results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/browser-a11y-connected.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/browser-a11y-connection.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/browser-connect-desktop.png	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/browser-connected-desktop.png	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/browser-wallet-mobile.png	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/check-final-package.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/check-source-references.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concern-queue.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c01-astra/check.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c01-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c01-astra/go-primary-excerpts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c01-astra/go-primary-manifest.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c01-astra/targeted-permitted.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c01-astra/targeted-permitted.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c01-astra/targeted-sandbox.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c01-astra/targeted-sandbox.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c01-astra/verification.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c01-daybreak/checks.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c02-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c02-astra/malformed-permitted.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c02-astra/malformed-rerun.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c02-astra/source-verification.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c02-astra/verify_snapshot.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c02-daybreak/checks.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c03-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c03-astra/pairing.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c03-astra/report-validation.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c03-astra/snapshot-verification.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c03-astra/targeted-tests-permitted.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c03-astra/targeted-tests.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c03-astra/validate-report.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c03-astra/verify-snapshot.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c03-daybreak/origin-forgery.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c03-daybreak/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c04-astra/parent-crash.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c04-astra/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c04-astra/run_checks.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c04-astra/source-verification.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c04-astra/supervisor-crash.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c04-astra/supervisor-recovery.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c04-daybreak/results.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c05-astra/COMMANDS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c05-astra/counterevidence-permitted.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c05-astra/counterevidence.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c05-astra/remote-switch-permitted.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c05-astra/remote-switch.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c05-astra/results-permitted.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c05-astra/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c05-astra/source-identity.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c05-daybreak/RESULTS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c05-daybreak/remote-revision-boundary.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c06-astra/COMMANDS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c06-astra/late-pairing.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c06-astra/late-pairing.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c06-astra/source-identity.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c06-daybreak/RESULTS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c06-daybreak/pairing-after-destroy.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c07-astra/CHECKS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c07-astra/c07-observations.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c07-astra/c07.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c07-astra/existing-controls.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c07-astra/original-c07.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c07-astra/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c07-daybreak/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c08-astra/commands.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c08-astra/integrity.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c08-astra/recovery.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c08-astra/reproductions.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c08-astra/run-checks.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c08-astra/version.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c08-daybreak/checks.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c09-astra/COMMANDS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c09-astra/guards.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c09-astra/report-check.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c09-astra/restoration.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c09-astra/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c09-astra/run-checks.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c09-daybreak/checks.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c10-astra/COMMANDS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c10-astra/existing-reproductions.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c10-astra/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c10-astra/run-checks.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c10-astra/signed-review.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c10-astra/signed-review.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c10-daybreak/RESULTS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c11-astra/cap71-root-controls.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c11-astra/cap85-self-test.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c11-astra/original-reproduction.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c11-astra/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c11-astra/run-checks.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c11-astra/signature-disclosure.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c11-astra/signature-disclosure.test.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c12-astra/check-result.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c12-astra/check.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c12-astra/commands.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c12-astra/provenance-rerun.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c12-astra/provenance-rerun.stderr.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-astra/COMMANDS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-astra/existing-reproduction.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-astra/final-verification.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-astra/recovery-check.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-astra/recovery-result-2.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-astra/recovery-result.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-astra/recovery-stderr-2.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-astra/recovery-stderr.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-astra/source-after.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-astra/source-before.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-astra/verify-files.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-daybreak/COMMANDS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-daybreak/x06-inflight-repro.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c13-daybreak/x06-inflight-result.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c14-astra/restart-probe.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c14-astra/restart-probe.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c14-daybreak/review-evidence.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c15-astra/build.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c15-astra/check.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c15-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c15-astra/graph.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c15-astra/graph.stderr.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c15-astra/graph.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c15-astra/preserved-probe-rerun.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c15-astra/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c15-daybreak/checks.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-astra/bun-revision.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-astra/directory-api-probe.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-astra/directory-api-result.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-astra/focused-tests.stderr	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-astra/focused-tests.stdout	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-astra/native-api-probe.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-astra/native-api-result.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-astra/platform.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-astra/source-manifest.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-daybreak/directory-sync-probe.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-daybreak/fullfsync-directory-probe.c	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c16-daybreak/results.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c17-astra/COMMANDS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c17-astra/checkpoint-versions.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c17-astra/checkpoint-versions.stderr	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c17-astra/checkpoint-versions.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c17-astra/verification.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c17-astra/verify.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c17-daybreak/cap71-partial-reuse.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c17-daybreak/cap71-partial-reuse.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c17-daybreak/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c18-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c18-astra/evidence-check.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c18-astra/evidence-check.stderr	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c18-astra/provenance.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c18-astra/provenance.stdout	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c18-astra/verify-provenance.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c18-daybreak/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c19-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c19-astra/verification.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c19-astra/verify.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c20-astra/check.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c20-astra/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c20-astra/report-validation.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c20-astra/results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concerns/c20-astra/source-excerpts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concurrent-source-change.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/concurrent-source-change.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/coordinator-checkpoint-versions.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/coordinator-contract-1.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/coordinator-contract-2.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/coordinator-reproductions.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/coordinator-verification.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/coverage-map.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/dependency-state.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/dispatch-concern.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/environment.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/final-package-bun.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/final-package-format.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/final-package-go-race.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/final-package-go-vet.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/final-package-results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/final-package-typescript.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/fixture-hashes.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/format-baseline.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/go-vulnerability-scan.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/herdr-cleanup.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/isolated-package-typescript.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/isolated-package-typescript.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/latest-sessions.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/locked-soroban-versions.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/overall-launches.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/overall-reconciliation.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/pack-research.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/process-cleanup.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/refresh-index.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/reviewer-sessions.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/rust-base.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/rust-cap71.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/rust-cap85.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/rust-legacy27.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/rust-results.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/rust-summary.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/scan-artifact-patterns.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/source-archive-map.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/source-archive.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/source-baseline.tar.gz	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/source-drift.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/source-reference-check.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/start-overall.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/stellar-payment-help.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/tracked-snapshot-check.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/checks/verify-audit.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/concerns.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/manifest.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reconciliation.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/01-signer-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/01-signer-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/02-bridge-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/02-bridge-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/03-runtime-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/03-runtime-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/04-sdk-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/04-sdk-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/05-demo-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/05-demo-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/06-contracts-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/06-contracts-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/07-verification-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/07-verification-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/08-product-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/08-product-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/09-overall-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/09-overall-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c01-signer-deadline-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c01-signer-deadline-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c02-demo-url-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c02-demo-url-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c03-pairing-limit-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c03-pairing-limit-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c04-supervisor-child-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c04-supervisor-child-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c05-remote-revision-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c05-remote-revision-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c06-component-destroy-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c06-component-destroy-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c07-unreadable-401-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c07-unreadable-401-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c08-confirmation-binding-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c08-confirmation-binding-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c09-restored-journal-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c09-restored-journal-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c10-signed-review-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c10-signed-review-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c11-rpc-authorization-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c11-rpc-authorization-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c12-oz-provenance-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c12-oz-provenance-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c13-x06-recovery-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c13-x06-recovery-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c14-cli-submission-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c14-cli-submission-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c15-sdk-distribution-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c15-sdk-distribution-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c16-directory-durability-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c16-directory-durability-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c17-checkpoint-versions-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c17-checkpoint-versions-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c18-historical-evidence-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c18-historical-evidence-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c19-fixture-snapshots-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c19-fixture-snapshots-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c20-platform-claims-astra.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/reports/concerns/c20-platform-claims-daybreak.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/01-signer-astra/jev/1790470282-d7c1b396-43c8-419c-9f89-a98dbe53a533/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/01-signer-astra/jev/1790470549-5bb6d3ae-7911-4a6c-9229-8e72588f672e/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/01-signer-astra/sep23.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/01-signer-astra/usage-summary.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/01-signer-daybreak/1790470379-6fbfa220-bbf3-4de5-b384-b28cd822e6cf/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/01-signer-daybreak/1790470379-6fbfa220-bbf3-4de5-b384-b28cd822e6cf/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/01-signer-daybreak/parallel-mcp-failure.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/01-signer-daybreak/perplexity-summary.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/01-signer-daybreak/research-summary.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/02-bridge-astra/jev/1790470356-8862b855-b565-4bbc-96ee-536caab6eadc/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/02-bridge-astra/jev/1790470813-fa45d9fb-bb7c-4ad1-863d-cdfa7ebeeab3/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/02-bridge-astra/usage-summary.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/02-bridge-daybreak/1790471299-0400c960-507f-4bcd-9245-6e7967917e05/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/02-bridge-daybreak/1790471299-0400c960-507f-4bcd-9245-6e7967917e05/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/03-runtime-astra/cloudflare-normalization.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/03-runtime-astra/jev/1790471396-40454500-5ed0-461c-a2cb-4f71cac316dd/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/03-runtime-astra/jev/1790471396-40454500-5ed0-461c-a2cb-4f71cac316dd/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/03-runtime-astra/jev/1790471498-a6665079-1cab-44dd-b9b6-bf236f1196e0/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/03-runtime-astra/jev/1790471498-a6665079-1cab-44dd-b9b6-bf236f1196e0/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/03-runtime-daybreak/1790471765-170778a2-4113-4dcd-b22e-61aa616ecfb1/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/03-runtime-daybreak/1790471765-170778a2-4113-4dcd-b22e-61aa616ecfb1/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/03-runtime-daybreak/1790471786-1dbdbdac-711d-4be6-ba7e-078be5f4ed3c/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/03-runtime-daybreak/1790471786-1dbdbdac-711d-4be6-ba7e-078be5f4ed3c/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/03-runtime-daybreak/provider-evidence.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/03-runtime-daybreak/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/04-sdk-astra/SOURCES.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/04-sdk-astra/jev/1790471997-324ec1e7-b15d-4b3e-8d7e-b0f0438e6c90/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/04-sdk-astra/jev/1790471997-324ec1e7-b15d-4b3e-8d7e-b0f0438e6c90/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/04-sdk-astra/jev/1790472082-ad85ab0c-7d5d-4be1-a175-7b3824f0769b/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/04-sdk-astra/jev/1790472082-ad85ab0c-7d5d-4be1-a175-7b3824f0769b/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/04-sdk-astra/sep-0043.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/04-sdk-daybreak/README.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/04-sdk-daybreak/jev/1790472530-3bdfbb9d-a89d-47c0-816f-ba15f4707864/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/04-sdk-daybreak/jev/1790472530-3bdfbb9d-a89d-47c0-816f-ba15f4707864/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/05-demo-astra/SOURCES.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/05-demo-astra/jev/1790472479-e0dabd5d-d30c-44e9-b368-cb29369000a7/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/05-demo-astra/jev/1790472479-e0dabd5d-d30c-44e9-b368-cb29369000a7/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/05-demo-astra/jev/1790472565-4261390e-e50c-47f5-8527-d01249a80789/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/05-demo-astra/jev/1790472565-4261390e-e50c-47f5-8527-d01249a80789/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/05-demo-daybreak/1790472929-f8a823a2-0a5d-4a1a-b615-b09fccf9a730/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/05-demo-daybreak/research-summary.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-astra/RESEARCH.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-astra/cap-0071-01.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-astra/cap-0071-02.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-astra/cap-0085.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-astra/jev/1790473147-1689f319-6720-439d-a702-09f74059b5fc/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-astra/jev/1790473147-1689f319-6720-439d-a702-09f74059b5fc/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-astra/jev/1790473192-27a4daca-7de6-4c3e-8903-74b4a98dff6c/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-astra/jev/1790473192-27a4daca-7de6-4c3e-8903-74b4a98dff6c/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-daybreak/1790473655-ea9c2e79-e942-4bba-9f3c-c98937f902f7/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-daybreak/1790473655-ea9c2e79-e942-4bba-9f3c-c98937f902f7/sources.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-daybreak/1790473655-ea9c2e79-e942-4bba-9f3c-c98937f902f7/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-daybreak/commands.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-daybreak/perplexity-search.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-daybreak/sources.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/06-contracts-daybreak/stellar-raven.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/07-verification-astra/jev/1790473710-1ea9991d-e893-4c35-9112-1503ffb75009/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/07-verification-astra/jev/1790473710-1ea9991d-e893-4c35-9112-1503ffb75009/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/07-verification-astra/jev/1790473788-1dc393c6-c348-42dc-9752-4ca20924cfcd/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/07-verification-astra/jev/1790473788-1dc393c6-c348-42dc-9752-4ca20924cfcd/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/07-verification-astra/sources.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/07-verification-daybreak/SOURCES.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/07-verification-daybreak/jev/1790474319-133fa9a9-2d71-4f1f-8ff6-c64294692383/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/08-product-astra/jev/1790474238-fe374237-108c-4e84-bf51-cd6009f18185/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/08-product-astra/jev/1790474238-fe374237-108c-4e84-bf51-cd6009f18185/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/08-product-astra/jev/1790474322-46fdd3eb-5c5f-4672-a346-e359a9460c34/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/08-product-astra/jev/1790474322-46fdd3eb-5c5f-4672-a346-e359a9460c34/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/08-product-daybreak/1790475024-2125bd78-064f-466c-85ba-e1834d42c991/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/08-product-daybreak/1790475024-2125bd78-064f-466c-85ba-e1834d42c991/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/08-product-daybreak/1790475038-0133bec9-01be-470b-9609-dc50e6ad3625/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/08-product-daybreak/1790475038-0133bec9-01be-470b-9609-dc50e6ad3625/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/08-product-daybreak/github-runner-source.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/08-product-daybreak/perplexity-search.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/08-product-daybreak/soroban-test-snapshot-semantics.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/09-overall-astra/SOURCES.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/09-overall-astra/jev/1790482259-37b15a57-42c8-4633-be1f-fce1453da44d/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/09-overall-astra/jev/1790482259-37b15a57-42c8-4633-be1f-fce1453da44d/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/09-overall-astra/jev/1790482309-a4b85cf3-32a1-41db-b3cc-63d3d56535b1/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/09-overall-astra/jev/1790482309-a4b85cf3-32a1-41db-b3cc-63d3d56535b1/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/09-overall-astra/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/09-overall-daybreak/1790482537-bf244f27-a8aa-42e9-9be7-463c38686b8b/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/09-overall-daybreak/1790482537-bf244f27-a8aa-42e9-9be7-463c38686b8b/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/09-overall-daybreak/SUMMARY.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/archive-manifest.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/central-jev/1790470309-f34dc647-c8d3-4a1a-92ab-5365880f9e29/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/central-jev/1790470309-f34dc647-c8d3-4a1a-92ab-5365880f9e29/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/central-jev/1790470394-ea614df8-cd83-4197-8cee-f00658b278bd/bundle.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/central-jev/1790470394-ea614df8-cd83-4197-8cee-f00658b278bd/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/concerns/c03-astra/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/concerns/c05-astra/SOURCES.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/concerns/c05-daybreak/README.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/concerns/c06-astra/USAGE.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/concerns/c07-astra/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/concerns/c09-astra/SOURCES.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/concerns/c11-astra/sources.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/concerns/c16-astra/sources.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/concerns/c16-daybreak/SOURCES.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/concerns/c17-astra/SOURCES.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/concerns/c20-daybreak/primary-platform-sources.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/evidence.tar.gz	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/redactions.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-26/research/usage.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-next-steps/COORDINATOR-CHECKS.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-next-steps/OPUS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-next-steps/README.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-next-steps/evidence/c09-probe.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-next-steps/evidence/jev-analysis.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-next-steps/evidence/local-checks.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-next-steps/evidence/research.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-opus-review/README.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-opus-review/feature-source-checks.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-opus-review/installed-checks.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-opus-review/installed-probe.ts.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-opus-review/phase-1-checks.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-opus-review/review-10.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-opus-review/review-11-12.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-opus-review/review-12-followup.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/DECISIONS.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/DEFERRED.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/INDEX.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/PAUSE.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/PLAN.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/REPORT.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/baseline.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/briefs/C01.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/briefs/C02.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/briefs/C05.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/briefs/C06.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/briefs/C08.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/briefs/C10.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/briefs/C12.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/briefs/C14.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/briefs/C15.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/briefs/C17.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/briefs/COMMON.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/briefs/V01.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C01-after.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C01-before.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C02-after.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C02-before.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C05-after.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C05-before.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C06-after.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C06-before.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C08-after.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C08-before.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C10-after.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C10-before.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C12-after.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C12-before.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C14-after.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C14-before.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C15-after.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C15-before.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C17-after.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/C17-before.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/README.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/V01-after.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/V01-before.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/bun-suite.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/checkout-typescript-scope.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/checkout-typescript.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/diff.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/final-source.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/format.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/go-race.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/go-vet.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/herdr-cleanup.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/initial-checkout-typescript-scope.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/initial-checkout-typescript.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/initial-final-source.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/initial-isolated-typescript.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/initial-verification.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/integrity.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/integrity.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/isolated-typescript.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/original-audit-sha256.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/pause.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/resume.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/tool-versions.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/type-only-erasure.log	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/verification.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/verify.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/workers.py	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/checks/workspace.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/queue.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/sessions.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C01-worker.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C01.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C02-worker.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C02.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C05-review.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C05-worker.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C05.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C06-review-1.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C06-review.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C06-worker-1.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C06-worker.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C06.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C08-review.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C08-worker.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C08.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C10-worker.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C10.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C12-worker.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C12.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C14-review.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C14-worker.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C14.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C15-worker.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C15.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C17-worker.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/C17.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/V01-worker.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/V01.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/pause-C06-worker.txt	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/pause-C06.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/review-c06-sol-2.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/review-c06-sol.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/review-c08-sol.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/2026-09-27-remediation/steps/review-c14-sol.patch	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/PUBLICATION.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/README.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/publication/checks.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/publication/secret-scan.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+audit/publication/snapshot-links.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+auth_command.go	delete	Replace dispatch with native src/cli.rs	final-base
+auth_command_test.go	port	tests/cli.rs; native sign-auth behavior	final-base
+bridge/PROTOCOL.md	rewrite	docs/BRIDGE-PROTOCOL.md; preserve protocol v3 contract and redirect all links	final-base
+bridge/activity.test.ts	rewrite	tests/browser/activity.test.ts; transport/browser mocks or pure functions; no host	final-base
+bridge/auth-cli.ts	port	src/cli.rs; src/authorization.rs	final-base
+bridge/auth-ledger.test.ts	port	src/ledger/tests.rs	final-base
+bridge/auth-lifecycle.test.ts	port	src/bridge/tests.rs	final-base
+bridge/authorization.test.ts	rewrite	Rust authoritative tests plus retained JS SDK vectors in tests/browser/	final-base
+bridge/authorization.ts	port	src/authorization.rs; src/preimage.rs; src/ledger.rs	final-base
+bridge/browser-fixture.ts	rewrite	tests/browser/fixture.ts; start Rust test host	final-base
+bridge/code-view.test.ts	rewrite	tests/browser/code-view.test.ts; Rust test host	final-base
+bridge/connect.test.ts	rewrite	tests/browser/connect.test.ts; transport/browser mocks or pure functions; no host	final-base
+bridge/kit.test.ts	rewrite	tests/browser/kit.test.ts; transport/browser mocks or pure functions; no host	final-base
+bridge/launch.test.ts	port	src/service/tests.rs; tests/process.rs	final-base
+bridge/launch.ts	port	src/service.rs; src/tunnel.rs; src/qr.rs	final-base
+bridge/main.test.ts	port	src/config/tests.rs	final-base
+bridge/main.ts	port	src/cli.rs; src/config.rs; remove Bun mode dispatcher	final-base
+bridge/runtime.test.ts	port	src/process/tests.rs	final-base
+bridge/runtime.ts	port	src/process.rs; native deadline and cleanup helpers	final-base
+bridge/scan.test.ts	rewrite	tests/browser/scan.test.ts; transport/browser mocks or pure functions; no host	final-base
+bridge/sdk-artifact.test.ts	rewrite	tests/browser/sdk-artifact.test.ts; transport/browser mocks or pure functions; no host	final-base
+bridge/sdk.test.ts	rewrite	tests/browser/sdk.test.ts; transport/browser mocks or pure functions; no host	final-base
+bridge/sep43.test.ts	rewrite	tests/browser/sep43.test.ts; Rust test host	final-base
+bridge/server.test.ts	port	src/bridge/tests.rs; tests/http.rs	final-base
+bridge/server.ts	port	src/bridge.rs; src/http.rs	final-base
+bridge/signer.test.ts	port	src/agent/tests.rs; src/vault/tests.rs	final-base
+bridge/signer.ts	port	src/agent.rs; src/vault.rs	final-base
+bridge/site.test.ts	rewrite	tests/browser/site.test.ts; transport/browser mocks or pure functions; no host	final-base
+bridge/soroban-transaction.test.ts	rewrite	Rust authoritative tests plus retained JS SDK vectors in tests/browser/	final-base
+bridge/test/support.ts	rewrite	tests/browser/support.ts; remove TS host imports	final-base
+bridge/transaction.ts	port	src/transaction.rs	final-base
+bridge/tunnel-child.test.ts	port	tests/process.rs	final-base
+bridge/tunnel-child.ts	port	src/tunnel.rs; private same-binary supervisor	final-base
+bridge/vault.test.ts	port	src/vault/tests.rs	final-base
+bun.lock	rewrite	Regenerate after native QR port and static scanner vectors permit qrcode removal	final-base
+bunfig.toml	rewrite	Only browser and JS SDK interoperability tests	final-base
+demo/contracts.test.ts	rewrite	Keep Bun SDK and browser contract workflow tests; no host	final-base
+demo/server.ts	port	src/demo.rs; src/http.rs; embedded asset route manifest	final-base
+demo/site/activity.css	keep	Browser UI; embed reachable assets and required WASM only	final-base
+demo/site/activity.ts	keep	Browser UI; embed reachable assets and required WASM only	final-base
+demo/site/app.ts	keep	Browser UI; embed reachable assets and required WASM only	final-base
+demo/site/code-view.css	keep	Browser UI; embed reachable assets and required WASM only	final-base
+demo/site/code-view.ts	keep	Browser UI; embed reachable assets and required WASM only	final-base
+demo/site/contracts.ts	keep	Browser UI; embed reachable assets and required WASM only	final-base
+demo/site/index.html	keep	Browser UI; embed reachable assets and required WASM only	final-base
+demo/site/style.css	keep	Browser UI; embed reachable assets and required WASM only	final-base
+demo/site/syntax.ts	keep	Browser UI; embed reachable assets and required WASM only	final-base
+demo/site/vendor/syntax.LICENSE	keep	Browser UI; embed reachable assets and required WASM only	final-base
+design/ILLUSTRATION.md	rewrite	Record phase 8 outcome; change commands only after byte equality; preserve visual standard	final-base
+design/art/build.ts	keep	Keep TS until phase 8 proves identical site/art bytes; then port to tools/src/art.rs	final-base
+design/art/hand.ts	keep	Keep TS until phase 8 proves identical number strings and site/art bytes	final-base
+design/art/mascot.ts	keep	Keep TS until phase 8 proves identical site/art bytes; preserve geometry and colors	final-base
+design/reference/01-moon-green-field.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/02-request-line-draft.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/03-night-oval.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/04-request-line.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/05-door-threshold.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/06-arc-three-dots.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/07-balance-scale.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/08-bridge-walk.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/09-forked-path.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/10-keyhole.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/11-horizon-moon.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/12-red-barrier.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/13-spotlight-mat.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/14-three-doorways.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/15-moss-circle.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/16-hourglass.png	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/reference/README.md	rewrite	Preserve reference index; update generator links if present	final-base
+design/reference/metrics.json	keep	Visual reference or fixed baseline; never embed or silently regenerate	final-base
+design/tools/__pycache__/artcheck.cpython-313.pyc	delete	Generated Python cache; add ignore rule	final-base
+design/tools/artcheck.py	keep	Only active Python exception; maintainer NumPy/SciPy image check; never packaged	final-base
+docs/AGENTIC-PAYMENTS.md	keep	PR #23 research only; no payment implementation in this port	final-base
+docs/BUN-MIGRATION.md	rewrite	Mark historical; link current Rust architecture and build instructions	final-base
+docs/CODE-DISPLAYS.md	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/CONNECTION-LIFECYCLE.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/CONNECTION-UI.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/CONTRACT-AUTHORIZATION.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/DEMO-ACTIONS.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/DEMO-ACTIVITY.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/FOLLOWUP.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/INTERFACE.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/LIVE-TESTS.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/LOADING-STATES.md	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/MOBILE-WEB-POC.md	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/MOBILE-WEB-RESEARCH.md	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/OPENZEPPELIN.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/PLAN.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/PROTOCOL-UPDATES.md	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/REQUIREMENTS.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/SEP-43.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/SKILLS-AUDIT.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/SKILLS-INDEPENDENT-REVIEW.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/STELLAR-CLI.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/TEST-MATRIX.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/VAULT-DISCOVERY.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/VAULT-FILTER-VALIDATION.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/WALLET-SWITCH-VALIDATION.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/WEB-BRIDGE.md	rewrite	Current native workflow; retain dated acceptance limits	final-base
+docs/screenshots/code-display/connection-mobile.png	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/screenshots/code-display/desktop.png	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/screenshots/code-display/mobile-small-scrolled.png	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/screenshots/code-display/mobile.png	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/screenshots/code-display/next-action-desktop.png	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/screenshots/code-display/next-action-mobile.png	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/screenshots/code-display/tablet.png	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/screenshots/code-display/transaction-desktop.png	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/screenshots/code-display/transaction-mobile.png	keep	Historical research or unchanged browser guidance and screenshots	final-base
+docs/screenshots/code-display/transaction-tablet.png	keep	Historical research or unchanged browser guidance and screenshots	final-base
+evidence/README.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/acceptance-summary.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/browser-qa-2026-09-25/report.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/confidential-token-2026-09-26.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/contract-auth-demo-2026-09-26.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/live-rerun-2026-09-28.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/mobile-poc/README.md	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/mobile-poc/browser-acceptance.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/mobile-poc/live-acceptance.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/mobile-poc/managed-cli-acceptance.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/mobile-poc/picker-tunnel-hardening.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/mobile-poc/preflight.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/openzeppelin-live-2026-09-28.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/protocol-acceptance.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/sdf-demo-bridge-2026-09-25.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/stellarterm-testnet-2026-09-25.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+evidence/tunnel-testnet-2026-09-25.json	keep	Historical evidence; preserve bytes and links; never include in executable	final-base
+fixtures/README.md	rewrite	Update native commands; retain fixture provenance and scope	final-base
+fixtures/build.sh	rewrite	Keep small fixture build wrapper; call Rust manifest tool	final-base
+fixtures/build.test.ts	port	tools/tests/fixtures.rs; preserve build script checks	final-base
+fixtures/cap71/.gitignore	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap71/Cargo.lock	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap71/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap71/README.md	rewrite	Update native commands; retain fixture provenance and scope	final-base
+fixtures/cap71/delegate/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap71/delegate/src/lib.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap71/delegate/src/test.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap71/manifest.json	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap71/protected/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap71/protected/src/lib.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap71/raw-account/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap71/raw-account/src/lib.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/README.md	rewrite	Update native commands; retain fixture provenance and scope	final-base
+fixtures/cap85/build.sh	rewrite	Keep small fixture build wrapper; call Rust manifest tool	final-base
+fixtures/cap85/contracts-sdk27/Cargo.lock	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts-sdk27/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts-sdk27/legacy-account/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts-sdk27/legacy-account/src/lib.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts-sdk27/legacy-account/src/test.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/Cargo.lock	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/account/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/account/src/lib.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/account/src/test.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/manager/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/manager/src/lib.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/manager/src/test.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/target-v1/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/target-v1/src/lib.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/target-v1/src/test.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/target-v2/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/target-v2/src/lib.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/contracts/target-v2/src/test.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/manifest.ts	port	tools/src/fixtures.rs; preserve CAP-85 manifest behavior	final-base
+fixtures/cap85/wasm/cap85_account.wasm	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/wasm/cap85_legacy_account.wasm	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/wasm/cap85_manager.wasm	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/wasm/cap85_target_v1.wasm	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/wasm/cap85_target_v2.wasm	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/cap85/wasm/manifest.json	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/contracts/Cargo.lock	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/contracts/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/contracts/auth-target/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/contracts/auth-target/src/lib.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/contracts/auth-target/src/test.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/contracts/simple-account/Cargo.toml	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/contracts/simple-account/src/lib.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/contracts/simple-account/src/test.rs	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/kit/bun.lock	keep	Real Kit 2.7.0 interoperability; isolated lockfile; Rust host	final-base
+fixtures/kit/check.mts	rewrite	Real Kit 2.7.0 interoperability; isolated lockfile; Rust host	final-base
+fixtures/kit/package.json	keep	Real Kit 2.7.0 interoperability; isolated lockfile; Rust host	final-base
+fixtures/kit/tsconfig.json	keep	Real Kit 2.7.0 interoperability; isolated lockfile; Rust host	final-base
+fixtures/manifest.ts	port	tools/src/fixtures.rs; preserve fixture hashes and provenance	final-base
+fixtures/wasm/manifest.json	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/wasm/multisig_account_example.wasm	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/wasm/multisig_ed25519_verifier_example.wasm	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/wasm/multisig_threshold_policy_example.wasm	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/wasm/multisig_weighted_threshold_policy_example.wasm	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/wasm/walleterm_auth_target.wasm	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+fixtures/wasm/walleterm_simple_account.wasm	keep	Independent contract fixture workspace or pinned artifact; no host dependency	final-base
+go.mod	delete	Cargo.toml and Cargo.lock replace Go	final-base
+main.go	port	src/cli.rs; src/agent.rs; src/error.rs; src/platform.rs	final-base
+main_test.go	port	src/agent/tests.rs; src/cli/tests.rs; tests/cli.rs	final-base
+package.json	rewrite	Browser exports and Bun test/build tools; remove host and terminal QR dependencies	final-base
+scripts/bridge.entitlements.plist	delete	Native release requires no JIT entitlement	final-base
+scripts/build.ts	rewrite	Keep Bun browser build API; emit exact asset route and hash manifest	final-base
+scripts/install.test.ts	port	tools/tests/install.rs	final-base
+scripts/install.ts	port	tools/src/install.rs	final-base
+scripts/package.test.ts	port	tools/tests/package.rs; tests/package.rs	final-base
+scripts/package.ts	port	tools/src/package.rs	final-base
+scripts/release.ts	port	tools/src/release.rs	final-base
+scripts/sdk-import.test.ts	keep	Move to tests/browser/sdk-import.test.ts	final-base
+scripts/syntax.test.ts	keep	Move to tests/browser/syntax.test.ts	final-base
+sdk/authorization.ts	keep	Browser SDK and independent artifact verification; protocol v3	final-base
+sdk/connect.css	keep	Browser SDK and independent artifact verification; protocol v3	final-base
+sdk/connect.ts	keep	Browser SDK and independent artifact verification; protocol v3	final-base
+sdk/errors.ts	keep	Browser SDK and independent artifact verification; protocol v3	final-base
+sdk/kit.ts	keep	Browser SDK and independent artifact verification; protocol v3	final-base
+sdk/preimage.ts	keep	Browser SDK and independent artifact verification; protocol v3	final-base
+sdk/scan.ts	keep	Browser SDK and independent artifact verification; protocol v3	final-base
+sdk/transaction.ts	keep	Browser SDK and independent artifact verification; protocol v3	final-base
+sdk/types.ts	keep	Browser SDK and independent artifact verification; protocol v3	final-base
+sdk/walleterm.ts	keep	Browser SDK and independent artifact verification; protocol v3	final-base
+service.go	port	src/cli.rs; src/service.rs; delete sidecar dispatch	final-base
+service_test.go	port	src/cli/tests.rs; tests/package.rs	final-base
+site/art/bridge-narrow.svg	keep	Separate static marketing site; never embed in CLI or demo	final-base
+site/art/bridge.svg	keep	Separate static marketing site; never embed in CLI or demo	final-base
+site/art/favicon.svg	keep	Separate static marketing site; never embed in CLI or demo	final-base
+site/art/hero.svg	keep	Separate static marketing site; never embed in CLI or demo	final-base
+site/art/horizon.svg	keep	Separate static marketing site; never embed in CLI or demo	final-base
+site/art/keyhole.svg	keep	Separate static marketing site; never embed in CLI or demo	final-base
+site/art/night-wallet.svg	keep	Separate static marketing site; never embed in CLI or demo	final-base
+site/art/request.svg	keep	Separate static marketing site; never embed in CLI or demo	final-base
+site/index.html	keep	Separate static marketing site; never embed in CLI or demo	final-base
+site/og.png	keep	Separate static marketing site; never embed in CLI or demo	final-base
+tests/1password-failure.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/cap71.test.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/cap71.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/cap85.test.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/cap85.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/checkpoint.test.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/classic.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/cli-pipeline.test.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/cli-pipeline.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/contract-auth-demo-live.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/contracts.test.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/contracts.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/extended-contracts.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/live-utils.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/live.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/openzeppelin-auth-live.test.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/openzeppelin-auth-live.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/simulations.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/site-bridge.test.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/submission.test.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/submission.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tests/types.ts	rewrite	Keep JS SDK interoperability or live harness; remove Go builds and TS host imports	final-base
+tsconfig.json	rewrite	Strict browser, builder, skill, and JS SDK interoperability scope	final-base
+tsconfig.sdk.json	keep	Preserve declaration generation and all accepted v3 exports	final-base
