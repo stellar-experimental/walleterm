@@ -30,6 +30,18 @@ fn protocol(message: &str) -> Error {
     Error::new("agent_protocol", message)
 }
 
+fn truncated() -> Error {
+    protocol("The agent returned a truncated frame.")
+}
+
+/// A sign response that ends before its first byte. Live runs saw a close after an unanswered prompt.
+/// The byte count was not recorded. A Deny returns type 5 instead.
+fn closed() -> Error {
+    protocol(
+        "The agent closed the connection without a signature. The 1Password approval prompt may have timed out.",
+    )
+}
+
 pub fn timeout() -> Error {
     Error::new("timeout", "The agent operation timed out.")
 }
@@ -243,23 +255,25 @@ impl Agent {
         if Instant::now() >= self.deadline { Err(timeout()) } else { Ok(()) }
     }
 
-    fn read_full(&mut self, buf: &mut [u8]) -> Result<()> {
+    /// Fill `buf`. A close before its first byte returns `closed()`; any later close is a truncated frame.
+    fn read_full(&mut self, buf: &mut [u8], closed: fn() -> Error) -> Result<()> {
         let mut filled = 0;
         while filled < buf.len() {
             self.check()?;
             match self.stream.read(&mut buf[filled..]) {
-                Ok(0) => return Err(protocol("The agent returned a truncated frame.")),
+                Ok(0) if filled == 0 => return Err(closed()),
+                Ok(0) => return Err(truncated()),
                 Ok(n) => filled += n,
                 Err(e) if e.kind() == io::ErrorKind::WouldBlock => self.wait(libc::POLLIN)?,
                 Err(e) if e.kind() == io::ErrorKind::Interrupted => {}
-                Err(_) => return Err(protocol("The agent returned a truncated frame.")),
+                Err(_) => return Err(truncated()),
             }
         }
         Ok(())
     }
 
-    /// Send one request frame and read one response frame.
-    pub fn exchange(&mut self, body: &[u8]) -> Result<Vec<u8>> {
+    /// Send one request frame and read one response frame. `closed` reports a close before any response byte.
+    pub fn exchange(&mut self, body: &[u8], closed: fn() -> Error) -> Result<Vec<u8>> {
         let out = frame(body);
         let mut sent = 0;
         while sent < out.len() {
@@ -273,20 +287,21 @@ impl Agent {
             }
         }
         let mut header = [0u8; 4];
-        self.read_full(&mut header)?;
+        self.read_full(&mut header, closed)?;
         let mut response = vec![0u8; frame_length(header)?];
-        self.read_full(&mut response)?;
+        self.read_full(&mut response, truncated)?;
         Ok(response)
     }
 
+    /// Live runs listed keys without a prompt, so a close before the identities answer stays a truncated frame.
     pub fn list(&mut self) -> Result<Vec<Signer>> {
-        let body = self.exchange(&identities_request())?;
+        let body = self.exchange(&identities_request(), truncated)?;
         parse_identities(&body)
     }
 
     /// Sign once and verify. This never retries the signing exchange.
     pub fn sign(&mut self, signer: &Signer, digest: &[u8; 32]) -> Result<[u8; 64]> {
-        let body = self.exchange(&sign_request(&signer.blob, digest))?;
+        let body = self.exchange(&sign_request(&signer.blob, digest), closed)?;
         let signature = parse_signature(&body)?;
         verify_signature(signer, digest, &signature)?;
         Ok(signature)
@@ -304,22 +319,21 @@ pub mod nonblocking {
     use super::{
         Signer, check_socket, frame, frame_length, identities_request, parse_identities, parse_signature,
     };
-    use super::{protocol, sign_request, timeout, unavailable, verify_signature};
+    use super::{closed, sign_request, timeout, truncated, unavailable, verify_signature};
     use crate::cancel::Cancel;
     use crate::error::{Error, Result};
 
-    async fn exchange(stream: &mut UnixStream, body: &[u8]) -> Result<Vec<u8>> {
+    /// `closed` reports a close before any response byte, as in the blocking client.
+    async fn exchange(stream: &mut UnixStream, body: &[u8], closed: fn() -> Error) -> Result<Vec<u8>> {
         stream.write_all(&frame(body)).await.map_err(|_| unavailable())?;
         let mut header = [0u8; 4];
-        stream
-            .read_exact(&mut header)
-            .await
-            .map_err(|_| protocol("The agent returned a truncated frame."))?;
+        let first = stream.read(&mut header).await.map_err(|_| truncated())?;
+        if first == 0 {
+            return Err(closed());
+        }
+        stream.read_exact(&mut header[first..]).await.map_err(|_| truncated())?;
         let mut response = vec![0u8; frame_length(header)?];
-        stream
-            .read_exact(&mut response)
-            .await
-            .map_err(|_| protocol("The agent returned a truncated frame."))?;
+        stream.read_exact(&mut response).await.map_err(|_| truncated())?;
         Ok(response)
     }
 
@@ -340,7 +354,7 @@ pub mod nonblocking {
     pub async fn list(path: &Path, limit: Duration, cancel: &Cancel) -> Result<Vec<Signer>> {
         bounded(limit, cancel, async {
             let mut stream = connect(path).await?;
-            parse_identities(&exchange(&mut stream, &identities_request()).await?)
+            parse_identities(&exchange(&mut stream, &identities_request(), truncated).await?)
         })
         .await
     }
@@ -356,15 +370,15 @@ pub mod nonblocking {
     ) -> Result<[u8; 64]> {
         bounded(limit, cancel, async {
             let mut stream = connect(path).await?;
-            let signers = parse_identities(&exchange(&mut stream, &identities_request()).await?)?;
+            let signers = parse_identities(&exchange(&mut stream, &identities_request(), truncated).await?)?;
             let Some(signer) = signers.iter().find(|s| s.public_key == public_key) else {
                 return Err(Error::new(
                     "key_not_found",
                     "The selected public key is not available from the agent.",
                 ));
             };
-            let signature =
-                parse_signature(&exchange(&mut stream, &sign_request(&signer.blob, digest)).await?)?;
+            let request = sign_request(&signer.blob, digest);
+            let signature = parse_signature(&exchange(&mut stream, &request, closed).await?)?;
             verify_signature(signer, digest, &signature)?;
             Ok(signature)
         })

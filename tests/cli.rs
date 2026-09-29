@@ -254,6 +254,71 @@ fn recorded_agent_failures_keep_their_codes() {
     }
 }
 
+const CLOSED: &str =
+    "The agent closed the connection without a signature. The 1Password approval prompt may have timed out.";
+const TRUNCATED: &str = "The agent returned a truncated frame.";
+
+/// Whether the agent answers the identities request, the bytes it then sends before it closes, and the message.
+/// Live runs saw a close after an unanswered prompt. The byte count was not recorded.
+/// Any partial frame stays a truncated frame.
+/// Live runs listed keys without a prompt, so a close before the identities answer keeps the old message.
+const CLOSES: [(bool, &[u8], &str); 5] = [
+    (true, &[], CLOSED),
+    (true, &[0, 0], TRUNCATED),
+    (true, &[0, 0, 0, 0x10], TRUNCATED),
+    (true, &[0, 0, 0, 0x10, 14], TRUNCATED),
+    (false, &[], TRUNCATED),
+];
+
+fn closing_agent(scratch: &Scratch, listed: bool, raw: &[u8]) -> JoinHandle<Vec<Vec<u8>>> {
+    let mut replies = if listed { vec![Reply::Frame(identities_body())] } else { Vec::new() };
+    replies.push(Reply::Raw(raw.to_vec()));
+    mock_agent(&scratch.socket(), replies)
+}
+
+/// The request types the agent received: 11 lists, 13 signs.
+fn kinds(requests: &[Vec<u8>]) -> Vec<u8> {
+    requests.iter().map(|r| r[0]).collect()
+}
+
+#[test]
+fn a_close_before_the_sign_response_names_the_prompt() {
+    for (listed, raw, message) in CLOSES {
+        let scratch = Scratch::new();
+        let agent = closing_agent(&scratch, listed, raw);
+        let got = invoke(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(agent));
+        let failure =
+            format!("{{\"ok\":false,\"error\":{{\"code\":\"agent_protocol\",\"message\":\"{message}\"}}}}\n");
+        assert_eq!((got.exit, got.stdout), (1, failure), "{listed} {raw:?}");
+        assert_eq!(kinds(&got.requests), if listed { &[11, 13][..] } else { &[11] }, "{listed} {raw:?}");
+    }
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn the_bridge_agent_client_names_the_same_close() {
+    for (listed, raw, message) in CLOSES {
+        let scratch = Scratch::new();
+        let agent = closing_agent(&scratch, listed, raw);
+        let (socket, limit, cancel) =
+            (scratch.socket(), Duration::from_secs(5), walleterm::cancel::Cancel::new());
+        let e = walleterm::agent::nonblocking::sign(&socket, &mock_address(), &[1; 32], limit, &cancel)
+            .await
+            .unwrap_err();
+        assert_eq!((e.code, e.message.as_str()), ("agent_protocol", message), "{listed} {raw:?}");
+        let requests = agent.join().unwrap();
+        assert_eq!(kinds(&requests), if listed { &[11, 13][..] } else { &[11] }, "{listed} {raw:?}");
+    }
+    // Vault discovery lists through the same client.
+    let scratch = Scratch::new();
+    let agent = closing_agent(&scratch, false, &[]);
+    let cancel = walleterm::cancel::Cancel::new();
+    let e = walleterm::agent::nonblocking::list(&scratch.socket(), Duration::from_secs(5), &cancel)
+        .await
+        .unwrap_err();
+    assert_eq!((e.code, e.message.as_str()), ("agent_protocol", TRUNCATED));
+    assert_eq!(kinds(&agent.join().unwrap()), [11]);
+}
+
 #[test]
 fn every_signing_request_has_the_exact_wire_form() {
     let file = fixture("cli.json");
