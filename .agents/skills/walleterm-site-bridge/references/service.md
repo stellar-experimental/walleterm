@@ -23,6 +23,8 @@ Cloudflare terminates TLS and can read the XDR and credentials. The bridge suppo
 
 To limit website wallets to one 1Password vault, pass its name or ID: `walleterm tunnel --vault <name-or-id>`.
 Filtering needs the 1Password CLI. Without `--vault`, all Ed25519 agent keys are available.
+The 1Password CLI approval covers the whole terminal session. Other commands in it can then read items, including private key fields.
+Do not start `walleterm tunnel --vault` in your own shell. Ask the user to run it in a terminal that you do not use.
 Restart the tunnel after a filter change, then reconnect with the new URL and code.
 Wallet discovery and selection can take up to 135 seconds. A 1Password CLI approval can appear during discovery.
 

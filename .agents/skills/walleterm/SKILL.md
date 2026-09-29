@@ -27,6 +27,8 @@ Read only the references that the current artifact needs. Resolve each link from
 1. Select the network and the full G-address from `walleterm list`. Treat comments as display text.
 2. Inspect the exact unsigned artifact, source accounts, operations, fees, destination, and contract effects.
    Check each authorization tree against the intended action and the contract's authorization rules before signing it.
+   Simulate with the default authorization mode. Ask the user before you use `--auth-mode non-root`.
+   A non-root entry does not bind its signature to the transaction's call.
 3. Select the shape. Each request has `public_key` and exactly these other fields:
 
    | Artifact | Fields | Result besides `signature` |

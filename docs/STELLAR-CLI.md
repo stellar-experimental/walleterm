@@ -162,6 +162,11 @@ build --build-only
   -> tx send -> tx fetch result/meta
 ```
 
+The first `tx simulate` uses the RPC default. It records only entries rooted at the transaction's call.
+`--auth-mode non-root` also records other entries. A signature on such an entry works in any transaction that makes the same authorized call.
+The CLI asks before it signs such an entry ([`signer/validation.rs`](https://github.com/stellar/stellar-cli/blob/300aaf69ab100536678bdb641428b06f06b318ea/cmd/soroban-cli/src/signer/validation.rs)).
+Walleterm cannot see the transaction for an entry, so the caller makes this check.
+
 Before each `walleterm sign` call, the script must show or record:
 - the network passphrase
 - the unsigned XDR and its decoded JSON

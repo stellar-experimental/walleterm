@@ -20,6 +20,8 @@ Walleterm is experimental and before version 1.0. Interfaces can change without 
 - 1Password shows the application and the key. It does not show the network, amount, destination, or contract policy.
   Review each artifact before you sign it. Cached 1Password approval can permit later signatures without a prompt.
   To prevent this, [ask for approval of each signature](#ask-for-approval-of-each-signature).
+- Walleterm checks each artifact before it asks 1Password to sign. Other programs can use the 1Password SSH agent directly.
+  1Password approval applies to them too. See [the security model](SECURITY.md#security-model).
 - Use dedicated wallet keys. A shared SSH key can also authorize other systems.
 - The website bridge signs for Stellar testnet only. A connected website approves its own requests.
 - Walleterm supports Ed25519 keys only. A contract account needs its exact authorization adapter.

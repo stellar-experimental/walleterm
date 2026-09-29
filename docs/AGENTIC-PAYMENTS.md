@@ -159,6 +159,7 @@ Alternatively, build a custom `mppx` client method with `Method.toClient` in the
 ## Open decisions
 
 - Spending policy. Cached 1Password approval can permit signatures without a prompt.
+  See [ask for approval of each signature](../README.md#ask-for-approval-of-each-signature).
   The signer's invocation check is the main safeguard. A per-payment amount cap needs a decision.
   For websites, the bridge `review` hook can apply the same policy.
 - Runtime support. Decide whether a payment signer becomes an SDK export after the fixture passes.

@@ -36,6 +36,11 @@ Restart the tunnel to change the vault. Then reconnect the website with the new 
 
 - Vault filtering needs the 1Password CLI: `brew install --cask 1password-cli`.
   Turn on 1Password CLI integration in the desktop app, or sign in before you start the tunnel.
+- With CLI integration, 1Password authorizes `op` for one terminal session. The authorization ends after 10 idle minutes or 12 hours.
+  Until then, other commands in that session can run `op` without a prompt. This includes `op read` on a private key field.
+  The tunnel runs `op` for each wallet list, selection, and signature. So a website in use keeps the authorization active.
+  Run `walleterm tunnel --vault` in a terminal that your agent does not use.
+  See [1Password CLI app integration security](https://www.1password.dev/cli/app-integration-security/).
 - The bridge reads only item metadata and public keys. It matches the full public key against the SSH agent list.
   Comments never establish vault membership.
 - A lookup failure stops wallet discovery. It never returns an unfiltered list. An empty vault returns no wallets.
