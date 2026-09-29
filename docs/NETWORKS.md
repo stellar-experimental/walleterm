@@ -288,4 +288,5 @@ These are open choices. This file does not select one.
   `cmd/soroban-cli/src/config/network.rs` (`Args::resolve`, `DEFAULTS`, `Network::helper_url`), `config/network/passphrase.rs`,
   `config/locator.rs` (`read_network`), and `cli.rs` (`set_env_from_config`, `set_env_value_from_config`).
 - Stellar Raven `stellarDocs` search on 2026-09-28: the Stellar CLI manual for `stellar network add`, and the Stellar Lab custom network fields.
+  The Stellar Lab overview states that Friendbot funds accounts on Testnet and Futurenet.
 - Network IDs: `shasum -a 256` of each passphrase.
