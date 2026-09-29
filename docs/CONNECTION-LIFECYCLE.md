@@ -32,6 +32,16 @@ Malformed names, unmatched questions, unrelated addresses, and truncated answers
 TLS still checks the tunnel hostname. The resolver changes only the connection address.
 Local tests exercise DNS replies and TLS hostname checks. They do not establish operation on every VPN or IPv6-only network.
 
+A new Quick Tunnel name resolves several seconds after cloudflared prints it. On 2026-09-28 it took 21–27 seconds.
+Cloudflare documents this delay as a DNS warm-up. Wrangler and the Shopify CLI print the URL without a DNS check.
+Walleterm prints the URL and QR code only after the public URL answers. It never asks the macOS resolver early, so that resolver cannot cache a negative answer.
+The readiness check has three known limits:
+
+- It asks for IPv4 addresses only. On an IPv6-only network, readiness can fail.
+- It skips a nameserver with an interface suffix, such as `fe80::1%en0`. If that is the only nameserver, readiness fails with "The DNS configuration has no nameserver."
+- A caching nameserver can keep the first negative answer for up to 60 seconds, the negative TTL of `trycloudflare.com`. Readiness permits 45 seconds.
+  If startup fails with "The DNS lookup found no such tunnel name", run the command again.
+
 Cloudflared handles its own temporary connection failures. Walleterm permits six failed checks before replacing a running tunnel.
 A stopped tunnel process also starts recovery. Recovery keeps the local server running.
 Recovery permits three replacement attempts per ten minutes. The delays are two, four, and eight seconds.
