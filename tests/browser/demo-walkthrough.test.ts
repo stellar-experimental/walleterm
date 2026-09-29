@@ -23,7 +23,7 @@ const states = (value: ReturnType<typeof walkthroughView>) => [
 ];
 
 test('walkthrough rows follow the ledger, one step at a time', () => {
-  assert.deepEqual(states(walkthroughView(null)), ['unknown', 'unknown', 'unknown', 'unknown']);
+  assert.deepEqual(states(walkthroughView(null)), ['pending', 'pending', 'pending', 'pending']);
   const cases: [Partial<WalkthroughLedger>, string[], string | null, number][] = [
     [
       {

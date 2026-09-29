@@ -1,11 +1,11 @@
 /* Shared demo code surface. Source text stays on one line until its original newline. */
-.code-view{min-width:0;max-width:100%;border:1px solid #dce3ee;border-radius:10px;overflow:hidden;background:#f8fafd;margin-top:10px}
-.code-heading{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;padding:11px 14px;border-bottom:1px solid #e1e7f0;color:#354562;font-size:11px;font-weight:600;letter-spacing:.03em}
-.code-meta{font-weight:400;color:#64718a;letter-spacing:0}
-.code-scroll-hint{margin-left:auto;color:#526787;font-size:10px;letter-spacing:0;font-weight:400}
-.code-view .code-scroll{display:block;box-sizing:border-box;max-width:100%;max-height:380px;margin:0;padding:16px;overflow:auto;overscroll-behavior:contain;border:0;border-radius:0;background:#f8fafd;color:#273750;font:12px/1.8 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2;white-space:pre;overflow-wrap:normal;word-break:normal;scrollbar-width:thin;scrollbar-color:#a6b4ca #edf1f7}
+.code-view{min-width:0;max-width:100%;border:1px solid var(--border);border-radius:var(--radius-control);overflow:hidden;background:var(--accent-wash);margin-top:10px}
+.code-heading{display:flex;align-items:center;flex-wrap:wrap;gap:6px 12px;padding:11px 14px;border-bottom:1px solid var(--line);color:var(--ink-2);font-size:11px;font-weight:600;letter-spacing:.03em}
+.code-meta{font-weight:400;color:var(--ink-3);letter-spacing:0}
+.code-scroll-hint{margin-left:auto;color:var(--ink-3);font-size:10px;letter-spacing:0;font-weight:400}
+.code-view .code-scroll{display:block;box-sizing:border-box;max-width:100%;max-height:380px;margin:0;padding:16px;overflow:auto;overscroll-behavior:contain;border:0;border-radius:0;background:var(--accent-wash);color:var(--ink);font:12px/1.8 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;tab-size:2;white-space:pre;overflow-wrap:normal;word-break:normal;scrollbar-width:thin;scrollbar-color:#a6b4ca #edf1f7}
 .code-scroll>code{font:inherit;white-space:pre;overflow-wrap:normal;word-break:normal}
-.code-scroll:focus-visible{outline:3px solid #7c91e6;outline-offset:-3px}
+.code-scroll:focus-visible{outline:3px solid var(--focus);outline-offset:-3px}
 .twinkleplop .string{color:#19644d}.twinkleplop .string_escape{color:#885b0d}.twinkleplop .number,.twinkleplop .boolean{color:#7544a0}.twinkleplop .keyword,.twinkleplop .operator{color:#a33a59}.twinkleplop .punctuation{color:#63718a}.twinkleplop .identifier,.twinkleplop .function,.twinkleplop .builtin,.twinkleplop .variable{color:#305ea3}.twinkleplop .comment{color:#64718a}
 #transaction-details,.activity-detail{min-width:0}
 .wt-command code{min-width:0;max-width:100%;overflow-x:auto;white-space:pre;overflow-wrap:normal;word-break:normal}

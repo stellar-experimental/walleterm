@@ -13,66 +13,66 @@
   </header>
   <main>
     <div class="intro"><span class="network-label"><span aria-hidden="true"></span>Stellar testnet</span><h1>A small place<br>to try your wallet.</h1><p>Connect a wallet from your Mac. Build a test transaction, request a signature, and see the result.</p></div>
-    <p id="status" role="status"></p>
-    <div id="transaction-record" class="transaction-record" hidden><div><strong id="record-title">Your transaction</strong><span id="record-state"></span></div><button id="open-review" type="button">View transaction</button></div>
-    <section id="actions" class="workspace" aria-labelledby="actions-title">
-      <div class="workspace-heading"><div><h2 id="actions-title" tabindex="-1">Try a transaction</h2><p>Test funds. Real connection.</p><p id="account-status" class="account-status" hidden></p></div><span class="demo-tag">Demo workspace</span></div>
-      <div id="connection-hint" class="connection-hint"><span class="hint-icon" aria-hidden="true">◇</span><p>Connect Walleterm in the header to get started.</p></div>
+    <p id="status" class="notice" role="status"></p>
+    <div id="transaction-record" class="notice transaction-record" hidden><div><strong id="record-title">Your transaction</strong><span id="record-state"></span></div><button id="open-review" type="button" class="button">View transaction</button></div>
+    <section id="actions" class="panel" aria-labelledby="actions-title">
+      <div class="panel-heading"><div><h2 id="actions-title" tabindex="-1">Try a transaction</h2><p>Test funds. Real connection.</p><p id="account-status" class="account-status" hidden></p></div><span class="demo-tag">Demo workspace</span></div>
+      <div id="connection-hint" class="notice connection-hint"><span class="hint-icon" aria-hidden="true">◇</span><p>Connect Walleterm in the header to get started.</p></div>
       <div class="action-grid">
-        <article class="action-card"><span class="action-symbol" aria-hidden="true">≡</span><h3>Leave a note</h3><p>Write a short data entry to your testnet account.</p><button id="note" disabled>Write a note</button></article>
-        <article class="action-card"><span class="action-symbol" aria-hidden="true">↗</span><h3>Send a little XLM</h3><p>Send 0.01 test XLM to an account chosen by the demo.</p><button id="payment" disabled>Pay 0.01 test XLM</button></article>
-        <article class="action-card"><span class="action-symbol" aria-hidden="true">⇄</span><h3>Place an offer</h3><p>Sell 0.1 test XLM at 10 USDC per XLM. <span id="offer-requirement">It needs an authorized USDC trustline to GBBD…LFLA5 with room for 1 USDC. Create it with direct signing.</span></p><button id="offer" disabled>Offer 0.1 test XLM</button></article>
-        <article class="action-card"><span class="action-symbol" aria-hidden="true">×</span><h3>Cancel an offer</h3><p>Remove this account’s newest open offer, including offers created elsewhere.</p><button id="cancel-offer" disabled>Cancel newest offer</button></article>
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">≡</span><h3>Leave a note</h3><p>Write a short data entry to your testnet account.</p><button id="note" class="button" disabled>Write a note</button></article>
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">↗</span><h3>Send a little XLM</h3><p>Send 0.01 test XLM to an account chosen by the demo.</p><button id="payment" class="button" disabled>Pay 0.01 test XLM</button></article>
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">⇄</span><h3>Place an offer</h3><p>Sell 0.1 test XLM at 10 USDC per XLM. <span id="offer-requirement">It needs an authorized USDC trustline to GBBD…LFLA5 with room for 1 USDC. Create it with direct signing.</span></p><button id="offer" class="button" disabled>Offer 0.1 test XLM</button></article>
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">×</span><h3>Cancel an offer</h3><p>Remove this account’s newest open offer, including offers created elsewhere.</p><button id="cancel-offer" class="button" disabled>Cancel newest offer</button></article>
       </div>
-      <p class="workspace-note">Use a dedicated testnet account. An offer can trade immediately. The demo funds new accounts through Friendbot.</p>
+      <p class="panel-note">Use a dedicated testnet account. An offer can trade immediately. The demo funds new accounts through Friendbot.</p>
     </section>
-    <section id="walkthrough" class="workspace walkthrough" aria-labelledby="walkthrough-title">
-      <div class="workspace-heading walkthrough-heading">
+    <section id="walkthrough" class="panel walkthrough" aria-labelledby="walkthrough-title">
+      <div class="panel-heading walkthrough-heading">
         <div><h2 id="walkthrough-title" tabindex="-1">Smart account walkthrough</h2><p>Deploy a smart account that checks your 1Password signature. Then use it to authorize a contract call.</p></div>
         <div class="walkthrough-progress"><strong id="walkthrough-progress-label">Connect a wallet to see your progress.</strong><span id="walkthrough-bar" class="walkthrough-bar" data-done="0" aria-hidden="true"><span></span><span></span><span></span></span><span class="walkthrough-checked"><span id="walkthrough-checked"></span><button id="walkthrough-refresh" type="button" class="text-button" disabled>Refresh</button></span></div>
       </div>
-      <p id="walkthrough-error" class="walkthrough-error" role="alert" hidden></p>
-      <div id="walkthrough-code" class="walkthrough-row walkthrough-prerequisite" data-state="unknown">
-        <span id="walkthrough-code-mark" class="step-mark" aria-hidden="true"></span>
+      <p id="walkthrough-error" class="notice danger walkthrough-error" role="alert" hidden></p>
+      <div id="walkthrough-code" class="walkthrough-row" data-state="pending">
+        <span id="walkthrough-code-mark" class="mark" aria-hidden="true"></span>
         <div class="step-text"><h3>Contract code on testnet</h3><p id="walkthrough-code-detail">Both programs must be on testnet. Every wallet uses the same code.</p></div>
         <span id="walkthrough-code-meta" class="step-meta">Before you start</span>
-        <div class="step-action"><span id="walkthrough-code-status" class="step-status"></span><button id="walkthrough-code-action" type="button" hidden></button></div>
+        <div class="step-action"><span id="walkthrough-code-status" class="step-status"></span><button id="walkthrough-code-action" type="button" class="button" hidden></button></div>
       </div>
       <ol class="walkthrough-steps">
-        <li id="walkthrough-deploy-account" class="walkthrough-row" data-state="unknown">
-          <span id="walkthrough-deploy-account-mark" class="step-mark" aria-hidden="true">1</span>
+        <li id="walkthrough-deploy-account" class="walkthrough-row" data-state="pending">
+          <span id="walkthrough-deploy-account-mark" class="mark" aria-hidden="true">1</span>
           <div class="step-text"><h3>Deploy your smart account</h3><p>Creates a contract account that accepts only this wallet’s signature.</p></div>
           <span class="step-meta">2 signatures</span>
-          <div class="step-action"><span id="walkthrough-deploy-account-status" class="step-status"></span><button id="walkthrough-deploy-account-copy" type="button" class="text-button" hidden>Copy</button><button id="walkthrough-deploy-account-action" type="button" hidden></button></div>
+          <div class="step-action"><span id="walkthrough-deploy-account-status" class="step-status"></span><button id="walkthrough-deploy-account-copy" type="button" class="text-button" hidden>Copy</button><button id="walkthrough-deploy-account-action" type="button" class="button" hidden></button></div>
         </li>
-        <li id="walkthrough-deploy-target" class="walkthrough-row" data-state="unknown">
-          <span id="walkthrough-deploy-target-mark" class="step-mark" aria-hidden="true">2</span>
+        <li id="walkthrough-deploy-target" class="walkthrough-row" data-state="pending">
+          <span id="walkthrough-deploy-target-mark" class="mark" aria-hidden="true">2</span>
           <div class="step-text"><h3>Deploy the counter</h3><p>Creates the counter contract for this set. You sign an authorization, then the transaction.</p></div>
           <span class="step-meta">2 signatures</span>
-          <div class="step-action"><span id="walkthrough-deploy-target-status" class="step-status"></span><button id="walkthrough-deploy-target-copy" type="button" class="text-button" hidden>Copy</button><button id="walkthrough-deploy-target-action" type="button" hidden></button></div>
+          <div class="step-action"><span id="walkthrough-deploy-target-status" class="step-status"></span><button id="walkthrough-deploy-target-copy" type="button" class="text-button" hidden>Copy</button><button id="walkthrough-deploy-target-action" type="button" class="button" hidden></button></div>
         </li>
-        <li id="walkthrough-increment" class="walkthrough-row" data-state="unknown">
-          <span id="walkthrough-increment-mark" class="step-mark" aria-hidden="true">3</span>
+        <li id="walkthrough-increment" class="walkthrough-row" data-state="pending">
+          <span id="walkthrough-increment-mark" class="mark" aria-hidden="true">3</span>
           <div class="step-text"><h3>Increase the counter</h3><p>Your smart account authorizes +1, then you sign the transaction. Repeat this step.</p></div>
           <span class="step-meta">2 signatures</span>
-          <div class="step-action"><span id="walkthrough-increment-status" class="step-status"></span><button id="walkthrough-increment-action" type="button" hidden></button></div>
+          <div class="step-action"><span id="walkthrough-increment-status" class="step-status"></span><button id="walkthrough-increment-action" type="button" class="button" hidden></button></div>
         </li>
       </ol>
-      <div class="workspace-note walkthrough-footer"><p id="walkthrough-note">Contract addresses are fixed for each wallet and set. Start a new set to repeat the deploy steps.</p><button id="walkthrough-new-set" type="button" hidden>Start a new set</button></div>
+      <div class="panel-note"><p id="walkthrough-note">Contract addresses are fixed for each wallet and set. Start a new set to repeat the deploy steps.</p><button id="walkthrough-new-set" type="button" class="button" hidden>Start a new set</button></div>
     </section>
     <dialog id="review" class="review" aria-labelledby="review-title" aria-describedby="review-context">
-      <div class="review-heading"><div><span id="review-eyebrow" class="demo-tag">Demo transaction</span><h2 id="review-title">Your transaction</h2></div><button id="close-review" type="button" class="review-close" aria-label="Close transaction details" autofocus>×</button></div>
+      <div class="review-heading"><div><span id="review-eyebrow" class="demo-tag">Demo transaction</span><h2 id="review-title">Your transaction</h2></div><button id="close-review" type="button" class="icon-button" aria-label="Close transaction details" autofocus>×</button></div>
       <div class="review-body">
         <p id="review-context">This preview belongs to the demo website.</p>
         <ol id="review-phases" class="review-phases" aria-label="Transaction steps" hidden></ol>
-        <p id="review-progress" class="review-progress demo-loading" hidden><span id="review-progress-state" role="status"></span><span id="review-countdown" role="timer" aria-live="off"></span></p>
-        <p id="review-status" class="review-status" role="status"></p>
+        <p id="review-progress" class="notice review-progress demo-loading" hidden><span id="review-progress-state" role="status"></span><span id="review-countdown" role="timer" aria-live="off"></span></p>
+        <p id="review-status" class="notice" role="status"></p>
         <dl id="review-summary" class="review-summary"></dl>
         <details id="transaction-details"><summary>Transaction details</summary><div id="details"></div></details>
       </div>
-      <div class="review-footer"><p id="review-note">Closing this window keeps the transaction.</p><div class="review-buttons"><button id="cancel-request" class="secondary" hidden>Cancel signing request</button><button id="clear" class="secondary" hidden>Start another request</button><button id="check" class="secondary" hidden>Check transaction status</button><button id="sign" hidden>Sign</button><button id="submit" hidden>Submit to testnet</button><button id="continue" hidden>Continue</button><button id="done" hidden>Done</button></div></div>
+      <div class="review-footer"><p id="review-note">Closing this window keeps the transaction.</p><div class="review-buttons"><button id="cancel-request" class="button quiet" hidden>Cancel signing request</button><button id="clear" class="button quiet" hidden>Start another request</button><button id="check" class="button quiet" hidden>Check transaction status</button><button id="sign" class="button primary" hidden>Sign</button><button id="submit" class="button primary" hidden>Submit to testnet</button><button id="continue" class="button primary" hidden>Continue</button><button id="done" class="button primary" hidden>Done</button></div></div>
     </dialog>
-    <section id="activity" class="activity" aria-labelledby="activity-title"></section>
+    <section id="activity" class="panel activity" aria-labelledby="activity-title"></section>
     <footer class="site-footer"><div><strong>The demo builds. Walleterm connects.</strong><p>The header manages your wallet connection. This workspace builds and submits testnet transactions.</p></div><a href="/sdk/connect.js">View connection SDK</a></footer>
   </main>
 </body>

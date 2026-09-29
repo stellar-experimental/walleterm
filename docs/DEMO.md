@@ -77,6 +77,7 @@ The summary shows short addresses. Transaction details and Activity hold the ful
 
 Closing the window keeps the transaction. It does not cancel the action.
 The page shows View transaction while a transaction exists or preparation continues.
+Closing the window returns focus to the button that opened it, and the page does not scroll.
 After a reload, an unfinished saved transaction opens in the window.
 A finished transaction stays available through View transaction and Activity.
 
@@ -138,6 +139,21 @@ The log stores events in IndexedDB for the current browser and website origin.
 A reload or a cleared transaction keeps the history. A new tunnel origin has separate browser storage.
 A storage failure leaves the tab usable and shows an export notice.
 The transaction recovery record is separate from the activity log.
+
+## Styles
+
+`demo/site/style.css` defines the design tokens once on `:root`: three text levels, one accent, lines, surfaces, and radii.
+The page uses a small set of shared components:
+
+| Component | Use |
+| --- | --- |
+| `.panel` | Each section: transaction actions, the walkthrough, and the activity log |
+| `.button` | One size in the page and a larger size in the window footer. `primary` and `quiet` are the variants. |
+| `.notice` | The page status, the window status, hints, and errors. `danger` and `warning` are the variants. |
+| `.mark` | The status circle of a walkthrough step and of a transaction phase. The `data-state` of its row sets the style. |
+
+`activity.css` and `code-view.css` use the same tokens. Add a new style to a component, not to one section.
+The Paper file "walleterm — demo" shows these components and the walkthrough designs.
 
 ## Code panels
 

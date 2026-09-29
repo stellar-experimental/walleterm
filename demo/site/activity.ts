@@ -457,16 +457,16 @@ export function createActivityLog(
   element: HTMLElement,
   { decodeSigned }: Pick<HistoryOptions, 'decodeSigned'> = {},
 ) {
-  element.innerHTML = `<div class="activity-heading"><div><h2 id="activity-title">Activity</h2><p>Actions, wallet responses, and transaction results.</p></div><button type="button" data-log="export">Export JSON</button></div>
+  element.innerHTML = `<div class="panel-heading"><div><h2 id="activity-title">Activity</h2><p>Actions, wallet responses, and transaction results.</p></div><button type="button" class="button" data-log="export">Export JSON</button></div>
     <div class="activity-tools"><label><span class="activity-label">Search activity</span><input data-log="search" type="search" placeholder="Find an action, hash, or wallet" autocomplete="off"></label><label><span class="activity-label">Event type</span><select data-log="filter"><option value="">All activity</option>${Object.entries(
       categories,
     )
       .map(([key, label]) => `<option value="${key}">${label}</option>`)
       .join('')}</select></label></div>
     <div class="activity-meta"><span data-log="count" role="status">No events yet</span><span>Saved in this browser · Newest first</span></div>
-    <p class="activity-storage" data-log="storage" hidden>New activity is available in this tab but cannot be saved. Export JSON to keep it.</p>
+    <p class="notice warning activity-storage" data-log="storage" hidden>New activity is available in this tab but cannot be saved. Export JSON to keep it.</p>
     <p class="activity-empty" data-log="empty">Your activity will appear here. Connect a wallet or try a testnet action.</p>
-    <div class="activity-events" data-log="events"></div><button type="button" class="activity-more" data-log="more" hidden>Show more activity</button><p class="activity-notice" data-log="notice" role="status"></p>`;
+    <div class="activity-events" data-log="events"></div><button type="button" class="button activity-more" data-log="more" hidden>Show more activity</button><p class="activity-notice" data-log="notice" role="status"></p>`;
   type Elements = { search: HTMLInputElement; filter: HTMLSelectElement; export: HTMLButtonElement };
   const $ = <K extends string>(name: K) =>
     element.querySelector(`[data-log="${name}"]`)! as K extends keyof Elements ? Elements[K] : HTMLElement;
@@ -492,6 +492,7 @@ export function createActivityLog(
   const button = (title: string, value: string) => {
     const node = document.createElement('button');
     node.type = 'button';
+    node.className = 'button';
     node.textContent = title;
     node.onclick = () => copy(value, node);
     return node;
