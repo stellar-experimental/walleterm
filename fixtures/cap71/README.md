@@ -2,16 +2,16 @@
 
 These contracts are immutable test fixtures. Do not use them as production accounts.
 The isolated workspace pins `soroban-sdk = 27.0.2`. `Cargo.lock` pins all dependencies.
-The adapter uses the existing JavaScript SDK `17.1.0`.
+The adapter uses the JavaScript SDK `17.1.0`.
 
 ## Contracts
 
-- `cap71-delegate`: immutable address weights and a positive threshold. Unknown and empty delegates fail.
-- `cap71-raw-account`: immutable Ed25519 owner. Two instances use the same public key for address-binding tests.
-- `cap71-target`: `ping(who, n)` updates a counter. Authorization arguments contain only `n`.
+- `cap71-delegate` in `delegate/`: immutable address weights and a positive threshold. Unknown and empty delegates fail.
+- `cap71-raw-account` in `raw-account/`: immutable Ed25519 owner. Two instances use the same public key for address-binding tests.
+- `cap71-target` in `protected/`: `ping(who, n)` updates a counter. Authorization arguments contain only `n`.
 
 The target deliberately omits `who` from the authorization arguments.
-Thus, cross-account tests isolate the credential address binding.
+Thus, the cross-account tests isolate the credential address binding.
 Delegate arrays must follow the host's strict address order.
 The account validates every supplied delegate before calling `delegate_auth`.
 It authenticates all supplied delegates, including delegates beyond the threshold.
@@ -35,7 +35,7 @@ These tests do not prove protocol-28 testnet acceptance.
 ## Live runner
 
 `tests/cap71.ts` exports `runCap71(ctx)`.
-It uses the existing `sdk`, `rpc`, `keys`, `networkPassphrase`, `record`, `signPreimage`, `sign`, `send`, and `assertClear` fields.
+It uses the `sdk`, `rpc`, `keys`, `networkPassphrase`, `record`, `signPreimage`, `sign`, `send`, and `assertClear` fields.
 `signPreimage` sends the address-bound preimage to `walleterm sign`. A delegate signs the preimage of the top-level address.
 Tests can override the checkpoint path with `ctx.cap71Checkpoint`.
 The normal checkpoint is `evidence/live/cap71-state.json`.
@@ -59,6 +59,11 @@ bun tests/live.ts cap71
 | CAP71-10 | Confirmed authorization replay |
 | CAP71-11 | Native same-signer root account substitution |
 | CAP71-12 | Same-key address_v2 cross-account replay, with valid controls |
+
+CAP71-01 through CAP71-12 passed on protocol 28 testnet with the earlier signer.
+[The protocol record](../../evidence/protocol-acceptance.json) holds the transaction hashes and limits.
+CAP71-07 and CAP71-08 returned only `Error(Auth, InvalidInput)`. The RPC gave no diagnostic reason.
+Thus, the duplicate case proves that the host rejects the invalid array. It cannot show whether duplication or order caused the rejection.
 
 All state-changing calls use enforce simulation before envelope signing.
 Before auth signing, the adapter requires the exact `target.ping([u32(1)])` authorization root and an empty subtree.

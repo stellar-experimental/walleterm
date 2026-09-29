@@ -32,7 +32,7 @@ The hand-drawn feel comes from the line itself. Five traits make it, and all fiv
 | Trait | What the references do | Control |
 | --- | --- | --- |
 | Weight | Width is 2% to 3.5% of the panel height. It scales with the drawing. | `width` in [`hand.ts`](art/hand.ts) |
-| Drift | Long lines bow a little. The right panel edge bends inward about 1% in all 16 references, so its bottom corner flares. | `bow`, `drift`, `bias`; `bows` in [`mascot.ts`](art/mascot.ts) |
+| Drift | Long lines bow a little. The right panel edge bends inward about 1% in the reference images, so its bottom corner flares. | `bow`, `drift`, `bias`; `bows` in [`mascot.ts`](art/mascot.ts) |
 | Tilt | Nothing is exactly vertical or square. Legs are straight but splay outward by up to 6%. | `jitter`; `splay` in `mascot.ts` |
 | Swell | Width changes slowly along a line, by 2% to 14%. Ink pools slightly at joins and ends. | `swell`; an 8% pool in `inkStroke` |
 | Softness | The ink edge ramps over about a third of a stroke width. | `soften` in `mascot.ts` |
@@ -106,8 +106,7 @@ Lessons from building the measures:
 - Trim the ends of a leg before measuring its width. The foot tick made one leg look 25% uneven.
 - One drawing's random draws move `stroke_cv` noticeably. Judge a default against several scenes, not one.
 - Change a measure only when it measures the wrong thing, and prove the change on the references first.
-- `artcheck.py` renders with Chrome. Chrome drew the old blur filter well, so every measure passed while Safari showed a blurry wallet.
-  Passing measures prove the drawing, not every browser. Check changed site art in Safari too (see the illustration skill, step 9).
+- `artcheck.py` renders with Chrome. Passing measures prove the drawing, not every browser. Check changed site art in Safari too (see the illustration skill, step 9).
 - A soft edge must keep a line's total darkness. A halo that only adds ink outside the edge raises `stroke_h`.
   A blur moves ink from inside the edge to outside, so the replacement thins the core by the ink its halo adds.
 
