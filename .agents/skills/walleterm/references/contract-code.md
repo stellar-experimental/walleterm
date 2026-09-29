@@ -15,7 +15,7 @@ An ordinary payment, or a call to a contract that the user chose, does not need 
 
 CAP-85 is in [stellar-protocol `9cd7030`](https://github.com/stellar/stellar-protocol/blob/9cd703075d87a6ce293752b1532e7b68efe12ae1/core/cap-0085.md). Its preamble lists protocol 28, and its transition section says TBD. Confirm network support.
 A tool that cannot decode the executable must stop. A decode failure is not evidence of `wasm`.
-`@stellar/stellar-sdk` 17.1.0 includes `ContractExecutableExternalRef` and `scvExecutableTag`.
+`@stellar/stellar-sdk` 17.2.0 includes `ContractExecutableExternalRef` and `scvExecutableTag`.
 A tool that returns a Wasm hash for an address may hide the reference. The host function `get_address_executable` returns only the resolved hash.
 
 ## Manager trust

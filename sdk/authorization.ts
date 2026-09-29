@@ -1,6 +1,6 @@
 import { Address, Keypair, StrKey, hash, xdr } from '@stellar/stellar-sdk';
 
-/** Schemas pinned to SDK 17.1.0 and the commit below. No delegated signers. */
+/** Schemas pinned to SDK 17.2.0 and the commit below. No delegated signers. */
 export const OPENZEPPELIN_AUTH_COMMIT = 'a5bd8cbd3d0bb8efbd5cf5e2edf9734f87e47640';
 export const MAX_AUTH_XDR = 32768;
 export type AuthAdapter =

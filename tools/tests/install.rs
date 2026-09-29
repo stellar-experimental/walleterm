@@ -86,7 +86,7 @@ fn install_switches_links_and_keeps_the_old_version_after_a_failed_build() {
     )
     .unwrap();
     assert!(notices.contains("== demo syntax highlighter (demo/site/vendor) =="));
-    assert!(notices.contains("@stellar/stellar-sdk 17.1.0"));
+    assert!(notices.contains("@stellar/stellar-sdk 17.2.0"));
     let first = releases(&prefix);
     assert_eq!(first.len(), 1);
     assert_eq!(first[0].len(), 24);

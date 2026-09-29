@@ -29,7 +29,7 @@ The envelope signature authorizes transaction and operation sources. It does not
 
 1. Simulate the built transaction to collect authorization entries, invocation trees, nonces, and resources.
 2. Use `address_v2` credentials. Walleterm signs only `soroban_authorization_with_address` payloads (CAP-71-02).
-   SDK 17.1.0 `simulateTransaction` records `address_v2` unless `useUpgradedAuth` is `false`.
+   SDK 17.2.0 `simulateTransaction` records `address_v2` unless `useUpgradedAuth` is `false`.
    Other tools can record the legacy `address` arm. Check the credential arm in the simulation result.
 3. Choose an expiration ledger, as the skill's authorization rules describe.
 4. Put that expiration in the credential. Copy the nonce and invocation exactly from simulation.

@@ -7,7 +7,7 @@ Keep each change small. Add tests for each changed behavior or failure.
 
 You need:
 
-- Rust through [rustup](https://rustup.rs). `rust-toolchain.toml` pins Rust 1.93.0, and rustup installs it.
+- Rust through [rustup](https://rustup.rs). `rust-toolchain.toml` pins Rust 1.98.1, and rustup installs it. Fixture contracts build with Rust 1.93.0.
 - Bun 1.4.2 or later. Bun builds the embedded browser files only.
 - cloudflared for `walleterm tunnel` and `walleterm demo`.
 - The Stellar CLI. Some offline tests call it.

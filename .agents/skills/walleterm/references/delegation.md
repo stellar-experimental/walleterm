@@ -52,7 +52,7 @@ The legacy `address` payload lacks that binding. CAP-71-02 permits `address_v2` 
 
 ## SDK helpers
 
-`@stellar/stellar-sdk` 17.1.0 exports these helpers. Treat their names as examples for that version only.
+`@stellar/stellar-sdk` 17.2.0 exports these helpers. Treat their names as examples for that version only.
 
 SDK byte values can be `Uint8Array`. Encode them explicitly, such as `Buffer.from(payload).toString('hex')`.
 Use `Buffer.from(bytes).toString('base64')` when recording raw XDR bytes.

@@ -5,7 +5,7 @@
     "": {
       "name": "walleterm-test-fixtures",
       "dependencies": {
-        "@stellar/stellar-sdk": "17.1.0",
+        "@stellar/stellar-sdk": "17.2.0",
         "jsqr": "1.4.0",
       },
       "devDependencies": {
@@ -26,7 +26,7 @@
 
     "@stellar/js-xdr": ["@stellar/js-xdr@5.0.0", "", {}, "sha512-HBDNKnxr+ecdaEmbZ0mcKkirOF8tXXEbWSw34P3wT40Tn3g+u+cCH17xAWZymzscq8cojHB8340pR8QNVaD32w=="],
 
-    "@stellar/stellar-sdk": ["@stellar/stellar-sdk@17.1.0", "", { "dependencies": { "@exodus/bytes": "^1.15.1", "@noble/ed25519": "^3.1.0", "@noble/hashes": "^2.2.0", "@stellar/js-xdr": "^5.0.0", "@types/json-schema": "^7.0.15", "axios": "1.20.0", "bignumber.js": "^11.1.4", "commander": "^14.0.3", "eventsource": "^4.1.0", "feaxios": "^0.0.23", "smol-toml": "^1.6.1", "uint8array-extras": "^1.5.0" }, "bin": { "stellar-js": "bin/stellar-js" } }, "sha512-vf/d9KR2B7MkrJBKW+cN8GPgBbiLFrRfr2pkR41VmqI6is6EfYvzhyGztbuJ3XPmcotkCRCveweAAzw2cjDn1w=="],
+    "@stellar/stellar-sdk": ["@stellar/stellar-sdk@17.2.0", "", { "dependencies": { "@exodus/bytes": "^1.15.1", "@noble/ed25519": "^3.1.0", "@noble/hashes": "^2.2.0", "@stellar/js-xdr": "^5.0.0", "@types/json-schema": "^7.0.15", "axios": "1.20.0", "bignumber.js": "^11.1.4", "commander": "^14.0.3", "eventsource": "^4.1.0", "feaxios": "^0.0.23", "smol-toml": "^1.6.1", "uint8array-extras": "^1.5.0" }, "bin": { "stellar-js": "bin/stellar-js", "stellar-sdk": "bin/stellar-js", "stellar-contract-bindings-typescript": "bin/stellar-contract-bindings-typescript" } }, "sha512-hGdbvhnOMFwAe+QOAUVPrtLf8U+arO2XG+0osEeY87Ti5scj1R52YSw8HW828gf6UG4PW/jtAlfnyaGCj8t6UA=="],
 
     "@twinkleplop/bash": ["@twinkleplop/bash@0.1.5", "", { "dependencies": { "@twinkleplop/core": "0.2.2" } }, "sha512-LAfsYYtjI3N38BMBcfg7ZT2Nxeql2zyezfG+aYtptgNt6D0dmKkysDYGbnGJY2885Woz1i1k9iif4/R6D3bizA=="],
 
