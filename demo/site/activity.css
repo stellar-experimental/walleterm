@@ -1,5 +1,6 @@
 /* Activity log. The panel, buttons, and notices come from style.css. Category labels keep their own colors. */
 .activity{margin-top:24px}
+.activity-actions{display:flex;gap:8px;flex-shrink:0}
 .activity-tools{display:flex;gap:12px;padding:0 28px 18px}
 .activity-tools label:first-child{flex:1}
 .activity-label{display:block;margin-bottom:6px;color:var(--ink-3);font-size:11px}
@@ -31,6 +32,7 @@
 .activity-notice{margin:0;padding:12px 28px;color:var(--ink-2);font-size:12px}
 .activity-notice:empty{display:none}
 @media(max-width:600px){
+  .activity .panel-heading{flex-wrap:wrap}
   .activity-tools{flex-direction:column;padding:0 20px 18px}
   .activity-tools label{min-width:0}
   .activity-meta{padding:12px 20px}

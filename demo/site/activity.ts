@@ -17,6 +17,7 @@ export interface ActivityEvent {
 export interface ActivityStore {
   load(): Promise<unknown[]>;
   put(event: ActivityEvent): Promise<unknown>;
+  clear(): Promise<unknown>;
 }
 interface HistoryOptions {
   store?: ActivityStore;
@@ -97,6 +98,16 @@ function browserStore(): ActivityStore {
       return new Promise<void>((resolve, reject) => {
         const transaction = db.transaction('events', 'readwrite');
         transaction.objectStore('events').put(event);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+        transaction.onabort = () => reject(transaction.error);
+      });
+    },
+    async clear() {
+      const db = await open();
+      return new Promise<void>((resolve, reject) => {
+        const transaction = db.transaction('events', 'readwrite');
+        transaction.objectStore('events').clear();
         transaction.oncomplete = () => resolve();
         transaction.onerror = () => reject(transaction.error);
         transaction.onabort = () => reject(transaction.error);
@@ -222,6 +233,8 @@ export class ActivityHistory {
   }
   /** Complete or extend an event in place. It keeps its ID, time, and position. */
   update(event: ActivityEvent, change: { category?: string; title?: string; data?: unknown }) {
+    // A cleared event stays cleared, even when its request completes later.
+    if (!this.events.includes(event)) return;
     try {
       if (change.category) event.category = change.category;
       if (change.title) event.title = change.title;
@@ -231,6 +244,14 @@ export class ActivityHistory {
     } catch {
       /* Activity failures must never change an outcome. */
     }
+  }
+  /** Delete every event from this tab and from browser storage. */
+  async clear() {
+    this.events = [];
+    this.reads.clear();
+    this.transactionState = null;
+    this.changed();
+    await this.store.clear();
   }
   signedData(xdr: string) {
     try {
@@ -457,7 +478,7 @@ export function createActivityLog(
   element: HTMLElement,
   { decodeSigned }: Pick<HistoryOptions, 'decodeSigned'> = {},
 ) {
-  element.innerHTML = `<div class="panel-heading"><div><h2 id="activity-title">Activity</h2><p>Actions, wallet responses, and transaction results.</p></div><button type="button" class="button" data-log="export">Export JSON</button></div>
+  element.innerHTML = `<div class="panel-heading"><div><h2 id="activity-title">Activity</h2><p>Actions, wallet responses, and transaction results.</p></div><div class="activity-actions"><button type="button" class="button quiet" data-log="clear">Clear</button><button type="button" class="button" data-log="export">Export JSON</button></div></div>
     <div class="activity-tools"><label><span class="activity-label">Search activity</span><input data-log="search" type="search" placeholder="Find an action, hash, or wallet" autocomplete="off"></label><label><span class="activity-label">Event type</span><select data-log="filter"><option value="">All activity</option>${Object.entries(
       categories,
     )
@@ -467,7 +488,12 @@ export function createActivityLog(
     <p class="notice warning activity-storage" data-log="storage" hidden>New activity is available in this tab but cannot be saved. Export JSON to keep it.</p>
     <p class="activity-empty" data-log="empty">Your activity will appear here. Connect a wallet or try a testnet action.</p>
     <div class="activity-events" data-log="events"></div><button type="button" class="button activity-more" data-log="more" hidden>Show more activity</button><p class="activity-notice" data-log="notice" role="status"></p>`;
-  type Elements = { search: HTMLInputElement; filter: HTMLSelectElement; export: HTMLButtonElement };
+  type Elements = {
+    search: HTMLInputElement;
+    filter: HTMLSelectElement;
+    export: HTMLButtonElement;
+    clear: HTMLButtonElement;
+  };
   const $ = <K extends string>(name: K) =>
     element.querySelector(`[data-log="${name}"]`)! as K extends keyof Elements ? Elements[K] : HTMLElement;
   const rows = new Map<string, HTMLElement>();
@@ -596,7 +622,7 @@ export function createActivityLog(
       : 'Your activity will appear here. Connect a wallet or try a testnet action.';
     $('storage').hidden = !history.unsaved;
     $('more').hidden = matching.length <= limit;
-    $('export').disabled = history.loading || !history.events.length;
+    $('export').disabled = $('clear').disabled = history.loading || !history.events.length;
   }
   $('search').oninput = $('filter').onchange = () => {
     limit = 40;
@@ -605,6 +631,25 @@ export function createActivityLog(
   $('more').onclick = () => {
     limit += 40;
     render();
+  };
+  // Clearing asks first. It keeps the transaction record and the wallet connection.
+  $('clear').onclick = async () => {
+    const count = history.events.length;
+    if (history.loading || !count) return;
+    if (
+      !confirm(
+        `Clear ${count} ${count === 1 ? 'event' : 'events'} from this browser? Export JSON first to keep them. The current transaction and the wallet connection stay.`,
+      )
+    )
+      return;
+    rows.clear();
+    try {
+      await history.clear();
+      $('notice').textContent = 'Activity cleared.';
+    } catch {
+      $('notice').textContent =
+        'The browser could not clear the saved activity. Reload the page to see what remains.';
+    }
   };
   $('export').onclick = () => {
     if (history.loading || !history.events.length) return;
