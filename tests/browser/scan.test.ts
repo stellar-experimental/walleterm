@@ -40,12 +40,15 @@ test('the QR decoder reads the tunnel payload and retains leading zeroes', () =>
   for (const changed of [
     { ...p, walleterm: 1 },
     { ...p, code: '1234' },
-    { ...p, url: 'javascript:alert(1)' },
-    { ...p, url: p.url + '/path' },
     { ...p, expires_at: '2000-01-01' },
   ]) {
     assert.throws(() => parseConnection(JSON.stringify(changed)));
   }
+  // The QR code uses the same tunnel URL check as the dialog and the client.
+  for (const url of ['javascript:alert(1)', p.url + '/path', 'http://bridge.example', 42, null])
+    assert.throws(() => parseConnection(JSON.stringify({ ...p, url })), {
+      message: 'The tunnel URL is invalid.',
+    });
 });
 // The scanner reads only these camera stream and video fields.
 interface MockStream {

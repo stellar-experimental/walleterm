@@ -12,7 +12,8 @@ See [the website signing bridge](WEB-BRIDGE.md) for the steps to run both comman
 | --- | --- |
 | Write a note | Writes a short data entry to the testnet account. |
 | Pay 0.01 test XLM | Sends 0.01 test XLM to an account that the demo selects. |
-| Offer 0.1 test XLM | Sells 0.1 test XLM at 10 USDC per XLM. The account needs a testnet USDC trustline. |
+| Add USDC trustline | Adds a trustline to testnet USDC from `GBBD47…LFLA5` with a limit of 100 USDC. |
+| Offer 0.1 test XLM | Sells 0.1 test XLM at 10 USDC per XLM. It needs a USDC trustline with room for 1 USDC. |
 | Cancel newest offer | Removes the newest open offer of the account, whatever created it. |
 
 The demo funds a new testnet account with Friendbot.
@@ -21,8 +22,21 @@ Use a dedicated testnet account. An offer can trade immediately.
 
 The workspace reads the connected account from Horizon.
 It shows the XLM balance, or it says that the first action funds the account.
-The offer card says whether the account has an authorized USDC trustline with room for 1 USDC.
 The demo reads the account again after each confirmed transaction.
+
+The offer card shows one next step for the USDC trustline:
+
+| Account | Card text | Button |
+| --- | --- | --- |
+| Not read yet | The offer needs a USDC trustline with room for 1 USDC. | Offer, disabled |
+| No trustline, or not on testnet yet | Add the trustline first. | Add USDC trustline |
+| Trustline ready | The trustline is ready. An optional line links to Circle's testnet USDC faucet. | Offer |
+| Trustline not authorized | The issuer has not authorized the trustline. The offer cannot run. | Offer, disabled |
+| No room for 1 more USDC | The trustline is full. The offer cannot run. | Offer, disabled |
+
+The offer only buys USDC, so it needs no USDC balance.
+The 100 USDC limit leaves room for the offer and for several 20 USDC faucet payments.
+Each build reads the account again. A build that cannot succeed stops before review and updates the card.
 
 ## Smart account walkthrough
 
@@ -96,6 +110,38 @@ Open signing requests and unknown outcomes keep their recovery rules. Check an u
 
 Changing wallets keeps a saved transaction and its original signer.
 The demo enables Sign only when the connected wallet matches that signer.
+
+### Stopped signatures
+
+The bridge ends each signing request at its expiry: 5 minutes, or the transaction `max_time` if earlier.
+The demo has one fallback deadline: the transaction `max_time`, or the bridge expiry if earlier.
+It stops the request itself only if the bridge does not answer by then.
+A check of the wall clock each second keeps the deadline correct after the computer sleeps.
+
+| Request state | Page text |
+| --- | --- |
+| `denied` | The bridge message, and "The signing request was declined. Nothing was signed." |
+| Canceled, and the bridge confirms it | "The signing request was canceled. Nothing was signed." |
+| `expired`, or the demo deadline with a confirmed stop | "The signing request expired. Nothing was signed." |
+| `unknown` | "If a 1Password prompt is still open, decline it." Clear the record after that. |
+
+The bridge sets the state of a declined 1Password prompt. See [the bridge protocol](BRIDGE-PROTOCOL.md).
+A declined, canceled, or expired request permits the next action at once.
+
+### Unreadable saved record
+
+The demo keeps the current transaction in browser storage. A damaged record blocks new transactions.
+Activity then holds its raw text as a "Saved transaction record unreadable" error event.
+The page shows Discard saved record. The discard removes the record and records the event in Activity.
+If another tab already replaced the record with a readable one, the demo keeps that record.
+
+### Testnet errors
+
+A browser network failure to Horizon, Friendbot, or Soroban RPC shows "The demo could not reach testnet. Check your network."
+A response that is not JSON shows the HTTP status in plain text.
+A rejected authorization simulation shows the first line of the error. Activity keeps the full event log.
+An uncertain submission says: "Testnet did not confirm the submission. Select Check transaction status. Do not sign a replacement."
+Activity keeps the original error text in each case.
 
 ## Activity log
 
@@ -197,5 +243,6 @@ Reduced-motion mode stops the rotation and keeps the text.
 | Copying data | A status message after completion | The button keeps its label and size. |
 
 A missing wallet, a connection change, a pending transaction, or a blocked journal disables new transaction actions.
+Discard saved record stays available while no action runs.
 Missing signed XDR disables Submit to testnet.
 Search, filtering, and export use local data. They show no progress state.

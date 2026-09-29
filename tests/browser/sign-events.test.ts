@@ -41,7 +41,8 @@ async function scenario(ending: 'delivered' | 'undelivered' | 'canceled' | 'fail
       if (ending === 'failed') throw Object.assign(Error('Mock signer failure'), { status: 502 });
       return Buffer.from(key.sign(Buffer.from(digest, 'hex'))).toString('hex');
     },
-    log: (line) => logs.push(line),
+    // Connection lines are not about signing. Keep only the signing lines.
+    log: (line) => !/^(Connected|Selected wallet|Disconnected) /.test(line) && logs.push(line),
     onSign: () => events++,
   });
   onTestFinished(() => host.close());

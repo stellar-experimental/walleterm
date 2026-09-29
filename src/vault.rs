@@ -18,8 +18,10 @@ use crate::util::js_blank;
 
 const MAX_OUTPUT: usize = 1 << 20;
 const MAX_ITEMS: usize = 1024;
-/// Vault lookup permits 120 seconds after agent discovery.
-pub const LOOKUP: Duration = Duration::from_secs(120);
+/// Vault lookup permits 100 seconds after agent discovery. With the 10-second agent listing, a website's wallet
+/// discovery ends within 110 seconds. That keeps it under the SDK deadline of 115 seconds and the 125-second
+/// Cloudflare response limit. A Cloudflare timeout page has no CORS header, so a website could not read it.
+pub const LOOKUP: Duration = Duration::from_secs(100);
 /// Escalate from SIGTERM to SIGKILL after this grace period.
 const GRACE: Duration = Duration::from_millis(1500);
 
@@ -110,7 +112,14 @@ pub async fn allowed_keys_with(program: &OsStr, vault: &str, cancel: &Cancel) ->
     if js_blank(vault) {
         return Err(unavailable("Set --vault to a 1Password vault name or ID."));
     }
-    let lookup = Cancel::any(&[cancel], LOOKUP);
+    let late = || {
+        let message = format!(
+            "The 1Password vault lookup took longer than {} seconds. Check for a 1Password prompt on the Mac.",
+            LOOKUP.as_secs()
+        );
+        Error::new("bridge_unavailable", message)
+    };
+    let lookup = Cancel::any(&[cancel], LOOKUP, late());
     let listed = op(
         program,
         &["item", "list", "--vault", vault, "--categories", "SSH Key", "--format", "json"],
@@ -131,7 +140,7 @@ pub async fn allowed_keys_with(program: &OsStr, vault: &str, cancel: &Cancel) ->
         if lookup.is_cancelled() {
             return Err(lookup.reason());
         }
-        let batch_cancel = Cancel::any(&[&lookup], LOOKUP);
+        let batch_cancel = Cancel::any(&[&lookup], LOOKUP, late());
         let reads = batch.iter().map(|reference| {
             let (reference, batch_cancel, program) =
                 (reference.clone(), batch_cancel.clone(), program.to_owned());

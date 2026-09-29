@@ -123,7 +123,7 @@ impl crate::tunnel::Service for BridgeService {
     fn pairing(&self) -> Option<serde_json::Value> {
         Some(self.bridge.pairing())
     }
-    fn on_pairing_changed(&self, callback: Box<dyn Fn() + Send + Sync>) {
+    fn on_pairing_changed(&self, callback: Box<crate::bridge::PairingFn>) {
         self.bridge.on_pairing_changed(callback);
     }
 }

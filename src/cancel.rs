@@ -59,8 +59,8 @@ impl Cancel {
         }
     }
 
-    /// A new flag that cancels when any source cancels or `timeout` passes.
-    pub fn any(sources: &[&Cancel], timeout: Duration) -> Cancel {
+    /// A new flag that cancels when any source cancels, or with `reason` when `timeout` passes.
+    pub fn any(sources: &[&Cancel], timeout: Duration, reason: Error) -> Cancel {
         let combined = Cancel::new();
         let sources: Vec<Cancel> = sources.iter().map(|&c| c.clone()).collect();
         if let Some(first) = sources.iter().find(|c| c.is_cancelled()) {
@@ -75,8 +75,8 @@ impl Cancel {
                 sources[index].reason()
             };
             tokio::select! {
-                reason = any => target.cancel(reason),
-                () = tokio::time::sleep(timeout) => target.cancel(timed_out()),
+                first = any => target.cancel(first),
+                () = tokio::time::sleep(timeout) => target.cancel(reason),
                 () = target.cancelled() => {}
             }
         });
@@ -93,12 +93,9 @@ impl Cancel {
     }
 }
 
+/// The reason of a flag canceled without one. Each production caller names its own cause.
 pub fn aborted() -> Error {
     Error::new("internal", "This operation was aborted.")
-}
-
-pub fn timed_out() -> Error {
-    Error::new("bridge_unavailable", "The operation timed out.")
 }
 
 /// The first of several futures to finish, without an extra crate.
@@ -121,17 +118,18 @@ mod tests {
     #[tokio::test(flavor = "current_thread", start_paused = true)]
     async fn any_follows_the_first_source_or_the_timeout() {
         let (a, b) = (Cancel::new(), Cancel::new());
-        let combined = Cancel::any(&[&a, &b], Duration::from_secs(10));
+        let late = || Error::new("bridge_unavailable", "The lookup took too long.");
+        let combined = Cancel::any(&[&a, &b], Duration::from_secs(10), late());
         tokio::task::yield_now().await;
         b.cancel(Error::new("internal", "second"));
         combined.cancelled().await;
         assert_eq!(combined.reason().message, "second");
-        let timed = Cancel::any(&[&a], Duration::from_secs(5));
+        let timed = Cancel::any(&[&a], Duration::from_secs(5), late());
         timed.cancelled().await;
-        assert_eq!(timed.reason().code, "bridge_unavailable");
+        assert_eq!(timed.reason(), late());
         let early = Cancel::new();
         early.abort();
-        assert!(Cancel::any(&[&early], Duration::from_secs(1)).is_cancelled());
+        assert!(Cancel::any(&[&early], Duration::from_secs(1), late()).is_cancelled());
     }
 
     #[tokio::test(flavor = "current_thread")]

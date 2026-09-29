@@ -5,7 +5,7 @@ import { base64, inspectAuthPreimage, verifyPreimageSignature } from './preimage
 import type { AuthAdapter, AuthSignOptions } from './authorization.js';
 export * from './authorization.js';
 export * from './preimage.js';
-import { deadline, requestError, sep43Error, walletermError, WalletermError } from './errors.js';
+import { deadline, isTunnelUrl, requestError, sep43Error, walletermError, WalletermError } from './errors.js';
 export { WalletermError };
 export type { Sep43Code, Sep43Error, Sep43Reason } from './errors.js';
 // Browser adapter for Walleterm bridge protocol version 3.
@@ -101,16 +101,12 @@ export class WalletermClient {
       page = globalThis,
     }: ClientOptions = {},
   ) {
-    const url = new URL(bridgeUrl);
-    if (
-      url.origin !== bridgeUrl ||
-      !(
-        url.protocol === 'https:' ||
-        (url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))
-      )
-    )
-      throw walletermError('invalid_request', 'Use the public bridge origin, without a path.');
-    this.url = url.origin;
+    if (!isTunnelUrl(bridgeUrl))
+      throw walletermError(
+        'invalid_request',
+        'Use the Tunnel URL exactly as walleterm tunnel prints it. It starts with https:// and has no path.',
+      );
+    this.url = bridgeUrl;
     this.fetch = fetcher;
     this.pollInterval = pollInterval;
     this.page = page;
@@ -129,7 +125,7 @@ export class WalletermClient {
     signal?: AbortSignal,
     { keepalive = false, token = this.token }: { keepalive?: boolean; token?: string | null } = {},
   ): Promise<BridgeResponse<P>> {
-    const timeout = ['/v1/signers', '/v1/select'].includes(path) ? 135000 : 15000;
+    const timeout = ['/v1/signers', '/v1/select'].includes(path) ? 115000 : 15000;
     let response: Response;
     try {
       response = await this.fetch(`${this.url}${path}`, {
@@ -167,9 +163,22 @@ export class WalletermClient {
     try {
       result = await response.json();
     } catch {
-      throw Object.assign(Error(`The bridge returned an unreadable response (${response.status}).`), {
-        status: response.status,
-      });
+      // The bridge always answers JSON. Another answer comes from the tunnel host, such as a Cloudflare error page.
+      // Cloudflare answers 524 when the bridge does not answer within its proxy timeout, often while 1Password waits.
+      const status = response.status;
+      if (status === 524)
+        throw walletermError(
+          'bridge_unavailable',
+          'The tunnel connection timed out. Check for a 1Password prompt on your Mac, then try again.',
+          { status },
+        );
+      if (status >= 500)
+        throw walletermError(
+          'bridge_unavailable',
+          `The tunnel is unavailable (error ${status}). Check that walleterm tunnel is running on your Mac.`,
+          { status },
+        );
+      throw Object.assign(Error(`The tunnel returned an unreadable response (${status}).`), { status });
     }
     if (!response.ok) {
       // An old response must not clear a newer connection.
@@ -178,7 +187,7 @@ export class WalletermClient {
         this.setAccount(null);
       }
       const error: Partial<Sep43Error> = result?.error || {};
-      throw Object.assign(Error(error.message || `Bridge request failed (${response.status}).`), {
+      throw Object.assign(Error(error.message || `The tunnel request failed (${response.status}).`), {
         status: response.status,
         ...(typeof error.code === 'number' ? { code: error.code } : {}),
         ...(Array.isArray(error.ext) ? { ext: error.ext.filter((v) => typeof v === 'string') } : {}),
@@ -285,7 +294,7 @@ export class WalletermClient {
       if (token !== this.token || generation !== this.generation)
         throw walletermError('conflict', 'The website connection changed.');
       if (scoped && (!Number.isSafeInteger(result.selection_revision) || result.selection_revision < 1))
-        throw walletermError('internal', 'The bridge returned an invalid wallet selection.');
+        throw walletermError('internal', 'The tunnel returned an invalid wallet selection.');
       this.selectionUncertain = null;
       this.revision = result.selection_revision;
       this.setAccount({ address: result.address, networkPassphrase: result.network_passphrase });
@@ -322,7 +331,7 @@ export class WalletermClient {
       result.wallet_scope === 'available' &&
       (!Number.isSafeInteger(result.selection_revision) || result.selection_revision < 0)
     )
-      throw walletermError('internal', 'The bridge returned an invalid wallet selection.');
+      throw walletermError('internal', 'The tunnel returned an invalid wallet selection.');
     if (
       this.revision !== null &&
       Number.isSafeInteger(this.revision) &&
@@ -339,7 +348,7 @@ export class WalletermClient {
         'The wallet selection is not confirmed. Reconnect or recover the account later.',
       );
     if (result.network_passphrase !== Networks.TESTNET)
-      throw walletermError('network_unsupported', 'The bridge reported a network other than testnet.');
+      throw walletermError('network_unsupported', 'The tunnel reported a network other than testnet.');
     this.selectionUncertain = null;
     this.revision = result.selection_revision;
     this.walletScope = result.wallet_scope;
@@ -579,7 +588,7 @@ export class WalletermClient {
       });
     }
     const signed = result[resultField[artifact.kind]];
-    if (typeof signed !== 'string') throw unverifiedResult(Error('The bridge returned no signed artifact.'));
+    if (typeof signed !== 'string') throw unverifiedResult(Error('The tunnel returned no signed artifact.'));
     return signed;
   }
   async disconnect() {

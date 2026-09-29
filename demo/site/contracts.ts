@@ -424,8 +424,18 @@ export async function assembleAuthorizedContract(
     Operation.invokeHostFunction({ func: operation.func, auth }),
   );
   const enforced = await server.simulateTransaction(fresh, undefined, 'enforce');
+  // The RPC error holds the full diagnostic event log. The message keeps its first line; `detail` keeps the log.
   if (rpc.Api.isSimulationError(enforced))
-    throw Error(`The authorization simulation failed: ${enforced.error}`);
+    throw Object.assign(
+      Error(
+        `Simulation rejected the signed authorization: ${enforced.error
+          .split('\n', 1)[0]
+          .replace(/^HostError:\s*/, '')
+          .trim()
+          .slice(0, 160)}. Activity has the full log.`,
+      ),
+      { detail: enforced.error },
+    );
   return rpc.assembleTransaction(fresh, enforced).build();
 }
 

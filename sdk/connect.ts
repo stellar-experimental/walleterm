@@ -1,4 +1,4 @@
-import { requestError, walletermError } from './errors.js';
+import { isTunnelUrl, requestError, walletermError } from './errors.js';
 import { connectDeadline, Walleterm, WalletermClient } from './walleterm.js';
 import { scanConnection } from './scan.js';
 
@@ -119,7 +119,7 @@ export class WalletermConnect {
             <div class="wt-divider">or enter the connection details</div>
             <label class="wt-label">Tunnel URL<input data-wt="url" type="url" placeholder="https://example.trycloudflare.com" autocomplete="off" spellcheck="false" required></label>
             <label class="wt-label">Connection code<input data-wt="code" class="wt-code" type="text" inputmode="numeric" autocomplete="off" pattern="[0-9]{8}" maxlength="8" placeholder="12345678" required></label>
-            <p class="wt-help" data-wt="details-help">Enter the tunnel URL and eight-digit code, or scan the QR code.</p>
+            <p class="wt-help" data-wt="details-help"></p>
             <button type="submit" class="wt-primary" data-wt="continue" disabled>Continue</button>
           </form>
           <div data-wt="scanner" hidden><video data-wt="camera" autoplay muted playsinline></video><p class="wt-help">Point the camera at the QR code in your tunnel terminal.</p><button type="button" class="wt-secondary" data-wt="stop-scan">Enter details instead</button></div>
@@ -140,21 +140,7 @@ export class WalletermConnect {
       event.preventDefault();
       this.close();
     });
-    this.dialog.addEventListener('keydown', (event) => {
-      if (event.key !== 'Tab') return;
-      const controls = [
-        ...this.dialog.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled)'),
-      ].filter((node) => node.getClientRects().length);
-      const first = controls[0],
-        last = controls.at(-1);
-      if (
-        (event.shiftKey && document.activeElement === first) ||
-        (!event.shiftKey && document.activeElement === last)
-      ) {
-        event.preventDefault();
-        (event.shiftKey ? last : first)?.focus();
-      }
-    });
+    // showModal() makes the page inert and sends Escape as `cancel`. Safari has no `closedby`, so a backdrop click closes here.
     this.dialog.addEventListener('click', (event) => {
       const rect = this.dialog.getBoundingClientRect();
       if (
@@ -184,7 +170,11 @@ export class WalletermConnect {
       )
         this.hideMenu();
     });
-    this.$('url').oninput = this.$('code').oninput = () => this.update();
+    // A changed detail makes an earlier result, such as an error, out of date.
+    this.$('url').oninput = this.$('code').oninput = () => {
+      this.message('');
+      this.update();
+    };
     this.$('form').onsubmit = (event) => {
       event.preventDefault();
       this.connect();
@@ -363,19 +353,12 @@ export class WalletermConnect {
     this.update();
     if (changed) this.onBusyChange?.(working);
   }
+  // The entered Tunnel URL. A copied trailing slash is harmless.
+  tunnelUrl() {
+    return this.$('url').value.trim().replace(/\/$/, '');
+  }
   validDetails() {
-    try {
-      const raw = this.$('url').value.trim().replace(/\/$/, ''),
-        url = new URL(raw);
-      return (
-        url.origin === raw &&
-        (url.protocol === 'https:' ||
-          (url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))) &&
-        /^\d{8}$/.test(this.$('code').value)
-      );
-    } catch {
-      return false;
-    }
+    return isTunnelUrl(this.tunnelUrl()) && /^\d{8}$/.test(this.$('code').value);
   }
   setBusy(busy: boolean) {
     this.busy = busy;
@@ -424,9 +407,13 @@ export class WalletermConnect {
     this.$('chevron').hidden = !this.client;
     this.trigger.disabled = this.working || (!this.client && this.busy);
     this.loading(this.trigger, this.working && !this.dialog.open && !!this.$('menu').hidden);
-    this.$('details-help').textContent = this.validDetails()
-      ? 'Connection details are ready. Select Continue.'
-      : 'Enter the tunnel origin without a path and the eight-digit code, or scan the QR code.';
+    // An enabled Continue means valid details. The help says only where they come from, or what is wrong.
+    const url = this.tunnelUrl(),
+      invalidUrl = !!url && !isTunnelUrl(url);
+    this.$('url').setAttribute('aria-invalid', String(invalidUrl));
+    this.$('details-help').textContent = invalidUrl
+      ? 'Use the Tunnel URL exactly as walleterm tunnel prints it. It starts with https:// and has no path.'
+      : 'The walleterm tunnel command prints the Tunnel URL and the Connection code. The code works once and expires after 5 minutes.';
     this.$('continue').disabled = this.busy || this.working || !!this.scanning || !this.validDetails();
     this.$('continue').textContent = this.phase === 'connecting' ? 'Connecting…' : 'Continue';
     this.loading(this.$('continue'), this.phase === 'connecting');
@@ -604,8 +591,8 @@ export class WalletermConnect {
     this.element.querySelector('#wt-title')!.textContent = 'Connect Walleterm';
     this.$('description').textContent =
       this.wallet.walletScope === 'available'
-        ? 'Connect your Mac. This website can switch between the wallets you approve in the next step.'
-        : 'Connect your Mac. This website can use the one wallet you choose in the next step.';
+        ? 'Next, you choose one active wallet. This website can then switch among all listed wallets.'
+        : 'Next, you choose one wallet. This website can then use only that wallet.';
     this.$('step-connect').setAttribute('aria-current', 'step');
     this.$('step-wallet').removeAttribute('aria-current');
   }
@@ -699,11 +686,14 @@ export class WalletermConnect {
           this.$('retry-wallets').onclick = null;
           resolve(key.public_key);
         });
+        const grant =
+          this.wallet.walletScope === 'available'
+            ? 'This website can switch among all listed wallets.'
+            : 'This website can use only the wallet that you select.';
+        // The website's request is the approval. The bridge asks for none. 1Password can still ask.
         this.message(
           values.length
-            ? this.wallet.walletScope === 'available'
-              ? 'This connection lets the website switch between these wallets and request signatures. New wallets need a new connection.'
-              : 'This connection lets the website request signatures from the one wallet you select.'
+            ? `${grant} Walleterm signs each request from this website. 1Password can ask you to approve. The connection lasts one hour.`
             : 'No wallets are available. Check the 1Password SSH agent on your Mac.',
         );
         this.$('retry-wallets').hidden = !!values.length;
@@ -743,7 +733,7 @@ export class WalletermConnect {
     this.message('Connecting and finding wallets. Unlock 1Password if it asks.');
     try {
       signal.throwIfAborted();
-      next = new WalletermClient(this.$('url').value.trim().replace(/\/$/, ''), this.wallet.clientOptions);
+      next = new WalletermClient(this.tunnelUrl(), this.wallet.clientOptions);
       const account = await next.connect({
         code: this.$('code').value.trim(),
         walletScope: this.wallet.walletScope,

@@ -10,10 +10,10 @@ use serde_json::Value;
 use tokio::sync::{Notify, mpsc, watch};
 use tokio::time::Instant;
 
-use crate::bridge::BoxFuture;
+use crate::bridge::{BoxFuture, PairingFn, Rotation};
 use crate::cancel::Cancel;
 use crate::error::{Error, Result};
-use crate::util::{iso_millis, now_ms};
+use crate::util::{iso_millis, local_clock, minutes_left, now_ms, parse_iso_millis};
 
 /// Health probes run this often after startup.
 pub const HEALTH_INTERVAL: Duration = Duration::from_secs(15);
@@ -38,7 +38,8 @@ pub trait Service: Send + Sync {
     fn set_public_origin(&self, origin: &str);
     /// The bridge's QR payload. The demo has none.
     fn pairing(&self) -> Option<Value>;
-    fn on_pairing_changed(&self, callback: Box<dyn Fn() + Send + Sync>);
+    /// The callback runs after each code change, with its reason.
+    fn on_pairing_changed(&self, callback: Box<PairingFn>);
 }
 
 /// A running tunnel process: its combined output, its exit, and a way to stop it.
@@ -508,7 +509,9 @@ pub async fn launch(
         Arc::new(move || -> bool {
             let mut text = format!("{label} is ready on Stellar testnet.\n");
             match service.pairing() {
-                Some(pairing) => text.push_str(&pairing_text(&pairing, deps.output.columns())),
+                Some(pairing) => {
+                    text.push_str(&pairing_text(&pairing, None, now_ms() as i64, deps.output.columns()))
+                }
                 None => {
                     let origin = shared.origin.lock().unwrap().clone();
                     text.push_str(&format!(
@@ -523,16 +526,17 @@ pub async fn launch(
     if controller.is_cancelled() || !print_connection() {
         return fail(if controller.is_cancelled() { stopped() } else { output_failed() }).await;
     }
-    // The pairing callback reprints the connection code. Wire it with the service's own payload.
+    // The pairing callback prints the new connection code and its reason. Wire it with the service's own payload.
     {
         let (deps, controller, stop_all, service_ref) =
             (deps.clone(), controller.clone(), stop_all.clone(), Arc::downgrade(&service));
-        service.on_pairing_changed(Box::new(move || {
+        service.on_pairing_changed(Box::new(move |rotation| {
             if controller.is_cancelled() {
                 return;
             }
             let Some(pairing) = service_ref.upgrade().and_then(|s| s.pairing()) else { return };
-            if !deps.output.write(&pairing_text(&pairing, deps.output.columns())) {
+            let text = rotation_text(&pairing, rotation, now_ms() as i64, deps.output.columns());
+            if !deps.output.write(&text) {
                 let stop_all = stop_all.clone();
                 tokio::spawn(async move { stop_all(1).await });
             }
@@ -575,15 +579,54 @@ fn output_failed() -> Error {
     Error::new("internal", "The terminal output failed.")
 }
 
-fn pairing_text(pairing: &Value, columns: Option<usize>) -> String {
+/// A deadline in local time with the time left, such as `3:04 PM (in 5 minutes)`.
+fn deadline(at: i64, now: i64) -> String {
+    format!("{} ({})", local_clock(at), minutes_left(at - now))
+}
+
+/// The code expiry for the terminal. An unreadable value stays as it is.
+fn expiry(pairing: &Value, now: i64) -> String {
+    let text = pairing["expires_at"].as_str().unwrap_or_default();
+    parse_iso_millis(text).map_or_else(|| text.to_owned(), |at| deadline(at, now))
+}
+
+/// The connection block: an optional reason, the URL and code, where to enter them, the QR code, and the expiry.
+fn pairing_text(pairing: &Value, reason: Option<&str>, now: i64, columns: Option<usize>) -> String {
     let field = |name: &str| pairing[name].as_str().unwrap_or_default().to_owned();
     format!(
-        "\nTunnel URL: {}\nConnection code: {}\nScan this QR code with the website's Scan tunnel button, not the phone camera:\n{}\nThis code expires at {}. It works once.\n",
+        "\n{}Tunnel URL: {}\nConnection code: {}\nEnter the URL and code in the website. Or scan this QR code with the website's Scan tunnel button, not the phone camera:\n{}\nThe code expires at {}. It works once.\n",
+        reason.map(|r| format!("{r}\n")).unwrap_or_default(),
         field("url"),
         field("code"),
         crate::qr::for_terminal(&pairing.to_string(), columns),
-        field("expires_at"),
+        expiry(pairing, now),
     )
+}
+
+/// The text for a code change. A used code or a lockout prints a full block with a QR code, because a person is
+/// connecting. An unused code that expires prints one line, so idle rotation does not bury the signing lines.
+fn rotation_text(pairing: &Value, rotation: Rotation, now: i64, columns: Option<usize>) -> String {
+    match rotation {
+        Rotation::Used => pairing_text(
+            pairing,
+            Some("The code was used. Use this new code for the next website."),
+            now,
+            columns,
+        ),
+        Rotation::Locked(until) => {
+            let reason = format!(
+                "Too many incorrect codes. New connections pause until {}. Then use this new code.",
+                deadline(until as i64, now)
+            );
+            pairing_text(pairing, Some(&reason), now, columns)
+        }
+        Rotation::Expired => format!(
+            "The previous code expired. Enter code {} with {}. It expires at {}.\n",
+            pairing["code"].as_str().unwrap_or_default(),
+            pairing["url"].as_str().unwrap_or_default(),
+            expiry(pairing, now),
+        ),
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

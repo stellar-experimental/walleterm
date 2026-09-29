@@ -10,7 +10,7 @@ use ed25519_dalek::Verifier;
 use serde_json::{Value, json};
 use stellar_xdr::{Limits, ReadXdr, TransactionEnvelope};
 use support::*;
-use walleterm::bridge::SignerInfo;
+use walleterm::bridge::{Rotation, SignerInfo};
 
 const SITE: &str = "https://site-one.example";
 const SITE_TWO: &str = "https://site-two.example";
@@ -19,24 +19,37 @@ fn signer(key: &str, comment: &str) -> SignerInfo {
     SignerInfo { public_key: key.to_owned(), fingerprint: None, comment: Some(comment.to_owned()) }
 }
 
+fn rotations(f: &Fixture) -> std::sync::Arc<std::sync::Mutex<Vec<Rotation>>> {
+    let seen = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let sink = seen.clone();
+    f.bridge.on_pairing_changed(Box::new(move |rotation| sink.lock().unwrap().push(rotation)));
+    seen
+}
+
 #[tokio::test]
 async fn short_codes_expire_rotate_once_and_pause_after_five_incorrect_attempts() {
     let f = Fixture::new(Options::default()).await;
+    let seen = rotations(&f);
     let original = f.code();
     assert!(original.len() == 8 && original.bytes().all(|b| b.is_ascii_digit()));
     f.connect(SITE).await;
     assert_ne!(f.code(), original);
     let site = Site::new(SITE);
     let status = |r: Response| r.status;
+    let used = f.post("/v1/connect", json!({"code": original, "wallet_scope": "selected"}), &site).await;
     assert_eq!(
-        status(f.post("/v1/connect", json!({"code": original, "wallet_scope": "selected"}), &site).await),
-        403
+        (used.status, used.body["error"]["message"].clone()),
+        (403, json!("The connection code is incorrect."))
     );
+    // An expired code gets its own answer. It counts as no incorrect attempt.
+    let stale = f.code();
     f.controls.advance(300_001);
+    let expired = f.post("/v1/connect", json!({"code": stale, "wallet_scope": "selected"}), &site).await;
     assert_eq!(
-        status(f.post("/v1/connect", json!({"code": f.code(), "wallet_scope": "selected"}), &site).await),
-        403
+        (expired.status, expired.body["error"]["message"].clone()),
+        (403, json!("The connection code expired. Use the new code in the tunnel terminal."))
     );
+    assert_ne!(f.code(), stale);
     f.controls.clock.fetch_sub(300_001, Ordering::SeqCst);
     let before = f.code();
     for _ in 0..5 {
@@ -56,23 +69,47 @@ async fn short_codes_expire_rotate_once_and_pause_after_five_incorrect_attempts(
         201
     );
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+    // The pause began one minute ago, at the fifth incorrect code.
+    let locked = f.controls.now();
+    assert_eq!(
+        *seen.lock().unwrap(),
+        vec![Rotation::Used, Rotation::Expired, Rotation::Locked(locked), Rotation::Used]
+    );
+    let incorrect: Vec<String> =
+        f.controls.events().into_iter().filter(|l| l.starts_with("Incorrect")).collect();
+    let attempts: Vec<String> = [1, 1, 2, 3, 4, 5]
+        .iter()
+        .map(|n| format!("Incorrect connection code from {SITE} (attempt {n} of 5).\n"))
+        .collect();
+    assert_eq!(incorrect, attempts);
     f.close().await;
 }
 
-#[tokio::test(start_paused = true)]
-async fn an_unused_code_rotates_at_expiry() {
-    let controls = Fixture::new(Options::default()).await;
-    let printed = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let counter = printed.clone();
-    controls.bridge.on_pairing_changed(Box::new(move || {
-        counter.fetch_add(1, Ordering::SeqCst);
-    }));
-    let original = controls.code();
-    tokio::time::sleep(Duration::from_millis(299_990)).await;
-    assert_eq!(controls.code(), original);
-    tokio::time::sleep(Duration::from_millis(20)).await;
-    assert_ne!(controls.code(), original);
-    assert_eq!(printed.load(Ordering::SeqCst), 1);
+/// Deadlines follow the wall clock. Here the wall clock jumps, as after the Mac sleeps, while the runtime clock
+/// moves about one second. The code and the session still end within one sweep, with no website request.
+#[tokio::test]
+async fn an_unused_code_and_a_session_end_by_the_wall_clock_within_one_sweep() {
+    let f = Fixture::new(Options::default()).await;
+    let seen = rotations(&f);
+    let site = f.open(SITE, "selected").await;
+    seen.lock().unwrap().clear();
+    let original = f.code();
+    f.controls.advance(299_990);
+    tokio::time::sleep(Duration::from_millis(1200)).await;
+    assert_eq!(f.code(), original);
+    assert!(seen.lock().unwrap().is_empty());
+    f.controls.advance(20);
+    for _ in 0..300 {
+        if f.code() != original {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(5)).await;
+    }
+    assert_ne!(f.code(), original);
+    assert_eq!(*seen.lock().unwrap(), vec![Rotation::Expired]);
+    assert_eq!(f.controls.events().last().unwrap(), &format!("The connection with {SITE} expired.\n"));
+    assert_eq!(f.get("/v1/account", &site).await.status, 401);
+    f.close().await;
 }
 
 #[tokio::test]
@@ -86,7 +123,7 @@ async fn ended_sessions_release_their_connection_slots() {
 }
 
 #[tokio::test]
-async fn two_origins_have_separate_authority_and_only_review_decides() {
+async fn two_origins_have_separate_authority() {
     let f = Fixture::new(Options::default()).await;
     let (a, b) = (f.connect(SITE).await, f.connect(SITE_TWO).await);
     let initial = transaction_request("request-1", &f);
@@ -98,11 +135,6 @@ async fn two_origins_have_separate_authority_and_only_review_decides() {
         let r = f.post(path, json!({"code": f.code(), "hash": "anything"}), &a).await;
         assert_eq!(r.status, 404, "{path}");
     }
-    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
-    let reviewed = f.controls.decide(true).await;
-    assert_eq!(reviewed.origin, SITE);
-    assert_eq!(reviewed.signer.public_key, f.public_key);
-    assert_eq!(reviewed.signer.comment.as_deref(), Some("Mock key"));
     let approved = f.result(&a, "request-1").await;
     assert_eq!(approved.body["state"], "signed");
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
@@ -169,13 +201,43 @@ async fn responses_carry_cors_json_and_sep43_errors() {
     assert_eq!(r.header("access-control-allow-methods"), Some("GET, POST, OPTIONS"));
     assert_eq!(r.header("access-control-allow-headers"), Some("Content-Type, Authorization"));
     assert_eq!(r.header("access-control-max-age"), Some("300"));
-    for origin in ["http://site.example", "https://site.example/", "null", "https://user@site.example"] {
-        let r = f.get("/v1/account", &Site::new(origin)).await;
-        assert_eq!(r.status, 403, "{origin}");
-        assert_eq!(r.body["error"]["message"], "Use a separate website Origin.");
-    }
+    // Each rejected Origin can read its own reason. The preflight passes, and no route runs.
+    let exact = "The Origin header must be an exact website origin, such as https://example.com.";
     let own = format!("http://127.0.0.1:{}", f.port);
-    assert_eq!(f.get("/v1/account", &Site::new(&own)).await.status, 403);
+    for (origin, message) in [
+        (
+            "http://site.example",
+            "Serve the website over HTTPS. Plain HTTP works only on localhost and 127.0.0.1.",
+        ),
+        ("https://site.example/", exact),
+        ("https://user@site.example", exact),
+        ("ftp://site.example", exact),
+        ("null", "The browser sent Origin null. Open the website from an HTTPS or localhost URL."),
+        (own.as_str(), "Use a separate website. The tunnel URL cannot call its own routes."),
+    ] {
+        let r = f
+            .post("/v1/connect", json!({"code": f.code(), "wallet_scope": "selected"}), &Site::new(origin))
+            .await;
+        assert_eq!(r.status, 403, "{origin}");
+        assert_eq!(
+            r.body["error"],
+            json!({"code": -3, "message": message, "ext": ["walleterm:invalid_request"]})
+        );
+        assert_eq!(r.header("access-control-allow-origin"), Some(origin));
+        let preflight = f.request("OPTIONS", "/v1/connect", None, &Site::new(origin)).await;
+        assert_eq!(preflight.status, 204, "{origin}");
+        assert_eq!(preflight.header("access-control-allow-origin"), Some(origin));
+    }
+    let missing = raw(
+        f.port,
+        format!("GET /v1/account HTTP/1.1\r\nHost: 127.0.0.1:{}\r\nConnection: close\r\n\r\n", f.port)
+            .as_bytes(),
+    )
+    .await;
+    assert_eq!(missing.status, 403);
+    assert_eq!(missing.body["error"]["message"], "The request has no Origin header. Send it from a website.");
+    assert_eq!(missing.header("access-control-allow-origin"), None);
+    assert!(f.controls.events().is_empty(), "no rejected Origin reached a route");
     for loopback in ["http://localhost:3000", "http://127.0.0.1:5173"] {
         assert_eq!(f.get("/v1/account", &Site::new(loopback)).await.status, 401, "{loopback}");
     }
@@ -234,21 +296,64 @@ async fn hosts_bodies_and_targets_are_checked_on_the_raw_wire() {
 }
 
 #[tokio::test]
-async fn a_request_without_review_signs_with_no_terminal_step() {
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+async fn a_request_signs_with_no_terminal_step() {
+    let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
     assert_eq!(f.post("/v1/requests", transaction_request("request-1", &f), &a).await.status, 201);
     let done = f.result(&a, "request-1").await;
     assert_eq!(done.body["state"], "signed");
     assert_eq!(done.body["signer_address"], json!(f.public_key));
-    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 0);
+    f.close().await;
+}
+
+/// Each connection event prints one line. No line holds a code, a token, or a grant ID.
+#[tokio::test]
+async fn the_terminal_names_each_connection_event_without_secrets() {
+    let f = Fixture::new(Options::default()).await;
+    *f.controls.signers.lock().unwrap() = Ok(both(&f));
+    let (code, other) = (f.code(), address(&mock_key(9)));
+    let wrong = f
+        .post("/v1/connect", json!({"code": "00000000", "wallet_scope": "selected"}), &Site::new(SITE))
+        .await;
+    assert_eq!(wrong.status, 403);
+    let a = f.connect(SITE).await;
+    let b = f.open(SITE_TWO, "available").await;
+    let grant = f.get("/v1/signers", &b).await.body["grant_id"].clone();
+    let pick = json!({"public_key": f.public_key, "expected_revision": 0, "grant_id": grant});
+    assert_eq!(f.post("/v1/select", pick, &b).await.status, 200);
+    assert_eq!(select(&f, &b, &f.public_key, 1).await.status, 200, "the same wallet prints nothing");
+    assert_eq!(select(&f, &b, &other, 1).await.status, 200);
+    assert_eq!(f.post("/v1/disconnect", json!({}), &a).await.status, 200);
+    assert_eq!(f.post("/v1/disconnect", json!({}), &a).await.status, 401);
+    f.controls.advance(3_600_001);
+    assert_eq!(f.get("/v1/account", &b).await.status, 401);
+    let short = |key: &str| format!("{}…{}", &key[..7], &key[key.len() - 6..]);
+    assert_eq!(
+        f.controls.events(),
+        vec![
+            format!("Incorrect connection code from {SITE} (attempt 1 of 5).\n"),
+            format!("Connected {SITE}. Wallet scope: selected, one wallet.\n"),
+            format!("Selected wallet {} for {SITE}.\n", short(&f.public_key)),
+            format!("Connected {SITE_TWO}. Wallet scope: available, wallet changes allowed.\n"),
+            format!("Selected wallet {} for {SITE_TWO}.\n", short(&f.public_key)),
+            format!("Selected wallet {} for {SITE_TWO}.\n", short(&other)),
+            format!("Disconnected {SITE}.\n"),
+            format!("The connection with {SITE_TWO} expired.\n"),
+        ]
+    );
+    let secrets =
+        [code, a.token.clone().unwrap(), b.token.clone().unwrap(), grant.as_str().unwrap().to_owned()];
+    for line in f.controls.events() {
+        assert!(secrets.iter().all(|secret| !line.contains(secret.as_str())), "{line}");
+    }
     f.close().await;
 }
 
 #[tokio::test]
-async fn structurally_invalid_requests_never_invoke_review_or_signing() {
+async fn structurally_invalid_requests_never_reach_the_signer() {
     let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
+    let listings = f.controls.listings.load(Ordering::SeqCst);
     let base = transaction_request("request-1", &f);
     let mut cases: Vec<(Value, u16)> = Vec::new();
     let mut with = |k: &str, v: Value, status: u16| {
@@ -272,31 +377,69 @@ async fn structurally_invalid_requests_never_invoke_review_or_signing() {
         assert_eq!(r.status, status, "{case} -> {}", r.body);
         assert_eq!(r.body["error"]["code"], -3, "{}", r.body);
     }
+    // A malformed field is named in the error.
+    for (name, value, message) in [
+        ("kind", json!("message"), "Remove the field \"xdr\" from the signing request."),
+        ("kind", json!("sign"), "Set kind to transaction, auth_entry, authorization, or message."),
+        ("id", json!("bad id"), "Set id to 1-64 letters, digits, underscores, or hyphens."),
+        ("extra", json!(1), "Remove the field \"extra\" from the signing request."),
+        ("selection_revision", json!(1), "Remove the field \"selection_revision\" from the signing request."),
+        ("xdr", json!(7), "Set xdr to a string."),
+        ("address", json!(null), "Set address to a string."),
+    ] {
+        let mut case = base.clone();
+        case[name] = value;
+        let r = f.post("/v1/requests", case, &a).await;
+        assert_eq!(r.body["error"]["message"], json!(message), "{name}");
+    }
     tokio::time::sleep(Duration::from_millis(30)).await;
-    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 0);
+    assert_eq!(f.controls.listings.load(Ordering::SeqCst), listings);
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
     f.close().await;
 }
 
+const REFUSED: &str = "1Password did not sign. You declined the prompt, or 1Password refused the request.";
+
+/// 1Password answers a declined prompt with an agent failure and no signature. The outcome is known: denied, -4.
+/// A removed key also ends a request as denied with -4, as a wallet change does.
 #[tokio::test]
-async fn denial_and_key_removal_never_sign() {
+async fn refusal_and_key_removal_never_sign_and_end_denied() {
     let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
-    f.post("/v1/requests", transaction_request("denied", &f), &a).await;
-    f.controls.decide(false).await;
-    let r = f.result(&a, "denied").await;
+    let refused = walleterm::error::Error::new("signing_refused", "The agent returned SSH_AGENT_FAILURE.");
+    *f.controls.sign_error.lock().unwrap() = Some(refused);
+    let request = transaction_request("refused", &f);
+    f.post("/v1/requests", request.clone(), &a).await;
+    let r = f.result(&a, "refused").await;
     assert_eq!(r.body["state"], "denied");
     assert_eq!(
         r.body["error"],
-        json!({"code": -4, "message": "The review denied this request.", "ext": ["walleterm:rejected"], "requestState": "denied"})
+        json!({"code": -4, "message": REFUSED, "ext": ["walleterm:rejected"], "requestState": "denied"})
     );
+    assert!(r.body.get("signed_tx_xdr").is_none());
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        f.controls.logs(),
+        vec![format!(
+            "1Password did not sign {} (account {}, sequence 11) for {SITE}. You declined the prompt, or 1Password refused the request.\n",
+            r.body["hash"].as_str().unwrap(),
+            f.public_key
+        )]
+    );
+    *f.controls.sign_error.lock().unwrap() = None;
+    let listings = f.controls.listings.load(Ordering::SeqCst);
+    let release = f.controls.hold_listing();
     f.post("/v1/requests", transaction_request("removed", &f), &a).await;
+    until(|| f.controls.listings.load(Ordering::SeqCst) > listings).await;
     *f.controls.signers.lock().unwrap() = Ok(vec![signer(&address(&mock_key(9)), "Other")]);
-    f.controls.decide(true).await;
+    let _ = release.send(());
     let r = f.result(&a, "removed").await;
     assert_eq!(r.body["state"], "denied");
-    assert_eq!(r.body["error"]["message"], "The selected key is no longer available.");
-    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+    assert_eq!(
+        r.body["error"],
+        json!({"code": -4, "message": "The selected key is no longer available in 1Password.", "ext": ["walleterm:rejected"], "requestState": "denied"})
+    );
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
     f.close().await;
 }
 
@@ -367,10 +510,14 @@ async fn first_selection_rejects_a_replaced_grant_and_an_unknown_scope() {
     let f = Fixture::new(Options::default()).await;
     *f.controls.signers.lock().unwrap() = Ok(both(&f));
     let site = Site::new(SITE);
+    let r = f.post("/v1/connect", json!({"code": f.code(), "wallet_scope": "all"}), &site).await;
     assert_eq!(
-        f.post("/v1/connect", json!({"code": f.code(), "wallet_scope": "all"}), &site).await.status,
-        400
+        (r.status, r.body["error"]["message"].clone()),
+        (400, json!("Set wallet_scope to \"selected\" or \"available\"."))
     );
+    let r =
+        f.post("/v1/connect", json!({"code": f.code(), "wallet_scope": "selected", "pin": 1}), &site).await;
+    assert_eq!(r.body["error"]["message"], "Remove the field \"pin\" from the connection request.");
     let a = f.open(SITE, "available").await;
     let old = f.get("/v1/signers", &a).await.body["grant_id"].clone();
     f.get("/v1/signers", &a).await;
@@ -382,15 +529,18 @@ async fn first_selection_rejects_a_replaced_grant_and_an_unknown_scope() {
 }
 
 #[tokio::test]
-async fn switches_cancel_queued_reviews_preserve_other_sessions_and_reject_a_b_a() {
+async fn switches_cancel_queued_requests_preserve_other_sessions_and_reject_a_b_a() {
     let f = Fixture::new(Options::default()).await;
     *f.controls.signers.lock().unwrap() = Ok(both(&f));
     let other = address(&mock_key(9));
     let (a, b) = (scoped(&f, SITE).await, scoped(&f, "https://second.example").await);
+    let listings = f.controls.listings.load(Ordering::SeqCst);
+    let _hold = f.controls.hold_listing();
     let old = with_revision(transaction_request("request-1", &f), 1);
     f.post("/v1/requests", old.clone(), &a).await;
     f.post("/v1/requests", with_revision(transaction_request("queued", &f), 1), &a).await;
     f.post("/v1/requests", with_revision(transaction_request("separate", &f), 1), &b).await;
+    until(|| f.controls.listings.load(Ordering::SeqCst) > listings).await;
     assert_eq!(select(&f, &a, &other, 1).await.body["selection_revision"], 2);
     assert_eq!(f.result(&a, "request-1").await.body["state"], "denied");
     assert_eq!(f.result(&a, "queued").await.body["state"], "denied");
@@ -402,9 +552,7 @@ async fn switches_cancel_queued_reviews_preserve_other_sessions_and_reject_a_b_a
     );
     assert_eq!(f.post("/v1/requests", transaction_request("missing-revision", &f), &a).await.status, 409);
     assert_eq!(select(&f, &a, &other, 1).await.status, 409);
-    let first = f.controls.decide(true).await;
-    assert_eq!(first.signer.public_key, f.public_key);
-    f.controls.decide(true).await;
+    // The switch stopped the held job. The other session's request signs next.
     assert_eq!(f.result(&b, "separate").await.body["state"], "signed");
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
     f.close().await;
@@ -443,9 +591,6 @@ async fn switch_during(phase: &str) {
         _ => None,
     };
     f.post("/v1/requests", with_revision(transaction_request("request-1", &f), 1), &a).await;
-    let decision = f.controls.next_decision().await;
-    assert_eq!(decision.request.signer.public_key, f.public_key);
-    decision.decide(true);
     match phase {
         "approved" => until(|| f.controls.listings.load(Ordering::SeqCst) > listings).await,
         "signing" => until(|| f.controls.signs.load(Ordering::SeqCst) > 0).await,
@@ -501,7 +646,7 @@ async fn a_delayed_request_body_fails_after_switching_away_and_back() {
     let mut reply = String::new();
     stream.read_to_string(&mut reply).await.unwrap();
     assert!(reply.starts_with("HTTP/1.1 409"), "{reply}");
-    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 0);
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
     f.close().await;
 }
 
@@ -517,7 +662,6 @@ async fn expiry_aborts_active_signing_and_switching_never_extends_the_deadline()
     assert_eq!(f.get("/v1/account", &a).await.body["expires_at"], initial["expires_at"]);
     let _hold = f.controls.hold_signing();
     f.post("/v1/requests", with_revision(transaction_request("request-1", &f), 3), &a).await;
-    f.controls.decide(true).await;
     until(|| f.controls.signs.load(Ordering::SeqCst) == 1).await;
     // Jump to the session expiry. The next website call ends the session.
     let expires = initial["expires_at"].as_str().unwrap();
@@ -528,6 +672,8 @@ async fn expiry_aborts_active_signing_and_switching_never_extends_the_deadline()
     let cancel = f.controls.sign_cancels.lock().unwrap()[0].clone();
     tokio::time::timeout(Duration::from_secs(2), cancel.cancelled()).await.expect("the signer saw the abort");
     until(|| f.controls.logs().last().is_some_and(|l| l.contains("Signature withheld or stopped"))).await;
+    assert!(f.controls.logs().last().unwrap().ends_with(": The website connection expired.\n"));
+    assert_eq!(f.controls.events().last().unwrap(), &format!("The connection with {SITE} expired.\n"));
     f.close().await;
 }
 
@@ -539,14 +685,20 @@ async fn scoped_signing_fails_closed_after_a_key_is_removed_or_discovery_fails()
     let a = scoped(&f, SITE).await;
     for (id, broken) in [("removed", false), ("lookup-failed", true)] {
         *f.controls.signers.lock().unwrap() = Ok(keys.clone());
+        let listings = f.controls.listings.load(Ordering::SeqCst);
+        let release = f.controls.hold_listing();
         f.post("/v1/requests", with_revision(transaction_request(id, &f), 1), &a).await;
+        until(|| f.controls.listings.load(Ordering::SeqCst) > listings).await;
         *f.controls.signers.lock().unwrap() = if broken {
             Err(walleterm::error::Error::new("bridge_unavailable", "Discovery failed"))
         } else {
             Ok(vec![keys[1].clone()])
         };
-        f.controls.decide(true).await;
-        assert_eq!(f.result(&a, id).await.body["state"], "denied", "{id}");
+        let _ = release.send(());
+        let r = f.result(&a, id).await;
+        assert_eq!(r.body["state"], "denied", "{id}");
+        let code = if broken { -2 } else { -4 };
+        assert_eq!(r.body["error"]["code"], code, "{id}: {}", r.body);
     }
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
     f.close().await;
@@ -559,10 +711,11 @@ fn request_with(f: &Fixture, id: &str, xdr: String) -> Value {
 }
 
 #[tokio::test]
-async fn invalid_requests_report_their_exact_reason_and_never_reach_review() {
+async fn invalid_requests_report_their_exact_reason_and_never_reach_the_signer() {
     use support::tx::*;
     let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
+    let listings = f.controls.listings.load(Ordering::SeqCst);
     let (key, other, now) = (f.key.clone(), mock_key(9), f.controls.now());
     let valid = || build(ed(&key), vec![data("a", None)], 100, now, 180);
     let mut cases: Vec<(Value, &str)> = vec![];
@@ -608,14 +761,14 @@ async fn invalid_requests_report_their_exact_reason_and_never_reach_review() {
         );
     }
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
-    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 0);
+    assert_eq!(f.controls.listings.load(Ordering::SeqCst), listings);
     f.close().await;
 }
 
 #[tokio::test]
 async fn the_bridge_filters_no_operations_and_signs_only_for_a_required_signer() {
     use support::tx::*;
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
     let (key, other, now) = (f.key.clone(), mock_key(9), f.controls.now());
     let inner = sign(build(ed(&other), vec![payment(&key, None)], 100, now, 180), &other);
@@ -675,31 +828,16 @@ async fn the_bridge_filters_no_operations_and_signs_only_for_a_required_signer()
 }
 
 #[tokio::test]
-async fn review_receives_generic_details_and_the_exact_envelope() {
-    use support::tx::*;
+async fn expiry_before_signing_never_signs() {
     let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
-    let envelope = build(ed(&f.key), vec![payment(&mock_key(9), None)], 100, f.controls.now(), 180);
-    let request = request_with(&f, "pay", text(&envelope));
-    f.post("/v1/requests", request.clone(), &a).await;
-    let reviewed = f.controls.decide(false).await;
-    let d = &reviewed.details;
-    assert_eq!(d["transaction_xdr"], request["xdr"]);
-    assert_eq!(d["envelope_type"], "transaction");
-    assert_eq!(d["operations"], json!([{"type": "payment", "source": f.public_key}]));
-    assert_eq!(d["hash"], json!(walleterm::util::hex(&hash(&envelope))));
-    assert_eq!(d["sequence"], "11");
-    f.close().await;
-}
-
-#[tokio::test]
-async fn expiry_before_review_never_signs() {
-    let f = Fixture::new(Options::default()).await;
-    let a = f.connect(SITE).await;
+    let listings = f.controls.listings.load(Ordering::SeqCst);
+    let release = f.controls.hold_listing();
     f.post("/v1/requests", transaction_request("first", &f), &a).await;
     f.post("/v1/requests", transaction_request("expired", &f), &a).await;
+    until(|| f.controls.listings.load(Ordering::SeqCst) > listings).await;
     f.controls.advance(181_000);
-    f.controls.decide(true).await;
+    let _ = release.send(());
     assert_eq!(f.result(&a, "expired").await.body["state"], "expired");
     assert_eq!(f.result(&a, "first").await.body["state"], "expired");
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
@@ -719,14 +857,17 @@ async fn a_request_lasts_at_most_five_minutes_without_a_nearer_max_time() {
         preimage_request(&f, "preimage", 220),
     ];
     let cap = walleterm::util::iso_millis((now + 300_000) as i64);
+    let listings = f.controls.listings.load(Ordering::SeqCst);
+    let release = f.controls.hold_listing();
     for request in &requests {
         let r = f.post("/v1/requests", request.clone(), &a).await;
         assert_eq!(r.status, 201, "{}: {}", request["id"], r.body);
         assert_eq!(r.body["expires_at"], json!(cap), "{}", request["id"]);
     }
+    until(|| f.controls.listings.load(Ordering::SeqCst) > listings).await;
     f.controls.advance(300_001);
-    // The first request is in review. The queue expires the others before their review starts.
-    f.controls.decide(true).await;
+    // The first request waits for its wallet check. The sweep expires the others before their job starts.
+    let _ = release.send(());
     for request in &requests {
         let id = request["id"].as_str().unwrap();
         assert_eq!(f.result(&a, id).await.body["state"], "expired", "{id}");
@@ -736,21 +877,23 @@ async fn a_request_lasts_at_most_five_minutes_without_a_nearer_max_time() {
 }
 
 #[tokio::test]
-async fn canceling_a_queued_review_never_signs_and_one_review_runs_at_a_time() {
+async fn canceling_a_queued_request_never_signs_and_one_job_runs_at_a_time() {
     let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
+    let listings = f.controls.listings.load(Ordering::SeqCst);
+    let release = f.controls.hold_listing();
     f.post("/v1/requests", transaction_request("request-1", &f), &a).await;
     f.post("/v1/requests", transaction_request("second", &f), &a).await;
-    until(|| f.controls.reviews.load(Ordering::SeqCst) == 1).await;
+    until(|| f.controls.listings.load(Ordering::SeqCst) == listings + 1).await;
     tokio::time::sleep(Duration::from_millis(20)).await;
-    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 1);
+    assert_eq!(f.controls.listings.load(Ordering::SeqCst), listings + 1);
     f.post("/v1/requests/second/cancel", json!({}), &a).await;
-    f.controls.decide(false).await;
-    assert_eq!(f.result(&a, "request-1").await.body["state"], "denied");
+    let _ = release.send(());
+    assert_eq!(f.result(&a, "request-1").await.body["state"], "signed");
     assert_eq!(f.result(&a, "second").await.body["state"], "denied");
     tokio::time::sleep(Duration::from_millis(20)).await;
-    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 1);
-    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+    assert_eq!(f.controls.listings.load(Ordering::SeqCst), listings + 1);
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
     f.close().await;
 }
 
@@ -759,7 +902,6 @@ async fn end_during_signing(revoke: bool) {
     let a = f.connect(SITE).await;
     let release = f.controls.hold_signing();
     f.post("/v1/requests", transaction_request("request-1", &f), &a).await;
-    f.controls.decide(true).await;
     until(|| f.controls.signs.load(Ordering::SeqCst) == 1).await;
     assert_eq!(f.get("/v1/requests/request-1", &a).await.body["state"], "signing");
     let path = if revoke { "/v1/disconnect" } else { "/v1/requests/request-1/cancel" };
@@ -801,7 +943,6 @@ async fn invalid_signatures_are_never_delivered() {
     *f.controls.sign_result.lock().unwrap() = Some("00".repeat(64));
     let a = f.connect(SITE).await;
     f.post("/v1/requests", transaction_request("request-1", &f), &a).await;
-    f.controls.decide(true).await;
     let r = f.result(&a, "request-1").await;
     assert_eq!(r.body["state"], "unknown");
     assert!(r.body.get("signed_tx_xdr").is_none());
@@ -812,7 +953,10 @@ async fn invalid_signatures_are_never_delivered() {
 async fn restart_invalidates_old_credentials_and_requests() {
     let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
+    let listings = f.controls.listings.load(Ordering::SeqCst);
+    let _hold = f.controls.hold_listing();
     f.post("/v1/requests", transaction_request("request-1", &f), &a).await;
+    until(|| f.controls.listings.load(Ordering::SeqCst) > listings).await;
     f.close().await;
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
     let restarted = Fixture::new(Options::default()).await;
@@ -827,7 +971,6 @@ async fn closing_the_bridge_aborts_signing_and_reports_it() {
     let a = f.connect(SITE).await;
     let _hold = f.controls.hold_signing();
     f.post("/v1/requests", transaction_request("request-1", &f), &a).await;
-    f.controls.decide(true).await;
     until(|| f.controls.signs.load(Ordering::SeqCst) == 1).await;
     tokio::time::timeout(Duration::from_secs(5), f.close()).await.expect("close ends active signing");
     let cancel = f.controls.sign_cancels.lock().unwrap()[0].clone();
@@ -835,11 +978,12 @@ async fn closing_the_bridge_aborts_signing_and_reports_it() {
     let logs = f.controls.logs();
     assert_eq!(logs.len(), 1, "{logs:?}");
     assert!(logs[0].starts_with("Signature withheld or stopped for "));
+    assert!(logs[0].ends_with(": The tunnel stopped.\n"), "{}", logs[0]);
 }
 
 /// main #27: the terminal reports a withheld signature only when the bridge never sent it.
 async fn ended_signature(ending: &str, delivered: bool) {
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     *f.controls.signers.lock().unwrap() = Ok(both(&f));
     let a = scoped(&f, SITE).await;
     let request = with_revision(transaction_request("ended", &f), 1);
@@ -876,8 +1020,11 @@ async fn ended_signature(ending: &str, delivered: bool) {
     } else {
         assert_eq!(read.status, 401);
     }
-    let reason =
-        if ending == "switch" { "The active wallet changed." } else { "The website connection was revoked." };
+    let reason = match ending {
+        "switch" => "The active wallet changed.",
+        "disconnect" => "The website disconnected.",
+        _ => "The website connection expired.",
+    };
     let mut want = vec![signed];
     if !delivered {
         want.push(format!("Signature withheld or stopped for {about}: {reason}\n"));
@@ -898,7 +1045,7 @@ async fn endings_of_a_signed_request_log_a_withheld_line_only_when_undelivered()
 
 #[tokio::test]
 async fn a_repeated_create_delivers_a_signature_and_a_later_switch_prints_no_withheld_line() {
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     *f.controls.signers.lock().unwrap() = Ok(both(&f));
     let a = scoped(&f, SITE).await;
     let request = with_revision(transaction_request("repeated", &f), 1);
@@ -927,7 +1074,6 @@ async fn canceling_a_signed_request_logs_a_withheld_line_only_when_undelivered()
         let f = Fixture::new(Options::default()).await;
         let a = f.connect(SITE).await;
         f.post("/v1/requests", transaction_request("request-1", &f), &a).await;
-        f.controls.decide(true).await;
         until(|| f.controls.logs().len() == 1).await;
         if delivered {
             assert_eq!(f.result(&a, "request-1").await.body["state"], "signed");
@@ -965,7 +1111,7 @@ async fn a_cancel_before_its_create_blocks_that_request_id() {
     let late = f.post("/v1/requests", transaction_request("late", &f), &a).await;
     assert_eq!(late.status, 409);
     assert_eq!(late.body["error"]["ext"], json!(["walleterm:rejected"]));
-    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 0);
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
     f.close().await;
 }
 
@@ -1050,7 +1196,7 @@ fn expected_entry(f: &Fixture, request: &Value) -> String {
 
 #[tokio::test]
 async fn authorization_signs_once_binds_adapters_on_retries_and_rejects_extra_fields() {
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     let a = scoped(&f, SITE).await;
     let adapter = json!({"type": "openzeppelin-ed25519", "verifier": support::auth::contract(3), "context_rule_ids": [0]});
     let body = with_revision(authorization_request(&f, "one", adapter.clone(), 160), 1);
@@ -1070,7 +1216,8 @@ async fn authorization_signs_once_binds_adapters_on_retries_and_rejects_extra_fi
         let mut wrong = body.clone();
         wrong[extra] = json!(100);
         let r = f.post("/v1/requests", wrong, &a).await;
-        assert_eq!(r.body["error"]["message"], "The signing request fields are invalid.", "{extra}");
+        let message = format!("Remove the field \"{extra}\" from the signing request.");
+        assert_eq!(r.body["error"]["message"], json!(message), "{extra}");
     }
     // A rule ID written as an integral decimal is the same request.
     let mut decimal = body.to_string();
@@ -1086,7 +1233,7 @@ async fn authorization_signs_once_binds_adapters_on_retries_and_rejects_extra_fi
 /// Expiration ledger 0 is the only expiry rule, because ledger 0 is always in the past.
 #[tokio::test]
 async fn authorization_has_no_expiry_window_and_refuses_only_expiration_zero() {
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
     let adapter = json!({"type": "contract-ed25519"});
     for (id, expiration) in [("next", 1), ("far", 100_000), ("max", u32::MAX)] {
@@ -1127,14 +1274,13 @@ async fn the_account_adapter_refuses_another_g_address() {
     assert_eq!(r.status, 400, "{}", r.body);
     assert_eq!(r.body["error"]["ext"], json!(["walleterm:invalid_request"]));
     assert_eq!(r.body["error"]["message"], "The account authorization must match the selected G-address.");
-    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 0);
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
     f.close().await;
 }
 
 #[tokio::test]
 async fn malformed_signatures_produce_no_authorization() {
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
     *f.controls.sign_result.lock().unwrap() = Some("00".repeat(64));
     f.post("/v1/requests", authorization_request(&f, "bad", json!({"type": "contract-ed25519"}), 160), &a)
@@ -1148,7 +1294,7 @@ async fn malformed_signatures_produce_no_authorization() {
 #[tokio::test]
 async fn authorization_cancel_and_switch_withhold_a_late_signature() {
     for action in ["cancel", "switch", "revoke"] {
-        let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+        let f = Fixture::new(Options::default()).await;
         *f.controls.signers.lock().unwrap() = Ok(both(&f));
         let a = scoped(&f, SITE).await;
         let release = f.controls.hold_signing();
@@ -1183,7 +1329,7 @@ async fn authorization_cancel_and_switch_withhold_a_late_signature() {
 async fn preimages_sign_without_a_window_for_the_selected_account_or_a_contract() {
     use base64::Engine as _;
     use ed25519_dalek::Signer;
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
     let contract = preimage_request(&f, "contract", 220);
     let mut bound_to_contract = contract.clone();
@@ -1283,7 +1429,7 @@ async fn a_selection_body_that_outlasts_its_session_fails_without_stopping_the_b
 /// Review P3-S2, first schedule. The legacy bridge made no signing call.
 #[tokio::test]
 async fn shutdown_before_the_approved_listing_resumes_starts_no_signing() {
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     let site = f.connect(SITE).await;
     let before = f.controls.listings.load(Ordering::SeqCst);
     let release = f.controls.hold_listing();
@@ -1298,7 +1444,7 @@ async fn shutdown_before_the_approved_listing_resumes_starts_no_signing() {
 /// Review P3-S2, second schedule. A signature that arrives after shutdown starts is withheld.
 #[tokio::test]
 async fn shutdown_before_the_signature_resumes_withholds_it() {
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     let site = f.connect(SITE).await;
     let release = f.controls.hold_signing();
     assert_eq!(f.post("/v1/requests", transaction_request("close-result", &f), &site).await.status, 201);
@@ -1314,7 +1460,7 @@ async fn shutdown_before_the_signature_resumes_withholds_it() {
 /// Review P3-S4. Cancellation during signer discovery waits for the discovery cleanup to end.
 #[tokio::test]
 async fn shutdown_waits_for_signer_discovery_to_finish_its_cleanup() {
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     let site = f.connect(SITE).await;
     let before = f.controls.listings.load(Ordering::SeqCst);
     let _release = f.controls.hold_listing();
@@ -1343,7 +1489,7 @@ async fn shutdown_waits_for_a_website_lookup_to_finish_its_cleanup() {
     assert_ne!(lookup.await.unwrap(), 200);
 }
 
-// SEP-53 message requests. The website approves by sending, as for every kind. The optional review hook applies.
+// SEP-53 message requests. The website approves by sending, as for every kind.
 
 /// The public SEP-53 test key: a mock key, never funded or used live. The tests use its published signatures only.
 const SEP53_KEY: &str = "GBXFXNDLV4LSWA4VB7YIL5GBD7BVNR22SGBTDKMO2SBZZHDXSKZYCP7L";
@@ -1376,9 +1522,9 @@ fn message_hash(text: &str) -> String {
 }
 
 #[tokio::test]
-async fn a_message_signs_without_review_and_prints_one_escaped_line() {
+async fn a_message_signs_and_prints_one_escaped_line() {
     use base64::Engine as _;
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
     // NUL, a newline, and bidirectional controls reach the terminal only as escapes.
     let text = "example.com asks\n\u{0}\u{202e}gpj.exe\u{2066} é";
@@ -1415,7 +1561,6 @@ async fn a_message_signs_without_review_and_prints_one_escaped_line() {
     );
     assert!(logs[2].starts_with(&format!("Message request from {SITE} for {key} (1024 bytes, digest ")));
     assert_eq!(logs.len(), 6, "{logs:?}");
-    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 0);
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 3);
     f.close().await;
 }
@@ -1423,7 +1568,7 @@ async fn a_message_signs_without_review_and_prints_one_escaped_line() {
 #[tokio::test]
 async fn the_bridge_returns_the_sep53_vector_signatures_in_base64() {
     use base64::Engine as _;
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     *f.controls.signers.lock().unwrap() = Ok(vec![signer(SEP53_KEY, "SEP-53 test key")]);
     let a = f.open(SITE, "selected").await;
     assert_eq!(f.post("/v1/select", json!({"public_key": SEP53_KEY}), &a).await.status, 200);
@@ -1459,34 +1604,39 @@ async fn the_bridge_returns_the_sep53_vector_signatures_in_base64() {
 }
 
 #[tokio::test]
-async fn message_review_denial_and_cancellation_never_deliver_a_signature() {
+async fn message_refusal_and_cancellation_never_deliver_a_signature() {
     let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
     let text = "Sign in to example.com. Nonce: 5f1c.";
-    f.post("/v1/requests", message_request(&f, "denied", text), &a).await;
+    // A request that waits in the queue can be canceled before its job starts.
+    let listings = f.controls.listings.load(Ordering::SeqCst);
+    let release = f.controls.hold_listing();
+    f.post("/v1/requests", message_request(&f, "held", text), &a).await;
     f.post("/v1/requests", message_request(&f, "queued", text), &a).await;
-    until(|| f.controls.reviews.load(Ordering::SeqCst) == 1).await;
+    until(|| f.controls.listings.load(Ordering::SeqCst) > listings).await;
     let canceled = f.post("/v1/requests/queued/cancel", json!({}), &a).await;
     assert_eq!(
         (canceled.body["state"].clone(), canceled.body["error"]["code"].clone()),
         (json!("denied"), json!(-4))
     );
-    let reviewed = f.controls.decide(false).await;
-    assert_eq!(reviewed.origin, SITE);
-    assert_eq!(
-        reviewed.details,
-        json!({"kind": "message", "hash": message_hash(text), "public_key": f.public_key, "bytes": text.len(), "message": text})
-    );
-    let r = f.result(&a, "denied").await;
+    let _ = release.send(());
+    assert_eq!(f.result(&a, "held").await.body["state"], "signed");
+    // 1Password returns no signature for a refused prompt.
+    let refused = walleterm::error::Error::new("signing_refused", "The agent returned SSH_AGENT_FAILURE.");
+    *f.controls.sign_error.lock().unwrap() = Some(refused);
+    f.post("/v1/requests", message_request(&f, "refused", text), &a).await;
+    let r = f.result(&a, "refused").await;
     assert_eq!(
         r.body["error"],
-        json!({"code": -4, "message": "The review denied this request.", "ext": ["walleterm:rejected"], "requestState": "denied"})
+        json!({"code": -4, "message": REFUSED, "ext": ["walleterm:rejected"], "requestState": "denied"})
     );
+    assert!(r.body.get("signed_message").is_none(), "{}", r.body);
+    *f.controls.sign_error.lock().unwrap() = None;
     // A cancellation during signing withholds the signature.
     let release = f.controls.hold_signing();
+    let signs = f.controls.signs.load(Ordering::SeqCst);
     f.post("/v1/requests", message_request(&f, "signing", text), &a).await;
-    f.controls.decide(true).await;
-    until(|| f.controls.signs.load(Ordering::SeqCst) == 1).await;
+    until(|| f.controls.signs.load(Ordering::SeqCst) > signs).await;
     f.post("/v1/requests/signing/cancel", json!({}), &a).await;
     let _ = release.send(());
     let r = f.result(&a, "signing").await;
@@ -1499,16 +1649,16 @@ async fn message_review_denial_and_cancellation_never_deliver_a_signature() {
         f.public_key
     );
     assert!(f.controls.logs().iter().any(|l| l.starts_with(&withheld)), "{:?}", f.controls.logs());
-    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 3);
     f.close().await;
 }
 
 #[tokio::test]
-async fn bad_message_requests_never_reach_review_or_signing() {
+async fn bad_message_requests_never_reach_the_signer() {
     let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
     let limit = "The message must contain 1 to 1024 UTF-8 bytes.";
-    let fields = "The signing request fields are invalid.";
+    let string = "Set message to a string.";
     let with = |id: &str, name: &str, value: Value| {
         let mut request = message_request(&f, id, "text");
         match value {
@@ -1524,9 +1674,13 @@ async fn bad_message_requests_never_reach_review_or_signing() {
         (with("long", "message", json!("a".repeat(1025))), "invalid_request", limit),
         // 513 characters are 1026 UTF-8 bytes.
         (with("multibyte", "message", json!("é".repeat(513))), "invalid_request", limit),
-        (with("number", "message", json!(7)), "invalid_request", fields),
-        (with("missing", "message", Value::Null), "invalid_request", fields),
-        (with("extra", "xdr", json!("AAAA")), "invalid_request", fields),
+        (with("number", "message", json!(7)), "invalid_request", string),
+        (with("missing", "message", Value::Null), "invalid_request", string),
+        (
+            with("extra", "xdr", json!("AAAA")),
+            "invalid_request",
+            "Remove the field \"xdr\" from the signing request.",
+        ),
         (
             with("mainnet", "network_passphrase", json!("Public Global Stellar Network ; September 2015")),
             "network_unsupported",
@@ -1569,17 +1723,15 @@ async fn bad_message_requests_never_reach_review_or_signing() {
         );
     }
     assert_eq!(post_body(&f, &a, &body(b"a\xc3\xa9b")).await.status, 201);
-    f.controls.decide(false).await;
-    assert_eq!(f.result(&a, "raw").await.body["state"], "denied");
-    assert_eq!(f.controls.reviews.load(Ordering::SeqCst), 1);
-    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
-    assert_eq!(f.controls.logs().len(), 1, "{:?}", f.controls.logs());
+    assert_eq!(f.result(&a, "raw").await.body["state"], "signed");
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
+    assert_eq!(f.controls.logs().len(), 2, "{:?}", f.controls.logs());
     f.close().await;
 }
 
 #[tokio::test]
 async fn a_message_request_id_binds_its_text() {
-    let f = Fixture::new(Options { review: false, ..Options::default() }).await;
+    let f = Fixture::new(Options::default()).await;
     let a = f.connect(SITE).await;
     let request = message_request(&f, "same", "first text");
     assert_eq!(f.post("/v1/requests", request.clone(), &a).await.status, 201);

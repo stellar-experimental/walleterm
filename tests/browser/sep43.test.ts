@@ -17,7 +17,7 @@ import type { contract } from '@stellar/stellar-sdk';
 import { createHost } from './host.ts';
 import { Walleterm, WalletermClient } from '../../sdk/walleterm.ts';
 import type { AccessInterface } from '../../sdk/walleterm.ts';
-import type { HostOptions, ReviewRequest } from './host.ts';
+import type { HostOptions } from './host.ts';
 import type { Fetch } from '../../sdk/types.ts';
 
 const key = Keypair.random(),
@@ -59,6 +59,29 @@ async function fixture(options: HostOptions = {}, walletScope: 'selected' | 'ava
   const wallet = new Walleterm({ fetch: fetcher, pollInterval: 1, page: null, walletScope, ui });
   return { bridge, origin, wallet, fetcher, calls: () => calls, requests: () => requests };
 }
+// A mock signer that acts as a declined 1Password prompt: an agent failure and no signature.
+const refuse = async (): Promise<string> => {
+  throw Object.assign(Error('SSH agent failure'), { ext: ['walleterm:signing_refused'] });
+};
+const refused = '1Password did not sign. You declined the prompt, or 1Password refused the request.';
+// Wallet discovery that waits after hold() until the bridge aborts it. A signing job then stays queued.
+function holdable() {
+  let holding = false;
+  return {
+    hold: () => {
+      holding = true;
+    },
+    listSigners: async ({ signal }: { signal: AbortSignal }) => {
+      if (holding)
+        await new Promise((_resolve, reject) =>
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true }),
+        );
+      return [key, other].map((k) => ({ public_key: k.publicKey() }));
+    },
+  };
+}
+// Connection lines are not about signing. These tests read only the signing lines.
+const signingLines = (lines: string[]) => lines.filter((line) => !/^(Connected|Selected wallet) /.test(line));
 function transaction(source = key.publicKey()) {
   return new TransactionBuilder(new Account(source, '10'), {
     fee: '100',
@@ -120,9 +143,9 @@ test('getNetwork answers without a session or bridge request', async () => {
   expect(f.requests()).toBe(0);
 });
 
-test('signMessage signs SEP-53 text without review and the tunnel prints one escaped line', async () => {
+test('signMessage signs SEP-53 text and the tunnel prints one escaped line', async () => {
   const lines: string[] = [];
-  const f = await fixture({ review: undefined, log: (line) => lines.push(line) });
+  const f = await fixture({ log: (line) => lines.push(line) });
   await f.wallet.getAddress();
   // A newline and a bidirectional override reach the terminal only as escapes.
   const text = 'sep43.example asks for proof of key control.\nNonce: 5f1c \u202egpj.exe';
@@ -133,7 +156,7 @@ test('signMessage signs SEP-53 text without review and the tunnel prints one esc
     expect(key.verifyMessage(message, Buffer.from(result.signedMessage, 'base64'))).toBe(true);
   }
   const digest = Buffer.from(hash(Buffer.from(`Stellar Signed Message:\n${text}`))).toString('hex');
-  expect(lines.slice(0, 2)).toEqual([
+  expect(signingLines(lines).slice(0, 2)).toEqual([
     `Message request from ${site} for ${key.publicKey()} (67 bytes, digest ${digest}, no network, site, or expiry binding): "sep43.example asks for proof of key control.\\nNonce: 5f1c \\u202egpj.exe"\n`,
     `Signed ${digest} (signer ${key.publicKey()}, SEP-53 message) for ${site}.\n`,
   ]);
@@ -141,7 +164,7 @@ test('signMessage signs SEP-53 text without review and the tunnel prints one esc
 });
 
 test('signMessage refuses bad text, another network, and another signer before any request', async () => {
-  const f = await fixture({ review: undefined });
+  const f = await fixture();
   await f.wallet.getAddress();
   const calls = f.calls(),
     requests = f.requests();
@@ -167,29 +190,19 @@ test('signMessage refuses bad text, another network, and another signer before a
   expect(f.requests()).toBe(requests);
 });
 
-test('message review receives the text, and a denial or cancellation returns -4', async () => {
-  const reviewed: ReviewRequest[] = [];
-  const denied = await fixture({
-    review: async (request) => {
-      reviewed.push(request);
-      return false;
-    },
-  });
+test('a declined 1Password prompt or a canceled message returns -4', async () => {
+  const denied = await fixture({ sign: refuse });
   await denied.wallet.getAddress();
   expect((await denied.wallet.signMessage('Sign in to example.com')).error).toMatchObject({
     code: -4,
+    message: refused,
     ext: ['walleterm:rejected'],
     requestState: 'denied',
   });
-  expect(reviewed[0]).toMatchObject({
-    origin: site,
-    details: { kind: 'message', message: 'Sign in to example.com', bytes: 22, public_key: key.publicKey() },
-  });
-  const queued = await fixture({
-    review: (_request, { signal }) =>
-      new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason))),
-  });
+  const discovery = holdable();
+  const queued = await fixture({ listSigners: discovery.listSigners });
   await queued.wallet.getAddress();
+  discovery.hold();
   const stop = new AbortController();
   const waiting = queued.wallet.signMessage('Sign in to example.com', { signal: stop.signal });
   setTimeout(() => stop.abort(), 20);
@@ -273,7 +286,7 @@ test('getAddress pairs through the access interface, then confirms the session w
 });
 
 test('signTransaction returns SEP-43 fields and rejects network, address, and submission before a request', async () => {
-  const f = await fixture({ review: undefined });
+  const f = await fixture();
   expect((await f.wallet.signTransaction(transaction())).error).toMatchObject({
     code: -3,
     ext: ['walleterm:not_connected'],
@@ -308,7 +321,7 @@ test('signTransaction returns SEP-43 fields and rejects network, address, and su
 });
 
 test('signAuthEntry signs V2 preimages for G- and C-addresses and SDK authorizeEntry attaches them', async () => {
-  const f = await fixture({ review: undefined });
+  const f = await fixture();
   await f.wallet.getAddress();
   for (const address of [key.publicKey(), contractId]) {
     const encoded = preimage(address);
@@ -345,7 +358,7 @@ test('the wallet satisfies the Stellar SDK contract Signer shape', async () => {
 });
 
 test('invalid preimages never reach the signer, and no expiry window applies', async () => {
-  const f = await fixture({ review: undefined });
+  const f = await fixture();
   await f.wallet.getAddress();
   for (const [encoded, reason] of [
     [preimage(contractId, { v1: true }), 'walleterm:unsupported'],
@@ -368,17 +381,17 @@ test('invalid preimages never reach the signer, and no expiry window applies', a
 });
 
 test('bridge outcomes map to SEP-43 codes and keep unknown signing outcomes', async () => {
-  const denied = await fixture({ review: async () => false });
+  const denied = await fixture({ sign: refuse });
   await denied.wallet.getAddress();
   expect((await denied.wallet.signTransaction(transaction())).error).toMatchObject({
     code: -4,
+    message: refused,
     ext: ['walleterm:rejected'],
     requestState: 'denied',
   });
   let started!: () => void;
   const signing = new Promise<void>((resolve) => (started = resolve));
   const slow = await fixture({
-    review: undefined,
     sign: async (_key, _digest, options) => {
       started();
       await new Promise((resolve) => options?.signal?.addEventListener('abort', resolve, { once: true }));
@@ -395,11 +408,10 @@ test('bridge outcomes map to SEP-43 codes and keep unknown signing outcomes', as
     ext: ['walleterm:result_unknown'],
     requestState: 'unknown',
   });
-  const queued = await fixture({
-    review: (_request, { signal }) =>
-      new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(signal.reason))),
-  });
+  const discovery = holdable();
+  const queued = await fixture({ listSigners: discovery.listSigners });
   await queued.wallet.getAddress();
+  discovery.hold();
   const stop = new AbortController();
   const waiting = queued.wallet.signTransaction(transaction(), { signal: stop.signal });
   setTimeout(() => stop.abort(), 20);
@@ -408,7 +420,7 @@ test('bridge outcomes map to SEP-43 codes and keep unknown signing outcomes', as
 });
 
 test('signing after session expiry returns not_connected without a cancel request', async () => {
-  const f = await fixture({ review: undefined });
+  const f = await fixture();
   const paths: string[] = [];
   let failFirstCreate = false;
   const wallet = new Walleterm({

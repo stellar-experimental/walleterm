@@ -4,7 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::pin::Pin;
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -26,6 +26,7 @@ pub type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
 pub const PROTOCOL: u32 = 3;
 const CODE_LIFETIME_MS: u64 = 300_000;
+const MAX_ATTEMPTS: u32 = 5;
 const CODE_LOCKOUT_MS: u64 = 60_000;
 const UNSELECTED_SESSION_MS: u64 = 300_000;
 const SELECTED_SESSION_MS: u64 = 3_600_000;
@@ -33,6 +34,16 @@ const REQUEST_MS: u64 = 300_000;
 const MAX_SESSIONS: usize = 64;
 const MAX_ACTIVE: usize = 32;
 const MAX_PER_SESSION: usize = 1000;
+/// The deadline sweep runs this often. It reads the wall clock, so a deadline that passed while the Mac slept
+/// applies within one sweep after wake.
+const SWEEP: Duration = Duration::from_secs(1);
+
+const REQUEST_EXPIRED: &str = "The signing request expired.";
+const SESSION_EXPIRED: &str = "The website connection expired.";
+const DISCONNECTED: &str = "The website disconnected.";
+const STOPPED: &str = "The tunnel stopped.";
+/// An SSH agent failure answer carries no signature. It does not prove that a person declined the prompt.
+const REFUSED: &str = "1Password did not sign. You declined the prompt, or 1Password refused the request.";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize)]
 pub struct SignerInfo {
@@ -43,29 +54,33 @@ pub struct SignerInfo {
     pub comment: Option<String>,
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct ReviewRequest {
-    pub origin: String,
-    pub signer: SignerInfo,
-    pub details: Value,
-}
-
 pub type ListFn = dyn Fn(Cancel) -> BoxFuture<Result<Vec<SignerInfo>>> + Send + Sync;
 /// Signs a public key's digest. Returns the raw signature as lowercase hexadecimal.
 pub type SignFn = dyn Fn(String, [u8; 32], Cancel) -> BoxFuture<Result<String>> + Send + Sync;
-pub type ReviewFn = dyn Fn(ReviewRequest, Cancel) -> BoxFuture<Result<bool>> + Send + Sync;
+/// Receives each code change with its reason.
+pub type PairingFn = dyn Fn(Rotation) + Send + Sync;
 type Listing = Arc<OnceCell<Result<Vec<SignerInfo>>>>;
 
 /// Everything the bridge reaches outside its own memory. Tests replace each one.
 pub struct Deps {
     pub list_signers: Box<ListFn>,
     /// The bridge verifies each returned signature independently.
+    /// A `signing_refused` error means that the signer returned no signature.
     pub sign: Box<SignFn>,
-    /// The approval hook. `None` approves every structurally valid request.
-    pub review: Option<Box<ReviewFn>>,
     pub log: Box<dyn Fn(&str) + Send + Sync>,
     /// Unix milliseconds.
     pub now: Box<dyn Fn() -> u64 + Send + Sync>,
+}
+
+/// Why the connection code changed. The tunnel prints the reason with the new code.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Rotation {
+    /// A website connected with the code.
+    Used,
+    /// The code expired unused.
+    Expired,
+    /// Too many incorrect codes. New connections pause until this Unix millisecond.
+    Locked(u64),
 }
 
 /// A failed HTTP request: its status and SEP-43 error object.
@@ -170,6 +185,10 @@ impl Scope {
     fn as_str(self) -> &'static str {
         if self == Scope::Selected { "selected" } else { "available" }
     }
+    /// The scope for the terminal: its protocol name and what it permits.
+    fn describe(self) -> &'static str {
+        if self == Scope::Selected { "selected, one wallet" } else { "available, wallet changes allowed" }
+    }
 }
 
 struct Offer {
@@ -188,7 +207,6 @@ struct Session {
     expires: u64,
     revoked: bool,
     canceled: HashSet<String>,
-    key: Option<SignerInfo>,
     offered: Option<Offer>,
 }
 
@@ -209,7 +227,6 @@ struct Record {
     origin: String,
     id: String,
     public_key: String,
-    signer: SignerInfo,
     artifact: Artifact,
     network_passphrase: String,
     /// The request without its ID, with numbers normalized. An identical retry must match it.
@@ -226,6 +243,8 @@ struct Record {
 
 struct Pairing {
     code: String,
+    /// The code that expired last. A website that sends it learns that it expired. It never connects.
+    expired: Option<String>,
     expires: u64,
     attempts: u32,
     locked_until: u64,
@@ -235,8 +254,11 @@ struct State {
     sessions: HashMap<String, Session>,
     tokens: HashMap<String, String>,
     records: HashMap<String, Record>,
-    reviews: HashMap<String, Cancel>,
+    /// The cancellation of each queued or running signing job, by record ID.
+    jobs: HashMap<String, Cancel>,
     pairing: Pairing,
+    /// The last code change that the terminal has not shown.
+    rotation: Option<Rotation>,
     origin: String,
     closing: bool,
     next_seq: u64,
@@ -248,15 +270,28 @@ pub struct Bridge {
     global: Cancel,
     queue: mpsc::UnboundedSender<(String, String)>,
     listing: tokio::sync::Mutex<Option<Listing>>,
-    pairing_changed: Mutex<Option<Box<dyn Fn() + Send + Sync>>>,
+    pairing_changed: Mutex<Option<Box<PairingFn>>>,
     pending_jobs: AtomicUsize,
     idle: Notify,
-    timer_generation: AtomicU64,
-    port: AtomicU64,
+    port: u16,
 }
 
 fn new_code() -> String {
     format!("{:08}", random_below(100_000_000))
+}
+
+/// A G-address for the terminal, shortened as the connection dialog shows it.
+fn short(address: &str) -> String {
+    match (address.get(..7), address.get(address.len().saturating_sub(6)..)) {
+        (Some(head), Some(tail)) if address.len() > 13 => format!("{head}…{tail}"),
+        _ => address.to_owned(),
+    }
+}
+
+/// The name of an unexpected request field for an error message. A long name is cut.
+fn field_name(name: &str) -> String {
+    let cut: String = name.chars().take(64).collect();
+    serde_json::to_string(&cut).unwrap_or_default()
 }
 
 fn equal(a: &str, b: &str) -> bool {
@@ -270,6 +305,29 @@ pub fn valid_origin(value: &str) -> bool {
     serialized == value
         && (url.scheme() == "https"
             || (url.scheme() == "http" && matches!(url.host_str(), Some("localhost" | "127.0.0.1"))))
+}
+
+/// Why the bridge refuses a website Origin, or `None` when it accepts it.
+fn origin_problem(site: Option<&str>, bridge: &str) -> Option<&'static str> {
+    let Some(site) = site else {
+        return Some("The request has no Origin header. Send it from a website.");
+    };
+    if site == bridge {
+        return Some("Use a separate website. The tunnel URL cannot call its own routes.");
+    }
+    if valid_origin(site) {
+        return None;
+    }
+    if site == "null" {
+        return Some("The browser sent Origin null. Open the website from an HTTPS or localhost URL.");
+    }
+    let plain_http =
+        url::Url::parse(site).is_ok_and(|u| u.scheme() == "http" && u.origin().ascii_serialization() == site);
+    Some(if plain_http {
+        "Serve the website over HTTPS. Plain HTTP works only on localhost and 127.0.0.1."
+    } else {
+        "The Origin header must be an exact website origin, such as https://example.com."
+    })
 }
 
 /// JavaScript integer semantics for comparison: a JSON number with an integral value compares as that integer.
@@ -353,7 +411,7 @@ async fn object(
 }
 
 impl Bridge {
-    /// Create the bridge and start its signing worker and code timer. `origin` starts as loopback.
+    /// Create the bridge and start its signing worker and deadline sweep. `origin` starts as loopback.
     pub fn new(deps: Deps, port: u16) -> Arc<Self> {
         let (queue, mut jobs) = mpsc::unbounded_channel::<(String, String)>();
         let now = (deps.now)();
@@ -362,13 +420,15 @@ impl Bridge {
                 sessions: HashMap::new(),
                 tokens: HashMap::new(),
                 records: HashMap::new(),
-                reviews: HashMap::new(),
+                jobs: HashMap::new(),
                 pairing: Pairing {
                     code: new_code(),
+                    expired: None,
                     expires: now + CODE_LIFETIME_MS,
                     attempts: 0,
                     locked_until: 0,
                 },
+                rotation: None,
                 origin: format!("http://127.0.0.1:{port}"),
                 closing: false,
                 next_seq: 0,
@@ -380,20 +440,28 @@ impl Bridge {
             pairing_changed: Mutex::new(None),
             pending_jobs: AtomicUsize::new(0),
             idle: Notify::new(),
-            timer_generation: AtomicU64::new(0),
-            port: AtomicU64::new(u64::from(port)),
+            port,
         });
         let worker = Arc::downgrade(&bridge);
         tokio::spawn(async move {
             while let Some((key, session_id)) = jobs.recv().await {
                 let Some(bridge) = worker.upgrade() else { break };
-                bridge.review_and_sign(&key, &session_id).await;
+                bridge.sign_job(&key, &session_id).await;
                 if bridge.pending_jobs.fetch_sub(1, Ordering::SeqCst) == 1 {
                     bridge.idle.notify_waiters();
                 }
             }
         });
-        bridge.restart_code_timer();
+        let sweeper = Arc::downgrade(&bridge);
+        tokio::spawn(async move {
+            loop {
+                tokio::time::sleep(SWEEP).await;
+                match sweeper.upgrade() {
+                    Some(bridge) if !bridge.closing() => bridge.sweep(),
+                    _ => break,
+                }
+            }
+        });
         bridge
     }
 
@@ -405,20 +473,15 @@ impl Bridge {
         (self.deps.log)(line);
     }
 
-    pub fn set_port(&self, port: u16) {
-        self.port.store(u64::from(port), Ordering::SeqCst);
-        let mut state = self.state.lock().unwrap();
-        if state.origin.starts_with("http://127.0.0.1:") {
-            state.origin = format!("http://127.0.0.1:{port}");
-        }
-    }
-
-    pub fn set_public_origin(self: &Arc<Self>, value: &str) -> Result<()> {
+    /// Set the public origin. The current code gets a full lifetime, because the terminal shows it again.
+    pub fn set_public_origin(&self, value: &str) -> Result<()> {
         if !valid_origin(value) {
             return Err(Error::new("invalid_input", "Use an HTTPS or loopback origin."));
         }
-        self.state.lock().unwrap().origin = value.to_owned();
-        self.restart_code_timer();
+        let now = self.now();
+        let mut state = self.state.lock().unwrap();
+        state.origin = value.to_owned();
+        state.pairing.expires = now + CODE_LIFETIME_MS;
         Ok(())
     }
 
@@ -433,33 +496,31 @@ impl Bridge {
         })
     }
 
-    pub fn on_pairing_changed(&self, callback: Box<dyn Fn() + Send + Sync>) {
+    /// The callback receives each code change after the bridge releases its state. It can read `pairing`.
+    pub fn on_pairing_changed(&self, callback: Box<PairingFn>) {
         *self.pairing_changed.lock().unwrap() = Some(callback);
     }
 
-    fn restart_code_timer(self: &Arc<Self>) {
-        let generation = self.timer_generation.fetch_add(1, Ordering::SeqCst) + 1;
-        self.state.lock().unwrap().pairing.expires = self.now() + CODE_LIFETIME_MS;
-        let bridge = Arc::downgrade(self);
-        tokio::spawn(async move {
-            tokio::time::sleep(Duration::from_millis(CODE_LIFETIME_MS)).await;
-            if let Some(bridge) = bridge.upgrade()
-                && bridge.timer_generation.load(Ordering::SeqCst) == generation
-            {
-                bridge.rotate_code();
-            }
-        });
+    /// Replace the code. The terminal shows the change after the state lock is released.
+    fn rotate(state: &mut State, rotation: Rotation, now: u64) {
+        let old = std::mem::replace(&mut state.pairing.code, new_code());
+        state.pairing.expired = (rotation == Rotation::Expired).then_some(old);
+        state.pairing.expires = now + CODE_LIFETIME_MS;
+        state.pairing.attempts = 0;
+        state.rotation = Some(rotation);
     }
 
-    fn rotate_code(self: &Arc<Self>) {
-        {
-            let mut state = self.state.lock().unwrap();
-            state.pairing.code = new_code();
-            state.pairing.attempts = 0;
-        }
-        self.restart_code_timer();
-        if let Some(callback) = self.pairing_changed.lock().unwrap().as_ref() {
-            callback();
+    /// Apply every deadline that passed, then show a changed code.
+    fn sweep(&self) {
+        self.expire(&mut self.state.lock().unwrap());
+        self.announce();
+    }
+
+    /// Show the last code change. The callback reads the pairing, so no state lock is held.
+    fn announce(&self) {
+        let rotation = self.state.lock().unwrap().rotation.take();
+        if let (Some(rotation), Some(callback)) = (rotation, self.pairing_changed.lock().unwrap().as_ref()) {
+            callback(rotation);
         }
     }
 
@@ -470,26 +531,11 @@ impl Bridge {
             return;
         }
         r.logged = Some(r.state);
-        let about = match &r.artifact {
-            Artifact::Transaction(_) => format!(
-                "{} (account {}, sequence {})",
-                r.hash,
-                r.public_key,
-                r.details["sequence"].as_str().unwrap_or_default()
-            ),
-            Artifact::Message(_) => format!("{} (signer {}, SEP-53 message)", r.hash, r.public_key),
-            _ => format!(
-                "{} (signer {}, authorization {})",
-                r.hash,
-                r.public_key,
-                r.details["address"].as_str().unwrap_or_default()
-            ),
-        };
         match r.state {
-            RequestState::Signed => self.log(&format!("Signed {about} for {}.\n", r.origin)),
+            RequestState::Signed => self.log(&format!("Signed {} for {}.\n", about(r), r.origin)),
             RequestState::Unknown if !r.delivered => {
                 let message = r.error.as_ref().and_then(|e| e["message"].as_str()).unwrap_or_default();
-                self.log(&format!("Signature withheld or stopped for {about}: {message}\n"));
+                self.log(&format!("Signature withheld or stopped for {}: {message}\n", about(r)));
             }
             _ => {}
         }
@@ -543,6 +589,13 @@ impl Bridge {
         keys.into_iter().map(|(_, k)| k).collect()
     }
 
+    /// Stop the job of a record with the same text that ended the record.
+    fn stop_job(state: &State, key: &str, message: &str) {
+        if let Some(cancel) = state.records.get(key).and_then(|r| state.jobs.get(&r.record_id)) {
+            cancel.cancel(Error::new("rejected", message));
+        }
+    }
+
     /// Withhold or deny every live request of a session. Signing or signed requests become unknown.
     fn end_session_requests(&self, state: &mut State, session_id: &str, message: impl Fn(&Record) -> String) {
         let keys = Self::keys_in_order(state, |r| {
@@ -551,36 +604,39 @@ impl Bridge {
         for key in keys {
             let r = state.records.get(&key).unwrap();
             let target = if r.state.started() { RequestState::Unknown } else { RequestState::Denied };
-            let (text, record_id) = (message(r), r.record_id.clone());
+            let text = message(r);
             self.end_key(state, &key, target, &text, None);
-            if let Some(cancel) = state.reviews.get(&record_id) {
-                cancel.abort();
-            }
+            Self::stop_job(state, &key, &text);
         }
     }
 
-    fn revoke(&self, state: &mut State, session_id: &str) {
+    /// End a session and its requests.
+    fn revoke(&self, state: &mut State, session_id: &str, message: &str) {
         if let Some(s) = state.sessions.get_mut(session_id) {
             s.revoked = true;
         }
-        self.end_session_requests(state, session_id, |_| "The website connection was revoked.".into());
+        self.end_session_requests(state, session_id, |_| message.to_owned());
     }
 
+    /// Apply every wall-clock deadline: the code, pending requests, and sessions.
     fn expire(&self, state: &mut State) {
         let now = self.now();
+        if now >= state.pairing.expires {
+            Self::rotate(state, Rotation::Expired, now);
+        }
         let keys = Self::keys_in_order(state, |r| r.state == RequestState::Pending && now >= r.expires);
         for key in keys {
-            self.end_key(state, &key, RequestState::Expired, "The signing request expired.", None);
-            let record_id = state.records[&key].record_id.clone();
-            if let Some(cancel) = state.reviews.get(&record_id) {
-                cancel.abort();
-            }
+            self.end_key(state, &key, RequestState::Expired, REQUEST_EXPIRED, None);
+            Self::stop_job(state, &key, REQUEST_EXPIRED);
         }
         // Memory keeps live sessions and records that are active or belong to them.
         let ended: Vec<String> =
             state.sessions.values().filter(|s| s.revoked || now >= s.expires).map(|s| s.id.clone()).collect();
         for id in &ended {
-            self.revoke(state, id);
+            if !state.sessions[id].revoked {
+                self.log(&format!("The connection with {} expired.\n", state.sessions[id].origin));
+                self.revoke(state, id, SESSION_EXPIRED);
+            }
             if let Some(s) = state.sessions.remove(id) {
                 state.tokens.remove(&s.token);
             }
@@ -679,67 +735,100 @@ impl Bridge {
         })
     }
 
-    /// Review, then sign one request. One job runs at a time. Every await is followed by a fresh check.
-    async fn review_and_sign(self: &Arc<Self>, key: &str, session_id: &str) {
+    /// Sign one queued request. One job runs at a time. Every await is followed by a fresh check.
+    async fn sign_job(self: &Arc<Self>, key: &str, session_id: &str) {
+        self.sweep();
         let setup = {
             let mut state = self.state.lock().unwrap();
-            self.expire(&mut state);
             let now = self.now();
             let session_expires = state.sessions.get(session_id).map_or(0, |s| s.expires);
             let live = !state.closing && self.session_live(&state, session_id);
             match state.records.get(key) {
                 Some(r) if r.state == RequestState::Pending && live => {
-                    let review_cancel = state.reviews.get(&r.record_id).cloned().unwrap_or_default();
-                    let left = r.expires.min(session_expires).saturating_sub(now).max(1);
-                    let signal = Cancel::any(&[&self.global, &review_cancel], Duration::from_millis(left));
-                    let request = ReviewRequest {
-                        origin: r.origin.clone(),
-                        signer: r.signer.clone(),
-                        details: r.details.clone(),
+                    let job = state.jobs.get(&r.record_id).cloned().unwrap_or_default();
+                    // The job ends at the earlier deadline: the request's or the session's.
+                    let (deadline, reason) = if r.expires <= session_expires {
+                        (r.expires, REQUEST_EXPIRED)
+                    } else {
+                        (session_expires, SESSION_EXPIRED)
                     };
-                    Some((signal, request, r.record_id.clone()))
+                    let left = Duration::from_millis(deadline.saturating_sub(now).max(1));
+                    let signal = Cancel::any(&[&self.global, &job], left, Error::new("expired", reason));
+                    Some((signal, r.record_id.clone()))
                 }
                 Some(r) => {
                     let record_id = r.record_id.clone();
-                    state.reviews.remove(&record_id);
+                    state.jobs.remove(&record_id);
                     if state.records[key].state == RequestState::Pending {
-                        self.end_key(
-                            &mut state,
-                            key,
-                            RequestState::Expired,
-                            "The signing request expired.",
-                            None,
-                        );
+                        self.end_key(&mut state, key, RequestState::Expired, REQUEST_EXPIRED, None);
                     }
                     None
                 }
                 None => None,
             }
         };
-        let Some((signal, request, record_id)) = setup else { return };
-        let outcome = self.sign_steps(key, session_id, &signal, request).await;
+        let Some((signal, record_id)) = setup else { return };
+        let outcome = self.sign_steps(key, session_id, &signal).await;
         let mut state = self.state.lock().unwrap();
         let now = self.now();
         if let (Err(error), Some(r)) = (&outcome, state.records.get(key)) {
-            let (current, expires) = (r.state, r.expires);
-            if current.started() {
-                self.end_key(&mut state, key, RequestState::Unknown, &error.message, None);
-            } else if matches!(current, RequestState::Pending | RequestState::Approved) {
-                if now >= expires {
-                    self.end_key(&mut state, key, RequestState::Expired, &error.message, None);
-                } else {
+            match r.state {
+                // 1Password answered without a signature. Nothing was signed, so the outcome is known.
+                RequestState::Signing if error.code == "signing_refused" => self.refuse(&mut state, key),
+                current if current.started() => {
+                    self.end_key(&mut state, key, RequestState::Unknown, &error.message, None)
+                }
+                RequestState::Pending | RequestState::Approved if now >= r.expires => {
+                    self.end_key(&mut state, key, RequestState::Expired, REQUEST_EXPIRED, None)
+                }
+                RequestState::Pending | RequestState::Approved => {
                     let object = sep43(error, None);
                     self.end_key(&mut state, key, RequestState::Denied, &error.message, Some(object));
                 }
+                _ => {}
             }
         }
         if let Some(r) = state.records.get(key)
             && r.state == RequestState::Pending
         {
-            let target = if now >= r.expires { RequestState::Expired } else { RequestState::Denied };
-            self.end_key(&mut state, key, target, "The signing request ended before review.", None);
+            let (target, message) = if now >= r.expires {
+                (RequestState::Expired, REQUEST_EXPIRED)
+            } else {
+                (RequestState::Denied, "The signing request ended before signing.")
+            };
+            self.end_key(&mut state, key, target, message, None);
         }
-        state.reviews.remove(&record_id);
+        state.jobs.remove(&record_id);
+    }
+
+    /// End a request that 1Password refused. The signer returned no signature, so the request is denied,
+    /// not unknown. The terminal names the request, as it does for a produced signature.
+    fn refuse(&self, state: &mut State, key: &str) {
+        let Some(r) = state.records.get_mut(key) else { return };
+        r.state = RequestState::Denied;
+        r.logged = Some(RequestState::Denied);
+        r.result = None;
+        r.error = Some(sep43(&Error::new("rejected", REFUSED), Some(RequestState::Denied)));
+        self.log(&format!(
+            "1Password did not sign {} for {}. You declined the prompt, or 1Password refused the request.\n",
+            about(r),
+            r.origin
+        ));
+    }
+
+    /// Why a request can no longer take its next step. A canceled or replaced request already holds its own reason.
+    fn ended(&self, state: &State, key: &str, session_id: &str, signal: &Cancel) -> Error {
+        if signal.is_cancelled() {
+            signal.reason()
+        } else if state.closing {
+            Error::new("bridge_unavailable", STOPPED)
+        } else if state.records.get(key).is_some_and(|r| self.now() >= r.expires) {
+            Error::new("expired", REQUEST_EXPIRED)
+        } else if !self.session_live(state, session_id) {
+            Error::new("not_connected", SESSION_EXPIRED)
+        } else {
+            Error::new("rejected", "The signing request ended before signing.")
+        }
     }
 
     /// Check that the request and its session still allow the next step. Shutdown ends every step at once,
@@ -772,24 +861,10 @@ impl Bridge {
         }
     }
 
-    async fn sign_steps(
-        &self,
-        key: &str,
-        session_id: &str,
-        signal: &Cancel,
-        request: ReviewRequest,
-    ) -> Result<()> {
-        let approved = match &self.deps.review {
-            Some(review) => signal.run(review(request, signal.clone())).await?,
-            None => true,
-        };
+    async fn sign_steps(&self, key: &str, session_id: &str, signal: &Cancel) -> Result<()> {
         let (artifact, passphrase, address, public_key) = {
-            let mut state = self.state.lock().unwrap();
+            let state = self.state.lock().unwrap();
             if !self.eligible(&state, key, session_id, signal, RequestState::Pending) {
-                return Ok(());
-            }
-            if !approved {
-                self.end_key(&mut state, key, RequestState::Denied, "The review denied this request.", None);
                 return Ok(());
             }
             let r = &state.records[key];
@@ -806,21 +881,22 @@ impl Bridge {
         }
         let keys = keys?;
         if !self.still(key, session_id, signal, RequestState::Approved) {
-            return Err(Error::new("internal", "The signing approval expired or was canceled."));
+            return Err(self.ended(&self.state.lock().unwrap(), key, session_id, signal));
         }
         let allowed = {
             let state = self.state.lock().unwrap();
             let session = state.sessions.get(session_id);
             session.and_then(|s| s.allowed.as_ref()).is_none_or(|a| a.contains(&public_key))
         };
+        // A removed key ends the request as a wallet change does: denied, with -4. Nothing was signed.
         if !allowed || !keys.iter().any(|k| k.public_key == public_key) {
-            return Err(Error::new("internal", "The selected key is no longer available."));
+            return Err(Error::new("rejected", "The selected key is no longer available in 1Password."));
         }
         let hash = {
             // The last check and the move to Signing share one lock.
             let mut state = self.state.lock().unwrap();
             if !self.eligible(&state, key, session_id, signal, RequestState::Approved) {
-                return Err(Error::new("internal", "The signing approval expired or was canceled."));
+                return Err(self.ended(&state, key, session_id, signal));
             }
             let r = state.records.get_mut(key).unwrap();
             r.state = RequestState::Signing;
@@ -840,10 +916,7 @@ impl Bridge {
         let result = Self::finish(&artifact, &passphrase, &public_key, checked_at, &signature)?;
         let mut state = self.state.lock().unwrap();
         if !self.eligible(&state, key, session_id, signal, RequestState::Signing) {
-            return Err(Error::new(
-                "internal",
-                "The signing result is withheld because approval expired or was canceled.",
-            ));
+            return Err(self.ended(&state, key, session_id, signal));
         }
         if let Some(mut r) = state.records.remove(key) {
             r.result = Some(result);
@@ -854,13 +927,12 @@ impl Bridge {
         Ok(())
     }
 
-    fn port(&self) -> u64 {
-        self.port.load(Ordering::SeqCst)
-    }
-
     /// Handle one HTTP request. Every failure becomes a SEP-43 error object with its status.
+    /// A code change during the request appears in the terminal before the reply leaves.
     pub async fn handle(self: &Arc<Self>, req: HttpRequest, body: BodyReader) -> Reply {
-        self.dispatch(req, body).await.unwrap_or_else(Reply::failure)
+        let reply = self.dispatch(req, body).await.unwrap_or_else(Reply::failure);
+        self.announce();
+        reply
     }
 
     async fn dispatch(
@@ -871,7 +943,7 @@ impl Bridge {
         let origin = self.state.lock().unwrap().origin.clone();
         let base = url::Url::parse(&origin).expect("the bridge origin is valid");
         let route = base.join(&req.target).map(|u| u.path().to_owned()).unwrap_or_default();
-        if !crate::http::allowed_host(&base, self.port(), req.host.as_deref()) {
+        if !crate::http::allowed_host(&base, u64::from(self.port), req.host.as_deref()) {
             return Err(fail("invalid_request", "The request host is invalid.", Some(403)));
         }
         {
@@ -891,17 +963,18 @@ impl Bridge {
                 Some(404),
             ));
         }
-        let site = req.origin.clone().unwrap_or_default();
-        if !valid_origin(&site) || site == origin {
-            return Err(fail("invalid_request", "Use a separate website Origin.", Some(403)));
-        }
-        let cors = vec![("Access-Control-Allow-Origin", site.clone()), ("Vary", "Origin".to_owned())];
+        // A rejected Origin gets only static text, and no route runs for it. So every present Origin can read
+        // the answer, including the reason for its rejection. Only an accepted Origin reaches a route.
+        let cors = match &req.origin {
+            Some(site) => vec![("Access-Control-Allow-Origin", site.clone()), ("Vary", "Origin".to_owned())],
+            None => Vec::new(),
+        };
         let with_cors = |result: std::result::Result<Reply, Fail>| {
             let mut r = result.unwrap_or_else(Reply::failure);
             r.headers.extend(cors.clone());
             Ok(r)
         };
-        if req.method == "OPTIONS" {
+        if req.method == "OPTIONS" && req.origin.is_some() {
             return with_cors(Ok(Reply {
                 status: 204,
                 headers: vec![
@@ -913,6 +986,10 @@ impl Bridge {
                 raw: None,
             }));
         }
+        if let Some(problem) = origin_problem(req.origin.as_deref(), &origin) {
+            return with_cors(Err(fail("invalid_request", problem, Some(403))));
+        }
+        let site = req.origin.clone().unwrap_or_default();
         with_cors(self.route(&req, &route, &site, body).await)
     }
 
@@ -950,7 +1027,10 @@ impl Bridge {
             ("/v1/disconnect", "POST") => {
                 object(&req.content_type, body).await?;
                 let mut state = self.state.lock().unwrap();
-                self.revoke(&mut state, &session_id);
+                if let Some(s) = state.sessions.get(&session_id).filter(|s| !s.revoked) {
+                    self.log(&format!("Disconnected {}.\n", s.origin));
+                }
+                self.revoke(&mut state, &session_id, DISCONNECTED);
                 return reply(200, json!({ "disconnected": true }));
             }
             ("/v1/requests", "POST") => return self.create(req, &session_id, body).await,
@@ -998,6 +1078,8 @@ impl Bridge {
         let data = object(&req.content_type, body).await?;
         let now = self.now();
         let mut state = self.state.lock().unwrap();
+        // The body read can outlast the code. The same sweep applies its deadline.
+        self.expire(&mut state);
         if now < state.pairing.locked_until {
             return Err(fail(
                 "rate_limited",
@@ -1005,32 +1087,40 @@ impl Bridge {
                 None,
             ));
         }
-        if now >= state.pairing.expires {
-            drop(state);
-            self.rotate_code();
-            return Err(fail(
-                "invalid_request",
-                "The connection code expired. Use the new code in the tunnel terminal.",
-                Some(403),
-            ));
-        }
         let scope = match data.get("wallet_scope").and_then(Value::as_str) {
             Some("selected") => Scope::Selected,
             Some("available") => Scope::Available,
-            _ => return Err(fail("invalid_request", "The connection fields are invalid.", None)),
+            _ => {
+                return Err(fail(
+                    "invalid_request",
+                    "Set wallet_scope to \"selected\" or \"available\".",
+                    None,
+                ));
+            }
         };
-        if data.keys().any(|k| k != "code" && k != "wallet_scope") {
-            return Err(fail("invalid_request", "The connection fields are invalid.", None));
+        if let Some(extra) = data.keys().find(|k| *k != "code" && *k != "wallet_scope") {
+            let message = format!("Remove the field {} from the connection request.", field_name(extra));
+            return Err(fail("invalid_request", &message, None));
         }
-        let code_matches =
-            data.get("code").and_then(Value::as_str).is_some_and(|c| equal(c, &state.pairing.code));
-        if !code_matches {
-            // Five failures replace the code and pause connection for one minute.
+        let presented = data.get("code").and_then(Value::as_str).unwrap_or_default();
+        if !equal(presented, &state.pairing.code) {
+            // The last expired code gets its own answer. It counts as no attempt, because it can never connect.
+            if state.pairing.expired.as_deref().is_some_and(|old| equal(presented, old)) {
+                return Err(fail(
+                    "invalid_request",
+                    "The connection code expired. Use the new code in the tunnel terminal.",
+                    Some(403),
+                ));
+            }
             state.pairing.attempts += 1;
-            if state.pairing.attempts >= 5 {
+            let attempts = state.pairing.attempts;
+            self.log(&format!(
+                "Incorrect connection code from {site} (attempt {attempts} of {MAX_ATTEMPTS}).\n"
+            ));
+            // Too many failures replace the code and pause connection for one minute.
+            if attempts >= MAX_ATTEMPTS {
                 state.pairing.locked_until = now + CODE_LOCKOUT_MS;
-                drop(state);
-                self.rotate_code();
+                Self::rotate(&mut state, Rotation::Locked(now + CODE_LOCKOUT_MS), now);
             }
             return Err(fail("invalid_request", "The connection code is incorrect.", Some(403)));
         }
@@ -1052,7 +1142,6 @@ impl Bridge {
             expires: now + UNSELECTED_SESSION_MS,
             revoked: false,
             canceled: HashSet::new(),
-            key: None,
             offered: None,
         };
         let body = json!({
@@ -1064,8 +1153,8 @@ impl Bridge {
         });
         state.tokens.insert(session.token.clone(), session.id.clone());
         state.sessions.insert(session.id.clone(), session);
-        drop(state);
-        self.rotate_code();
+        self.log(&format!("Connected {site}. Wallet scope: {}.\n", scope.describe()));
+        Self::rotate(&mut state, Rotation::Used, now);
         reply(201, body)
     }
 
@@ -1129,8 +1218,9 @@ impl Bridge {
                     fields.push("grant_id");
                 }
             }
-            if data.keys().any(|k| !fields.contains(&k.as_str())) {
-                return Err(fail("invalid_request", "The selection fields are invalid.", None));
+            if let Some(extra) = data.keys().find(|k| !fields.contains(&k.as_str())) {
+                let message = format!("Remove the field {} from the selection request.", field_name(extra));
+                return Err(fail("invalid_request", &message, None));
             }
             self.website(&state, req)?;
             Self::valid_revision(s, &data)?;
@@ -1197,8 +1287,8 @@ impl Bridge {
                 s.expires = now + SELECTED_SESSION_MS;
             }
             s.public_key = Some(key.public_key.clone());
-            s.key = Some(key.clone());
             s.selection_revision += 1;
+            self.log(&format!("Selected wallet {} for {}.\n", short(&key.public_key), s.origin));
         }
         let s = state.sessions.get(session_id).ok_or_else(Self::disconnected)?;
         reply(
@@ -1229,7 +1319,7 @@ impl Bridge {
         let s = state.sessions.get(session_id).ok_or_else(Self::disconnected)?;
         let (scoped, revision, origin) =
             (s.scope == Scope::Available, s.selection_revision, s.origin.clone());
-        let (public_key, signer, canceled_ids) = (s.public_key.clone(), s.key.clone(), s.canceled.clone());
+        let (public_key, canceled_ids) = (s.public_key.clone(), s.canceled.clone());
         let kind = input.get("kind").and_then(Value::as_str);
         let fields: &[&str] = match kind {
             Some("transaction") => &["xdr"],
@@ -1247,8 +1337,20 @@ impl Bridge {
                 || fields.contains(&k)
                 || (scoped && k == "selection_revision")
         };
-        if !valid_id || fields.is_empty() || input.keys().any(|k| !known(k)) {
-            return Err(fail("invalid_request", "The signing request fields are invalid.", None));
+        if fields.is_empty() {
+            let message = "Set kind to transaction, auth_entry, authorization, or message.";
+            return Err(fail("invalid_request", message, None));
+        }
+        if !valid_id {
+            return Err(fail(
+                "invalid_request",
+                "Set id to 1-64 letters, digits, underscores, or hyphens.",
+                None,
+            ));
+        }
+        if let Some(extra) = input.keys().find(|k| !known(k)) {
+            let message = format!("Remove the field {} from the signing request.", field_name(extra));
+            return Err(fail("invalid_request", &message, None));
         }
         if scoped && safe_integer(input.get("selection_revision")) != Some(revision) {
             return Err(fail("conflict", "The wallet selection changed. Build a new signing request.", None));
@@ -1280,11 +1382,9 @@ impl Bridge {
             return Err(fail("rate_limited", "The signing request limit was reached.", None));
         }
         let text = |name: &str| input.get(name).and_then(Value::as_str).map(str::to_owned);
-        let strings_ok = fields.iter().all(|f| *f == "adapter" || text(f).is_some())
-            && text("network_passphrase").is_some()
-            && text("address").is_some();
-        if !strings_ok {
-            return Err(fail("invalid_request", "The signing request fields are invalid.", None));
+        let strings = fields.iter().filter(|f| **f != "adapter").chain(&["network_passphrase", "address"]);
+        if let Some(missing) = strings.into_iter().find(|f| text(f).is_none()) {
+            return Err(fail("invalid_request", &format!("Set {missing} to a string."), None));
         }
         let artifact = match kind {
             Some("transaction") => Artifact::Transaction(text("xdr").unwrap()),
@@ -1320,7 +1420,6 @@ impl Bridge {
             origin,
             id,
             public_key,
-            signer: signer.unwrap(),
             artifact,
             network_passphrase: passphrase,
             identity,
@@ -1335,7 +1434,7 @@ impl Bridge {
         };
         self.log_result(&mut record);
         let summary = Self::summary(&mut record);
-        state.reviews.insert(record.record_id.clone(), Cancel::new());
+        state.jobs.insert(record.record_id.clone(), Cancel::new());
         state.records.insert(key.clone(), record);
         drop(state);
         self.pending_jobs.fetch_add(1, Ordering::SeqCst);
@@ -1378,11 +1477,8 @@ impl Bridge {
             } else {
                 "The website canceled this request."
             };
-            let record_id = r.record_id.clone();
             self.end_key(state, key, target, message, None);
-            if let Some(cancel) = state.reviews.get(&record_id) {
-                cancel.abort();
-            }
+            Self::stop_job(state, key, message);
         }
         reply(200, Self::summary(state.records.get_mut(key).unwrap()))
     }
@@ -1391,7 +1487,7 @@ impl Bridge {
     /// Stop the bridge. It returns after the signing worker and any website lookup finish their cleanup.
     pub async fn close(&self) {
         self.state.lock().unwrap().closing = true;
-        self.global.abort();
+        self.global.cancel(Error::new("bridge_unavailable", STOPPED));
         loop {
             let idle = self.idle.notified();
             tokio::pin!(idle);
@@ -1449,6 +1545,25 @@ fn address_of(r: &Record) -> String {
     r.identity.get("address").and_then(Value::as_str).unwrap_or_default().to_owned()
 }
 
+/// A request as the terminal names it: its hash, signer, and kind.
+fn about(r: &Record) -> String {
+    match &r.artifact {
+        Artifact::Transaction(_) => format!(
+            "{} (account {}, sequence {})",
+            r.hash,
+            r.public_key,
+            r.details["sequence"].as_str().unwrap_or_default()
+        ),
+        Artifact::Message(_) => format!("{} (signer {}, SEP-53 message)", r.hash, r.public_key),
+        _ => format!(
+            "{} (signer {}, authorization {})",
+            r.hash,
+            r.public_key,
+            r.details["address"].as_str().unwrap_or_default()
+        ),
+    }
+}
+
 /// A discovery failure during a website call is an external service error.
 fn listing_failure(e: Error) -> Fail {
     let reason =
@@ -1477,7 +1592,6 @@ pub fn production(socket: std::path::PathBuf, vault: Option<String>) -> Deps {
                 Ok(hex(&signature))
             })
         }),
-        review: None,
         log: Box::new(|line| {
             use std::io::Write;
             let mut out = std::io::stdout().lock();

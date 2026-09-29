@@ -14,6 +14,7 @@
   <main>
     <div class="intro"><span class="network-label"><span aria-hidden="true"></span>Stellar testnet</span><h1>A small place<br>to try your wallet.</h1><p>Connect a wallet from your Mac. Build a test transaction, request a signature, and see the result.</p></div>
     <p id="status" class="notice" role="status"></p>
+    <div id="record-error" class="notice danger transaction-record" hidden><div><strong>Saved record unreadable</strong><span>Discard it to start another transaction.</span></div><button id="discard-record" type="button" class="button">Discard saved record</button></div>
     <div id="transaction-record" class="notice transaction-record" hidden><div><strong id="record-title">Your transaction</strong><span id="record-state"></span></div><button id="open-review" type="button" class="button">View transaction</button></div>
     <section id="actions" class="panel" aria-labelledby="actions-title">
       <div class="panel-heading"><div><h2 id="actions-title" tabindex="-1">Try a transaction</h2><p>Test funds. Real connection.</p><p id="account-status" class="account-status" hidden></p></div><span class="demo-tag">Demo workspace</span></div>
@@ -21,7 +22,7 @@
       <div class="action-grid">
         <article class="action-card"><span class="action-symbol" aria-hidden="true">≡</span><h3>Leave a note</h3><p>Write a short data entry to your testnet account.</p><button id="note" class="button" disabled>Write a note</button></article>
         <article class="action-card"><span class="action-symbol" aria-hidden="true">↗</span><h3>Send a little XLM</h3><p>Send 0.01 test XLM to an account chosen by the demo.</p><button id="payment" class="button" disabled>Pay 0.01 test XLM</button></article>
-        <article class="action-card"><span class="action-symbol" aria-hidden="true">⇄</span><h3>Place an offer</h3><p>Sell 0.1 test XLM at 10 USDC per XLM. <span id="offer-requirement">It needs an authorized USDC trustline to GBBD…LFLA5 with room for 1 USDC. Create it with direct signing.</span></p><button id="offer" class="button" disabled>Offer 0.1 test XLM</button></article>
+        <article class="action-card"><span class="action-symbol" aria-hidden="true">⇄</span><h3>Place an offer</h3><p>Sell 0.1 test XLM at 10 USDC per XLM. <span id="offer-requirement">It needs a USDC trustline with room for 1 USDC.</span></p><p id="usdc-faucet" class="card-note" hidden>Optional: get testnet USDC from <a href="https://faucet.circle.com" target="_blank" rel="noopener noreferrer">Circle’s faucet</a>. The offer does not need it.</p><button id="trustline" class="button" disabled hidden>Add USDC trustline</button><button id="offer" class="button" disabled>Offer 0.1 test XLM</button></article>
         <article class="action-card"><span class="action-symbol" aria-hidden="true">×</span><h3>Cancel an offer</h3><p>Remove this account’s newest open offer, including offers created elsewhere.</p><button id="cancel-offer" class="button" disabled>Cancel newest offer</button></article>
       </div>
       <p class="panel-note">Use a dedicated testnet account. An offer can trade immediately. The demo funds new accounts through Friendbot.</p>

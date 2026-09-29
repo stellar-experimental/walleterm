@@ -31,7 +31,7 @@ pub struct Checked {
     pub key: [u8; 32],
     /// The 32 bytes that the key signs.
     pub digest: [u8; 32],
-    /// The review details. The bridge shows them to its review hook; the CLI notice reads them.
+    /// The review details. The CLI notice and the tunnel's signing lines read them. The parity vectors fix them.
     pub details: Value,
 }
 

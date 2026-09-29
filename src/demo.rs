@@ -1,7 +1,7 @@
 //! `walleterm demo`: an independent example website served from embedded files.
 //! It has no signing route. It answers GET only, for its own origin and loopback.
 
-use std::sync::atomic::{AtomicBool, AtomicU16, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -36,7 +36,7 @@ fn empty(status: u16) -> Reply {
 
 pub struct Demo {
     origin: Mutex<String>,
-    port: AtomicU16,
+    port: u16,
     closing: AtomicBool,
 }
 
@@ -44,17 +44,9 @@ impl Demo {
     pub fn new(port: u16) -> Arc<Self> {
         Arc::new(Self {
             origin: Mutex::new(format!("http://127.0.0.1:{port}")),
-            port: AtomicU16::new(port),
+            port,
             closing: AtomicBool::new(false),
         })
-    }
-
-    pub fn set_port(&self, port: u16) {
-        self.port.store(port, Ordering::SeqCst);
-        let mut origin = self.origin.lock().unwrap();
-        if origin.starts_with("http://127.0.0.1:") {
-            *origin = format!("http://127.0.0.1:{port}");
-        }
     }
 
     pub fn set_public_origin(&self, origin: &str) {
@@ -68,7 +60,7 @@ impl Demo {
     pub fn handle(&self, req: &HttpRequest) -> Reply {
         let origin = self.origin.lock().unwrap().clone();
         let base = url::Url::parse(&origin).expect("the demo origin is valid");
-        let port = u64::from(self.port.load(Ordering::SeqCst));
+        let port = u64::from(self.port);
         if self.closing.load(Ordering::SeqCst) || !crate::http::allowed_host(&base, port, req.host.as_deref())
         {
             return empty(403);
@@ -161,7 +153,7 @@ impl crate::tunnel::Service for DemoService {
     fn pairing(&self) -> Option<serde_json::Value> {
         None
     }
-    fn on_pairing_changed(&self, _callback: Box<dyn Fn() + Send + Sync>) {}
+    fn on_pairing_changed(&self, _callback: Box<crate::bridge::PairingFn>) {}
 }
 
 #[cfg(test)]

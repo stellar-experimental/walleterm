@@ -3,7 +3,7 @@
 //!
 //! Standard input and output carry one JSON object per line.
 //! Host to harness: `{"ready":{...}}`, `{"call":N,"dep":...,"args":...}`, `{"abort":N,"reason":{...}}`,
-//! `{"log":"..."}`, `{"pairing_changed":true}`, `{"reply":N,"value":...}`.
+//! `{"log":"..."}`, `{"pairing_changed":true,"reason":"used"|"expired"|"locked"}`, `{"reply":N,"value":...}`.
 //! Harness to host: `{"result":N,"ok":...}` or `{"result":N,"error":{"code","message"}}` for a call,
 //! and `{"request":N,"op":...}` for pairing, origin, clock, and close operations.
 //! End of input stops the host.
@@ -17,7 +17,7 @@ use std::time::Duration;
 use serde_json::{Value, json};
 use std::io::BufRead;
 use tokio::sync::oneshot;
-use walleterm::bridge::{BoxFuture, Bridge, Deps, SignerInfo};
+use walleterm::bridge::{BoxFuture, Bridge, Deps, Rotation, SignerInfo};
 use walleterm::cancel::Cancel;
 use walleterm::error::{Error, Result};
 
@@ -81,7 +81,7 @@ impl Rpc {
 }
 
 fn deps(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
-    let (a, b, c) = (rpc.clone(), rpc.clone(), rpc.clone());
+    let (a, b) = (rpc.clone(), rpc.clone());
     Deps {
         list_signers: Box::new(move |cancel| -> BoxFuture<Result<Vec<SignerInfo>>> {
             let rpc = a.clone();
@@ -105,15 +105,6 @@ fn deps(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
                 let value = rpc.call("sign", args, cancel).await?;
                 Ok(value.as_str().unwrap_or_default().to_owned())
             })
-        }),
-        review: std::env::var_os("WALLETERM_TEST_HOST_REVIEW").map(|_| {
-            Box::new(move |request, cancel| -> BoxFuture<Result<bool>> {
-                let rpc = c.clone();
-                Box::pin(async move {
-                    let value = rpc.call("review", serde_json::to_value(request).unwrap(), cancel).await?;
-                    Ok(value.as_bool().unwrap_or(false))
-                })
-            }) as Box<walleterm::bridge::ReviewFn>
         }),
         log: Box::new(|line| send(&json!({ "log": line }))),
         now: Box::new(move || {
@@ -157,7 +148,14 @@ fn main() {
         });
         let bridge = Bridge::new(dependencies, port);
         bridge.set_public_origin(&format!("http://127.0.0.1:{port}")).unwrap();
-        bridge.on_pairing_changed(Box::new(|| send(&json!({ "pairing_changed": true }))));
+        bridge.on_pairing_changed(Box::new(|rotation| {
+            let reason = match rotation {
+                Rotation::Used => "used",
+                Rotation::Expired => "expired",
+                Rotation::Locked(_) => "locked",
+            };
+            send(&json!({ "pairing_changed": true, "reason": reason }));
+        }));
         let stop = Cancel::new();
         let served = bridge.clone();
         let handler: walleterm::http::Handler = Arc::new(move |req, body| {

@@ -19,6 +19,23 @@ export function deadline(milliseconds: number, message: string): AbortSignal {
   return controller.signal;
 }
 
+/**
+ * A tunnel URL is an HTTPS origin, or a loopback HTTP origin for development.
+ * A path, a query, or credentials fail, so the host that the person sees is the host that the SDK calls.
+ */
+export function isTunnelUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      url.origin === value &&
+      (url.protocol === 'https:' ||
+        (url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname)))
+    );
+  } catch {
+    return false;
+  }
+}
+
 // JavaScript permits throwing any value. Normalize it at each catch boundary.
 export function requestError(value: unknown): RequestError {
   return value instanceof Error ? value : Error(String(value));

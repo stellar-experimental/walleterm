@@ -6,6 +6,7 @@ import { browserScript } from './support.ts';
 import * as sdk from '@stellar/stellar-sdk';
 import { createAuthEntry } from '../../sdk/authorization.ts';
 import {
+  CONTRACT_RPC,
   MAX_SETS,
   authorizationExpiry,
   contractSet,
@@ -101,6 +102,7 @@ function contextFor(html: string, extras: Record<string, unknown> = {}) {
     navigator: { locks: { request: async (_name: string, fn: () => unknown) => fn() } },
     // The walkthrough presentation is pure. Ledger reads fail unless a test supplies them.
     ...walkthrough,
+    CONTRACT_RPC,
     MAX_SETS,
     contractSet,
     readWalkthrough: async () => {
@@ -372,7 +374,10 @@ test('an RPC error without rejection evidence preserves the unknown submission',
   await f.click('submit');
   assert.equal(f.run('pending.state'), 'unknown');
   assert.equal(polls, 1);
-  assert.match(f.el('status').textContent, /uncertain/);
+  assert.equal(
+    f.el('status').textContent,
+    'Testnet did not confirm the submission. Select Check transaction status. Do not sign a replacement.',
+  );
 });
 
 const reviewSdk = {
@@ -389,7 +394,7 @@ const reviewSdk = {
     }),
   },
 };
-for (const kind of ['note', 'payment', 'offer', 'cancel_offer'] as const) {
+for (const kind of ['note', 'payment', 'trustline', 'offer', 'cancel_offer'] as const) {
   test(`${kind} keeps transaction details after signing, reopening, and reload`, async () => {
     const sdk = await import('@stellar/stellar-sdk');
     const signer = sdk.Keypair.random(),
@@ -400,13 +405,15 @@ for (const kind of ['note', 'payment', 'offer', 'cancel_offer'] as const) {
         ? sdk.Operation.manageData({ name: 'walleterm-demo', value: 'review-note' })
         : kind === 'payment'
           ? sdk.Operation.payment({ destination: recipient, asset: sdk.Asset.native(), amount: '0.01' })
-          : sdk.Operation.manageSellOffer({
-              selling: sdk.Asset.native(),
-              buying: new sdk.Asset('USDC', recipient),
-              amount: kind === 'offer' ? '0.1' : '0',
-              price: '2',
-              offerId: kind === 'offer' ? '0' : '77',
-            });
+          : kind === 'trustline'
+            ? sdk.Operation.changeTrust({ asset: new sdk.Asset('USDC', recipient), limit: '100' })
+            : sdk.Operation.manageSellOffer({
+                selling: sdk.Asset.native(),
+                buying: new sdk.Asset('USDC', recipient),
+                amount: kind === 'offer' ? '0.1' : '0',
+                price: '2',
+                offerId: kind === 'offer' ? '0' : '77',
+              });
     const tx = new sdk.TransactionBuilder(new sdk.Account(address, '10'), {
       fee: '100',
       networkPassphrase: sdk.Networks.TESTNET,
@@ -430,14 +437,16 @@ for (const kind of ['note', 'payment', 'offer', 'cancel_offer'] as const) {
           ? { type: 'manageData', name: 'walleterm-demo', value: Buffer.from('review-note').toString('hex') }
           : kind === 'payment'
             ? { type: 'payment', destination: recipient, asset: 'XLM', amount: '0.0100000' }
-            : {
-                type: 'manageSellOffer',
-                selling: 'XLM',
-                buying: `USDC:${recipient}`,
-                amount: kind === 'offer' ? '0.1000000' : '0.0000000',
-                price: '2',
-                offerId: kind === 'offer' ? '0' : '77',
-              },
+            : kind === 'trustline'
+              ? { type: 'changeTrust', line: `USDC:${recipient}`, limit: '100.0000000' }
+              : {
+                  type: 'manageSellOffer',
+                  selling: 'XLM',
+                  buying: `USDC:${recipient}`,
+                  amount: kind === 'offer' ? '0.1000000' : '0.0000000',
+                  price: '2',
+                  offerId: kind === 'offer' ? '0' : '77',
+                },
     };
     let stored: string | null = JSON.stringify({
       kind,
@@ -691,14 +700,14 @@ test('a reload preserves an open signing request until the user clears it', asyn
   assert.ok(stored);
   assert.match(
     f.el('status').textContent,
-    /Decline the 1Password prompt if it appears, then clear this record/,
+    /If a 1Password prompt is still open, decline it\. Then clear this record\./,
   );
   await f.click('clear');
   assert.equal(f.run('pending'), null);
   assert.equal(stored, null);
   assert.equal(
     f.el('status').textContent,
-    'The stopped request was cleared. Decline any 1Password prompt that appears.',
+    'The stopped request was cleared. If a 1Password prompt is still open, decline it.',
   );
 });
 test('an unreadable journal blocks new transaction actions', async () => {
@@ -719,9 +728,69 @@ test('an unreadable journal blocks new transaction actions', async () => {
     f.run(app());
     f.run("account={address:'GSOURCE'}; render()");
     assert.equal(f.el('payment').disabled, true);
-    assert.match(f.el('status').textContent, /Preserve it before continuing/);
+    assert.equal(
+      f.el('status').textContent,
+      'The saved transaction record cannot be read. Activity has a copy.',
+    );
     await f.click('payment');
     assert.equal(f.run('pending') == null, true);
+  }
+});
+test('an unreadable saved record keeps its raw text in Activity until Discard saved record', async () => {
+  const valid = JSON.stringify({ kind: 'note', state: 'unknown', address: 'GSOURCE', hash: 'h', xdr: 'x' });
+  for (const replaced of [false, true]) {
+    let stored: string | null = '{broken';
+    const records: [string, string, unknown][] = [];
+    const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
+      StellarSdk: {},
+      localStorage: {
+        getItem: () => stored,
+        setItem: () => {
+          throw Error('must not write');
+        },
+        removeItem: () => {
+          stored = null;
+        },
+      },
+      createActivityLog: () => ({
+        record(category: string, title: string, data: unknown) {
+          records.push([category, title, data]);
+        },
+        transaction() {},
+        wrapFetch: (fetcher: unknown) => fetcher,
+      }),
+    });
+    f.run(app());
+    f.run("connection.onChange({wallet:{address:'GSOURCE'}, account:{address:'GSOURCE'}})");
+    // Connecting does not replace the blocked message with an invitation to act.
+    assert.equal(
+      f.el('status').textContent,
+      'The saved transaction record cannot be read. Activity has a copy.',
+    );
+    const copy = records.find(([, title]) => title === 'Saved transaction record unreadable');
+    assert.deepEqual((copy?.[2] as { record?: string }).record, '{broken');
+    assert.equal(f.el('record-error').hidden, false);
+    assert.equal(f.el('discard-record').disabled, false);
+    assert.equal(f.el('note').disabled, true);
+    // Another tab can replace the record before the discard. A readable record stays.
+    if (replaced) stored = valid;
+    await f.click('discard-record');
+    assert.equal(f.run('journalBlocked'), false);
+    assert.equal(f.el('record-error').hidden, true);
+    if (replaced) {
+      assert.equal(stored, valid);
+      assert.equal(f.run('pending.state'), 'unknown');
+      assert.match(f.el('status').textContent, /Another tab replaced the saved record/);
+      continue;
+    }
+    assert.equal(stored, null);
+    assert.equal(f.run('pending'), null);
+    assert.ok(records.some(([, title]) => title === 'Unreadable saved record discarded'));
+    assert.equal(
+      f.el('status').textContent,
+      'The saved record was discarded. Activity keeps its copy. Choose an action.',
+    );
+    assert.equal(f.el('note').disabled, false);
   }
 });
 test('a damaged journal still permits disconnect without changing storage', async () => {
@@ -1162,7 +1231,8 @@ test('a saved review with invalid XDR blocks actions without breaking the page',
   f.run(app());
   assert.equal(f.run('journalBlocked'), true);
   assert.equal(f.run('busy'), false);
-  assert.match(f.el('status').textContent, /could not be read/);
+  assert.match(f.el('status').textContent, /cannot be read/);
+  assert.equal(f.el('record-error').hidden, false);
 });
 
 test('the action modal opens before account lookup and keeps preparation errors visible', async () => {
@@ -1302,8 +1372,11 @@ async function completedFixture(state = 'submitted') {
 test('completed transactions permit another action after wallet switching without a separate clear step', async () => {
   for (const state of ['submitted', 'canceled', 'denied', 'expired', 'failed']) {
     const f = await completedFixture(state);
-    for (const name of ['note', 'payment', 'offer', 'cancel-offer'])
+    // The connected account has no USDC trustline, so the offer card offers the trustline instead.
+    for (let i = 0; i < 3; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+    for (const name of ['note', 'payment', 'trustline', 'cancel-offer'])
       assert.equal(f.el(name).disabled, false, state);
+    assert.equal(f.el('offer').hidden, true);
     assert.equal(f.el('clear').hidden, true);
     assert.equal(f.el('check').hidden, true, state);
     assert.equal(f.el('review').open, false);
@@ -1335,7 +1408,7 @@ test('unfinished transactions still prevent replacement after wallet switching',
         'We could not confirm the result. Check before trying another transaction.',
       );
     }
-    for (const name of ['note', 'payment', 'offer', 'cancel-offer'])
+    for (const name of ['note', 'payment', 'trustline', 'offer', 'cancel-offer'])
       assert.equal(f.el(name).disabled, true, state);
     await f.click('note');
     assert.equal(f.store.value, before);
@@ -1975,4 +2048,276 @@ test('closing the window returns focus to its opener without scrolling the page'
   f.run("openReview(); pending = { kind: 'note' }");
   f.click('close-review');
   assert.deepEqual(focused.at(-1), ['open-review', { preventScroll: true }]);
+});
+
+// The offer card and the trustline action. Mock accounts only; nothing here signs or submits.
+const USDC_ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+const usdcLine = (fields: Record<string, unknown> = {}) => ({
+  asset_type: 'credit_alphanum4',
+  asset_code: 'USDC',
+  asset_issuer: USDC_ISSUER,
+  balance: '0.0000000',
+  limit: '100.0000000',
+  buying_liabilities: '0.0000000',
+  is_authorized: true,
+  ...fields,
+});
+const demoHtml = () => readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8');
+
+test('the offer card shows one next step for each USDC trustline state', () => {
+  const f = contextFor(demoHtml(), { StellarSdk: {}, localStorage: { getItem: () => null } });
+  f.run(app());
+  f.run("account={address:'GSOURCE'}; wallet={address:'GSOURCE'}");
+  const control = (id: string) => (f.el(id).hidden ? 'hidden' : f.el(id).disabled ? 'disabled' : 'enabled');
+  const card = (value: unknown) => {
+    f.context.nextAccount = value;
+    f.run('testnetAccount=nextAccount; render()');
+    return [
+      f.el('offer-requirement').textContent,
+      control('trustline'),
+      control('offer'),
+      f.el('usdc-faucet').hidden ? 'no faucet' : 'faucet',
+    ];
+  };
+  const native = { asset_type: 'native', balance: '100.0000000' };
+  const add = ['It needs a USDC trustline. Add it first.', 'enabled', 'hidden', 'no faucet'];
+  // An unread account shows the requirement and no action.
+  assert.deepEqual(card(null), [
+    'It needs a USDC trustline with room for 1 USDC.',
+    'hidden',
+    'disabled',
+    'no faucet',
+  ]);
+  assert.deepEqual(card('missing'), add);
+  assert.deepEqual(card({ balances: [native] }), add);
+  assert.deepEqual(card({ balances: [native, usdcLine({ asset_issuer: 'GOTHER' })] }), add);
+  assert.deepEqual(card({ balances: [native, usdcLine()] }), [
+    'The USDC trustline is ready.',
+    'hidden',
+    'enabled',
+    'faucet',
+  ]);
+  // A trustline that exists but cannot take the offer offers no action that would fail.
+  assert.deepEqual(card({ balances: [native, usdcLine({ is_authorized: false })] }), [
+    'The issuer has not authorized this USDC trustline. The offer cannot run.',
+    'hidden',
+    'disabled',
+    'no faucet',
+  ]);
+  const full = [
+    'The USDC trustline has no room for 1 more USDC. The offer cannot run.',
+    'hidden',
+    'disabled',
+    'no faucet',
+  ];
+  assert.deepEqual(card({ balances: [native, usdcLine({ balance: '99.5000000' })] }), full);
+  assert.deepEqual(
+    card({ balances: [native, usdcLine({ balance: '98.0000000', buying_liabilities: '1.5000000' })] }),
+    full,
+  );
+  // The faucet link opens in a new tab.
+  assert.match(
+    demoHtml(),
+    /<a href="https:\/\/faucet\.circle\.com" target="_blank" rel="noopener noreferrer">Circle’s faucet<\/a>/,
+  );
+});
+
+test('Add USDC trustline builds one changeTrust with the demo limit, and each build checks the live trustline', async () => {
+  const signer = sdk.Keypair.random().publicKey();
+  let balances: unknown[] = [];
+  let stored: string | null = null;
+  const f = contextFor(demoHtml(), {
+    StellarSdk: sdk,
+    crypto,
+    localStorage: {
+      getItem: () => stored,
+      setItem: (_key: string, value: string) => {
+        stored = value;
+      },
+      removeItem: () => {
+        stored = null;
+      },
+    },
+    fetch: async () => ok({ account_id: signer, sequence: '7', balances }),
+  });
+  f.run(app());
+  f.context.signer = signer;
+  f.run('connection.onChange({wallet:{address:signer}, account:{address:signer}})');
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(f.el('trustline').hidden, false);
+  assert.equal(f.el('trustline').disabled, false);
+  assert.equal(f.el('offer').hidden, true);
+  await f.click('trustline');
+  assert.equal(f.run('pending.kind'), 'trustline');
+  assert.equal(f.run('pending.state'), 'review');
+  assert.equal(f.el('review-title').textContent, 'Add USDC trustline');
+  const transaction = sdk.TransactionBuilder.fromXDR(f.run('pending.xdr') as string, sdk.Networks.TESTNET);
+  assert.equal(transaction.operations.length, 1);
+  const operation = transaction.operations[0];
+  assert.equal(operation.type, 'changeTrust');
+  if (operation.type !== 'changeTrust' || !(operation.line instanceof sdk.Asset)) throw Error();
+  assert.equal(operation.line.getCode(), 'USDC');
+  assert.equal(operation.line.getIssuer(), USDC_ISSUER);
+  assert.equal(operation.limit, '100.0000000');
+  const labels = (f.el('review-summary').children as { textContent: string }[])
+    .filter((_, index) => index % 2 === 0)
+    .map((node) => node.textContent);
+  assert.deepEqual(labels, ['Network', 'Wallet', 'USDC issuer', 'Trust limit', 'Fee']);
+  assert.match(f.el('status').textContent, /hold up to 100 testnet USDC/);
+  // A ready trustline stops a second trustline. The offer then checks the same live account.
+  f.run('pending=null; save()');
+  balances = [usdcLine()];
+  await assert.rejects(f.promise("build('trustline')"), /already has a USDC trustline/);
+  f.run('render()');
+  assert.equal(f.el('trustline').hidden, true);
+  assert.equal(f.el('offer').disabled, false);
+  balances = [];
+  await assert.rejects(f.promise("build('offer')"), /no USDC trustline\. Add it first\./);
+  balances = [usdcLine({ is_authorized: false })];
+  await assert.rejects(f.promise("build('offer')"), /has not authorized this USDC trustline/);
+  assert.equal(f.run('pending'), null);
+});
+
+test('a testnet network failure reads as plain text, and other failures keep their own messages', async () => {
+  // A browser fetch rejects with an error from the page realm.
+  let answer: (url: string) => unknown = () => {
+    throw f.run("new TypeError('Failed to fetch')");
+  };
+  const f = contextFor(demoHtml(), {
+    StellarSdk: {},
+    URL,
+    localStorage: { getItem: () => null },
+    fetch: async (url: string) => answer(url),
+  });
+  f.run(app());
+  const offline = 'The demo could not reach testnet. Check your network.';
+  for (const request of [
+    "horizon('/ledgers')",
+    "fetch('https://soroban-testnet.stellar.org', {method:'POST'})",
+    "fetch('https://friendbot.stellar.org/?addr=GNEW')",
+  ])
+    await assert.rejects(f.promise(request), (error: Error) => error.message === offline);
+  // The tunnel and the demo server keep the browser error. The SDK names the tunnel itself.
+  await assert.rejects(f.promise("fetch('https://demo.trycloudflare.com/v1/account')"), /Failed to fetch/);
+  await assert.rejects(f.promise("fetch('/fixtures/walleterm_auth_target.wasm')"), /Failed to fetch/);
+  // A programming error is not a network failure.
+  answer = () => {
+    throw Error('Unexpected bug');
+  };
+  await assert.rejects(f.promise("horizon('/ledgers')"), /Unexpected bug/);
+  // A proxy error page is not a Horizon answer, so it carries no Horizon status.
+  answer = () => ({
+    ok: false,
+    status: 502,
+    json: async () => {
+      throw SyntaxError("Unexpected token '<'");
+    },
+  });
+  await assert.rejects(
+    f.promise("horizon('/accounts/GSOURCE')"),
+    (error: Error & { status?: number }) =>
+      error.message === 'Testnet returned an error (HTTP 502). Try again later.' &&
+      error.status === undefined,
+  );
+  // The RPC client reports an HTTP failure with its own raw text.
+  assert.equal(
+    f.run(
+      "demoError(Object.assign(Error('Request failed with status code 503'), {response:{status:503}})).message",
+    ),
+    'Testnet returned an error (HTTP 503). Try again later.',
+  );
+});
+
+test('a failed ledger read names its cause once, as full sentences', async () => {
+  // The RPC client wraps the mapped network error in its own error type.
+  let failure = "Object.assign(Error(OFFLINE), {name:'AxiosError'})";
+  const f = walkthroughPage(async () => {
+    throw f.run(failure);
+  });
+  await f.connect();
+  assert.equal(
+    f.el('walkthrough-error').textContent,
+    'The demo could not reach testnet. Check your network.',
+  );
+  // The failed request has its own event. The check adds none.
+  assert.ok(!f.records.some(([category]) => category === 'error'));
+  failure = "Error('The contract counter is invalid')";
+  await f.click('walkthrough-refresh');
+  assert.equal(
+    f.el('walkthrough-error').textContent,
+    'The demo could not read the ledger. The contract counter is invalid.',
+  );
+  assert.ok(
+    f.records.some(([category, title]) => category === 'error' && title === 'Walkthrough check failed'),
+  );
+});
+
+test('signing stops at one deadline and says whether anything was signed', async () => {
+  let now = Date.now(),
+    tick: (() => void) | undefined;
+  const f = contextFor(demoHtml(), {
+    Date: class extends Date {
+      static override now() {
+        return now;
+      }
+    },
+    StellarSdk: {
+      Networks: { TESTNET: 'testnet' },
+      TransactionBuilder: { fromXDR: () => ({ timeBounds: { maxTime: Math.floor(now / 1000) + 60 } }) },
+    },
+    localStorage: { getItem: () => null, setItem() {} },
+    setInterval(fn: () => void) {
+      tick = fn;
+      return 1;
+    },
+    clearInterval() {},
+  });
+  f.run(app());
+  const cases: ['deadline' | 'cancel', string, string, string][] = [
+    [
+      'deadline',
+      "{code:-4, message:'The signing request expired.', ext:['walleterm:rejected']}",
+      'expired',
+      'The signing request expired. Nothing was signed.',
+    ],
+    [
+      'deadline',
+      "{code:-1, message:'The signing request expired.', requestState:'unknown'}",
+      'signing_unknown',
+      'The signing request expired. The result is unknown. If a 1Password prompt is still open, decline it.',
+    ],
+    [
+      'cancel',
+      "{code:-4, message:'The signing request was canceled.', ext:['walleterm:rejected']}",
+      'canceled',
+      'The signing request was canceled.',
+    ],
+    [
+      'cancel',
+      "{code:-1, message:'The signing request was canceled.', requestState:'unknown'}",
+      'signing_unknown',
+      'The signing request was canceled. The result is unknown. If a 1Password prompt is still open, decline it.',
+    ],
+  ];
+  for (const [stop, answer, state, message] of cases) {
+    const signing = f.promise(`
+      pending={kind:'note', state:'waiting', address:'GORIGINAL', xdr:'mock', hash:'hash'};
+      wallet={signTransaction: (_xdr, options) => new Promise((resolve) => {
+        // The demo passes only its own signal. No second demo deadline runs.
+        onlySignal = options.signal === signingController.signal;
+        options.signal.addEventListener('abort', () => resolve({error: ${answer}}), {once:true});
+      })};
+      requestSignature().then(() => '', (error) => error.message);
+    `);
+    assert.equal(f.run('onlySignal'), true);
+    if (stop === 'deadline') {
+      now += 59000;
+      tick!();
+      assert.equal(f.run('signingController.signal.aborted'), false);
+      now += 2000;
+      tick!();
+    } else f.click('cancel-request');
+    assert.equal(await signing, message, `${stop} ${state}`);
+    assert.equal(f.run('pending.state'), state);
+  }
 });

@@ -121,7 +121,11 @@ export function transactionPhases(record: PhaseRecord, progress = '', confirmed 
       reach(signing, 'current', progress || undefined);
       break;
     case 'signing_unknown':
-      reach(signing, 'unknown', 'The signing result is unknown. Decline any 1Password prompt that appears.');
+      reach(
+        signing,
+        'unknown',
+        'The signing result is unknown. If a 1Password prompt is still open, decline it.',
+      );
       break;
     case 'signed':
       reach(submit, 'current', progress || 'Signature verified. Ready to submit.');
@@ -131,7 +135,11 @@ export function transactionPhases(record: PhaseRecord, progress = '', confirmed 
       reach(submit, 'current', progress || 'Waiting for the testnet result.');
       break;
     case 'unknown':
-      reach(submit, 'unknown', 'The result is unknown. Check the original hash before you try again.');
+      reach(
+        submit,
+        'unknown',
+        'The result is unknown. Select Check transaction status. Do not sign a replacement.',
+      );
       break;
     case 'submitted':
       reach(
@@ -147,14 +155,14 @@ export function transactionPhases(record: PhaseRecord, progress = '', confirmed 
       else reach(signing, 'failed', 'Signing failed.');
       break;
     case 'denied':
-      reach(signing, 'failed', 'The signing request was declined.');
+      reach(signing, 'failed', 'The signing request was declined. Nothing was signed.');
       break;
     case 'canceled':
-      reach(signing, 'failed', 'The signing request was canceled.');
+      reach(signing, 'failed', 'The signing request was canceled. Nothing was signed.');
       break;
     case 'expired':
       if (record.signed_xdr) reach(submit, 'failed', 'The transaction expired before it reached the ledger.');
-      else reach(signing, 'failed', 'The signing request expired.');
+      else reach(signing, 'failed', 'The signing request expired. Nothing was signed.');
       break;
   }
   return phases;

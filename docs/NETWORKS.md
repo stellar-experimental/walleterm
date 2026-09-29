@@ -37,7 +37,7 @@ The bridge and the SDK call testnet `TESTNET`.
 | `src/transaction.rs` `TESTNET` | The one Rust constant for the testnet passphrase. `src/bridge.rs` and `src/cli.rs` import it. | `Test SDF Network ; September 2015` | Keep it. Add a constant for each other network that the code names. |
 | `src/bridge.rs` `admit` | Refuses a request of any kind with another passphrase: `network_unsupported`, "Walleterm signs only on Stellar testnet." | Testnet only | Replace the equality test with the accepted networks. Change the message. |
 | `src/bridge.rs` `Bridge::route` (`GET /v1/account`) and `Bridge::select` | Each reply returns `"network": "TESTNET"` and the testnet passphrase. | Fixed | Return the network of the session or the tunnel. The SDK checks this value. |
-| `src/transaction.rs` `details` | Sets the review detail `network` to `TESTNET` for testnet. For another network, it is the raw passphrase. The review hook reads it. | `TESTNET` or the passphrase | Add names for other networks if a review needs them. |
+| `src/transaction.rs` `details` | Sets the review detail `network` to `TESTNET` for testnet. For another network, it is the raw passphrase. The parity vectors record it. | `TESTNET` or the passphrase | Add names for other networks if a review needs them. |
 | `src/cli.rs` `network_name` | Names the network in the CLI notice. It quotes an unknown passphrase. | `testnet`, `pubnet`, `futurenet` | None. A custom network shows as a quoted passphrase. |
 | `src/cli.rs` `HELP` | "Tunnel starts the testnet signing bridge." | Text | Change the text. |
 | `src/tunnel.rs` `launch` | Prints "Walleterm tunnel is ready on Stellar testnet." The demo prints the same text with its own label. | Text | Print the active network. The demo line follows the demo website. |
@@ -51,7 +51,7 @@ The bridge and the SDK call testnet `TESTNET`.
 | Location | What it enforces or states | Current value | Change for mainnet or a custom network |
 | --- | --- | --- | --- |
 | `sdk/walleterm.ts` `Walleterm.#ready` | The default `networkPassphrase` is `Networks.TESTNET`. Another value returns `network_unsupported` before a request. `signTransaction`, `signAuthEntry`, `signMessage`, and `signAuthorization` call it. | Testnet only | Accept the session network. Choose a default. |
-| `sdk/walleterm.ts` `WalletermClient.readAccount` | Refuses an account reply with another passphrase: "The bridge reported a network other than testnet." | Testnet only | Accept the network that the bridge reports. |
+| `sdk/walleterm.ts` `WalletermClient.readAccount` | Refuses an account reply with another passphrase: "The tunnel reported a network other than testnet." | Testnet only | Accept the network that the bridge reports. |
 | `sdk/walleterm.ts` `WalletermClient.signer` | The request passphrase must equal the account passphrase. The message says "Walleterm signs only on Stellar testnet." | Session network | Change the message only. |
 | `sdk/walleterm.ts` `Walleterm.getNetwork` | Always returns `TESTNET` and `Networks.TESTNET`. It needs no session. | Fixed | Return the session network. Decide the reply without a session. |
 | `sdk/walleterm.ts` `AddressChange` and `Walleterm.#publish` | The type fixes `network: 'TESTNET'`. Each change reports testnet. | Fixed | Widen the type. Report the session network. |
@@ -66,7 +66,9 @@ The bridge and the SDK call testnet `TESTNET`.
 | --- | --- | --- | --- |
 | `demo/site/app.ts` `HORIZON` and `horizon` | Reads accounts, recipients, offers, ledgers, and results. Submits classic transactions. | `https://horizon-testnet.stellar.org` | A Horizon URL for each network. |
 | `demo/site/app.ts` `sourceAccount` | Funds a missing account through Friendbot. | `https://friendbot.stellar.org/?addr=` | Mainnet has no Friendbot. A local network serves it at `/friendbot` on its host. |
-| `demo/site/app.ts` `ISSUER` | The offer action buys USDC from this issuer. | `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`, the testnet USDC issuer | Each network has its own issuers. |
+| `demo/site/app.ts` `ISSUER` | The trustline action trusts USDC from this issuer. The offer action buys it. | `GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`, the testnet USDC issuer | Each network has its own issuers. |
+| `demo/site/app.ts` `testnetFetch` | Replaces a browser network error from Horizon, Friendbot, or Soroban RPC with "The demo could not reach testnet." | The three testnet origins | Match the chosen hosts and text. |
+| `demo/site/index.html` `usdc-faucet` | Links to Circle's testnet USDC faucet after the trustline is ready. | `https://faucet.circle.com` | Mainnet has no faucet. Remove the line. |
 | `demo/site/app.ts` `build` and the other parsers | `Networks.TESTNET` for each build, parse, and hash. | Testnet | Use the chosen passphrase. |
 | `demo/site/contracts.ts` `CONTRACT_RPC` and `demoRpc` | Simulates, sends, and reads contract calls. | `https://soroban-testnet.stellar.org` | An RPC URL for each network. Stellar CLI has no built-in mainnet RPC. |
 | `demo/site/contracts.ts` `build`, `deployment`, `signDemoAuthorization`, and the XDR parsers | `Networks.TESTNET` for builds, contract IDs, and authorization preimages. | Testnet | Use the chosen passphrase. Contract IDs change with the network ID. |
@@ -131,7 +133,8 @@ Update those statements in the same change.
 | --- | --- | --- | --- |
 | `new_code` | 8 decimal digits | Connection code | No |
 | `CODE_LIFETIME_MS` | 5 minutes | Code rotation | No |
-| `Bridge::connect`, `CODE_LOCKOUT_MS` | 5 incorrect codes, then a 1-minute pause | Code guessing | No |
+| `SWEEP` | 1 second | Wall-clock check of code, session, and pending request deadlines | No |
+| `MAX_ATTEMPTS`, `CODE_LOCKOUT_MS` | 5 incorrect codes, then a 1-minute pause | Code guessing | No |
 | `UNSELECTED_SESSION_MS` | 5 minutes | A session without a selected key | No |
 | `SELECTED_SESSION_MS` | 1 hour from the first key selection | A session with a key | No |
 | `REQUEST_MS`, `Bridge::create` | 5 minutes, or the transaction `max_time` if earlier | Request expiry | No |
@@ -140,7 +143,7 @@ Update those statements in the same change.
 | `MAX_PER_SESSION` | 1000 | Request records and early canceled IDs in one session | No |
 | `Bridge::route`, `Bridge::create` | 1–64 characters from `A-Z`, `a-z`, `0-9`, `_`, and `-` | Request ID | No |
 | `Bridge::dispatch` | 300 seconds | CORS `Access-Control-Max-Age` | No |
-| `Bridge::review_and_sign` | One job at a time | Signing queue | No |
+| `Bridge::sign_job` | One job at a time | Signing queue | No |
 | `production` | 125 seconds | One agent signing call | No |
 
 ### HTTP, tunnel, and DNS
@@ -167,7 +170,7 @@ Update those statements in the same change.
 | --- | --- | --- | --- |
 | `MAX_OUTPUT` | 1 MiB | Output of one `op` command | No |
 | `MAX_ITEMS` | 1024 | SSH key items in one vault | No |
-| `LOOKUP` | 120 seconds | Vault lookup after agent discovery | No |
+| `LOOKUP` | 100 seconds | Vault lookup after agent discovery. With `AGENT_LIST`, discovery ends within 110 seconds, under the 125-second Cloudflare response limit. | No |
 | `allowed_keys_with` | 4 | Concurrent `op read` calls | No |
 | `GRACE` | 1.5 seconds | From SIGTERM to SIGKILL for `op` | No |
 | `AGENT_LIST` | 10 seconds | Agent listing for discovery | No |
@@ -176,7 +179,7 @@ Update those statements in the same change.
 
 | Location | Value | Purpose | Network |
 | --- | --- | --- | --- |
-| `sdk/walleterm.ts` `WalletermClient.request` | 135 seconds for `/v1/signers` and `/v1/select`, 15 seconds for other routes | HTTP request timeout | No |
+| `sdk/walleterm.ts` `WalletermClient.request` | 115 seconds for `/v1/signers` and `/v1/select`, 15 seconds for other routes | HTTP request timeout. It stays under the 125-second Cloudflare response limit, because a Cloudflare 524 page has no CORS header. | No |
 | `sdk/walleterm.ts` `WalletermClient` constructor | `pollInterval` 1 second by default | Request polling | No |
 | `sdk/walleterm.ts` `WalletermClient.retry` | `pollInterval` × 1, 2, 4, then 8, at most 5 seconds | Retry delay after a network error or a 5xx reply | No |
 | `sdk/walleterm.ts` `WalletermClient.connect`, `WalletermClient.signArtifact` | 300 seconds by default | Connection and signing | No |
@@ -185,7 +188,7 @@ Update those statements in the same change.
 | `sdk/transaction.ts` `MAX_TRANSACTION_XDR`, `MAX_EXISTING_SIGNATURES`, `verifyTransactionSignature` | 262144 characters, 256 more for a signed result, 19 signatures | The Rust transaction limits | No |
 | `sdk/authorization.ts` `MAX_AUTH_XDR`, `countAuthContexts`, `sdk/preimage.ts` `MAX_PREIMAGE_XDR` | 32768 characters, 256 contexts, 32 levels | The Rust authorization limits | No |
 | `sdk/transaction.ts` `inspectTransactionRequest`, `sdk/authorization.ts` `inspectAuthEntry` | Not blank, at most 256 characters | Passphrase | No. A custom passphrase must fit. |
-| `sdk/connect.ts` `WalletermConnect` | 15-second health check, 300-second connection, 8-digit code field, 1.5-second copy label | Connection interface | No |
+| `sdk/connect.ts` `WalletermConnect` | 15-second health check, 300-second connection, 8-digit code field, 1.5-second copy label. The text states the bridge limits: the code expires after 5 minutes, and the connection lasts one hour. | Connection interface | No |
 | `sdk/scan.ts` `scanConnection` | 120 seconds | QR code scan | No |
 
 ### Demo website (`demo/site/`)
@@ -194,12 +197,12 @@ Update those statements in the same change.
 | --- | --- | --- | --- |
 | `demo/site/app.ts` `build`, `demo/site/contracts.ts` `build` | `setTimeout(180)` | Transaction time bounds | No |
 | `demo/site/contracts.ts` `prepareContract` | Latest ledger + 60 | Authorization expiration ledger | Yes. The duration follows the ledger close time. |
-| `demo/site/app.ts` `requestSignature` | 5 minutes, or the transaction `max_time` if earlier | Signing deadline | No |
+| `demo/site/app.ts` `requestSignature` | The transaction `max_time`, or the bridge request expiry if earlier. One wall-clock check each second. | Fallback signing deadline | No |
 | `demo/site/app.ts` `horizon`, `sourceAccount` | 15 seconds, 30 seconds | Horizon and Friendbot calls | No |
 | `demo/site/app.ts` submit handler | 10 attempts, 1 second apart | RPC result polling | No |
 | `demo/site/contracts.ts` `MAX_SETS`, `readWalkthrough` | 50 contract sets for each wallet. One `getLedgerEntries` request with 102 keys reads all of them. | Walkthrough state | Yes. An RPC provider can accept fewer keys in one request. |
 | `demo/site/app.ts` `build`, `demo/site/contracts.ts` `build` | `fee: '100'` stroops | Transaction fee | Yes. Network settings and surge pricing set the fee. |
-| `demo/site/app.ts` `build` | 0.01 XLM payment, 0.1 XLM offer at 10 USDC | Action amounts | Yes. They move real funds on mainnet. |
+| `demo/site/app.ts` `build`, `USDC_LIMIT` | 0.01 XLM payment, 0.1 XLM offer at 10 USDC, 100 USDC trustline limit | Action amounts | Yes. They move real funds on mainnet. |
 | `demo/site/code-view.ts` `MAX_HIGHLIGHT_LENGTH`, `MAX_TOKENS` | 50000 characters, 12000 tokens | Code display | No |
 | `demo/site/app.ts` walkthrough Copy buttons | 1.5 seconds | "Copied" label | No |
 

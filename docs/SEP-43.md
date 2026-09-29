@@ -100,8 +100,8 @@ These methods belong to the Walleterm SDK. Failures throw a `WalletermError` wit
 | `-3` | `walleterm:conflict` | A stale wallet selection or a reused request ID. |
 | `-3` | `walleterm:rate_limited` | A bridge connection or request limit. |
 | `-3` | `walleterm:expired` | The request expired before signing. |
-| `-4` | `walleterm:rejected` | The user closed the dialog, the website canceled, the session ended, or a review denied the request. |
-| `-2` | `walleterm:bridge_unavailable` | The tunnel was unreachable for a call that does not sign. Signing retries until its deadline. |
+| `-4` | `walleterm:rejected` | The user closed the dialog, the website canceled, the session ended, the selected key left 1Password, or 1Password did not sign (for example, a declined prompt). |
+| `-2` | `walleterm:bridge_unavailable` | The tunnel was unreachable for a call that does not sign. This includes a tunnel error page, such as a Cloudflare 524 timeout. Signing retries until its deadline. |
 | `-1` | `walleterm:result_unknown` | Signing started and no verified result arrived. `requestState` is `unknown`. |
 | `-1` | `walleterm:internal` | Any other failure. |
 
@@ -416,7 +416,7 @@ Review each change to the signing path for these points:
 - Every rejected request reaches no signer call.
 - The bridge signs exactly the validated hash: the transaction hash, `SHA-256(preimage)`, or the SEP-53 digest of the text.
 - Request identity binds kind, artifact, signer, network, and adapter fields.
-- No path reports `-4` or `denied` after signing started.
+- After signing starts, only an SSH agent failure with no signature reports `-4` and `denied`. Every other ending reports `-1` and `unknown`.
 - The SDK verifies each result before it returns it.
 
 `fixtures/kit/live/` serves a loopback acceptance page with the real Kit, `WalletermModule`, and the guarded hook.
