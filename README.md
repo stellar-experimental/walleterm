@@ -37,6 +37,21 @@ Update with `brew upgrade --cask walleterm`.
 Install the Stellar CLI for transaction construction: `brew install stellar-cli`.
 The 1Password CLI is optional. Only vault filtering needs it.
 
+### Install with the script
+
+Use the script if you do not use Homebrew:
+
+```sh
+curl -fsSL https://walleterm.com/install.sh | sh
+```
+
+The script downloads the latest release archive and `checksums.txt` from GitHub.
+It checks the SHA-256 and the Developer ID team before it replaces the command.
+It installs `walleterm` and `stellar-walleterm` into `~/.local/bin`. It does not use `sudo`.
+Set `WALLETERM_INSTALL_DIR` for another directory, or `WALLETERM_VERSION=0.2.0` for one release.
+Run the script again to update. `walleterm tunnel` also needs cloudflared: `brew install cloudflared`.
+The script is [`site/install.sh`](site/install.sh). Read it before you run it.
+
 ### Install from source
 
 Use this path for development. It needs Rust, Bun 1.4.2 or later, and cloudflared.
