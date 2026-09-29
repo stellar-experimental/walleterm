@@ -98,7 +98,7 @@ The bridge and the SDK call testnet `TESTNET`.
 | `docs/DEMO.md`, `docs/CONNECTION-UI.md` | The demo and the connection component use testnet. | Change with the demo and the SDK. |
 | `docs/LIVE-TESTS.md` | The live suites run on testnet with Friendbot funding. | None. Live tests stay on testnet. |
 | `README.md` | The website bridge signs for testnet only. The CLI example uses `--network testnet`. | Change with the bridge. |
-| `site/index.html` footer | "An experimental project for Stellar. Use testnet accounts." | Change the Paper design first, then the site. |
+| `site/index.html` | No network text. | None. |
 | `Casks/walleterm.rb` | No network text. | None. |
 
 ## Hard-coded limits

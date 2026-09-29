@@ -386,7 +386,7 @@ svg { display: block; }
         <li class="step">
           <span class="step-number" aria-hidden="true">01</span>
           <h3>Your agent prepares the transaction</h3>
-          <p class="muted">It builds and checks the transaction with the Stellar CLI.</p>
+          <p class="muted">It builds the transaction with the Stellar CLI.</p>
         </li>
         <li class="step">
           <span class="step-number" aria-hidden="true">02</span>
@@ -403,7 +403,7 @@ svg { display: block; }
       <div class="grid">
         <div class="caption">
           <h3>Made for agents to read</h3>
-          <p class="muted">One sign command handles transactions, contract authorizations, and messages. Each command returns one JSON object. A failure returns a stable error code.</p>
+          <p class="muted">One sign command handles transactions, contract authorizations, and messages. It returns one JSON object, and a failure returns a stable error code.</p>
           <p class="muted">Skills ship for Claude Code, Codex, OpenCode, and Grok. It also works as a Stellar CLI plugin: <code>stellar walleterm</code>.</p>
         </div>
         <pre class="terminal span-2" aria-label="Example sign command and its output"><span class="prompt">$ </span>walleterm sign &lt; payment.json
@@ -429,23 +429,19 @@ svg { display: block; }
       <dl class="span-2">
         <div>
           <dt>Keys stay in 1Password</dt>
-          <dd class="muted">You create the key inside 1Password. walleterm never exports, prints, logs, or caches it.</dd>
-        </div>
-        <div>
-          <dt>Every signature is checked</dt>
-          <dd class="muted">walleterm checks each signature against your public key before it returns it.</dd>
+          <dd class="muted">You create the key in 1Password. walleterm only asks for signatures. The key never reaches walleterm, your agent, or a website.</dd>
         </div>
         <div>
           <dt>Approval, your way</dt>
-          <dd class="muted">1Password approves key use with the settings you choose. Your agent reviews what it signs, and you can add more checks before any signature.</dd>
+          <dd class="muted">Your agent inspects each transaction and decides what to sign. Then 1Password asks you as often as you choose, from once per app to every signature.</dd>
         </div>
         <div>
-          <dt>Websites never see your key</dt>
-          <dd class="muted">A website can ask for a signature. The key stays in 1Password.</dd>
+          <dt>Works beside the Stellar CLI</dt>
+          <dd class="muted">The Stellar CLI builds and sends transactions. walleterm only signs them, in the same agent session.</dd>
         </div>
         <div>
           <dt>Uses the 1Password you have</dt>
-          <dd class="muted">walleterm uses the SSH agent in the 1Password desktop app on your Mac. Your vaults and settings do not change.</dd>
+          <dd class="muted">walleterm works with the SSH agent in the 1Password desktop app. It does not change your vaults or settings.</dd>
         </div>
       </dl>
     </div>
@@ -479,7 +475,7 @@ svg { display: block; }
         <div class="install-copy">
           <p class="eyebrow">Install</p>
           <h2 class="title" id="install-title">Start on your Mac.</h2>
-          <p class="lede muted">Turn on the SSH agent in the 1Password desktop app. Then install with the script, or with Homebrew.</p>
+          <p class="lede muted">Turn on the SSH agent in the 1Password desktop app, and create an SSH key there. Then install with the script, or with Homebrew.</p>
           <div class="commands">
             <div class="tabs" role="tablist" aria-label="Install method">
               <button type="button" role="tab" id="tab-script" aria-controls="install-script" aria-selected="true">Script</button>
@@ -516,7 +512,7 @@ walleterm list --human</pre>
             <li><a href="https://github.com/stellar-experimental/walleterm/blob/main/docs/INTERFACE.md">Docs</a></li>
             <li><a href="https://github.com/stellar-experimental/walleterm/blob/main/docs/WEB-BRIDGE.md">Website guide</a></li>
           </ul>
-          <p>An experimental project for Stellar. Use testnet accounts.</p>
+          <p>An experimental project for Stellar.</p>
         </div>
       </footer>
     </div>
