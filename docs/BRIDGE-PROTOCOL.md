@@ -110,6 +110,7 @@ No path reports `denied` or `-4` after signing started. Those requests become `u
 A connected website approves a request by sending it. The bridge asks for no approval in its terminal.
 The bridge signs every structurally valid request, one at a time.
 1Password can still require its own approval on the Mac. Cached 1Password approval can skip that prompt.
+A 1Password setting can require approval of each request. See [the README](../README.md#ask-for-approval-of-each-signature).
 The connection code is the only gate. A website with a valid session can request any valid signature.
 This fits testnet use only. A message signature is valid on every network. See [Messages](#messages).
 The bridge has an optional `review` hook that can deny a request with `-4`. No release sets it.

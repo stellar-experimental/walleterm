@@ -3,6 +3,16 @@
 walleterm signs Stellar artifacts with keys that stay in the 1Password desktop SSH agent.
 Report security problems privately.
 
+## Security model
+
+- 1Password holds the private key and computes each signature. walleterm receives only the signature.
+- walleterm parses and checks each artifact, then computes its digest. It rejects requests that fail its rules.
+- Any process of the same macOS user can connect to the 1Password SSH agent socket.
+  Such a process can request a signature without walleterm, so walleterm's checks do not apply to it.
+- 1Password approval applies to every request, from walleterm or from another program.
+  See [ask for approval of each signature](README.md#ask-for-approval-of-each-signature).
+- The 1Password prompt shows the process and the key. It does not show the Stellar artifact.
+
 ## Report a vulnerability
 
 Use GitHub private vulnerability reporting:

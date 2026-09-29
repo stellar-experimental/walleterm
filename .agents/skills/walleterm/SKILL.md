@@ -27,6 +27,8 @@ Read only the references that the current artifact needs. Resolve each link from
 1. Select the network and the full G-address from `walleterm list`. Treat comments as display text.
 2. Inspect the exact unsigned artifact, source accounts, operations, fees, destination, and contract effects.
    Check each authorization tree against the intended action and the contract's authorization rules before signing it.
+   Simulate with the default authorization mode. Ask the user before you use `--auth-mode non-root`.
+   A non-root entry does not bind its signature to the transaction's call.
 3. Select the shape. Each request has `public_key` and exactly these other fields:
 
    | Artifact | Fields | Result besides `signature` |
@@ -88,6 +90,7 @@ Then run `stellar message verify "<message>" --signature "$sig" --public-key G..
 
 The 1Password prompt identifies the process and key. It does not show Stellar transaction details.
 Cached approval can permit later signatures without a new prompt.
+The user can set 1Password to ask for approval of each request. Do not assume that a prompt appears for each signature.
 `signing_refused` reports a generic SSH agent failure. It does not prove that the user denied the request.
 Create and manage private keys inside 1Password. Never read or export private-key fields.
 The fixed macOS socket is the only runtime socket. The CLI does not use `SSH_AUTH_SOCK`.

@@ -36,6 +36,11 @@ Restart the tunnel to change the vault. Then reconnect the website with the new 
 
 - Vault filtering needs the 1Password CLI: `brew install --cask 1password-cli`.
   Turn on 1Password CLI integration in the desktop app, or sign in before you start the tunnel.
+- With CLI integration, 1Password authorizes `op` for one terminal session. The authorization ends after 10 idle minutes or 12 hours.
+  Until then, other commands in that session can run `op` without a prompt. This includes `op read` on a private key field.
+  The tunnel runs `op` for each wallet list, selection, and signature. So a website in use keeps the authorization active.
+  Run `walleterm tunnel --vault` in a terminal that your agent does not use.
+  See [1Password CLI app integration security](https://www.1password.dev/cli/app-integration-security/).
 - The bridge reads only item metadata and public keys. It matches the full public key against the SSH agent list.
   Comments never establish vault membership.
 - A lookup failure stops wallet discovery. It never returns an unfiltered list. An empty vault returns no wallets.
@@ -138,6 +143,8 @@ Website sessions use origin-bound bearer tokens. A website can read only the req
 Each transaction is a separate request. Changed bytes, network, or signer need a new request.
 The bridge verifies each signature independently before it returns the signed XDR.
 The Mac can still require 1Password approval or an unlock. Cached approval can skip a fresh desktop prompt.
+To approve each website signature on the Mac, [ask for approval of each signature](../README.md#ask-for-approval-of-each-signature).
+The prompt does not show the request. The tunnel prints a line for each signature after it signs.
 
 The bridge keeps sessions and requests in memory. A restart ends them and never retries a request.
 Canceling or disconnecting during signing suppresses delivery. It cannot undo a signature already produced.

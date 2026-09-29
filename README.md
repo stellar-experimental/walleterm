@@ -19,6 +19,9 @@ Walleterm is experimental and before version 1.0. Interfaces can change without 
 
 - 1Password shows the application and the key. It does not show the network, amount, destination, or contract policy.
   Review each artifact before you sign it. Cached 1Password approval can permit later signatures without a prompt.
+  To prevent this, [ask for approval of each signature](#ask-for-approval-of-each-signature).
+- Walleterm checks each artifact before it asks 1Password to sign. Other programs can use the 1Password SSH agent directly.
+  1Password approval applies to them too. See [the security model](SECURITY.md#security-model).
 - Use dedicated wallet keys. A shared SSH key can also authorize other systems.
 - The website bridge signs for Stellar testnet only. A connected website approves its own requests.
 - Walleterm supports Ed25519 keys only. A contract account needs its exact authorization adapter.
@@ -53,6 +56,23 @@ Install these tools too:
 
 Generate an Ed25519 SSH key inside the 1Password desktop app. Enable that item in the 1Password SSH agent.
 Then run `walleterm list --human` to see its public G-address.
+
+### Ask for approval of each signature
+
+By default, 1Password approves an application and all of its subprocesses. The approval lasts until 1Password locks.
+After one approval, an agent can sign again without a prompt. You can change this in 1Password:
+
+1. Open **Settings** > **Developer** in the 1Password desktop app, then open the SSH agent advanced settings.
+2. Set **Ask approval for each new** to **request**.
+
+1Password then asks for approval of every signature and remembers no approval.
+The prompt still shows only the process and the key. Review the artifact before you approve it.
+This setting applies to every key in the SSH agent. SSH logins and Git signing then ask for each request too.
+
+Two settings give less protection with fewer prompts.
+**Ask approval for each new** set to **application and terminal session** limits an approval to one terminal tab.
+**Remember key approval** can end an approval after 4, 12, or 24 hours.
+See [the 1Password authorization settings](https://www.1password.dev/ssh/agent/authorization/).
 
 ## Sign from an agent
 
