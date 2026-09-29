@@ -15,6 +15,7 @@ use crate::error::{Error, Result};
 
 /// A lookup ends within 2 seconds, so its message survives the 2.5-second probe limit.
 const LOOKUP_TIMEOUT: Duration = Duration::from_secs(2);
+const _: () = assert!(LOOKUP_TIMEOUT.as_millis() < crate::tunnel::PROBE_TIMEOUT.as_millis());
 /// A response to a query without EDNS has at most 512 bytes (RFC 1035, section 4.2.1).
 const MAX_MESSAGE: usize = 512;
 /// resolv.conf uses at most three nameservers.
@@ -363,7 +364,24 @@ mod tests {
         let mut kind = message.clone();
         kind[12 + name().len() + 1] = 28;
         assert_eq!(answer(&kind, 7, &name()), None);
+        let mut class = message.clone();
+        class[12 + name().len() + 3] = 3;
+        assert_eq!(answer(&class, 7, &name()), None);
+        for count in [0, 2] {
+            let mut questions = message.clone();
+            questions[5] = count;
+            assert_eq!(answer(&questions, 7, &name()), None);
+        }
         assert_eq!(answer(&message[..11], 7, &name()), None);
+    }
+
+    #[test]
+    fn names_in_an_answer_compare_without_case() {
+        let upper = name().to_ascii_uppercase();
+        let mut message = response(7, 0x8180, 1);
+        message[12..12 + upper.len()].copy_from_slice(&upper);
+        record(&mut message, &upper, TYPE_A, &[104, 16, 1, 2]);
+        assert_eq!(answer(&message, 7, &name()), Some(Ok(Ipv4Addr::new(104, 16, 1, 2))));
     }
 
     #[test]
@@ -379,24 +397,56 @@ mod tests {
         assert!(answer(&truncated, 7, &name()).unwrap().is_err());
     }
 
+    /// Read an answer on a thread with a time limit, so a parse that never ends fails instead of hanging.
+    fn bounded(message: Vec<u8>) -> String {
+        let (sender, receiver) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = sender.send(answer(&message, 7, &name()));
+        });
+        let parsed = receiver.recv_timeout(Duration::from_secs(1)).expect("the parse ends");
+        parsed.expect("an answer to the query").expect_err("no address").message
+    }
+
     #[test]
     fn malformed_records_give_no_address() {
+        const NONE: &str = "The DNS answer has no IPv4 address.";
         let mut short = response(7, 0x8180, 1);
         record(&mut short, &QUESTION, TYPE_A, &[104, 16, 1, 2]);
         short.pop();
-        assert!(answer(&short, 7, &name()).unwrap().is_err());
+        assert_eq!(bounded(short), NONE);
         let mut wide = response(7, 0x8180, 1);
         record(&mut wide, &QUESTION, TYPE_A, &[104, 16, 1, 2, 0]);
-        assert!(answer(&wide, 7, &name()).unwrap().is_err());
+        assert_eq!(bounded(wide), NONE);
         // A pointer to itself or forward never ends a name.
         let mut looped = response(7, 0x8180, 1);
         let at = looped.len() as u8;
         record(&mut looped, &[0xC0, at], TYPE_A, &[104, 16, 1, 2]);
-        assert!(answer(&looped, 7, &name()).unwrap().is_err());
+        assert_eq!(bounded(looped), NONE);
         let mut forward = response(7, 0x8180, 1);
         let at = forward.len() as u8 + 2;
         record(&mut forward, &[0xC0, at], TYPE_A, &[104, 16, 1, 2]);
-        assert!(answer(&forward, 7, &name()).unwrap().is_err());
+        assert_eq!(bounded(forward), NONE);
+        // A label, then a pointer back to that label, stops when the name passes 255 bytes.
+        let mut repeated = response(7, 0x8180, 1);
+        let at = repeated.len() as u8;
+        record(&mut repeated, &[1, b'a', 0xC0, at], TYPE_A, &[104, 16, 1, 2]);
+        assert_eq!(bounded(repeated), NONE);
+        // Two aliases that name each other stop after eight names.
+        let mut cycle = response(7, 0x8180, 2);
+        let edge = cycle.len() + 12;
+        record(&mut cycle, &QUESTION, TYPE_CNAME, b"\x04edge\xC0\x18");
+        record(&mut cycle, &[0xC0, edge as u8], TYPE_CNAME, &QUESTION);
+        assert_eq!(bounded(cycle), NONE);
+    }
+
+    #[tokio::test]
+    async fn the_resolver_leaves_the_port_to_the_url() {
+        use tower_service::Service;
+        let mut resolver = Resolver::new(|_| Box::pin(async { Ok(Ipv4Addr::new(104, 16, 1, 2)) }));
+        let host: Name = HOST.parse().unwrap();
+        let addresses: Vec<SocketAddr> = resolver.call(host).await.unwrap().collect();
+        // hyper-util replaces port 0 with the URL port, or with 443 when the URL has none.
+        assert_eq!(addresses, ["104.16.1.2:0".parse::<SocketAddr>().unwrap()]);
     }
 
     /// A loopback DNS server that answers each query with `reply(query)` datagrams.

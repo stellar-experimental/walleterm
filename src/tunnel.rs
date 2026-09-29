@@ -21,6 +21,8 @@ pub const HEALTH_INTERVAL: Duration = Duration::from_secs(15);
 pub const RECOVERY_DELAY: Duration = Duration::from_secs(2);
 const URL_TIMEOUT: Duration = Duration::from_secs(30);
 const READY_TIMEOUT: Duration = Duration::from_secs(45);
+/// One public probe ends within 2.5 seconds, including its DNS lookup.
+pub(crate) const PROBE_TIMEOUT: Duration = Duration::from_millis(2500);
 const LISTEN_TIMEOUT: Duration = Duration::from_secs(15);
 const RESTART_WINDOW: Duration = Duration::from_secs(600);
 const MAX_RESTARTS: usize = 3;
@@ -144,7 +146,7 @@ pub fn stopped() -> Error {
 }
 
 /// Poll the public URL until it answers as `service`, for at most 45 seconds.
-/// A failure names the last probe result, so a slow DNS record reads differently from an HTTP error.
+/// A timeout returns `not_ready` with the last probe result, so a slow DNS record reads differently from an HTTP error.
 pub async fn public_ready(origin: &str, service: &str, probe: &ProbeFn, stop: &Cancel) -> Result<()> {
     let deadline = Instant::now() + READY_TIMEOUT;
     let mut last = "no response".to_owned();
@@ -168,13 +170,7 @@ pub async fn public_ready(origin: &str, service: &str, probe: &ProbeFn, stop: &C
             () = stop.cancelled() => return Err(stopped()),
         }
     }
-    Err(Error::new(
-        "internal",
-        format!(
-            "The public site did not become ready ({}). Check the Internet connection and run the command again.",
-            last.trim_end_matches('.')
-        ),
-    ))
+    Err(Error::new("not_ready", last.trim_end_matches('.')))
 }
 
 fn tunnel_args(config: &Path, port: u16) -> Vec<String> {
@@ -491,7 +487,19 @@ pub async fn launch(
         })
     };
     if let Err(e) = connect().await {
-        let e = if controller.is_cancelled() { stopped() } else { e };
+        let e = if controller.is_cancelled() {
+            stopped()
+        } else if e.code == "not_ready" {
+            Error::new(
+                "internal",
+                format!(
+                    "The public site did not become ready ({}). Check the Internet connection and run the command again.",
+                    e.message
+                ),
+            )
+        } else {
+            e
+        };
         return fail(e).await;
     }
     let print_connection = {
@@ -684,6 +692,9 @@ async fn monitor(
                     break;
                 }
                 _ if controller.is_cancelled() => return,
+                Err(e) if e.code == "not_ready" => {
+                    say!(&format!("The replacement tunnel did not become ready ({}).", e.message))
+                }
                 _ => say!("The replacement tunnel did not become ready."),
             }
         }
@@ -876,7 +887,7 @@ where
         Ok((status, value["service"].as_str().map(str::to_owned)))
     };
     let bounded = async {
-        tokio::time::timeout(Duration::from_millis(2500), work)
+        tokio::time::timeout(PROBE_TIMEOUT, work)
             .await
             .unwrap_or_else(|_| Err(unavailable("The public request timed out.")))
     };

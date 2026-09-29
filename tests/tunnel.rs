@@ -636,10 +636,7 @@ async fn readiness_names_the_last_dns_error_at_its_deadline() {
         .await
         .unwrap_err();
     assert_eq!(started.elapsed(), Duration::from_secs(45));
-    assert_eq!(
-        e.message,
-        "The public site did not become ready (The DNS lookup found no such tunnel name). Check the Internet connection and run the command again."
-    );
+    assert_eq!(e, Error::new("not_ready", "The DNS lookup found no such tunnel name"));
     assert!(asked.lock().unwrap().len() > 100);
 }
 
@@ -662,11 +659,7 @@ async fn readiness_ends_a_hanging_probe_at_its_deadline() {
     let e = tokio::time::timeout(Duration::from_secs(60), ready).await.expect("readiness ends").unwrap_err();
     assert_eq!(started.elapsed(), Duration::from_secs(45));
     assert_eq!(calls.load(Ordering::SeqCst), 2);
-    assert!(
-        e.message.starts_with("The public site did not become ready (The DNS lookup timed out). "),
-        "{}",
-        e.message
-    );
+    assert_eq!(e, Error::new("not_ready", "The DNS lookup timed out"));
 }
 
 #[tokio::test(start_paused = true)]
@@ -689,6 +682,35 @@ async fn a_readiness_failure_keeps_the_last_probe_error() {
         e.message,
         "The public site did not become ready (The DNS lookup found no such tunnel name). Check the Internet connection and run the command again."
     );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_failed_replacement_names_the_last_probe_error() {
+    let (h, mut deps) = harness(Plan::default());
+    let readies = Arc::new(AtomicUsize::new(0));
+    deps.ready = Box::new(move |origin, name, cancel| {
+        let first = readies.fetch_add(1, Ordering::SeqCst) == 0;
+        Box::pin(async move {
+            if first {
+                return Ok(());
+            }
+            let probe: Box<walleterm::tunnel::ProbeFn> =
+                Box::new(|_, _| Box::pin(async { Err(Error::new("internal", NXDOMAIN)) }));
+            public_ready(&origin, name, &probe, &cancel).await
+        })
+    });
+    let running = launch("Walleterm tunnel", 8791, h.service.clone(), deps).await.map_err(|e| e.0).unwrap();
+    h.tunnels.lock().unwrap()[0].exit();
+    // Paused time: each replacement's 45-second readiness limit passes virtually.
+    until_for(|| h.output.text().contains("The replacement tunnel did not become ready"), 50_000).await;
+    let text = h.output.text();
+    assert!(
+        text.contains(
+            "The replacement tunnel did not become ready (The DNS lookup found no such tunnel name).\n"
+        ),
+        "{text}"
+    );
+    running.stop(0).await;
 }
 
 #[tokio::test]
