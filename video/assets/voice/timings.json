@@ -1,0 +1,905 @@
+{
+  "voice_id": "btaSeNTVh1pGx4pjFzub",
+  "model": "eleven_v4",
+  "seconds": 67.12,
+  "scenes": [
+    {
+      "n": 1,
+      "text": "[warmly] Let's get 1Password ready for Walleterm.",
+      "words": [
+        {
+          "w": "Let's",
+          "start": 0.16,
+          "end": 0.4
+        },
+        {
+          "w": "get",
+          "start": 0.48,
+          "end": 0.56
+        },
+        {
+          "w": "1Password",
+          "start": 0.64,
+          "end": 1.2
+        },
+        {
+          "w": "ready",
+          "start": 1.28,
+          "end": 1.52
+        },
+        {
+          "w": "for",
+          "start": 1.6,
+          "end": 1.68
+        },
+        {
+          "w": "Walleterm.",
+          "start": 1.76,
+          "end": 2.68
+        }
+      ]
+    },
+    {
+      "n": 2,
+      "text": "First, open Settings, then Developer. Lots of people have the SSH agent turned off. [upbeat] Check the box to turn it on.",
+      "words": [
+        {
+          "w": "First,",
+          "start": 3.04,
+          "end": 3.48
+        },
+        {
+          "w": "open",
+          "start": 3.6,
+          "end": 3.84
+        },
+        {
+          "w": "Settings,",
+          "start": 3.92,
+          "end": 4.48
+        },
+        {
+          "w": "then",
+          "start": 4.64,
+          "end": 4.88
+        },
+        {
+          "w": "Developer.",
+          "start": 5.04,
+          "end": 5.92
+        },
+        {
+          "w": "Lots",
+          "start": 6.32,
+          "end": 6.48
+        },
+        {
+          "w": "of",
+          "start": 6.56,
+          "end": 6.64
+        },
+        {
+          "w": "people",
+          "start": 6.76,
+          "end": 6.88
+        },
+        {
+          "w": "have",
+          "start": 6.96,
+          "end": 7.04
+        },
+        {
+          "w": "the",
+          "start": 7.12,
+          "end": 7.2
+        },
+        {
+          "w": "SSH",
+          "start": 7.36,
+          "end": 7.76
+        },
+        {
+          "w": "agent",
+          "start": 7.84,
+          "end": 8.08
+        },
+        {
+          "w": "turned",
+          "start": 8.16,
+          "end": 8.4
+        },
+        {
+          "w": "off.",
+          "start": 8.48,
+          "end": 8.8
+        },
+        {
+          "w": "Check",
+          "start": 9.36,
+          "end": 9.52
+        },
+        {
+          "w": "the",
+          "start": 9.56,
+          "end": 9.6
+        },
+        {
+          "w": "box",
+          "start": 9.68,
+          "end": 10
+        },
+        {
+          "w": "to",
+          "start": 10.08,
+          "end": 10.16
+        },
+        {
+          "w": "turn",
+          "start": 10.24,
+          "end": 10.4
+        },
+        {
+          "w": "it",
+          "start": 10.48,
+          "end": 10.56
+        },
+        {
+          "w": "on.",
+          "start": 10.64,
+          "end": 11.2
+        }
+      ]
+    },
+    {
+      "n": 3,
+      "text": "Next, create a vault for your key. Any name works, so pick whatever you like.",
+      "words": [
+        {
+          "w": "Next,",
+          "start": 11.6,
+          "end": 12
+        },
+        {
+          "w": "create",
+          "start": 12.08,
+          "end": 12.32
+        },
+        {
+          "w": "a",
+          "start": 12.4,
+          "end": 12.44
+        },
+        {
+          "w": "vault",
+          "start": 12.48,
+          "end": 12.72
+        },
+        {
+          "w": "for",
+          "start": 12.8,
+          "end": 12.88
+        },
+        {
+          "w": "your",
+          "start": 12.96,
+          "end": 13.04
+        },
+        {
+          "w": "key.",
+          "start": 13.12,
+          "end": 13.76
+        },
+        {
+          "w": "Any",
+          "start": 14.08,
+          "end": 14.24
+        },
+        {
+          "w": "name",
+          "start": 14.32,
+          "end": 14.48
+        },
+        {
+          "w": "works,",
+          "start": 14.56,
+          "end": 15
+        },
+        {
+          "w": "so",
+          "start": 15.12,
+          "end": 15.28
+        },
+        {
+          "w": "pick",
+          "start": 15.44,
+          "end": 15.6
+        },
+        {
+          "w": "whatever",
+          "start": 15.72,
+          "end": 15.84
+        },
+        {
+          "w": "you",
+          "start": 15.92,
+          "end": 16
+        },
+        {
+          "w": "like.",
+          "start": 16.08,
+          "end": 16.76
+        }
+      ]
+    },
+    {
+      "n": 4,
+      "text": "Now add the key. Choose New Item, then SSH Key. Select Add Private Key, and generate a new one. The default type is fine. Give it any name, then save.",
+      "words": [
+        {
+          "w": "Now",
+          "start": 17.12,
+          "end": 17.36
+        },
+        {
+          "w": "add",
+          "start": 17.52,
+          "end": 17.6
+        },
+        {
+          "w": "the",
+          "start": 17.68,
+          "end": 17.76
+        },
+        {
+          "w": "key.",
+          "start": 17.84,
+          "end": 18.36
+        },
+        {
+          "w": "Choose",
+          "start": 18.64,
+          "end": 18.88
+        },
+        {
+          "w": "New",
+          "start": 19.12,
+          "end": 19.2
+        },
+        {
+          "w": "Item,",
+          "start": 19.36,
+          "end": 19.8
+        },
+        {
+          "w": "then",
+          "start": 19.92,
+          "end": 20.16
+        },
+        {
+          "w": "SSH",
+          "start": 20.4,
+          "end": 20.8
+        },
+        {
+          "w": "Key.",
+          "start": 20.88,
+          "end": 21.44
+        },
+        {
+          "w": "Select",
+          "start": 21.76,
+          "end": 22.08
+        },
+        {
+          "w": "Add",
+          "start": 22.32,
+          "end": 22.48
+        },
+        {
+          "w": "Private",
+          "start": 22.56,
+          "end": 22.8
+        },
+        {
+          "w": "Key,",
+          "start": 22.88,
+          "end": 23.24
+        },
+        {
+          "w": "and",
+          "start": 23.36,
+          "end": 23.44
+        },
+        {
+          "w": "generate",
+          "start": 23.52,
+          "end": 23.84
+        },
+        {
+          "w": "a",
+          "start": 23.92,
+          "end": 23.96
+        },
+        {
+          "w": "new",
+          "start": 24,
+          "end": 24.08
+        },
+        {
+          "w": "one.",
+          "start": 24.16,
+          "end": 24.72
+        },
+        {
+          "w": "The",
+          "start": 25.04,
+          "end": 25.12
+        },
+        {
+          "w": "default",
+          "start": 25.2,
+          "end": 25.52
+        },
+        {
+          "w": "type",
+          "start": 25.6,
+          "end": 25.84
+        },
+        {
+          "w": "is",
+          "start": 25.92,
+          "end": 26.08
+        },
+        {
+          "w": "fine.",
+          "start": 26.16,
+          "end": 26.8
+        },
+        {
+          "w": "Give",
+          "start": 27.12,
+          "end": 27.2
+        },
+        {
+          "w": "it",
+          "start": 27.28,
+          "end": 27.44
+        },
+        {
+          "w": "any",
+          "start": 27.52,
+          "end": 27.68
+        },
+        {
+          "w": "name,",
+          "start": 27.76,
+          "end": 28.2
+        },
+        {
+          "w": "then",
+          "start": 28.32,
+          "end": 28.48
+        },
+        {
+          "w": "save.",
+          "start": 28.64,
+          "end": 29
+        }
+      ]
+    },
+    {
+      "n": 5,
+      "text": "[thoughtful] The agent can't see keys in a custom vault yet. So open the agent config file from the banner, and add the vault and the key name.",
+      "words": [
+        {
+          "w": "The",
+          "start": 30,
+          "end": 30.08
+        },
+        {
+          "w": "agent",
+          "start": 30.16,
+          "end": 30.48
+        },
+        {
+          "w": "can't",
+          "start": 30.56,
+          "end": 30.8
+        },
+        {
+          "w": "see",
+          "start": 30.88,
+          "end": 31.04
+        },
+        {
+          "w": "keys",
+          "start": 31.12,
+          "end": 31.36
+        },
+        {
+          "w": "in",
+          "start": 31.44,
+          "end": 31.52
+        },
+        {
+          "w": "a",
+          "start": 31.56,
+          "end": 31.6
+        },
+        {
+          "w": "custom",
+          "start": 31.68,
+          "end": 32
+        },
+        {
+          "w": "vault",
+          "start": 32.12,
+          "end": 32.24
+        },
+        {
+          "w": "yet.",
+          "start": 32.36,
+          "end": 32.72
+        },
+        {
+          "w": "So",
+          "start": 32.96,
+          "end": 33.2
+        },
+        {
+          "w": "open",
+          "start": 33.36,
+          "end": 33.6
+        },
+        {
+          "w": "the",
+          "start": 33.68,
+          "end": 33.76
+        },
+        {
+          "w": "agent",
+          "start": 33.84,
+          "end": 34.08
+        },
+        {
+          "w": "config",
+          "start": 34.16,
+          "end": 34.56
+        },
+        {
+          "w": "file",
+          "start": 34.64,
+          "end": 34.88
+        },
+        {
+          "w": "from",
+          "start": 34.96,
+          "end": 35.04
+        },
+        {
+          "w": "the",
+          "start": 35.12,
+          "end": 35.2
+        },
+        {
+          "w": "banner,",
+          "start": 35.4,
+          "end": 35.76
+        },
+        {
+          "w": "and",
+          "start": 35.92,
+          "end": 36
+        },
+        {
+          "w": "add",
+          "start": 36.16,
+          "end": 36.24
+        },
+        {
+          "w": "the",
+          "start": 36.32,
+          "end": 36.4
+        },
+        {
+          "w": "vault",
+          "start": 36.6,
+          "end": 36.8
+        },
+        {
+          "w": "and",
+          "start": 36.88,
+          "end": 36.96
+        },
+        {
+          "w": "the",
+          "start": 37,
+          "end": 37.04
+        },
+        {
+          "w": "key",
+          "start": 37.12,
+          "end": 37.28
+        },
+        {
+          "w": "name.",
+          "start": 37.36,
+          "end": 37.64
+        }
+      ]
+    },
+    {
+      "n": 6,
+      "text": "[calmly] One optional extra: the 1Password command line tool. You only need it to limit the tunnel to a single vault. The install command is on screen. Then turn on CLI integration in the Developer settings.",
+      "words": [
+        {
+          "w": "One",
+          "start": 38.72,
+          "end": 38.96
+        },
+        {
+          "w": "optional",
+          "start": 39.04,
+          "end": 39.36
+        },
+        {
+          "w": "extra:",
+          "start": 39.44,
+          "end": 40.08
+        },
+        {
+          "w": "the",
+          "start": 40.32,
+          "end": 40.48
+        },
+        {
+          "w": "1Password",
+          "start": 40.56,
+          "end": 41.2
+        },
+        {
+          "w": "command",
+          "start": 41.36,
+          "end": 41.52
+        },
+        {
+          "w": "line",
+          "start": 41.6,
+          "end": 41.76
+        },
+        {
+          "w": "tool.",
+          "start": 41.84,
+          "end": 42.4
+        },
+        {
+          "w": "You",
+          "start": 42.72,
+          "end": 42.8
+        },
+        {
+          "w": "only",
+          "start": 42.88,
+          "end": 43.12
+        },
+        {
+          "w": "need",
+          "start": 43.2,
+          "end": 43.28
+        },
+        {
+          "w": "it",
+          "start": 43.36,
+          "end": 43.44
+        },
+        {
+          "w": "to",
+          "start": 43.48,
+          "end": 43.52
+        },
+        {
+          "w": "limit",
+          "start": 43.6,
+          "end": 43.76
+        },
+        {
+          "w": "the",
+          "start": 43.8,
+          "end": 43.84
+        },
+        {
+          "w": "tunnel",
+          "start": 43.92,
+          "end": 44.24
+        },
+        {
+          "w": "to",
+          "start": 44.32,
+          "end": 44.4
+        },
+        {
+          "w": "a",
+          "start": 44.44,
+          "end": 44.48
+        },
+        {
+          "w": "single",
+          "start": 44.56,
+          "end": 44.8
+        },
+        {
+          "w": "vault.",
+          "start": 45,
+          "end": 45.48
+        },
+        {
+          "w": "The",
+          "start": 45.76,
+          "end": 45.84
+        },
+        {
+          "w": "install",
+          "start": 45.92,
+          "end": 46.24
+        },
+        {
+          "w": "command",
+          "start": 46.32,
+          "end": 46.8
+        },
+        {
+          "w": "is",
+          "start": 46.88,
+          "end": 46.96
+        },
+        {
+          "w": "on",
+          "start": 47.04,
+          "end": 47.12
+        },
+        {
+          "w": "screen.",
+          "start": 47.2,
+          "end": 47.92
+        },
+        {
+          "w": "Then",
+          "start": 48.24,
+          "end": 48.48
+        },
+        {
+          "w": "turn",
+          "start": 48.64,
+          "end": 48.8
+        },
+        {
+          "w": "on",
+          "start": 48.88,
+          "end": 49.04
+        },
+        {
+          "w": "CLI",
+          "start": 49.2,
+          "end": 49.52
+        },
+        {
+          "w": "integration",
+          "start": 49.6,
+          "end": 50.24
+        },
+        {
+          "w": "in",
+          "start": 50.32,
+          "end": 50.4
+        },
+        {
+          "w": "the",
+          "start": 50.44,
+          "end": 50.48
+        },
+        {
+          "w": "Developer",
+          "start": 50.56,
+          "end": 50.96
+        },
+        {
+          "w": "settings.",
+          "start": 51.04,
+          "end": 51.48
+        }
+      ]
+    },
+    {
+      "n": 7,
+      "text": "[upbeat] Finally, open a terminal and run walleterm list. Your key shows up. When a signature is requested, 1Password asks for approval. Look over the request, then approve it with Touch ID.",
+      "words": [
+        {
+          "w": "Finally,",
+          "start": 52.24,
+          "end": 52.72
+        },
+        {
+          "w": "open",
+          "start": 52.8,
+          "end": 53.04
+        },
+        {
+          "w": "a",
+          "start": 53.08,
+          "end": 53.12
+        },
+        {
+          "w": "terminal",
+          "start": 53.2,
+          "end": 53.68
+        },
+        {
+          "w": "and",
+          "start": 53.76,
+          "end": 53.84
+        },
+        {
+          "w": "run",
+          "start": 53.92,
+          "end": 54.16
+        },
+        {
+          "w": "Walleterm",
+          "start": 54.4,
+          "end": 55.04
+        },
+        {
+          "w": "list.",
+          "start": 55.12,
+          "end": 55.84
+        },
+        {
+          "w": "Your",
+          "start": 56.16,
+          "end": 56.32
+        },
+        {
+          "w": "key",
+          "start": 56.4,
+          "end": 56.64
+        },
+        {
+          "w": "shows",
+          "start": 56.76,
+          "end": 56.88
+        },
+        {
+          "w": "up.",
+          "start": 57.04,
+          "end": 57.48
+        },
+        {
+          "w": "When",
+          "start": 57.76,
+          "end": 57.84
+        },
+        {
+          "w": "a",
+          "start": 57.92,
+          "end": 58
+        },
+        {
+          "w": "signature",
+          "start": 58.2,
+          "end": 58.4
+        },
+        {
+          "w": "is",
+          "start": 58.44,
+          "end": 58.48
+        },
+        {
+          "w": "requested,",
+          "start": 58.56,
+          "end": 59.32
+        },
+        {
+          "w": "1Password",
+          "start": 59.44,
+          "end": 60.08
+        },
+        {
+          "w": "asks",
+          "start": 60.16,
+          "end": 60.4
+        },
+        {
+          "w": "for",
+          "start": 60.48,
+          "end": 60.56
+        },
+        {
+          "w": "approval.",
+          "start": 60.8,
+          "end": 61.4
+        },
+        {
+          "w": "Look",
+          "start": 61.76,
+          "end": 61.92
+        },
+        {
+          "w": "over",
+          "start": 62,
+          "end": 62.08
+        },
+        {
+          "w": "the",
+          "start": 62.16,
+          "end": 62.2
+        },
+        {
+          "w": "request,",
+          "start": 62.24,
+          "end": 62.92
+        },
+        {
+          "w": "then",
+          "start": 63.04,
+          "end": 63.12
+        },
+        {
+          "w": "approve",
+          "start": 63.2,
+          "end": 63.44
+        },
+        {
+          "w": "it",
+          "start": 63.52,
+          "end": 63.68
+        },
+        {
+          "w": "with",
+          "start": 63.76,
+          "end": 63.84
+        },
+        {
+          "w": "Touch",
+          "start": 63.92,
+          "end": 64.08
+        },
+        {
+          "w": "ID.",
+          "start": 64.16,
+          "end": 64.56
+        }
+      ]
+    },
+    {
+      "n": 8,
+      "text": "[warmly] That's it. You're all set.",
+      "words": [
+        {
+          "w": "That's",
+          "start": 65.28,
+          "end": 65.52
+        },
+        {
+          "w": "it.",
+          "start": 65.6,
+          "end": 66.04
+        },
+        {
+          "w": "You're",
+          "start": 66.24,
+          "end": 66.4
+        },
+        {
+          "w": "all",
+          "start": 66.48,
+          "end": 66.64
+        },
+        {
+          "w": "set.",
+          "start": 66.72,
+          "end": 67.12
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <style>
+        #s8-in { position: absolute; inset: 0; }
+        #s8-copy { position: absolute; left: 110px; top: 330px; width: 900px; }
+        #s8-copy .h1 { font-size: 124px; margin-top: 0; }
+        #s8-url { margin-top: 46px; display: inline-block; font-family: var(--mono); font-size: 36px; color: var(--deep-moss); border: 3px solid var(--deep-moss); border-radius: 999px; padding: 8px 30px; }
+        #s8-art { position: absolute; left: 1230px; top: 110px; width: 430px; }
+        #s8-art img { width: 430px; display: block; }
+      </style>
+      <div id="root" data-composition-id="s8" data-width="1920" data-height="1080">
+        <div id="s8-in">
+          <div id="s8-copy">
+            <h1 class="h1" id="s8-h1">You're all set.</h1>
+            <div id="s8-url">walleterm.com</div>
+          </div>
+          <div id="s8-art"><img src="assets/art/hero.svg" alt=""></div>
+        </div>
+      </div>
+      <script>
+        (function () {
+          const tl = gsap.timeline({ paused: true });
+          tl.fromTo("#s8-art", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 0.1);
+          tl.fromTo("#s8-h1", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, cue(8, "you're", 0) - 0.1);
+          tl.fromTo("#s8-url", { opacity: 0, scale: 0.85 }, { opacity: 1, scale: 1, duration: 0.5, ease: "back.out(2)" }, cue(8, "set", 0));
+          tl.to("#s8-art", { y: -14, duration: 1.6, ease: "sine.inOut", yoyo: true, repeat: 1 }, 1.0);
+          window.__timelines["s8"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

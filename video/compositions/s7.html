@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <style>
+        #s7-in { position: absolute; inset: 0; }
+        .s7r { position: absolute; border: 8px solid var(--tomato); border-radius: 20px; box-sizing: border-box; pointer-events: none; }
+      </style>
+      <div id="root" data-composition-id="s7" data-width="1920" data-height="1080">
+        <div id="s7-in">
+          <div class="copy" id="s7-copy"></div>
+          <div class="dots" id="s7-dots"></div>
+          <div class="win" id="s7-win"><div class="vp"><div class="stage" data-layout-allow-overflow="" id="s7-stage" style="width:1500px;height:900px"></div></div></div>
+        </div>
+      </div>
+      <script>
+        build(function () {
+          const undo = unhide(7);
+          const st = document.getElementById("s7-stage");
+          const $ = (id) => document.getElementById(id);
+          let h = "";
+          // Terminal window
+          h += B("s7-term", 0, 0, 1500, 900, "background:#1e1e1e;border-radius:26px;overflow:hidden;border:2px solid #3a3a3a;box-sizing:border-box");
+          h += B("s7-tb", 2, 2, 1496, 72, "background:#2c2c2c");
+          h += B("s7-t0", 34, 24, 26, 26, "border-radius:50%;background:#ff5f57") + B("s7-t1", 80, 24, 26, 26, "border-radius:50%;background:#febc2e") + B("s7-t2", 126, 24, 26, 26, "border-radius:50%;background:#28c840");
+          h += T("s7-tt", 750, 38, "you &mdash; -zsh &mdash; 100&times;30", 28, { c: "#b8b8b8", extra: "transform:translateX(-50%)" });
+          const P = '<span style="color:#7fb069">you@mac ~ %</span> ';
+          h += T("s7-a", 50, 150, P + "walleterm list --human", 34, { mono: true });
+          h += T("s7-a2", 50, 214, '<span style="color:#8ab4ff">GDEMO&hellip;R7QA</span>  <span style="color:#9a9a9a">SHA256:Q1w2E3&hellip;</span>  <span style="color:#ffd479">"My Testnet Key"</span>', 32, { mono: true });
+          h += T("s7-b", 50, 330, P + "walleterm sign &lt; request.json", 34, { mono: true });
+          h += T("s7-b2", 50, 394, '{"ok":true,"verified":true,"signature":"c4f9&hellip;3703"}', 30, { mono: true, c: "#9be39b" });
+          h += B("s7-dim", 2, 74, 1496, 824, "background:rgba(0,0,0,0.55);opacity:0");
+          // Approval prompt (modal-relative coordinates)
+          let m = "";
+          m += T("s7-mt", 401, 85, "1Password Access Requested", 46, { w: 800, extra: "transform:translateX(-50%)" });
+          m += B("s7-app", 217, 155, 100, 100, "border-radius:24px;background:#0f2a5e;border:4px solid #6a6a6a;box-sizing:border-box;text-align:center;line-height:90px;font-family:var(--mono);font-size:44px;color:#7ad0ff", "&gt;_");
+          m += B("s7-ln", 317, 200, 170, 4, "background:#555");
+          m += B("s7-ok", 386, 186, 32, 32, "border-radius:50%;background:#3cb04a;text-align:center;line-height:32px;font-size:20px;color:#fff", "&#10003;");
+          m += B("s7-op", 487, 151, 108, 108, "border-radius:50%;background:#1a6dff;border:5px solid #d8e4ff;box-sizing:border-box", '<svg viewBox="0 0 78 78" width="100%" height="100%"><circle cx="39" cy="30" r="13" fill="#fff"/><path d="M32 38 L46 38 L50 62 L28 62 Z" fill="#fff"/></svg>');
+          m += T("s7-allow", 401, 322, 'Allow <b>Terminal</b> to use <b>SSH key</b>', 38, { extra: "transform:translateX(-50%)" });
+          m += B("s7-keyrow", 52, 383, 701, 125, "border-radius:24px;background:#1c1e21;border:2px solid #3a3d42;box-sizing:border-box",
+            T("s7-chev", 38, 62, "&rsaquo;", 46, { c: "#aaa" }) + B("s7-kic", 100, 32, 62, 62, "", SSHKEY_SVG) + T("s7-kn", 186, 64, "My Testnet Key", 36, { w: 800 }));
+          m += B("s7-all", 83, 566, 36, 36, "border-radius:8px;border:3px solid #8a8a8a;box-sizing:border-box") + T("s7-allt", 140, 585, "Approve for all applications", 33, { c: "#c8c8c8" });
+          m += B("s7-deny", 52, 633, 115, 56, "border-radius:14px;border:2px solid #666;box-sizing:border-box;text-align:center;line-height:52px;font-size:32px", "Deny");
+          m += B("s7-auth", 300, 628, 455, 70, "", T("s7-autht", 0, 35, 'Authorize with <b>Touch ID</b>', 32, {}) +
+            B("s7-fp", 385, 3, 64, 64, "border-radius:50%;border:5px solid #e74d36;box-sizing:border-box;text-align:center;line-height:52px;font-size:34px;color:#e74d36", "&#9673;"));
+          m += B("s7-fin", 685, 626, 70, 70, "border-radius:50%;background:#3cb04a;text-align:center;line-height:68px;font-size:44px;color:#fff;opacity:0", "&#10003;");
+          h += B("s7-modal", 350, 90, 803, 735, "background:#25282c;border:2px solid #45494f;border-radius:40px;box-sizing:border-box;opacity:0", m);
+          h += '<div class="s7r" id="s7-r1"></div><div class="s7r" id="s7-r2"></div><div class="s7r" id="s7-r3"></div>';
+          st.innerHTML = h;
+
+          fit($("s7-r1"), $("s7-a2"), 16);
+          fit($("s7-r2"), $("s7-keyrow"), 10);
+          fit($("s7-r3"), $("s7-auth"), 12);
+
+          const tl = gsap.timeline({ paused: true });
+          intro(tl, 7, 6, "List keys. Approve requests.", "Run walleterm list in a terminal.");
+          camSet(st, 750, 450, 0.675);
+          gsap.set(["#s7-a", "#s7-a2", "#s7-b", "#s7-b2", "#s7-r1", "#s7-r2", "#s7-r3"], { opacity: 0 });
+          const ring = (id, t) => tl.fromTo(id, { opacity: 0, scale: 1.1 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, t);
+          const off = (id, t) => tl.to(id, { opacity: 0, duration: 0.2 }, t);
+
+          // "run Walleterm list"
+          const tRun = cue(7, "walleterm", 0) - 0.2;
+          cam(tl, st, 600, 300, 0.85, tRun - 0.8, 1.0);
+          tl.to("#s7-a", { opacity: 1, duration: 0.01 }, tRun);
+          type(tl, $("s7-a"), tRun, 0.9);
+          tl.to("#s7-a2", { opacity: 1, duration: 0.3 }, cue(7, "list", 0) + 0.5);
+          // "Your key shows up."
+          ring("#s7-r1", cue(7, "key", 0));
+          off("#s7-r1", cue(7, "when", 0) - 0.3);
+
+          // "When a signature is requested": a signing command runs.
+          const tReq = cue(7, "signature", 0) - 0.6;
+          tl.to("#s7-b", { opacity: 1, duration: 0.01 }, tReq);
+          // The prompt opens ("1Password asks for approval").
+          const tPr = cue(7, "1password", 0) + 0.05;
+          tl.to(["#s7-a", "#s7-a2", "#s7-b"], { opacity: 0, duration: 0.2 }, tPr - 0.1);
+          tl.to("#s7-dim", { opacity: 1, duration: 0.25 }, tPr);
+          tl.fromTo("#s7-modal", { opacity: 0, y: 40, scale: 0.94 }, { opacity: 1, y: 0, scale: 1, duration: 0.4, ease: "back.out(1.6)" }, tPr);
+          cam(tl, st, 750, 460, 0.85, tPr, 1.0);
+
+          // "Look over the request": ring the key.
+          ring("#s7-r2", cue(7, "look", 0));
+          off("#s7-r2", cue(7, "then", 0) - 0.2);
+
+          // "approve it with Touch ID"
+          ring("#s7-r3", cue(7, "touch", 0) - 0.3);
+          tl.to("#s7-fp", { scale: 1.2, duration: 0.3, yoyo: true, repeat: 3, ease: "sine.inOut" }, cue(7, "touch", 0));
+          off("#s7-r3", cue(7, "id", 0) + 0.15);
+          tl.to("#s7-auth", { opacity: 0, duration: 0.15 }, cue(7, "id", 0) + 0.15);
+          tl.fromTo("#s7-fin", { opacity: 0, scale: 0.4 }, { opacity: 1, scale: 1, duration: 0.35, ease: "back.out(2.4)" }, cue(7, "id", 0) + 0.2);
+          leave(tl, 7, "#s7-in");
+          undo();
+          window.__timelines["s7"] = tl;
+        });
+      </script>
+    </template>
+  </body>
+</html>

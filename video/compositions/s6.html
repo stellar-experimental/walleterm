@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <style>
+        #s6-in { position: absolute; inset: 0; }
+        .s6r { position: absolute; border: 8px solid var(--tomato); border-radius: 20px; box-sizing: border-box; pointer-events: none; }
+      </style>
+      <div id="root" data-composition-id="s6" data-width="1920" data-height="1080">
+        <div id="s6-in">
+          <div class="copy" id="s6-copy"></div>
+          <div class="dots" id="s6-dots"></div>
+          <div class="win" id="s6-win"><div class="vp"><div class="stage" data-layout-allow-overflow="" id="s6-stage" style="width:1500px;height:1130px"></div></div></div>
+        </div>
+      </div>
+      <script>
+        build(function () {
+          const undo = unhide(6);
+          const st = document.getElementById("s6-stage");
+          const $ = (id) => document.getElementById(id);
+          let h = "";
+          // Terminal window
+          h += B("s6-term", 0, 0, 1500, 820, "background:#1e1e1e;border-radius:26px;overflow:hidden;border:2px solid #3a3a3a;box-sizing:border-box");
+          h += B("s6-tb", 2, 2, 1496, 72, "background:#2c2c2c");
+          h += B("s6-t0", 34, 24, 26, 26, "border-radius:50%;background:#ff5f57") + B("s6-t1", 80, 24, 26, 26, "border-radius:50%;background:#febc2e") + B("s6-t2", 126, 24, 26, 26, "border-radius:50%;background:#28c840");
+          h += T("s6-tt", 750, 38, "you &mdash; -zsh &mdash; 100&times;30", 28, { c: "#b8b8b8", extra: "transform:translateX(-50%)" });
+          const P = '<span style="color:#7fb069">you@mac ~ %</span> ';
+          h += T("s6-a", 50, 150, P + "walleterm tunnel --vault Wallace", 34, { mono: true });
+          h += T("s6-a2", 50, 214, '<span style="color:#9a9a9a">needs the 1Password CLI</span>', 30, { mono: true });
+          h += T("s6-b", 50, 330, P + "brew install --cask 1password-cli", 34, { mono: true });
+          h += T("s6-b2", 50, 394, '<span style="color:#9a9a9a">==&gt; Installing Cask 1password-cli</span>', 30, { mono: true });
+          h += T("s6-b3", 50, 450, '<span style="color:#ffd479">1password-cli</span> was successfully installed', 30, { mono: true });
+          h += B("s6-stamp", 1180, 96, 270, 60, "border-radius:30px;background:#e74d36;color:#fff;text-align:center;line-height:60px;font-size:30px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;font-family:var(--mono)", "Optional");
+          // Settings card
+          let c = "";
+          c += T("s6-ch", 40, 62, "Developer Integrations", 36, { w: 800 });
+          c += T("s6-cd", 40, 116, "Allow external developer tools to connect to the 1Password desktop app.", 27, { c: "#b8b8b8" });
+          const row = (id, y, label, desc, on) => B(id, 26, y, 900, 112, "") + CHECK(id + "c", 40, y + 6, on, 42) + T(id + "t", 108, y + 27, label, 34, { w: 600 }) + T(id + "d", 108, y + 82, desc, 27, { c: "#b8b8b8" });
+          c += row("s6-cli", 160, "Integrate with 1Password CLI", "Use the desktop app to sign in to 1Password in the terminal.", false);
+          c += row("s6-sdk", 292, "Integrate with 1Password SDKs", "Use the desktop app to sign in to 1Password from connected integrations.", false);
+          c += row("s6-mcp", 424, "Integrate with MCP clients", "Allow MCP clients to connect to 1Password to access tools and resources.", false);
+          h += B("s6-card", 330, 560, 1100, 560, "border-radius:26px;background:#2a2a2a;border:2px solid #444;box-sizing:border-box", c);
+          h += T("s6-crumb", 350, 526, "Settings &rsaquo; Developer", 28, { c: "#666", mono: true, extra: "" });
+          h += '<div class="s6r" id="s6-r1"></div><div class="s6r" id="s6-r2"></div><div class="s6r" id="s6-r3"></div>';
+          st.innerHTML = h;
+          // The settings card row that needs a tick is targeted by its check and label.
+          fit($("s6-r3"), $("s6-cli"), 8);
+
+          const tl = gsap.timeline({ paused: true });
+          intro(tl, 6, 5, "Optional: 1Password CLI", "Needed only to filter the tunnel by vault.", { eyebrow: "Step 5 of 6 &middot; optional" });
+          camSet(st, 750, 560, 0.675);
+          gsap.set(["#s6-a", "#s6-a2", "#s6-b", "#s6-b2", "#s6-b3", "#s6-stamp", "#s6-card", "#s6-crumb", "#s6-r1", "#s6-r2", "#s6-r3"], { opacity: 0 });
+          const ring = (id, t) => tl.fromTo(id, { opacity: 0, scale: 1.1 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, t);
+          const off = (id, t) => tl.to(id, { opacity: 0, duration: 0.2 }, t);
+
+          // "One optional extra"
+          tl.fromTo("#s6-stamp", { opacity: 0, scale: 1.5, rotation: -8 }, { opacity: 1, scale: 1, rotation: 0, duration: 0.45, ease: "back.out(2)" }, cue(6, "optional", 0));
+
+          // "to limit the tunnel to a single vault"
+          const tTun = cue(6, "tunnel", 0) - 0.3;
+          cam(tl, st, 600, 470, 0.85, tTun - 0.6, 1.0);
+          tl.to("#s6-a", { opacity: 1, duration: 0.01 }, tTun);
+          fit($("s6-r1"), $("s6-a"), 16);
+          ring("#s6-r1", cue(6, "single", 0));
+          tl.fromTo("#s6-a2", { opacity: 0 }, { opacity: 1, duration: 0.3 }, cue(6, "vault", 0));
+          off("#s6-r1", cue(6, "install", 0) - 0.2);
+
+          // "The install command is on screen."
+          const tIn = cue(6, "install", 0);
+          tl.to("#s6-b", { opacity: 1, duration: 0.01 }, tIn);
+          fit($("s6-r2"), $("s6-b"), 16);
+          ring("#s6-r2", tIn + 0.3);
+          tl.to("#s6-b2", { opacity: 1, duration: 0.3 }, cue(6, "screen", 0) + 0.3);
+          tl.to("#s6-b3", { opacity: 1, duration: 0.3 }, cue(6, "screen", 0) + 0.9);
+          off("#s6-r2", cue(6, "then", 0) - 0.2);
+
+          // "turn on CLI integration in the Developer settings"
+          const tCli = cue(6, "cli", 0);
+          cam(tl, st, 900, 760, 0.8, tCli - 0.9, 1.1);
+          tl.to("#s6-card", { opacity: 1, duration: 0.4 }, tCli - 0.8);
+          tl.to("#s6-crumb", { opacity: 1, duration: 0.4 }, tCli - 0.8);
+          ring("#s6-r3", tCli + 0.2);
+          tl.to("#s6-clic-on", { opacity: 1, duration: 0.2 }, cue(6, "integration", 0) + 0.3);
+          leave(tl, 6, "#s6-in");
+          undo();
+          window.__timelines["s6"] = tl;
+        });
+      </script>
+    </template>
+  </body>
+</html>

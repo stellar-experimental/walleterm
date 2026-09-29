@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <style>
+        #s3-in { position: absolute; inset: 0; }
+        #s3-ring { position: absolute; border: 8px solid var(--tomato); border-radius: 20px; box-sizing: border-box; pointer-events: none; }
+      </style>
+      <div id="root" data-composition-id="s3" data-width="1920" data-height="1080">
+        <div id="s3-in">
+          <div class="copy" id="s3-copy"></div>
+          <div class="dots" id="s3-dots"></div>
+          <div class="win" id="s3-win"><div class="vp"><div class="stage" data-layout-allow-overflow="" id="s3-stage" style="width:1920px;height:1500px"></div></div></div>
+        </div>
+      </div>
+      <script>
+        build(function () {
+          const undo = unhide(3);
+          const st = document.getElementById("s3-stage");
+          const g = '<div style="width:100%;height:100%;padding:12px;box-sizing:border-box">' + GLOBE_SVG + "</div>";
+          const detail =
+            B("s3-dgl", 166, 500, 240, 240, "border-radius:50%;background:#4db8ff", '<div style="width:100%;height:100%;padding:44px;box-sizing:border-box">' + GLOBE_SVG + "</div>") +
+            T("s3-dn", 286, 800, "Wallace", 66, { w: 800, c: "#bdbdbd", extra: "transform:translateX(-50%)" }) +
+            T("s3-dt1", 286, 900, "Only you can view and edit items", 32, { c: "#bdbdbd", extra: "transform:translateX(-50%)" }) +
+            T("s3-dt2", 286, 942, "in this vault.", 32, { c: "#bdbdbd", extra: "transform:translateX(-50%)" });
+          let h = mainWindow("s3", {
+            vaults: [{ name: "Personal", color: "#8fa0b4" }, { name: "Wallace", color: "#4db8ff", globe: true }],
+            sel: "Personal",
+            hi: 0,
+            items: [{ t: "Example Login", s: "name@example.com", c: "#2aa7a1" }, { t: "Example Card", s: "Visa ending 0000", c: "#4b8cf0" }, { t: "Example Note", s: "Secure note", c: "#f0b040" }],
+            detail: detail,
+          });
+                  h += T("s3-empty", 926, 790, "There are no items in this vault", 32, { c: "#c8c8c8", extra: "transform:translateX(-50%);opacity:0" });
+          h += B("s3-dim", 0, 0, 1920, 1500, "background:rgba(0,0,0,0.55);opacity:0");
+          // The New Vault dialog
+          let d = "";
+          d += B("s3-gicon", 335, 45, 128, 128, "border-radius:50%;background:#4db8ff", '<div style="width:100%;height:100%;padding:24px;box-sizing:border-box">' + GLOBE_SVG + "</div>");
+          d += B("s3-chg", 270, 190, 260, 73, "border-radius:20px;border:4px solid #8fb4ff;box-sizing:border-box;text-align:center;line-height:65px;font-size:30px;color:#cfe0ff", "Change icon &#8964;");
+          d += T("s3-lb1", 47, 296, "Vault Name", 32, { w: 800 });
+          d += B("s3-field", 47, 330, 704, 88, "border-radius:20px;border:2px solid #8a8a8a;box-sizing:border-box");
+          d += T("s3-ph", 78, 374, "Enter a vault name", 34, { c: "#d0d0d0" });
+          d += T("s3-typed", 78, 374, "Wallace", 34, {});
+          d += T("s3-lb2", 47, 460, "Description", 32, { w: 800 });
+          d += B("s3-area", 47, 496, 704, 127, "border-radius:20px;border:2px solid #8a8a8a;box-sizing:border-box");
+          d += T("s3-areat", 70, 540, "Enter a description for your new vault (optional).", 28, { c: "#d0d0d0" });
+          d += B("s3-cancel", 485, 696, 122, 56, "border-radius:14px;border:2px solid #8a8a8a;box-sizing:border-box;text-align:center;line-height:52px;font-size:30px", "Cancel");
+          d += B("s3-create", 631, 696, 120, 56, "border-radius:14px;background:#0a6cf5;text-align:center;line-height:56px;font-size:30px;font-weight:600", "Create");
+          h += B("s3-dlg", 560, 330, 800, 830, "background:#1e1e1e;border:2px solid #3b3b3b;border-radius:30px;opacity:0", d);
+          h += '<div id="s3-ring"></div>';
+          h += '<div class="a" id="s3-cur" style="left:0;top:0;width:64px;height:64px;z-index:9">' + CURSOR_BIG + "</div>";
+          st.innerHTML = h;
+          const $ = (id) => document.getElementById(id);
+          fit($("s3-ring"), $("s3-plus"), 10);
+
+          const tl = gsap.timeline({ paused: true });
+          intro(tl, 3, 2, "Create a vault", "Any name works.");
+          camSet(st, 960, 750, 0.53);
+          gsap.set(["#s3-ring", "#s3-cur", "#s3-detail", "#s3-vi1", "#s3-vn1"], { opacity: 0 });
+
+          // "create a vault": zoom to the sidebar, ring the plus, click it.
+          const tC = cue(3, "create", 0);
+          const plus = mid($("s3-plus"), st);
+          cam(tl, st, 540, 800, 0.95, tC - 0.4, 0.9);
+          tl.fromTo("#s3-ring", { opacity: 0, scale: 1.2 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, tC + 0.3);
+          tl.fromTo("#s3-cur", { opacity: 0, x: plus.x + 260, y: plus.y + 200 }, { opacity: 1, x: plus.x + 260, y: plus.y + 200, duration: 0.2 }, tC);
+          click(tl, "#s3-cur", plus.x - 8, plus.y - 6, cue(3, "vault", 0) + 0.3);
+          const tOpen = cue(3, "vault", 0) + 0.45;
+          tl.to("#s3-ring", { opacity: 0, duration: 0.2 }, tOpen);
+          tl.to("#s3-dim", { opacity: 1, duration: 0.25 }, tOpen);
+          tl.fromTo("#s3-dlg", { opacity: 0, y: 30, scale: 0.94 }, { opacity: 1, y: 0, scale: 1, duration: 0.35, ease: "back.out(1.6)" }, tOpen);
+          cam(tl, st, 960, 745, 0.82, tOpen, 0.8);
+
+          // A name is typed. Any name works.
+          const tT = cue(3, "your", 0) + 0.15;
+          tl.to("#s3-ph", { opacity: 0, duration: 0.1 }, tT);
+          type(tl, $("s3-typed"), tT, 0.6);
+          const cr = mid($("s3-create"), st);
+          const tCr = cue(3, "works", 0) + 0.1;
+          tl.fromTo("#s3-cur", { x: plus.x - 8, y: plus.y - 6 }, { x: cr.x - 4, y: cr.y - 4, duration: 0.7, ease: "power2.inOut" }, tCr - 0.9);
+          tl.to("#s3-cur", { scale: 0.82, duration: 0.1 }, tCr);
+          tl.to("#s3-cur", { scale: 1, duration: 0.15 }, tCr + 0.1);
+          tl.to(["#s3-dlg", "#s3-dim", "#s3-cur"], { opacity: 0, duration: 0.25 }, tCr + 0.25);
+
+          // The new vault appears and is selected.
+          const tN = tCr + 0.4;
+          tl.to(["#s3-vi1", "#s3-vn1"], { opacity: 1, duration: 0.3 }, tN);
+          tl.to("#s3-vsel0", { opacity: 0, duration: 0.2 }, tN);
+          tl.to("#s3-vsel1", { opacity: 1, duration: 0.2 }, tN);
+          tl.to('[id^="s3-li"]', { opacity: 0, duration: 0.2 }, tN);
+          tl.to("#s3-empty", { opacity: 1, duration: 0.3 }, tN + 0.15);
+          tl.to("#s3-detail", { opacity: 1, duration: 0.3 }, tN + 0.15);
+          cam(tl, st, 960, 750, 0.53, tN, 1.0);
+          leave(tl, 3, "#s3-in");
+          undo();
+          window.__timelines["s3"] = tl;
+        });
+      </script>
+    </template>
+  </body>
+</html>
