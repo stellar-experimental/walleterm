@@ -1,7 +1,6 @@
 # SEP-43 wallet interface
 
-Status: decided on 2026-09-28. This branch implements it.
-Walleterm is pre-1.0. It keeps one current protocol, version 3, and no compatibility paths.
+This file describes the Walleterm browser SDK. It uses bridge protocol version 3.
 Walleterm is SEP-43 compatible and Stellar Wallets Kit compatible.
 After a connection, the Walleterm SDK and its header component drive the interface.
 
@@ -15,12 +14,10 @@ After a connection, the Walleterm SDK and its header component drive the interfa
 - The network is testnet only.
 - The native SDK keeps wallet switching, both wallet scopes, and the `WalletermConnect` header component.
 - The native SDK keeps adapter signing as `signAuthorization`, outside SEP-43.
-- The bridge filters no operations. It keeps only structural invariants. An agentic review will decide requests later.
-- `walleterm/kit` exports a Stellar Wallets Kit module. No upstream request exists.
+- The bridge filters no operations. It keeps only structural invariants.
+- `walleterm/kit` exports a Stellar Wallets Kit module. It is not registered upstream.
 
 ## Sources
-
-All sources were read on 2026-09-28.
 
 | Source | Version and evidence |
 | --- | --- |
@@ -137,7 +134,7 @@ const signed = await authorizeEntry(
 );
 ```
 
-`sdk/preimage.ts` validates each preimage in the SDK and the bridge:
+`sdk/preimage.ts` in the SDK and `src/preimage.rs` in the bridge apply the same checks to each preimage:
 
 1. Canonical Base64 XDR of 32768 characters or fewer.
 2. Type `envelopeTypeSorobanAuthorizationWithAddress`. V1 fails, because it permits cross-address replay (CAP-71-02).
@@ -148,7 +145,6 @@ const signed = await authorizeEntry(
 
 A preimage does not show the credential variant, the final signature format, account policy, or the transaction.
 These gaps add no authority. The signature approves one tree for one address, network, nonce, and expiry.
-A mock-key prototype showed the same digest and the same signed entries as the old `account` and `contract-ed25519` adapters.
 
 A connected website can relay a SEP-45 challenge. The testnet network ID limits this risk to testnet services.
 
@@ -157,8 +153,50 @@ A connected website can relay a SEP-45 challenge. The testnet network ID limits 
 `signAuthorization(entryXdr, { address, adapter })` keeps the `account`, `contract-ed25519`, and `openzeppelin-ed25519` adapters.
 It signs a complete unsigned AddressV2 entry and returns `{ signedAuthEntryXdr, signerAddress }`.
 The OpenZeppelin digest differs from the preimage hash, so SEP-43 cannot carry it.
-This path uses `sdk/authorization.ts`. No check reads a ledger. Expiration ledger 0 fails.
-The authorization entry shape of `walleterm sign` keeps the same adapters.
+This path uses `sdk/authorization.ts`. The authorization entry shape of `walleterm sign` has the same adapters.
+
+```ts
+const result = await wallet.signAuthorization(authEntryXdr, {
+  address: contractId,
+  adapter: { type: 'contract-ed25519' },
+  networkPassphrase: Networks.TESTNET,
+  signal,
+  onProgress,
+});
+// result: { signedAuthEntryXdr, signerAddress }, or empty fields with error.
+```
+
+`address` identifies the authorization address. `signerAddress` identifies the selected G-key.
+Omitting `adapter` selects `{ type: 'account' }`. The SDK copies the adapter before asynchronous work.
+No check reads a ledger. The network enforces expiry. Expiration ledger 0 fails.
+
+### Authorization helpers
+
+`sdk/walleterm.ts` and `sdk/authorization.ts` export these helpers:
+
+- `createAuthEntry({ address, invocation, nonce, expirationLedger })` returns Base64 XDR with AddressV2 credentials.
+- `setAuthEntryExpiration(authEntryXdr, expirationLedger)` sets expiry on an unsigned AddressV2 entry.
+- `parseAuthEntry(authEntryXdr)` returns the canonical, bounded XDR entry.
+- `addressCredentials(entry)` returns explicit V1 or V2 address credentials without conversion.
+- `countAuthContexts(invocation)` counts the complete bounded invocation tree.
+- `inspectAuthEntry(input, selectedPublicKey)` validates the request and computes the digest.
+- `attachAuthSignature(input, publicKey, signatureHex)` verifies and attaches one signature.
+- `verifyAuthEntrySignature(input, signedAuthEntryXdr)` returns `true` or throws.
+
+`input` contains the five entry shape fields: `auth_entry_xdr`, `network_passphrase`, `public_key`, `address`, and `adapter`.
+These helpers do not contact an RPC server or a signer.
+The helpers can parse a V1 entry, because a transaction can carry signed V1 entries from other signers.
+They never create, rebuild, or sign a V1 entry.
+
+### Result verification
+
+Each SDK signing method verifies the returned artifact before it exposes it.
+Transaction verification binds the complete requested body, network hash, selected G-key, signature hint, and one valid envelope signature.
+A failed verification after a signed response reports code `-1` with `requestState: "unknown"`.
+The single-session `WalletermClient` throws the same outcome with `canceled: false`.
+A missing signed artifact uses the same outcome metadata.
+These failures do not prove that signing stopped or that no usable signature exists.
+The SDK does not retry signing or claim successful cancellation after these failures.
 
 ## 2a. Message signing
 
@@ -187,8 +225,7 @@ The SDK sends one `message` request. It verifies the result with `Keypair.verify
 `signedMessage` is the Base64 64-byte signature. `signerAddress` is the selected G-address.
 Stellar CLI also verifies it: `stellar message verify "<text>" --signature <Base64> --public-key G...`.
 
-The website approves a message by sending it, as for every request (decision D1, 2026-09-28).
-The optional `review` hook applies. The tunnel prints the origin, key, byte count, digest, and escaped text before signing.
+The website approves a message by sending it, as for every request. The tunnel prints the origin, key, byte count, digest, and escaped text before signing.
 The line states that the signature has no network, site, or expiry binding.
 
 A SEP-53 signature is a permanent, portable proof that the key approved the text.
@@ -220,7 +257,7 @@ Load `walleterm/connect.css` on each page that uses Walleterm.
 `walletScope: 'selected'` fixes one key for the connection. It is the least-privilege default.
 `walletScope: 'available'` permits changes among the keys shown before the first selection.
 `WalletermConnect` uses `available` and explains that grant before selection.
-Grant IDs, selection revisions, and stale-result protection stay unchanged.
+Grant IDs and selection revisions protect against stale results. See [the bridge protocol](BRIDGE-PROTOCOL.md#wallet-scopes).
 
 Kit v2.7.0 defines `ModuleInterface.onChange`, but the Kit core never calls it.
 Only the Scopuly module implements it. The Kit updates its address through `authModal()` and `fetchAddress()`.
@@ -248,7 +285,7 @@ walletermModule.onChange(({ address }) => {
 A hook that always calls `fetchAddress()` would open the pairing dialog after every disconnection or expiry.
 Both Kit calls use the selected Kit module. Without the guard, a Walleterm event would act on another wallet.
 The other wallet could then disconnect, or open its own popup.
-Change events run after the switch settles. The Kit check found that an earlier event failed a `fetchAddress()` call.
+Change events run after the switch settles, so a `fetchAddress()` call in the hook reads the new address.
 
 ### Sessions
 
@@ -293,8 +330,7 @@ The Kit defaults to PUBLIC. A Kit website must set `Networks.TESTNET`.
 
 ## 5. Transaction policy
 
-Safety comes from review of each request, not from operation lists.
-An automated review can use the bridge `review` hook later. It can deny a request with `-4`.
+Safety comes from review of each request, not from operation lists. The website does that review.
 The bridge keeps only these structural invariants:
 
 | Rule | Decision | Reason |
@@ -305,7 +341,7 @@ The bridge keeps only these structural invariants:
 | Existing signatures | Permitted, up to 19. The selected key must not have signed already. | Multi-party signing. The result appends one signature. |
 | Time bounds | Optional. A nonzero `max_time` at or before now fails. A fee bump uses its inner bounds. | An expired envelope can never apply. The network enforces every other time bound. |
 | Preconditions | Any. | Not an operation rule. |
-| Operation types and count | No bridge rule. | Removed on user direction. |
+| Operation types and count | No bridge rule. | Review decides content. |
 | Fees | No cap. | A fee cap blocks nothing that a payment cannot do. |
 | Embedded authorization entries | Not inspected. | The envelope signature covers them. The network enforces them. |
 
@@ -321,7 +357,7 @@ The QR payload is `{"walleterm":3,"url":"...","code":"...","expires_at":"..."}`.
 | `GET /v1/account` | `connection_id`, `address`, `network`, `network_passphrase`, `expires_at`, `wallet_scope`, `selection_revision`. |
 | `POST /v1/requests` | `{ id, kind, network_passphrase, address, selection_revision? }` plus `xdr` (`transaction`), `preimage_xdr` (`auth_entry`), `auth_entry_xdr`, `auth_address`, and `adapter` (`authorization`), or `message` (`message`). |
 | `GET /v1/requests/:id` | `id`, `kind`, `state`, `hash`, `expires_at`, `error`. A signed request adds `signer_address` and one of `signed_tx_xdr`, `signed_auth_entry`, `signed_auth_entry_xdr`, or `signed_message`. |
-| `POST /v1/requests/:id/cancel`, `POST /v1/disconnect` | Unchanged. |
+| `POST /v1/requests/:id/cancel`, `POST /v1/disconnect` | See [the bridge protocol](BRIDGE-PROTOCOL.md#website-routes). |
 
 Every error is `{ "error": { "code", "message", "ext" } }` with an HTTP status.
 
@@ -361,21 +397,21 @@ Run it from the repository root:
 
 ```sh
 make test-kit
-bunx tsc --noEmit -p fixtures/kit/tsconfig.json
 ```
 
-`make test-kit` builds the test host, installs the Kit fixture, and runs `fixtures/kit/check.mts` and `fixtures/kit/tabs.mts`.
+`make test-kit` builds the test host and installs the Kit fixture. It type-checks `fixtures/kit/` with `tsc`.
+Then it runs `fixtures/kit/check.mts`, `fixtures/kit/tabs.mts`, and `fixtures/kit/live/check.mts`.
 `tabs.mts` runs each tab in a worker with its own Kit state and relays storage events between them.
 It checks a new tab, signing there, a wallet change, a Kit disconnection, and a session that ended while closed.
-CI runs both checks. The Kit tree adds about 500 MB to the fixture directory only.
+CI runs `make test-kit`. The Kit tree adds about 500 MB to the fixture directory only.
 `tests/browser/kit.test.ts` covers the module without the Kit.
 `tests/browser/tabs.test.ts` covers the shared session with the Rust bridge and separate tab contexts.
 
 ## 8. Verification
 
 Offline tests cover each SEP-43 method, each error code, and preimage validation.
-They also cover switching events, the removed operation rules, and the Kit module.
-An independent reviewer checks the signing path before acceptance. Check these points:
+They also cover switching events, the absence of operation rules, and the Kit module.
+Review each change to the signing path for these points:
 
 - Every rejected request reaches no signer call.
 - The bridge signs exactly the validated hash: the transaction hash, `SHA-256(preimage)`, or the SEP-53 digest of the text.
@@ -384,25 +420,8 @@ An independent reviewer checks the signing path before acceptance. Check these p
 - The SDK verifies each result before it returns it.
 
 `fixtures/kit/live/` serves a loopback acceptance page with the real Kit, `WalletermModule`, and the guarded hook.
-It exposes `window.acceptance` for steps 3–6. `bun fixtures/kit/live/check.mts` checks it offline with mock keys.
-Start it with `bun fixtures/kit/live/serve.mts` after the Kit fixture install.
-
-Live acceptance needs fresh approval and dedicated testnet keys:
-
-1. Demo: pair, sign and submit a payment, switch wallets, and sign again.
-2. Demo: increment the fixture counter through `signAuthEntry`, then `signTransaction`.
-3. Kit fixture page with a real 1Password key: `authModal`, `signTransaction`, `signAuthEntries`, switch, and `disconnect`.
-4. Zero signature requests for PUBLIC, a V1 preimage, a message with a lone surrogate, and `submit: true`.
-5. A `changeTrust` transaction, which the removed operation allowlist refused.
-6. Kit fixture page `signMessage` with the text `walleterm acceptance <date> <nonce>`.
-   The tunnel prints the message line. Verify the Base64 signature with the SDK and Stellar CLI. Nothing goes to the network.
-
-The coordinator ran steps 1–5 on testnet on 2026-09-28. All steps passed.
-That run was before message signing. Its step 4 checked that `signMessage` returned `-3`. Step 6 has not run yet.
-[The live record](../evidence/sep43-live-2026-09-28.json) holds the hashes, ledgers, fees, and account states.
-The run signed 7 transactions and 2 authorization entries. Step 4 produced no signature.
-It found two defects. After a switch or a revoke, the terminal reported delivered signatures as withheld.
-After a reload, the header menu showed no wallets until Refresh. PR #27 fixes both defects.
+`bun fixtures/kit/live/check.mts` checks it offline with mock keys.
+The live acceptance steps are in [live tests](LIVE-TESTS.md#sep-43-wallet).
 
 ## Deviations from SEP-43
 
@@ -413,20 +432,4 @@ After a reload, the header menu showed no wallets until Refresh. PR #27 fixes bo
 | V1 preimages | Return `-3` | Cross-address replay |
 | Networks | Testnet only | Bridge scope |
 | `submit`, `submitUrl` | Return `-3` | The bridge never submits |
-| Review | The website approves by sending | Existing testnet design; agentic review is planned |
-
-## Decisions
-
-| Question | Decision |
-| --- | --- |
-| Q1 `signMessage` | Sign SEP-53 text of 1–1024 UTF-8 bytes. The website confirms by sending. The result is Base64. The user decided this on 2026-09-28 (sign design D1, option C). |
-| Q3 V1 preimages | Reject. |
-| Q4 OpenZeppelin | Native `signAuthorization` extension and the CLI. |
-| Q5 Switching | Keep both scopes in the native SDK. Report switches through `onChange`. |
-| Q6 Sessions | `localStorage` by default, shared by all tabs of the website. It replaced `sessionStorage` on 2026-09-28, so a Kit website agrees across tabs. |
-| Q7 Submission | Return `-3`. |
-| Q8 Transactions | No operation filters. Structural invariants only. |
-| Q9 Kit module | This repository only. |
-| Q10 Kit evidence | Isolated `fixtures/kit/` package. |
-| Q11 UI | Keep and extend `WalletermConnect`. `getAddress()` opens its dialog. |
-| Inventory 3, 9, 10 | The demo refuses V1 entries. `selected` is a product scope. Older-bridge tolerance is removed. |
+| Review | The website approves by sending | Testnet design with dedicated keys |

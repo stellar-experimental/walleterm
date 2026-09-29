@@ -1,6 +1,6 @@
 # CLI interface
 
-This interface freezes the first implementation contract.
+This file defines the `walleterm` command-line contract.
 The binary name is `walleterm`. A `stellar-walleterm` alias enables Stellar CLI plugin dispatch.
 
 ## Commands
@@ -14,87 +14,18 @@ walleterm --help
 walleterm --version
 ```
 
-`tunnel` starts the independent signing bridge and its Cloudflare Quick Tunnel.
-It needs no recipient, demo, or website build.
-It accepts supported unsigned testnet XDR and SEP-53 messages through the [bridge protocol](BRIDGE-PROTOCOL.md).
-It returns signed XDR or a signature to the requesting website. It never builds or submits transactions.
-A website connects with a single-use eight-digit code and selects a 1Password key.
-The default connection stays fixed to that key.
-An explicit `wallet_scope: "available"` grant permits changes among the initially displayed eligible wallets.
-The first selection pins that list. Later keys require a new connection.
-Scoped requests carry a selection revision. Wallet changes cancel unfinished requests and withhold old bridge results.
-The website approves each request by sending it. The tunnel terminal needs no input.
+`tunnel` starts the testnet signing bridge for websites. `demo` starts an example website.
+Each command runs its own local server and Cloudflare Quick Tunnel, and prints its public URL and a QR code.
+Both commands need cloudflared. The bridge also needs macOS and the 1Password SSH agent.
+See [the website bridge guide](WEB-BRIDGE.md) and [the bridge protocol](BRIDGE-PROTOCOL.md).
 
-`demo` starts an independent website and its own public Quick Tunnel for phone testing.
-Its local listener binds `127.0.0.1` on port 8788 by default.
-Stopping the demo does not stop the bridge. Stopping the bridge does not stop the demo.
-The demo uses the same [browser client](../sdk/walleterm.ts) that another integrated website can use.
-The demo pays the source account of a recent testnet operation. It checks that this account exists.
-The review shows the selected payment recipient. Neither command accepts `--recipient`.
-
-Both commands run inside the one `walleterm` binary. It embeds the demo website files.
-No JavaScript runtime starts. The tunnel reads its vault filter only from `--vault` and prints it at startup.
-It ignores `OP_VAULT` and `.env` files.
-Public mode needs cloudflared. The signing bridge also needs macOS and the 1Password SSH agent.
-Each public service owns a private temporary Cloudflare configuration and a supervised child process.
-Startup waits up to 45 seconds for the public URL to answer. A failure names the last check error.
-Checks ask the `/etc/resolv.conf` nameservers directly for the tunnel name's IPv4 address.
-They do not use the macOS resolver cache. That cache can keep a missing-name answer for a new tunnel.
-Each service checks its public URL every 15 seconds. Healthy checks produce no log output.
-An exit or six failed checks starts tunnel recovery. The local server stays running.
-Recovery permits three replacement attempts per ten minutes, with delays of two, four, and eight seconds.
-Each replacement prints its new URL and QR code. Recovery never repeats signing or submission.
-Recovery pauses when another replacement exceeds this limit. Public checks continue, and the local server stays available.
-Recovery resumes when the oldest attempt leaves the ten-minute window. See [connection recovery](CONNECTION-LIFECYCLE.md).
-Only PATH, HOME, TMPDIR, and LANG enter the tunnel environment. Existing Cloudflare configuration remains unchanged.
-Listeners and tunnel metrics bind loopback. Ctrl+C stops only that command's server and tunnel.
-A parent pipe stops the tunnel after a parent crash. Shutdown uses bounded termination and cleanup.
-
-The bridge keeps sessions and requests in memory. A restart ends them and never retries a request.
-The tunnel terminal prints one line for each produced or withheld signature.
-Before it signs a message, it prints one line with the origin, key, byte count, digest, and escaped text:
-
-```text
-Message request from https://example.com for G... (43 bytes, digest <hex>, no network, site, or expiry binding): "example.com asks..."
-```
-
-The text uses the escapes of the `sign` notice. The line states that the signature binds no network, site, or expiry.
-Earlier versions kept records in `~/Library/Application Support/walleterm/bridge`. The bridge no longer reads that directory.
-
-`tunnel` and `demo` always print readable public links. They print QR codes when the terminal is wide enough.
-In a narrow terminal, they show the required width and keep the URL and connection code available for manual entry.
-The bridge prints its URL, connection code, and a QR code with both. The demo prints a QR code for its public website.
-These interactive commands have no `--human` or `--public` flag.
-
-The public URL and connection code can go to a website. The connected website can then request signatures.
-A connected website can list available 1Password Ed25519 public keys, with their comments and fingerprints.
-Pass `--vault <name-or-id>` to limit website wallets to that vault.
+`--vault <name-or-id>` limits the website wallets of `tunnel` to one 1Password vault. It needs the 1Password CLI.
 Both `--vault Private` and `--vault=Private` work. Quote a name that contains spaces.
-An empty, whitespace-only, missing, or repeated vault value fails with exit code 2 before startup.
-Only `tunnel` accepts this flag. Restart the tunnel to change it.
-Migrate `OP_VAULT=Private` to `walleterm tunnel --vault Private`.
-Vault filtering requires the 1Password CLI. The bridge reads only item metadata and public key fields.
-It matches full public keys against the agent list. Comments never establish vault membership.
-Lookup failures stop discovery. An empty vault returns no wallets.
-The bridge checks vault membership again before signing. Omitting `--vault` lists all Ed25519 agent keys.
-`--vault` does not change the local `list` or `sign` commands.
-Agent discovery permits ten seconds. Vault lookup then permits 120 seconds, including public key reads.
-The SDK permits 135 seconds for discovery and selection. Caller cancellation still applies.
-CLI child cleanup escalates from SIGTERM to SIGKILL after 1.5 seconds when needed.
-Each code works once and expires after five minutes. Five incorrect codes replace the code and pause connection for one minute.
-A website session lasts one hour after the first key selection. Wallet changes do not renew it. Restart the tunnel to revoke all sessions.
-Bridge sessions remain in memory. The browser SDK saves its bridge URL and session token in `localStorage`.
-All tabs of the website share that session. `storageKey: null` keeps it in memory only.
-A reload or a new tab checks the session before enabling transaction actions. Expired sessions require a new code.
-Disconnect clears the saved session. Recovery never repeats signing or submission.
-The bridge signs each valid request without a terminal step. Ctrl+C stops the tunnel.
-A 1Password prompt can still require the Mac. Cached 1Password approval can suppress a fresh desktop prompt.
-Use only dedicated testnet keys. Any website that holds a valid session can request signatures.
-A message signature is valid on every network. Never use a Walleterm key as an identity for another service.
+An empty, whitespace-only, missing, or repeated value fails with exit code 2 before startup.
+Only `tunnel` accepts `--vault`. It does not change `list` or `sign`.
+`--port` takes a decimal port number. These commands have no `--human` or `--public` flag.
 
-The bridge filters no operations. It signs testnet V1 or fee-bump envelopes that need the selected key.
-It refuses a nonzero `max_time` at or before now. No other time rule applies. See [the protocol](BRIDGE-PROTOCOL.md).
-An integration adapter is required. An unchanged website does not automatically discover Walleterm.
+## List
 
 `list` returns the Ed25519 public identities exposed by the explicit 1Password socket.
 It does not prove vault membership. Comments are display metadata, never signer identifiers.
@@ -108,6 +39,11 @@ A fingerprint is `SHA256:` followed by unpadded Base64 of SHA-256 over the SSH p
 ## Sign
 
 `sign` reads one JSON object from standard input. It takes no flags. The fields select one of four shapes.
+
+`sign` takes the artifact, not a digest. A bare 32-byte digest does not show what it approves.
+It can be a transaction hash for any network, or an authorization payload for any address.
+It can also be the SEP-53 hash of a message that the caller never showed.
+So Walleterm parses each artifact, checks it, and computes the digest itself.
 
 | Shape | Exact key set |
 | --- | --- |
@@ -154,7 +90,7 @@ The CLI checks no transaction signer role and no preimage bound address.
 A multisig co-signer signs envelopes and entries for another account. The calling agent checks account signers and thresholds.
 The bridge keeps both rules, because a connected website is less trusted than the local agent.
 
-The entry shape rejects SourceAccount, delegated, and legacy V1 credentials.
+The entry shape rejects SourceAccount, delegated, and V1 address credentials.
 V1 lacks address binding and permits signature reuse across addresses.
 The SDK helpers can parse a V1 entry, because a transaction can carry signed V1 entries from other signers.
 They never create, rebuild, or sign a V1 entry.
@@ -226,7 +162,7 @@ Sign SEP-53 message <digest> with G... (43 bytes, no network, site, or expiry bi
 ```
 
 The notice names `testnet`, `pubnet`, and `futurenet` for their exact passphrases. It quotes any other passphrase.
-The message text uses Go `strconv.Quote` escapes. Control, format, bidirectional, separator, and private-use characters appear as escapes.
+The notice quotes the message text. Quotes, backslashes, and control, format, bidirectional, separator, and private-use characters appear as escapes.
 
 ## Errors and output
 
@@ -287,57 +223,6 @@ Response type 5 reports generic agent failure. It does not prove that the user s
 One signing connection handles listing and signing. It closes after the command.
 See [RFC 9987](https://www.rfc-editor.org/rfc/rfc9987) and [RFC 8709](https://www.rfc-editor.org/rfc/rfc8709).
 
-## Browser authorization API
+## Browser SDK
 
-The browser SDK is a [SEP-43](SEP-43.md) wallet. SEP-43 `signAuthEntry` signs an address-bound preimage:
-
-```ts
-const preimage = buildAuthorizationEntryPreimage(entry, expirationLedger, Networks.TESTNET);
-const { signedAuthEntry, signerAddress, error } = await wallet.signAuthEntry(preimage.toXDR('base64'));
-// signedAuthEntry: Base64 Ed25519 signature bytes over SHA-256 of the preimage.
-```
-
-The website attaches that signature in its account's format, for example with SDK `authorizeEntry`.
-The preimage must be `envelopeTypeSorobanAuthorizationWithAddress`.
-The bridge requires the selected G-address or a C-address as its bound address.
-
-For an adapter digest, the Walleterm extension signs a complete AddressV2 entry:
-
-```ts
-const result = await wallet.signAuthorization(authEntryXdr, {
-  address: contractId,
-  adapter: { type: 'contract-ed25519' },
-  networkPassphrase: Networks.TESTNET,
-  signal,
-  onProgress,
-});
-// result: { signedAuthEntryXdr, signerAddress }, or empty fields with error.
-```
-
-`address` identifies the authorization address. `signerAddress` identifies the selected G-key.
-Omitting `adapter` selects `{ type: 'account' }`.
-The SDK copies the adapter before asynchronous work.
-It verifies the entire returned artifact before exposing it.
-No check reads a ledger. The network enforces expiry. Expiration ledger 0 fails.
-
-Portable exports from `sdk/walleterm.ts` and `sdk/authorization.ts`:
-
-- `createAuthEntry({ address, invocation, nonce, expirationLedger })` returns Base64 XDR with AddressV2 credentials.
-- `setAuthEntryExpiration(authEntryXdr, expirationLedger)` sets expiry on an unsigned AddressV2 entry.
-- `parseAuthEntry(authEntryXdr)` returns the canonical, bounded XDR entry.
-- `addressCredentials(entry)` returns explicit V1/V2 address credentials without conversion.
-- `countAuthContexts(invocation)` counts the complete bounded invocation tree.
-- `inspectAuthEntry(input, selectedPublicKey)` validates the request and computes the digest.
-- `attachAuthSignature(input, publicKey, signatureHex)` verifies and attaches one signature.
-- `verifyAuthEntrySignature(input, signedAuthEntryXdr)` returns `true` or throws.
-
-`input` contains the five entry shape fields: `auth_entry_xdr`, `network_passphrase`, `public_key`, `address`, and `adapter`.
-These helpers do not contact an RPC server or a signer.
-
-Both SDK signing methods verify the returned artifact before exposing it.
-Transaction verification binds the complete requested body, network hash, selected G-key, signature hint, and one valid envelope signature.
-A failed verification after a signed response reports code `-1` with `requestState: "unknown"`.
-The single-session `WalletermClient` throws the same outcome with `canceled: false`.
-A missing signed artifact uses the same outcome metadata.
-These failures do not prove that signing stopped or that no usable signature exists.
-The SDK does not retry signing or claim successful cancellation after these failures.
+The browser SDK is a SEP-43 wallet. [SEP-43.md](SEP-43.md) describes its signing methods and authorization helpers.

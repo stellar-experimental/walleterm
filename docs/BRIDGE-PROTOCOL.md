@@ -8,13 +8,7 @@ All routes return JSON. Errors contain `{ "error": { "code": -3, "message": "...
 `code` is a SEP-43 error code. `ext[0]` is a stable reason. The HTTP status stays meaningful.
 The public bridge URL contains no credential. The website exchanges the connection code for an origin-bound session token.
 A connected website can list available 1Password Ed25519 public keys, comments, and fingerprints.
-The tunnel flag `--vault` limits this list to SSH keys in the selected vault, by name or ID.
-The bridge uses the 1Password CLI to read only item metadata and public key fields.
-It matches full public keys against the agent list and checks membership again before signing.
-Lookup failures stop discovery. An empty vault returns no wallets.
-Omitting `--vault` lists all available Ed25519 agent keys.
-The SDK permits 135 seconds for discovery and selection, with caller cancellation.
-Vault lookup permits 120 seconds after agent discovery. Failed lookups never return an unfiltered list.
+The tunnel flag `--vault` limits this list to one vault. See [the vault filter](WEB-BRIDGE.md#limit-the-wallets-to-one-vault).
 
 ## Connection code
 
@@ -104,6 +98,7 @@ A connection permits 1000 requests. The bridge permits 32 active requests and 64
 | `-3` | `walleterm:rate_limited` | A code, connection, or request limit. |
 | `-3` | `walleterm:expired` | The request expired before signing. |
 | `-4` | `walleterm:rejected` | The website canceled, the session ended, the wallet changed, or the review denied the request. |
+| `-2` | `walleterm:bridge_unavailable` | The bridge is stopping, or 1Password discovery failed or timed out. |
 | `-1` | `walleterm:result_unknown` | Signing started and the bridge withheld or lost the result. |
 | `-1` | `walleterm:internal` | Any other failure. |
 
@@ -117,13 +112,13 @@ The bridge signs every structurally valid request, one at a time.
 1Password can still require its own approval on the Mac. Cached 1Password approval can skip that prompt.
 The connection code is the only gate. A website with a valid session can request any valid signature.
 This fits testnet use only. A message signature is valid on every network. See [Messages](#messages).
-An automated agentic review will use the bridge's `review` hook.
-A review denial returns `-4`. The selected key must still exist before signing.
+The bridge has an optional `review` hook that can deny a request with `-4`. No release sets it.
+The selected key must still exist before signing.
 The bridge independently verifies every returned signature.
 
 ## Transaction envelopes
 
-The bridge filters no operations. Review of each request decides its content.
+The bridge filters no operations. The website reviews the content of each request.
 It keeps these structural invariants:
 
 - Testnet only. A canonical V1 or fee-bump envelope. V0 envelopes fail.
@@ -175,13 +170,8 @@ No request accepts a precomputed hash. The bridge checks the message before sign
 4. `address` is the selected G-address.
 
 The bridge applies no Unicode normalization and no content filter. NUL, control, and bidirectional characters are accepted.
-The website approves a message by sending it, as for every kind. The optional `review` hook applies.
-Before signing, the tunnel prints one line for each message request:
-
-```text
-Message request from https://example.com for G... (43 bytes, digest <hex>, no network, site, or expiry binding): "example.com asks..."
-```
-
+The website approves a message by sending it, as for every kind.
+Before signing, the tunnel prints the origin, key, byte count, digest, and escaped text. See [the bridge guide](WEB-BRIDGE.md#run-the-bridge).
 The line escapes control, format, bidirectional, separator, and private-use characters. The usual result line follows.
 A SEP-53 signature is a permanent, portable proof that the key approved the text.
 It binds no network, origin, nonce, or expiry, unless the text contains them.
