@@ -145,12 +145,12 @@ const ledgerPosition = new Set([
 const fields = (data: Data | undefined): Fields =>
   data && typeof data === 'object' && !Array.isArray(data) ? data : {};
 
-// Classify a response. JSON-RPC reports errors inside HTTP 200 responses.
+// Classify a response. JSON-RPC reports errors inside HTTP 200 responses. A plain success has no label.
 function outcome(ok: boolean, status: number, data: Data, rpcMethod?: string, lookup = false) {
   // A missing Horizon account or transaction is an answer, not a failure.
   if (!ok && lookup && status === 404) return { error: false, label: 'not found' };
   if (!ok) return { error: true, label: String(status) };
-  if (!rpcMethod) return { error: false, label: String(status) };
+  if (!rpcMethod) return { error: false, label: '' };
   const response = fields(data),
     result = fields(response.result);
   if (response.error) return { error: true, label: 'RPC error' };
@@ -163,7 +163,7 @@ function outcome(ok: boolean, status: number, data: Data, rpcMethod?: string, lo
       error: ['ERROR', 'TRY_AGAIN_LATER', 'FAILED'].includes(result.status),
       label: result.status,
     };
-  return { error: false, label: String(status) };
+  return { error: false, label: '' };
 }
 
 export class ActivityHistory {
@@ -405,7 +405,7 @@ export class ActivityHistory {
                 ...signed,
               };
               const category = error ? 'error' : source!,
-                title = `${name} · ${label}`;
+                title = label ? `${name} · ${label}` : name;
               if (!read || error) return finish(category, title, entry);
               const { id: _id, ...response_ } = fields(data);
               const fingerprint = JSON.stringify([
