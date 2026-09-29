@@ -1,4 +1,4 @@
-// The real SDK against the Rust bridge (tests/browser/host.ts). Ported from the SDK tests in the legacy bridge/server.test.ts.
+// The real SDK against the Rust bridge (tests/browser/host.ts).
 import { onTestFinished, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { setTimeout as delay } from 'node:timers/promises';

@@ -1,4 +1,4 @@
-// The real SDK against the Rust bridge (tests/browser/host.ts). Ported from bridge/sep43.test.ts.
+// The real SDK against the Rust bridge (tests/browser/host.ts).
 import { afterEach, onTestFinished, test, expect } from 'bun:test';
 import {
   Account,

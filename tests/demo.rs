@@ -1,4 +1,4 @@
-//! The embedded demo website. Ported from the demo cases in bridge/code-view.test.ts and scripts/package.test.ts.
+//! The embedded demo website: route bytes, manifest hashes, headers, and refusals.
 
 mod support;
 

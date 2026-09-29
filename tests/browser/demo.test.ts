@@ -1,5 +1,4 @@
 // The embedded demo website from the Rust host: every module that the entry points import is served.
-// Ported from the demo cases in bridge/code-view.test.ts.
 import { onTestFinished, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
