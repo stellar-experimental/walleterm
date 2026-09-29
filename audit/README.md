@@ -5,6 +5,7 @@
 - [Sequential remediation](2026-09-27-remediation/REPORT.md): current corrections, checks, and remaining decisions.
 - [Remediation evidence index](2026-09-27-remediation/INDEX.md): patches, worker records, and verification evidence.
 - [Independent Opus PR review](2026-09-27-opus-review/README.md): merge review, publication corrections, and additional seed provenance checks.
+- [Rust port](2026-09-28-rust-port/README.md): the plan, Astra's phase reviews, the test agent's reports, and final measurements for #33.
 
 The original audit remains historical evidence. The remediation report records later acceptance decisions.
 The [publication record](PUBLICATION.md) explains the PR sequence, source identity, and remaining work.

@@ -1,0 +1,427 @@
+// Phase 1 vector producer. Runs the accepted TS signing sources at the base commit and freezes their outputs.
+// Offline only. Mock keys from fixed seeds; never import or fund them.
+import {
+  Account,
+  Address,
+  Asset,
+  Keypair,
+  MuxedAccount,
+  Networks,
+  Operation,
+  SorobanDataBuilder,
+  StrKey,
+  TransactionBuilder,
+  hash,
+  xdr,
+} from '@stellar/stellar-sdk';
+import { writeFileSync } from 'node:fs';
+import { createAuthEntry, inspectAuthEntry, attachAuthSignature } from '/Users/kalepail/Desktop/walleterm-v2-worktrees/rust-everywhere/sdk/authorization.ts';
+import { inspectAuthPreimage } from '/Users/kalepail/Desktop/walleterm-v2-worktrees/rust-everywhere/sdk/preimage.ts';
+import { attachPreimageSignature } from '/Users/kalepail/Desktop/walleterm-v2-worktrees/rust-everywhere/bridge/authorization.ts';
+import { inspectTransaction, attachSignature } from '/Users/kalepail/Desktop/walleterm-v2-worktrees/rust-everywhere/bridge/transaction.ts';
+import type { AuthAdapter } from '/Users/kalepail/Desktop/walleterm-v2-worktrees/rust-everywhere/sdk/authorization.ts';
+
+const SEED = new Uint8Array(32).fill(7);
+const OTHER_SEED = new Uint8Array(32).fill(9);
+const key = Keypair.fromRawEd25519Seed(Buffer.from(SEED));
+const other = Keypair.fromRawEd25519Seed(Buffer.from(OTHER_SEED));
+const G = key.publicKey();
+const OTHER = other.publicKey();
+const contract = (n: number) => StrKey.encodeContract(Buffer.alloc(32, n));
+const hexOf = (b: Uint8Array) => Buffer.from(b).toString('hex');
+const failure = (error: unknown) => {
+  const e = error as { code?: unknown; ext?: string[]; message: string };
+  const code = Array.isArray(e.ext) ? e.ext[0].replace('walleterm:', '') : typeof e.code === 'string' ? e.code : 'internal';
+  return { error: { code, message: e.message } };
+};
+
+function call(children: xdr.SorobanAuthorizedInvocation[] = [], arg = xdr.ScVal.scvU32(42)) {
+  return new xdr.SorobanAuthorizedInvocation({
+    function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(
+      new xdr.InvokeContractArgs({
+        contractAddress: new Address(contract(2)).toScAddress(),
+        functionName: 'arbitrary_call',
+        args: [arg, xdr.ScVal.scvSymbol('reviewed')],
+      }),
+    ),
+    subInvocations: children,
+  });
+}
+const chain = (levels: number) => {
+  let node = call();
+  for (let i = 1; i < levels; i++) node = call([node]);
+  return node;
+};
+const wide = (contexts: number) => call(Array.from({ length: contexts - 1 }, () => call()));
+
+function entry(opts: {
+  address?: string;
+  invocation?: xdr.SorobanAuthorizedInvocation;
+  nonce?: bigint;
+  expiration?: number;
+  credentials?: 'v2' | 'v1' | 'source';
+  signature?: xdr.ScVal;
+}) {
+  const address = opts.address ?? G;
+  const credentials = new xdr.SorobanAddressCredentials({
+    address: new Address(address).toScAddress(),
+    nonce: opts.nonce ?? -123n,
+    signatureExpirationLedger: opts.expiration ?? 160,
+    signature: opts.signature ?? xdr.ScVal.scvVoid(),
+  });
+  const c =
+    opts.credentials === 'v1'
+      ? xdr.SorobanCredentials.sorobanCredentialsAddress(credentials)
+      : opts.credentials === 'source'
+        ? xdr.SorobanCredentials.sorobanCredentialsSourceAccount()
+        : xdr.SorobanCredentials.sorobanCredentialsAddressV2(credentials);
+  return new xdr.SorobanAuthorizationEntry({ rootInvocation: opts.invocation ?? call([call()]), credentials: c }).toXDR(
+    'base64',
+  );
+}
+
+const cases: unknown[] = [];
+
+// ---------- Authorization entries (CLI sign-auth and bridge adapter extension) ----------
+function auth(id: string, input: Record<string, unknown>, latest: unknown = 100) {
+  const request = input as never;
+  let expect;
+  try {
+    const checked = inspectAuthEntry(request, G, latest as number);
+    const signature = hexOf(key.sign(Buffer.from(checked.digest)));
+    const signed = attachAuthSignature(request, G, latest as number, signature);
+    expect = { digest: checked.details.hash, signature, signed_auth_entry_xdr: signed };
+  } catch (error) {
+    expect = failure(error);
+  }
+  cases.push({ id, kind: 'auth_entry', input, latest_ledger: latest, expect });
+}
+const base = (adapter: AuthAdapter | unknown, over: Record<string, unknown> = {}) => {
+  const a = adapter as { type?: string };
+  const address = a && a.type === 'account' ? G : contract(1);
+  return {
+    auth_entry_xdr: entry({ address }),
+    network_passphrase: Networks.TESTNET,
+    public_key: G,
+    address,
+    adapter,
+    ...over,
+  };
+};
+const OZ = { type: 'openzeppelin-ed25519', verifier: contract(3), context_rule_ids: [0, 4] };
+auth('auth-account', base({ type: 'account' }));
+auth('auth-contract-ed25519', base({ type: 'contract-ed25519' }));
+auth('auth-openzeppelin', base(OZ));
+auth('auth-openzeppelin-max-rule', base({ ...OZ, context_rule_ids: [4294967295, 0] }));
+auth('auth-openzeppelin-float-rule', base({ ...OZ, context_rule_ids: [1.0, 2e0] }));
+auth('auth-nonce-min', base({ type: 'account' }, { auth_entry_xdr: entry({ nonce: -(1n << 63n) }) }));
+auth('auth-nonce-max', base({ type: 'account' }, { auth_entry_xdr: entry({ nonce: (1n << 63n) - 1n }) }));
+auth('auth-window-60', base({ type: 'account' }, { auth_entry_xdr: entry({ expiration: 160 }) }), 100);
+auth('auth-window-61', base({ type: 'account' }, { auth_entry_xdr: entry({ expiration: 161 }) }), 100);
+auth('auth-window-now', base({ type: 'account' }), 160);
+auth('auth-window-max-ledger', base({ type: 'account' }, { auth_entry_xdr: entry({ expiration: 4294967295 }) }), 4294967294);
+auth('auth-other-network', base({ type: 'account' }, { network_passphrase: 'Public Global Stellar Network ; September 2015' }));
+auth('auth-v1', base({ type: 'account' }, { auth_entry_xdr: entry({ credentials: 'v1' }) }));
+auth('auth-source-account', base({ type: 'account' }, { auth_entry_xdr: entry({ credentials: 'source' }) }));
+auth('auth-already-signed', base({ type: 'account' }, { auth_entry_xdr: entry({ signature: xdr.ScVal.scvU32(1) }) }));
+auth('auth-address-differs', base({ type: 'contract-ed25519' }, { address: contract(5) }));
+auth('auth-other-key', base({ type: 'account' }, { public_key: OTHER }));
+auth('auth-account-with-contract', base({ type: 'account' }, { auth_entry_xdr: entry({ address: contract(1) }), address: contract(1) }));
+auth('auth-contract-with-account', base({ type: 'contract-ed25519' }, { auth_entry_xdr: entry({ address: G }), address: G }));
+auth('auth-openzeppelin-count', base({ ...OZ, context_rule_ids: [0] }));
+auth('auth-openzeppelin-verifier', base({ ...OZ, verifier: G }));
+auth('auth-openzeppelin-negative', base({ ...OZ, context_rule_ids: [0, -1] }));
+auth('auth-openzeppelin-fraction', base({ ...OZ, context_rule_ids: [0, 1.5] }));
+auth('auth-openzeppelin-too-big', base({ ...OZ, context_rule_ids: [0, 4294967296] }));
+auth('auth-adapter-extra-field', base({ type: 'account', verifier: contract(3) }));
+auth('auth-adapter-unsupported', base({ type: 'passkey' }));
+auth('auth-adapter-missing', base(null));
+auth('auth-adapter-array', base([]));
+auth('auth-noncanonical', base({ type: 'account' }, { auth_entry_xdr: ` ${entry({})}` }));
+auth('auth-invalid-xdr', base({ type: 'account' }, { auth_entry_xdr: 'AAAA' }));
+auth(
+  'auth-trailing-bytes',
+  base({ type: 'account' }, { auth_entry_xdr: Buffer.concat([Buffer.from(entry({}), 'base64'), Buffer.alloc(4)]).toString('base64') }),
+);
+auth('auth-too-large', base({ type: 'account' }, { auth_entry_xdr: 'A'.repeat(32772) }));
+auth('auth-empty-xdr', base({ type: 'account' }, { auth_entry_xdr: '' }));
+auth('auth-passphrase-blank', base({ type: 'account' }, { network_passphrase: '  ' }));
+auth('auth-passphrase-long', base({ type: 'account' }, { network_passphrase: 'a'.repeat(257) }));
+auth('auth-ledger-zero', base({ type: 'account' }), 0);
+auth('auth-ledger-fraction', base({ type: 'account' }), 100.5);
+auth('auth-ledger-string', base({ type: 'account' }), '100');
+auth('auth-contexts-256', base({ type: 'account' }, { auth_entry_xdr: entry({ invocation: wide(256) }) }));
+auth('auth-contexts-257', base({ type: 'account' }, { auth_entry_xdr: entry({ invocation: wide(257) }) }));
+auth('auth-depth-32', base({ type: 'account' }, { auth_entry_xdr: entry({ invocation: chain(32) }) }));
+auth('auth-depth-33', base({ type: 'account' }, { auth_entry_xdr: entry({ invocation: chain(33) }) }));
+auth('auth-public-key-number', base({ type: 'account' }, { public_key: 7 }));
+// Review S1: decimals that a non-roundtrip parser rounds to integers.
+auth('auth-openzeppelin-near-integer', base({ ...OZ, context_rule_ids: [0.9999999999999999, 4] }));
+auth('auth-ledger-near-integer', base({ type: 'account' }), 99.99999999999999);
+// Review N1: the URL Base64 alphabet is an alias, not a different payload.
+const urlAlias = (text: string) => {
+  const alias = text.replace(/\+/g, '-').replace(/\//g, '_');
+  if (alias === text) throw Error('The alias case needs + or / in its XDR.');
+  return alias;
+};
+auth('auth-base64url', base({ type: 'account' }, { auth_entry_xdr: urlAlias(entry({ nonce: 12345678901234n })) }));
+
+// ---------- SEP-43 preimages ----------
+function preimageXdr(opts: {
+  address?: string;
+  expiration?: number;
+  network?: string;
+  legacy?: boolean;
+  invocation?: xdr.SorobanAuthorizedInvocation;
+}) {
+  const common = {
+    networkId: hash(Buffer.from(opts.network ?? Networks.TESTNET)),
+    nonce: 55n,
+    signatureExpirationLedger: opts.expiration ?? 220,
+    invocation: opts.invocation ?? call([call()]),
+  };
+  return (
+    opts.legacy
+      ? xdr.HashIdPreimage.envelopeTypeSorobanAuthorization(new xdr.HashIdPreimageSorobanAuthorization(common))
+      : xdr.HashIdPreimage.envelopeTypeSorobanAuthorizationWithAddress(
+          new xdr.HashIdPreimageSorobanAuthorizationWithAddress({
+            ...common,
+            address: new Address(opts.address ?? G).toScAddress(),
+          }),
+        )
+  ).toXDR('base64');
+}
+function preimage(id: string, preimage_xdr: string, latest: number | null = 100, network = Networks.TESTNET, public_key = G) {
+  let expect;
+  try {
+    const checked = inspectAuthPreimage(preimage_xdr, public_key, network, latest ?? undefined);
+    expect = { digest: checked.details.hash, address: checked.details.address } as Record<string, string>;
+    if (latest !== null && network === Networks.TESTNET) {
+      const signature = hexOf(key.sign(Buffer.from(checked.digest)));
+      const input = { kind: 'auth_entry', preimage_xdr, network_passphrase: network, address: public_key } as never;
+      expect.signature = signature;
+      expect.signed_auth_entry = attachPreimageSignature(input, public_key, latest, signature);
+    }
+  } catch (error) {
+    expect = failure(error);
+  }
+  cases.push({ id, kind: 'preimage', preimage_xdr, public_key, network_passphrase: network, latest_ledger: latest, expect });
+}
+preimage('preimage-account', preimageXdr({}));
+preimage('preimage-contract', preimageXdr({ address: contract(1) }));
+preimage('preimage-structure-only', preimageXdr({ expiration: 999999 }), null);
+preimage('preimage-window-120', preimageXdr({ expiration: 220 }), 100);
+preimage('preimage-window-121', preimageXdr({ expiration: 221 }), 100);
+preimage('preimage-expired', preimageXdr({ expiration: 100 }), 100);
+preimage('preimage-other-account', preimageXdr({ address: OTHER }));
+preimage('preimage-legacy', preimageXdr({ legacy: true }));
+preimage('preimage-other-network', preimageXdr({ network: Networks.PUBLIC }));
+preimage(
+  'preimage-op-id',
+  xdr.HashIdPreimage.envelopeTypeOpId(
+    new xdr.HashIdPreimageOperationId({ sourceAccount: key.xdrAccountId(), seqNum: xdr.Int64.fromString('1'), opNum: 0 }),
+  ).toXDR('base64'),
+);
+preimage('preimage-noncanonical', `${preimageXdr({})}\n`);
+preimage('preimage-invalid', 'not-base64!');
+preimage('preimage-too-large', 'A'.repeat(32772));
+preimage('preimage-contexts-257', preimageXdr({ invocation: wide(257) }));
+preimage('preimage-bad-key', preimageXdr({}), 100, Networks.TESTNET, 'GABC');
+preimage('preimage-base64url', urlAlias(preimageXdr({})));
+
+// ---------- Transactions (bridge v3 admission and attachment) ----------
+const NOW_MS = 1_800_000_000_000;
+const NOW = NOW_MS / 1000;
+function build(opts: {
+  source?: string;
+  opSource?: string;
+  minTime?: number;
+  maxTime?: number;
+  noBounds?: boolean;
+  signatures?: number;
+  signedBy?: Keypair;
+  ops?: xdr.Operation[];
+  fee?: string;
+  soroban?: boolean;
+}) {
+  const src = opts.source ?? G;
+  const account = StrKey.isValidMed25519PublicKey(src) ? new MuxedAccount(new Account(MuxedAccount.fromAddress(src, '0').baseAccount().accountId(), '41'), '7') : new Account(src, '41');
+  const builder = new TransactionBuilder(account as never, { fee: opts.fee ?? '250', networkPassphrase: Networks.TESTNET });
+  const ops = opts.ops ?? [Operation.payment({ destination: OTHER, asset: Asset.native(), amount: '1', source: opts.opSource })];
+  for (const op of ops) builder.addOperation(op);
+  if (opts.noBounds) builder.setTimeout(0);
+  else builder.setTimebounds(opts.minTime ?? NOW - 10, opts.maxTime ?? NOW + 120);
+  if (opts.soroban) builder.setSorobanData(new SorobanDataBuilder().build());
+  const tx = builder.build();
+  if (opts.signedBy) tx.sign(opts.signedBy);
+  for (let i = 0; i < (opts.signatures ?? 0); i++) tx.sign(Keypair.fromRawEd25519Seed(Buffer.alloc(32, 100 + i)));
+  return tx;
+}
+function transaction(id: string, txXdr: string, over: { network?: string; address?: string; now?: number } = {}) {
+  const input = { kind: 'transaction', xdr: txXdr, network_passphrase: over.network ?? Networks.TESTNET, address: over.address ?? G } as never;
+  const now = over.now ?? NOW_MS;
+  let expect;
+  try {
+    const { details, expires } = inspectTransaction(input, G, now);
+    const signature = hexOf(key.sign(Buffer.from(details.hash, 'hex')));
+    expect = { hash: details.hash, details, expires_ms: expires, signature, signed_tx_xdr: attachSignature(input, G, signature) };
+  } catch (error) {
+    expect = failure(error);
+  }
+  cases.push({ id, kind: 'transaction', input, now_ms: now, expect });
+}
+const x = (tx: { toXDR(): string }) => tx.toXDR();
+transaction('tx-v1', x(build({})));
+transaction('tx-operation-source', x(build({ source: OTHER, opSource: G })));
+transaction('tx-muxed-source', x(build({ source: MuxedAccount.fromAddress(new MuxedAccount(new Account(G, '0'), '7').accountId(), '0').accountId() })));
+transaction('tx-muxed-operation-source', x(build({ source: OTHER, opSource: new MuxedAccount(new Account(G, '0'), '9').accountId() })));
+transaction('tx-not-signer', x(build({ source: OTHER })));
+const feeBump = (inner: ReturnType<typeof build>, feeSource: string) =>
+  TransactionBuilder.buildFeeBumpTransaction(feeSource, '500', inner, Networks.TESTNET);
+transaction('tx-fee-bump', x(feeBump(build({ source: OTHER, signedBy: other }), G)));
+transaction('tx-fee-bump-inner-only', x(feeBump(build({}), OTHER)));
+transaction('tx-19-signatures', x(build({ signatures: 19 })));
+transaction('tx-20-signatures', x(build({ signatures: 20 })));
+transaction('tx-already-signed', x(build({ signedBy: key })));
+transaction('tx-no-time-bounds', x(build({ noBounds: true })));
+transaction('tx-lifetime-300s', x(build({ maxTime: NOW + 300 })));
+transaction('tx-lifetime-301s', x(build({ maxTime: NOW + 301 })));
+transaction('tx-starts-later', x(build({ minTime: NOW + 1 })));
+transaction('tx-starts-now', x(build({ minTime: NOW })));
+transaction('tx-ended', x(build({ maxTime: NOW })));
+transaction('tx-wrong-network', x(build({})), { network: Networks.PUBLIC });
+transaction('tx-address-differs', x(build({})), { address: OTHER });
+transaction('tx-noncanonical', `${x(build({}))} `);
+transaction('tx-invalid', 'AAAA');
+transaction('tx-too-large', 'A'.repeat(262148));
+transaction(
+  'tx-v0',
+  xdr.TransactionEnvelope.envelopeTypeTxV0(
+    new xdr.TransactionV0Envelope({
+      tx: new xdr.TransactionV0({
+        sourceAccountEd25519: key.rawPublicKey(),
+        fee: 100,
+        seqNum: xdr.Int64.fromString('1'),
+        timeBounds: null,
+        memo: xdr.Memo.memoNone(),
+        operations: [],
+        ext: xdr.TransactionV0Ext.v0(),
+      }),
+      signatures: [],
+    }),
+  ).toXDR('base64'),
+);
+transaction(
+  'tx-operation-names',
+  x(
+    build({
+      ops: [
+        Operation.createAccount({ destination: OTHER, startingBalance: '1' }),
+        Operation.changeTrust({ asset: new Asset('USD', OTHER) }),
+        Operation.manageData({ name: 'k', value: 'v' }),
+        Operation.bumpSequence({ bumpTo: '99' }),
+        Operation.setOptions({ homeDomain: 'example.com' }),
+        Operation.accountMerge({ destination: OTHER, source: G }),
+        Operation.beginSponsoringFutureReserves({ sponsoredId: OTHER }),
+        Operation.endSponsoringFutureReserves({ source: OTHER }),
+        Operation.inflation({}),
+        Operation.invokeContractFunction({ contract: contract(2), function: 'hello', args: [xdr.ScVal.scvU32(1)] }),
+      ],
+    }),
+  ),
+);
+
+transaction('tx-base64url', urlAlias(x(build({ ops: [Operation.manageData({ name: 'k', value: '???>>>' })] }))));
+// Review N2: an invalid asset code is valid XDR. The TS bridge refuses to model it; v3 structural admission
+// in the Rust host accepts it. `rust_accepts` pins that intentional difference.
+{
+  const tx = build({});
+  const envelope = xdr.TransactionEnvelope.fromXDR(tx.toXDR(), 'base64');
+  const op = envelope.v1.tx.operations[0];
+  const payment = op.body.paymentOp;
+  const asset = xdr.Asset.assetTypeCreditAlphanum4(new xdr.AlphaNum4({ assetCode: Buffer.from([33, 0, 0, 0]), issuer: key.xdrAccountId() }));
+  const body = xdr.OperationBody.payment(new xdr.PaymentOp({ destination: payment.destination, asset, amount: payment.amount }));
+  const changed = new xdr.Operation({ sourceAccount: op.sourceAccount, body });
+  const txv1 = envelope.v1.tx;
+  const newTx = new xdr.Transaction({ sourceAccount: txv1.sourceAccount, fee: txv1.fee, seqNum: txv1.seqNum, cond: txv1.cond, memo: txv1.memo, operations: [changed], ext: txv1.ext });
+  const out = xdr.TransactionEnvelope.envelopeTypeTx(new xdr.TransactionV1Envelope({ tx: newTx, signatures: [] }));
+  transaction('tx-invalid-asset-code', out.toXDR('base64'));
+  (cases.at(-1) as Record<string, unknown>).rust_accepts = true;
+}
+
+// Phase 7: the Soroban envelope cases of bridge/soroban-transaction.test.ts, frozen before that file is removed.
+{
+  const target = new Address(contract(31)).toScAddress();
+  const args = new xdr.InvokeContractArgs({ contractAddress: target, functionName: 'hello', args: [] });
+  const invocation = new xdr.SorobanAuthorizedInvocation({
+    function: xdr.SorobanAuthorizedFunction.sorobanAuthorizedFunctionTypeContractFn(args),
+    subInvocations: [],
+  });
+  const host = (func: xdr.HostFunction, auth: xdr.SorobanAuthorizationEntry[] = []) =>
+    Operation.invokeHostFunction({ func, auth });
+  const invoke = (auth: xdr.SorobanAuthorizationEntry[] = []) => host(xdr.HostFunction.hostFunctionTypeInvokeContract(args), auth);
+  const soroban = (op: xdr.Operation, fee = '1000000') => x(build({ ops: [op], fee, soroban: true }));
+  const create = new xdr.CreateContractArgsV2({
+    contractIdPreimage: xdr.ContractIdPreimage.contractIdPreimageFromAddress(
+      new xdr.ContractIdPreimageFromAddress({ address: new Address(G).toScAddress(), salt: Buffer.alloc(32) }),
+    ),
+    executable: xdr.ContractExecutable.contractExecutableWasm(Buffer.alloc(32)),
+    constructorArgs: [],
+  });
+  transaction('tx-soroban-upload', soroban(host(xdr.HostFunction.hostFunctionTypeUploadContractWasm(Buffer.from([0, 97, 115, 109])))));
+  transaction('tx-soroban-create', soroban(host(xdr.HostFunction.hostFunctionTypeCreateContractV2(create))));
+  transaction('tx-soroban-invoke', soroban(invoke()));
+  transaction('tx-soroban-restore', soroban(Operation.restoreFootprint({})));
+  transaction('tx-soroban-extend', soroban(Operation.extendFootprintTtl({ extendTo: 123 })));
+  transaction('tx-soroban-high-fee', soroban(invoke(), '100000001'));
+  const sourceEntry = new xdr.SorobanAuthorizationEntry({
+    rootInvocation: invocation,
+    credentials: xdr.SorobanCredentials.sorobanCredentialsSourceAccount(),
+  });
+  transaction('tx-soroban-source-account-auth', soroban(invoke([sourceEntry])));
+  for (const [id, address] of [['account', G], ['contract', contract(31)]] as const) {
+    const auth_entry_xdr = createAuthEntry({ address, invocation, nonce: 1n, expirationLedger: 160 });
+    const unsigned = xdr.SorobanAuthorizationEntry.fromXDR(auth_entry_xdr, 'base64');
+    transaction(`tx-soroban-unsigned-${id}-auth`, soroban(invoke([unsigned])));
+    const input = {
+      public_key: G,
+      address,
+      network_passphrase: Networks.TESTNET,
+      adapter: address === G ? { type: 'account' } : { type: 'contract-ed25519' },
+      auth_entry_xdr,
+    } as never;
+    const checked = inspectAuthEntry(input, G, 100);
+    const signed = attachAuthSignature(input, G, 100, hexOf(key.sign(Buffer.from(checked.digest))));
+    transaction(`tx-soroban-signed-${id}-auth`, soroban(invoke([xdr.SorobanAuthorizationEntry.fromXDR(signed, 'base64')])));
+  }
+  const entry = xdr.SorobanAuthorizationEntry.fromXDR(
+    createAuthEntry({ address: contract(31), invocation, nonce: 1n, expirationLedger: 160 }),
+    'base64',
+  );
+  const delegated = new xdr.SorobanAuthorizationEntry({
+    rootInvocation: invocation,
+    credentials: xdr.SorobanCredentials.sorobanCredentialsAddressWithDelegates(
+      new xdr.SorobanAddressCredentialsWithDelegates({ addressCredentials: (entry.credentials as unknown as { addressV2: xdr.SorobanAddressCredentialsV2 }).addressV2, delegates: [] }),
+    ),
+  });
+  transaction('tx-soroban-delegated-auth', soroban(invoke([delegated])));
+}
+
+const vectors = {
+  schema: 1,
+  producer: {
+    source_commit: '52a7fc388e93e19482a9cc2a96408ac4328c526e',
+    modules: ['sdk/authorization.ts', 'sdk/preimage.ts', 'bridge/authorization.ts', 'bridge/transaction.ts'],
+    stellar_sdk: '17.1.0',
+    bun: Bun.version,
+    generated: '2026-09-28',
+    note: 'Mock keys from fixed seeds. Offline only. Never import, fund, or use them for live signing.',
+  },
+  mock_seed_hex: hexOf(SEED),
+  other_seed_hex: hexOf(OTHER_SEED),
+  public_key: G,
+  other_public_key: OTHER,
+  cases,
+};
+writeFileSync(process.argv[2], JSON.stringify(vectors, null, 1) + '\n');
+console.log(`${cases.length} cases`);
