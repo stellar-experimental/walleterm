@@ -100,6 +100,8 @@ See [the website bridge guide](docs/WEB-BRIDGE.md) for setup, recovery, and webs
 | [CONTRACT-AUTHORIZATION.md](docs/CONTRACT-AUTHORIZATION.md) | Contract account authorization in the demo |
 | [OPENZEPPELIN.md](docs/OPENZEPPELIN.md) | The OpenZeppelin smart account adapter |
 | [AGENTIC-PAYMENTS.md](docs/AGENTIC-PAYMENTS.md) | x402 and MPP compatibility |
+| [KEY-STORES.md](docs/KEY-STORES.md) | Research on key stores beside 1Password: Apple, hardware keys, and password managers |
+| [SECURE-ENCLAVE.md](docs/SECURE-ENCLAVE.md) | Design notes for a Secure Enclave P-256 signer for smart accounts |
 | [NETWORKS.md](docs/NETWORKS.md) | Network restrictions and hard-coded limits |
 | [LIVE-TESTS.md](docs/LIVE-TESTS.md) | Live 1Password and testnet tests |
 | [MAINTAINING.md](docs/MAINTAINING.md) | Releases, the Homebrew cask, and the website |

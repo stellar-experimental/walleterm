@@ -23,6 +23,7 @@ Target macOS first. Permit human approval through 1Password.
 - `docs/INTERFACE.md` before you change the CLI.
 - `docs/BRIDGE-PROTOCOL.md` and `docs/SEP-43.md` before you change the bridge or the browser SDK.
 - `docs/OPENZEPPELIN.md` before you change its contract adapter.
+- `docs/KEY-STORES.md` before you add a key store or change how walleterm reaches one.
 - `docs/NETWORKS.md` maps network restrictions, hard-coded network values, and hard-coded limits.
   Update it in the same change that adds, changes, or removes one of them. `tests/networks.test.ts` checks it.
 - `design/ILLUSTRATION.md` before you change illustrations, the mascot, or `site/art/`.
