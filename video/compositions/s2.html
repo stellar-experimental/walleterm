@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <style>
+        #s2-in { position: absolute; inset: 0; }
+        #s2-ring1, #s2-ring2 { position: absolute; border: 8px solid var(--tomato); border-radius: 22px; box-sizing: border-box; pointer-events: none; }
+      </style>
+      <div id="root" data-composition-id="s2" data-width="1920" data-height="1080">
+        <div id="s2-in">
+          <div class="copy" id="s2-copy"></div>
+          <div class="dots" id="s2-dots"></div>
+          <div class="win" id="s2-win"><div class="vp"><div class="stage" data-layout-allow-overflow="" id="s2-stage" style="width:1560px;height:1360px"></div></div></div>
+        </div>
+      </div>
+      <script>
+        build(function () {
+          const undo = unhide(2);
+          const st = document.getElementById("s2-stage");
+          const rows = [["General", 152, "#3aa0ff"], ["Appearance", 248, "#f47fb0"], ["Security", 344, "#f2a33a"], ["Privacy", 440, "#57c48a"], ["Browser", 536, "#a9b0b8"], ["Autofill", 632, "#f6b756"], ["Developer", 728, "#7ce0a5"], ["Labs", 858, "#a58cf0"], ["Advanced", 954, "#5fe0e0"], ["About", 1050, "#5fb8ff"]];
+          let h = "";
+          h += B("s2-w", 0, 0, 1560, 1360, "background:#262626;border-radius:26px;overflow:hidden");
+          h += B("s2-tb", 0, 0, 1560, 64, "background:#1f1f1f");
+          h += B("s2-l0", 34, 20, 26, 26, "border-radius:50%;background:#ff5f57") + B("s2-l1", 80, 20, 26, 26, "border-radius:50%;background:#555") + B("s2-l2", 126, 20, 26, 26, "border-radius:50%;background:#555");
+          h += T("s2-tt", 780, 34, "Settings", 30, { w: 600, c: "#b0b0b0", extra: "transform:translateX(-50%)" });
+          h += B("s2-sb", 0, 64, 560, 1296, "background:#2a2a2a;border-right:2px solid #3a3a3a");
+          h += B("s2-gen-hi", 40, 152 - 48, 480, 96, "border-radius:18px;background:#444");
+          h += B("s2-dev-hi", 40, 728 - 48, 480, 96, "border-radius:18px;background:#444;opacity:0");
+          rows.forEach(function (r) {
+            h += B("s2-ic-" + r[0], 64, r[1] - 32, 64, 64, "border-radius:16px;background:" + r[2]);
+            h += T("s2-rt-" + r[0], 152, r[1], r[0], 34, {});
+          });
+          h += B("s2-sep", 40, 793, 480, 2, "background:#444");
+          // General placeholder
+          h += '<div id="s2-gen">' + B("s2-g1", 600, 150, 700, 34, "background:#3a3a3a;border-radius:10px") + B("s2-g2", 600, 230, 860, 34, "background:#3a3a3a;border-radius:10px") + B("s2-g3", 600, 310, 540, 34, "background:#3a3a3a;border-radius:10px") + B("s2-g4", 600, 390, 780, 34, "background:#3a3a3a;border-radius:10px") + "</div>";
+          // Developer content
+          let d = "";
+          d += T("s2-h", 600, 146, "1Password Developer", 34, { w: 800 });
+          d += CHECK("s2-c1", 600, 196, true, 42) + T("s2-c1t", 662, 217, "Show 1Password Developer experience", 32, {});
+          d += CHECK("s2-c2", 656, 258, true, 42) + T("s2-c2t", 718, 279, "Record and display activity", 32, {});
+          d += T("s2-c2d", 718, 328, "Disabling will delete any existing activity log data.", 27, { c: "#b0b0b0" });
+          d += T("s2-ssh", 600, 430, "SSH Agent", 36, { w: 800 });
+          d += B("s2-off", 796, 405, 92, 50, "border-radius:25px;background:#555;text-align:center;line-height:50px;font-size:27px;font-weight:700;color:#ddd", "off");
+          d += B("s2-on", 796, 405, 168, 50, "border-radius:25px;background:#1c8a2e;text-align:center;line-height:50px;font-size:27px;font-weight:700;color:#fff;opacity:0", "running");
+          d += T("s2-desc", 600, 486, "The 1Password SSH agent allows you to use SSH keys stored in 1Password.", 27, { c: "#b8b8b8" });
+          d += CHECK("s2-c3", 600, 536, false, 42) + T("s2-c3t", 662, 557, "Use the SSH Agent", 34, { w: 600 });
+          d += B("s2-use", 588, 522, 372, 70, "");
+          d += T("s2-learn", 600, 640, "Learn more about the 1Password SSH Agent.", 28, { c: "#6aa6ff", extra: "text-decoration:underline" });
+          d += B("s2-adv", 600, 730, 900, 170, "border-radius:22px;background:#2f2f2f;border:2px solid #444;box-sizing:border-box") + T("s2-advt", 660, 780, "&#8964;&nbsp;&nbsp;Advanced", 34, { w: 700 });
+          h += '<div id="s2-dev">' + d + "</div>";
+          h += '<div id="s2-ring1"></div><div id="s2-ring2"></div>';
+          h += '<div class="a" id="s2-cur" style="left:0;top:0;width:64px;height:64px;z-index:9">' + CURSOR_BIG + "</div>";
+          st.innerHTML = h;
+
+          fit(document.getElementById("s2-ring1"), document.getElementById("s2-dev-hi"), 12);
+          fit(document.getElementById("s2-ring2"), document.getElementById("s2-use"), 14);
+
+          const tl = gsap.timeline({ paused: true });
+          intro(tl, 2, 1, "Turn on the SSH agent", "Settings, then Developer.");
+          const ov = { x: 780, y: 680, s: 0.62 };
+          camSet(st, ov.x, ov.y, ov.s);
+          gsap.set(["#s2-dev", "#s2-ring1", "#s2-ring2", "#s2-cur"], { opacity: 0 });
+
+          // "then Developer": the sidebar row is selected and the pane switches.
+          const tDev = cue(2, "developer", 0);
+          cam(tl, st, 560, 560, 0.9, tDev - 0.9, 1.0);
+          tl.fromTo("#s2-ring1", { opacity: 0, scale: 1.12 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, tDev - 0.1);
+          tl.to("#s2-gen-hi", { opacity: 0, duration: 0.2 }, tDev + 0.15);
+          tl.to("#s2-dev-hi", { opacity: 1, duration: 0.2 }, tDev + 0.15);
+          tl.to("#s2-gen", { opacity: 0, duration: 0.2 }, tDev + 0.3);
+          tl.to("#s2-dev", { opacity: 1, duration: 0.35 }, tDev + 0.35);
+          tl.to("#s2-ring1", { opacity: 0, duration: 0.25 }, tDev + 0.9);
+
+          // "the SSH agent turned off": zoom to the checkbox and ring it.
+          const tOff = cue(2, "agent", 0);
+          cam(tl, st, 1000, 500, 0.95, tOff - 0.5, 1.1);
+          tl.fromTo("#s2-ring2", { opacity: 0, scale: 1.12 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, tOff + 0.5);
+
+          // "Check the box": the cursor clicks and the agent starts running.
+          const tBox = cue(2, "box", 0);
+          const use = mid(document.getElementById("s2-c3"), st);
+          tl.fromTo("#s2-cur", { opacity: 0, x: use.x + 240, y: use.y + 230 }, { opacity: 1, x: use.x + 240, y: use.y + 230, duration: 0.2 }, tBox - 1.5);
+          click(tl, "#s2-cur", use.x - 6, use.y - 4, tBox + 0.2);
+          tl.to("#s2-c3-on", { opacity: 1, duration: 0.15 }, tBox + 0.25);
+          tl.to("#s2-off", { opacity: 0, duration: 0.15 }, tBox + 0.3);
+          tl.to("#s2-on", { opacity: 1, duration: 0.25 }, tBox + 0.3);
+          tl.to("#s2-ring2", { opacity: 0, duration: 0.3 }, tBox + 1.1);
+          tl.to("#s2-cur", { opacity: 0, duration: 0.25 }, tBox + 1.0);
+          leave(tl, 2, "#s2-in");
+          undo();
+          window.__timelines["s2"] = tl;
+        });
+      </script>
+    </template>
+  </body>
+</html>

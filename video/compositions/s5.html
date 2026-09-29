@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <style>
+        #s5-in { position: absolute; inset: 0; }
+        .s5r { position: absolute; border: 8px solid var(--tomato); border-radius: 20px; box-sizing: border-box; pointer-events: none; }
+      </style>
+      <div id="root" data-composition-id="s5" data-width="1920" data-height="1080">
+        <div id="s5-in">
+          <div class="copy" id="s5-copy"></div>
+          <div class="dots" id="s5-dots"></div>
+          <div class="win" id="s5-win"><div class="vp"><div class="stage" data-layout-allow-overflow="" id="s5-stage" style="width:1920px;height:1500px"></div></div></div>
+        </div>
+      </div>
+      <script>
+        build(function () {
+          const undo = unhide(5);
+          const st = document.getElementById("s5-stage");
+          const $ = (id) => document.getElementById(id);
+          // Item detail with the purple banner (detail-relative coordinates)
+          let d = "";
+          d += B("s5-av", 20, 22, 44, 44, "border-radius:50%;background:#c9a58c") + B("s5-vc", 76, 22, 120, 44, "border-radius:22px;background:#333") + T("s5-share", 260, 44, "Share", 30, {}) + T("s5-edit", 380, 44, "Edit", 30, {}) + T("s5-dots", 530, 44, "&#8942;", 40, {});
+          let bn = "";
+          bn += T("s5-bt", 40, 44, "Enable key for SSH agent", 32, { w: 800 });
+          bn += T("s5-b1", 40, 108, "If you'd like to use this key with the", 27, {}) + T("s5-b2", 40, 144, "SSH agent, you can include it in the", 27, {}) + T("s5-b3", 40, 180, "SSH agent config file.", 27, {});
+          bn += B("s5-open", 30, 216, 494, 60, "border-radius:16px;background:#fff;color:#4a3d99;text-align:center;line-height:60px;font-size:28px;font-weight:700", "Open SSH Agent Config File&hellip;");
+          bn += B("s5-dis", 30, 292, 140, 54, "border-radius:14px;background:rgba(255,255,255,0.18);text-align:center;line-height:54px;font-size:27px;font-weight:600", "Dismiss");
+          d += B("s5-banner", 10, 100, 553, 370, "border-radius:26px;background:#6f5fb5", bn);
+          d += B("s5-ic", 36, 510, 116, 116, "", SSHKEY_SVG) + T("s5-nm", 176, 570, "My Testnet Key", 40, { w: 800 });
+          let fl = "";
+          const field = (id, y, lab, val, extra) => T(id + "l", 30, y, lab, 25, { c: "#a99bf0" }) + T(id + "v", 30, y + 40, val, 30, { extra: extra || "" });
+          fl += field("s5-f1", 44, "public key", "ssh-ed25519 AAAAC3NzaC1lZDI1&hellip;") + B("s5-fd1", 0, 100, 553, 2, "background:#3a3a3a");
+          fl += field("s5-f2", 146, "fingerprint", "SHA256:Q1w2E3r4T5y6U7i8&hellip;") + B("s5-fd2", 0, 202, 553, 2, "background:#3a3a3a");
+          fl += field("s5-f3", 248, "private key", "&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;", "letter-spacing:6px") + B("s5-fd3", 0, 304, 553, 2, "background:#3a3a3a");
+          fl += field("s5-f4", 350, "key type", "Ed25519");
+          d += B("s5-fields", 10, 660, 553, 410, "border-radius:22px;background:#2a2a2a;border:2px solid #383838;box-sizing:border-box", fl);
+          let h = mainWindow("s5", {
+            vaults: [{ name: "Personal", color: "#8fa0b4" }, { name: "Wallace", color: "#4db8ff", globe: true }],
+            sel: "Wallace", hi: 0, items: [{ t: "My Testnet Key", s: "SHA256:Q1w2E3r4T5y6&hellip;", c: "#5a6470", icon: '<div style="width:100%;height:100%">' + SSHKEY_SVG + "</div>" }],
+            detail: d,
+          });
+          // agent.toml editor
+          let e = "";
+          e += B("s5-etb", 0, 0, 1250, 70, "background:#232323;border-bottom:2px solid #333");
+          e += B("s5-e0", 30, 22, 26, 26, "border-radius:50%;background:#ff5f57") + B("s5-e1", 76, 22, 26, 26, "border-radius:50%;background:#febc2e") + B("s5-e2", 122, 22, 26, 26, "border-radius:50%;background:#28c840");
+          e += B("s5-tab", 0, 70, 260, 70, "background:#1a1a1a;border-right:2px solid #333") + T("s5-tabt", 40, 106, "agent.toml", 30, {}) + T("s5-tabx", 222, 106, "&times;", 34, { c: "#bbb" });
+          e += T("s5-bc", 40, 178, "~ &rsaquo; .config &rsaquo; 1Password &rsaquo; ssh &rsaquo; agent.toml", 28, { c: "#b0b0b0", mono: true });
+          const code = [['<span style="color:#ffd479">[[ssh-keys]]</span>', "s5-c1"], ['<span style="color:#ff9d7a">vault</span> = <span style="color:#c3e88d">"Wallace"</span>', "s5-c2"], ['<span style="color:#ff9d7a">item</span> = <span style="color:#c3e88d">"My Testnet Key"</span>', "s5-c3"]];
+          code.forEach(function (c, i) {
+            const y = 290 + i * 86;
+            e += T("s5-n" + i, 50, y, String(i + 1), 34, { c: "#777", mono: true });
+            e += T(c[1], 130, y, c[0], 44, { mono: true });
+          });
+                  h += B("s5-editor", 340, 290, 1250, 760, "background:#1a1a1a;border:2px solid #3b3b3b;border-radius:26px;overflow:hidden;opacity:0", e);
+          h += '<div class="s5r" id="s5-r1"></div><div class="s5r" id="s5-r2"></div>';
+          h += '<div class="a" id="s5-cur" style="left:0;top:0;width:64px;height:64px;z-index:9;opacity:0">' + CURSOR_BIG + "</div>";
+          st.innerHTML = h;
+          fit($("s5-r1"), $("s5-open"), 10);
+          {
+            // Ring the three lines of the entry with equal space on every side.
+            const a = rel($("s5-c1"), st), c = rel($("s5-c3"), st), w = Math.max(rel($("s5-c1"), st).w, rel($("s5-c2"), st).w, rel($("s5-c3"), st).w);
+            const r = $("s5-r2"), pad = 26;
+            r.style.left = a.x - pad + "px"; r.style.top = a.y - pad + "px";
+            r.style.width = w + 2 * pad + "px"; r.style.height = c.y + c.h - a.y + 2 * pad + "px";
+          }
+
+          const tl = gsap.timeline({ paused: true });
+          intro(tl, 5, 4, "Add the key to the agent", "Use the banner on the key.");
+          camSet(st, 1358, 600, 0.9);
+          gsap.set(["#s5-r1", "#s5-r2", "#s5-c1", "#s5-c2", "#s5-c3"], { opacity: 0 });
+          const ring = (id, t) => tl.fromTo(id, { opacity: 0, scale: 1.12 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, t);
+
+          // "open the agent config file": ring the banner button and click it.
+          const tOpen = cue(5, "open", 0), tFile = cue(5, "file", 0) + 0.3;
+          cam(tl, st, 1387, 520, 0.95, 0.5, 1.2);
+          ring("#s5-r1", tOpen);
+          const ob = mid($("s5-open"), st);
+          tl.fromTo("#s5-cur", { opacity: 0, x: ob.x + 200, y: ob.y + 300 }, { opacity: 1, x: ob.x + 200, y: ob.y + 300, duration: 0.2 }, tOpen);
+          tl.to("#s5-cur", { x: ob.x - 6, y: ob.y - 4, duration: 0.9, ease: "power2.inOut" }, tOpen + 0.3);
+          tl.to("#s5-cur", { scale: 0.82, duration: 0.1 }, tFile);
+          tl.to("#s5-cur", { scale: 1, duration: 0.15 }, tFile + 0.1);
+          tl.to("#s5-r1", { opacity: 0, duration: 0.2 }, tFile + 0.15);
+          tl.to("#s5-cur", { opacity: 0, duration: 0.2 }, tFile + 0.2);
+
+          // The editor opens and the entry is written.
+          const tEd = tFile + 0.3;
+          tl.to(['[id^="s5-li"]', "#s5-detail"], { opacity: 0, duration: 0.2 }, tEd);
+          tl.fromTo("#s5-editor", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.4, ease: "power3.out" }, tEd);
+          cam(tl, st, 965, 670, 0.78, tEd, 1.0);
+          tl.to("#s5-c1", { opacity: 1, duration: 0.01 }, tEd + 0.3);
+          type(tl, $("s5-c1"), tEd + 0.3, 0.4);
+          tl.to("#s5-c2", { opacity: 1, duration: 0.01 }, cue(5, "vault", 1) - 0.1);
+          type(tl, $("s5-c2"), cue(5, "vault", 1) - 0.1, 0.5);
+          tl.to("#s5-c3", { opacity: 1, duration: 0.01 }, cue(5, "key", 0) - 0.15);
+          type(tl, $("s5-c3"), cue(5, "key", 0) - 0.15, 0.6);
+          ring("#s5-r2", cue(5, "name", 0) + 0.2);
+          leave(tl, 5, "#s5-in");
+          undo();
+          window.__timelines["s5"] = tl;
+        });
+      </script>
+    </template>
+  </body>
+</html>

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <style>
+        #s1-in { position: absolute; inset: 0; }
+        #s1-title { position: absolute; left: 110px; top: 300px; width: 900px; }
+        #s1-title .h1 { font-size: 112px; margin-top: 34px; }
+        #s1-art { position: absolute; left: 1230px; top: 110px; width: 430px; }
+        #s1-art img { width: 430px; display: block; }
+      </style>
+      <div id="root" data-composition-id="s1" data-width="1920" data-height="1080">
+        <div id="s1-in">
+          <div id="s1-title">
+            <div class="eyebrow" id="s1-eb">Setup guide</div>
+            <h1 class="h1" id="s1-h1">Set up 1Password for Walleterm</h1>
+          </div>
+          <div id="s1-art"><img src="assets/art/hero.svg" alt=""></div>
+        </div>
+      </div>
+      <script>
+        (function () {
+          const tl = gsap.timeline({ paused: true });
+          tl.fromTo("#s1-eb", { opacity: 0, x: -50 }, { opacity: 1, x: 0, duration: 0.5, ease: "power3.out" }, 0.1);
+          tl.fromTo("#s1-h1", { opacity: 0, y: 50 }, { opacity: 1, y: 0, duration: 0.7, ease: "power3.out" }, 0.25);
+          tl.fromTo("#s1-art", { opacity: 0, y: 60 }, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out" }, 0.2);
+          tl.to("#s1-art", { y: -14, duration: 1.8, ease: "sine.inOut", yoyo: true, repeat: 1 }, 1.0);
+          leave(tl, 1, "#s1-in");
+          window.__timelines["s1"] = tl;
+        })();
+      </script>
+    </template>
+  </body>
+</html>

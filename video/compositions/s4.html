@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+  <head><meta charset="UTF-8"></head>
+  <body>
+    <template>
+      <style>
+        #s4-in { position: absolute; inset: 0; }
+        .s4r { position: absolute; border: 8px solid var(--tomato); border-radius: 20px; box-sizing: border-box; pointer-events: none; }
+      </style>
+      <div id="root" data-composition-id="s4" data-width="1920" data-height="1080">
+        <div id="s4-in">
+          <div class="copy" id="s4-copy"></div>
+          <div class="dots" id="s4-dots"></div>
+          <div class="win" id="s4-win"><div class="vp"><div class="stage" data-layout-allow-overflow="" id="s4-stage" style="width:1920px;height:1500px"></div></div></div>
+        </div>
+      </div>
+      <script>
+        build(function () {
+          const undo = unhide(4);
+          const st = document.getElementById("s4-stage");
+          const $ = (id) => document.getElementById(id);
+          const detail =
+            B("s4-dgl", 166, 500, 240, 240, "border-radius:50%;background:#4db8ff", '<div style="width:100%;height:100%;padding:44px;box-sizing:border-box">' + GLOBE_SVG + "</div>") +
+            T("s4-dn", 286, 800, "Wallace", 66, { w: 800, c: "#bdbdbd", extra: "transform:translateX(-50%)" }) +
+            T("s4-dt1", 286, 900, "Only you can view and edit items", 32, { c: "#bdbdbd", extra: "transform:translateX(-50%)" }) +
+            T("s4-dt2", 286, 942, "in this vault.", 32, { c: "#bdbdbd", extra: "transform:translateX(-50%)" });
+          let h = mainWindow("s4", {
+            vaults: [{ name: "Personal", color: "#8fa0b4" }, { name: "Wallace", color: "#4db8ff", globe: true }],
+            sel: "Wallace", items: [], empty: "There are no items in this vault", detail: detail,
+          });
+          h += B("s4-dim", 0, 0, 1920, 1500, "background:rgba(0,0,0,0.55);opacity:0");
+
+          // ---- New Item picker (modal-relative coordinates) ----
+          const tile = (id, x, y, label, color) =>
+            B(id, x, y, 334, 175, "border-radius:20px;background:#1a1a1a;border:2px solid #444;box-sizing:border-box",
+              B(id + "i", 24, 30, 58, 58, "border-radius:14px;background:" + color) + T(id + "t", 24, 128, label, 34, {}));
+          const row = (id, x, y, label, color, hi) =>
+            B(id, x, y, 510, 88, "border-radius:18px;box-sizing:border-box;border:2px solid " + (hi ? "#3d5fc4" : "#444") + ";background:" + (hi ? "#182347" : "#1a1a1a"),
+              B(id + "i", 22, 14, 58, 58, "border-radius:14px;background:" + color) + T(id + "t", 104, 44, label, 34, {}) + (hi ? T(id + "p", 452, 42, "+", 46, { c: "#5b8cff" }) : ""));
+          let pk = "";
+          pk += T("s4-q", 565, 164, "What would you like to add?", 44, { w: 800, extra: "transform:translateX(-50%)" });
+          pk += B("s4-srch", 188, 218, 750, 74, "border-radius:18px;border:2px solid #666;box-sizing:border-box") + T("s4-srcht", 262, 256, "Try searching anything", 32, { c: "#c8c8c8" });
+          pk += tile("s4-t1", 46, 353, "Login", "#3fd0c9") + tile("s4-t2", 396, 353, "Secure Note", "#f6b756") + tile("s4-t3", 747, 353, "Credit Card", "#5aa8ff");
+          pk += tile("s4-t4", 46, 548, "Identity", "#5fd28f") + tile("s4-t5", 396, 548, "Password", "#1f6f6f") + tile("s4-t6", 747, 548, "Document", "#4aa0ff");
+          pk += B("s4-pdiv", 46, 761, 1036, 2, "background:#444");
+          pk += row("s4-ssh", 46, 795, "SSH Key", "#5a6470", true) + row("s4-api", 572, 795, "API Credentials", "#39b8a0");
+          pk += row("s4-bank", 46, 900, "Bank Account", "#e0b040") + row("s4-cw", 572, 900, "Crypto Wallet", "#3a78c8");
+          pk += row("s4-db", 46, 1005, "Database", "#6a7480") + row("s4-dl", 572, 1005, "Driver License", "#e88aa0");
+          pk += row("s4-em", 46, 1110, "Email", "#d04a70") + row("s4-mr", 572, 1110, "Medical Record", "#d8d8e0");
+          pk += B("s4-x", 1060, 60, 44, 44, "font-size:44px;line-height:44px;color:#ddd", "&times;");
+
+          // ---- New Item form ----
+          let f = "";
+          f += T("s4-hd", 565, 64, "New Item", 40, { w: 800, extra: "transform:translateX(-50%)" });
+          f += T("s4-back", 50, 66, "&larr;", 44, { c: "#ddd" });
+          f += T("s4-fx", 1060, 66, "&times;", 52, { c: "#ddd" });
+          f += B("s4-fic", 97, 177, 109, 109, "", '<div style="width:100%;height:100%">' + SSHKEY_SVG + "</div>");
+          f += B("s4-tit", 224, 188, 870, 88, "border-radius:20px;background:#363636");
+          f += T("s4-ph", 258, 232, "SSH Key", 44, { w: 800 });
+          f += T("s4-name", 258, 232, "My Testnet Key", 44, { w: 800 });
+          f += B("s4-card", 62, 338, 1014, 317, "border-radius:24px;background:#1e1e1e;border:2px solid #3a3a3a;box-sizing:border-box");
+          f += B("s4-drop", 92, 364, 954, 162, "border-radius:20px;border:3px dashed #666;box-sizing:border-box");
+          f += T("s4-dropt", 569, 445, "Drag a Private Key file here to import.", 32, { c: "#b8b8b8", extra: "transform:translateX(-50%)" });
+          f += B("s4-line", 62, 552, 1014, 2, "background:#3a3a3a");
+          f += B("s4-addpk", 92, 572, 400, 64, "");
+          f += T("s4-addpkt", 110, 604, "+&nbsp;&nbsp;Add Private Key", 34, { c: "#6aa6ff", w: 600 });
+          // key fields shown after generating
+          let kf = "";
+          kf += T("s4-k1l", 110, 380, "public key", 26, { c: "#a99bf0" }) + T("s4-k1", 110, 420, "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5&hellip;", 32, { extra: "" });
+          kf += B("s4-kd1", 92, 460, 954, 2, "background:#3a3a3a");
+          kf += T("s4-k2l", 110, 490, "fingerprint", 26, { c: "#a99bf0" }) + T("s4-k2", 110, 528, "SHA256:Q1w2E3r4T5y6U7i8O9p0&hellip;", 32, {});
+          kf += B("s4-kd2", 92, 566, 954, 2, "background:#3a3a3a");
+          kf += T("s4-k3l", 110, 596, "private key", 26, { c: "#a99bf0" }) + T("s4-k3", 110, 632, "&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;", 32, { extra: "letter-spacing:6px" });
+          f += B("s4-keys", 0, 0, 1130, 700, "opacity:0", kf);
+          f += B("s4-more", 62, 700, 1014, 60, "border-radius:16px;background:#2e2e2e") + T("s4-moret", 110, 730, "+&nbsp;&nbsp;add more", 30, { c: "#6aa6ff" });
+          f += B("s4-notes", 62, 782, 1014, 130, "border-radius:20px;background:#363636") + T("s4-nl", 98, 812, "notes", 26, { c: "#a99bf0" }) + T("s4-nt", 98, 856, "Add any notes about this item here.", 32, {});
+          f += B("s4-loc", 62, 936, 1014, 56, "border-radius:16px;background:#363636") + T("s4-loct", 100, 964, "+&nbsp;&nbsp;add a location", 30, { c: "#6aa6ff" });
+          f += T("s4-tg", 98, 1048, "tags", 26, { c: "#a99bf0" }) + B("s4-tag", 84, 1070, 190, 56, "border-radius:28px;background:#363636") + T("s4-tagt", 112, 1098, "+ Add tag", 28, { c: "#6aa6ff" });
+          f += B("s4-foot", 0, 1190, 1130, 150, "background:#262626;border-top:2px solid #333");
+          f += B("s4-acct", 300, 1226, 660, 80, "border-radius:22px;background:#363636;border:2px solid #555;box-sizing:border-box",
+            B("s4-av", 20, 12, 52, 52, "border-radius:50%;background:#c9a58c") + T("s4-an", 90, 40, "Your Name", 30, {}) + B("s4-asep", 300, 14, 2, 48, "background:#666") +
+            B("s4-vic", 324, 12, 50, 50, "border-radius:50%;background:#4db8ff", '<div style="padding:8px">' + GLOBE_SVG + "</div>") + T("s4-vnm", 392, 40, "Wallace", 30, {}) + T("s4-vch", 590, 38, "&#8964;", 34, {}));
+          f += B("s4-save", 976, 1224, 122, 82, "border-radius:16px;background:#0a6cf5;text-align:center;line-height:82px;font-size:34px;font-weight:600", "Save");
+          // menu and popover
+          let m = "";
+          m += B("s4-mi1", 10, 10, 413, 62, "border-radius:14px;background:#0a6cf5") + T("s4-mi1t", 52, 42, "Generate a New Key", 30, {});
+          m += T("s4-mi2t", 52, 108, "Import a Key File", 30, {}) + T("s4-mi3t", 52, 170, "Paste Key from Clipboard", 30, {});
+          f += B("s4-menu", 49, 652, 433, 200, "border-radius:18px;background:#1e1e1e;border:2px solid #4a4a4a;box-sizing:border-box;opacity:0", m);
+          let po = "";
+          po += B("s4-pc", 31, 21, 139, 57, "border-radius:14px;border:2px solid #666;box-sizing:border-box;text-align:center;line-height:53px;font-size:30px", "Cancel");
+          po += B("s4-pg", 437, 21, 170, 57, "border-radius:14px;background:#0a6cf5;text-align:center;line-height:57px;font-size:30px;font-weight:600", "Generate");
+          po += T("s4-pkt", 31, 152, "Key Type", 32, { c: "#c0c0c0" });
+          po += B("s4-psel", 380, 119, 226, 58, "border-radius:14px;border:3px solid #8a8a8a;box-sizing:border-box;text-align:center;line-height:52px;font-size:30px", "Ed25519 &#8964;");
+          po += B("s4-pbar", 31, 214, 330, 6, "border-radius:3px;background:#28c840");
+          po += T("s4-pinfo1", 31, 262, "Ed25519 is the fastest and most", 28, { c: "#d0d0d0" }) + T("s4-pinfo2", 31, 300, "modern standard.", 28, { c: "#d0d0d0" });
+          f += B("s4-pop", 49, 652, 640, 340, "border-radius:22px;background:#1e1e1e;border:2px solid #4a4a4a;box-sizing:border-box;opacity:0", po);
+
+          h += B("s4-modal", 395, 90, 1130, 1340, "background:#1e1e1e;border:2px solid #3b3b3b;border-radius:34px;overflow:hidden;opacity:0",
+            B("s4-pick", 0, 0, 1130, 1340, "", pk) + B("s4-form", 0, 0, 1130, 1340, "opacity:0", f));
+          ["r1", "r2", "r3", "r4", "r5", "r6"].forEach(function (r) { h += '<div class="s4r" id="s4-' + r + '"></div>'; });
+          h += '<div class="a" id="s4-cur" style="left:0;top:0;width:64px;height:64px;z-index:9;opacity:0">' + CURSOR_BIG + "</div>";
+          st.innerHTML = h;
+
+          fit($("s4-r1"), $("s4-newitem"), 10);
+          fit($("s4-r2"), $("s4-ssh"), 10);
+          fit($("s4-r3"), $("s4-addpk"), 10);
+          fit($("s4-r4"), $("s4-psel"), 10);
+          fit($("s4-r5"), $("s4-pg"), 10);
+          fit($("s4-r6"), $("s4-save"), 10);
+
+          const tl = gsap.timeline({ paused: true });
+          intro(tl, 4, 3, "Generate an Ed25519 key", "Name it anything.");
+          camSet(st, 960, 750, 0.53);
+          gsap.set(["#s4-r1", "#s4-r2", "#s4-r3", "#s4-r4", "#s4-r5", "#s4-r6", "#s4-name"], { opacity: 0 });
+          const glide = (el, dx, dy, t) => { const p = mid(el, st); tl.fromTo("#s4-cur", { opacity: 0, x: p.x + dx, y: p.y + dy }, { opacity: 1, x: p.x + dx, y: p.y + dy, duration: 0.2 }, t); return p; };
+          const to = (el, t, d) => { const p = mid(el, st); tl.to("#s4-cur", { x: p.x - 6, y: p.y - 4, duration: d || 0.8, ease: "power2.inOut" }, t); return p; };
+          const press = (t) => { tl.to("#s4-cur", { scale: 0.82, duration: 0.1 }, t); tl.to("#s4-cur", { scale: 1, duration: 0.15 }, t + 0.1); };
+          const ring = (id, t) => tl.fromTo(id, { opacity: 0, scale: 1.15 }, { opacity: 1, scale: 1, duration: 0.3, ease: "back.out(2)" }, t);
+          const off = (id, t) => tl.to(id, { opacity: 0, duration: 0.2 }, t);
+
+          // "Choose New Item": ring the button and click.
+          const tCh = cue(4, "choose", 0), tNew = cue(4, "item", 0) + 0.1;
+          cam(tl, st, 1325, 470, 0.85, Math.max(0.3, tCh - 1.3), 0.9);
+          ring("#s4-r1", tCh + 0.3);
+          glide($("s4-newitem"), -300, 260, tCh + 0.2);
+          to($("s4-newitem"), tCh + 0.4, 0.9);
+          press(tNew);
+          off("#s4-r1", tNew + 0.1);
+          tl.to("#s4-dim", { opacity: 1, duration: 0.25 }, tNew + 0.1);
+          tl.to(["#s4-empty", "#s4-detail", "#s4-cat"], { opacity: 0, duration: 0.2 }, tNew + 0.1);
+          tl.fromTo("#s4-modal", { opacity: 0, y: 40 }, { opacity: 1, y: 0, duration: 0.35, ease: "power3.out" }, tNew + 0.1);
+          cam(tl, st, 960, 620, 0.6, tNew + 0.1, 0.9);
+
+          // "then SSH Key": zoom to the row, ring, click.
+          const tSsh = cue(4, "ssh", 0), tKey = cue(4, "key", 1) + 0.1;
+          cam(tl, st, 960, 1000, 0.85, tSsh - 0.6, 0.9);
+          ring("#s4-r2", tSsh + 0.2);
+          to($("s4-ssh"), tSsh - 0.2, 0.7);
+          press(tKey + 0.15);
+
+          // "Select Add Private Key": the form opens and the link is ringed.
+          const tAdd = cue(4, "add", 1), tPk = cue(4, "private", 0) + 0.2;
+          off("#s4-r2", tAdd - 0.5);
+          tl.to("#s4-pick", { opacity: 0, duration: 0.25 }, tAdd - 0.55);
+          tl.to("#s4-form", { opacity: 1, duration: 0.3 }, tAdd - 0.5);
+          cam(tl, st, 960, 830, 0.75, tAdd - 0.5, 1.0);
+          ring("#s4-r3", tAdd + 0.1);
+          to($("s4-addpk"), tAdd, 0.8);
+          press(tPk + 0.3);
+          off("#s4-r3", tPk + 0.4);
+          tl.to(["#s4-more", "#s4-moret", "#s4-notes", "#s4-nl", "#s4-nt", "#s4-loc", "#s4-loct"], { opacity: 0, duration: 0.15 }, tPk + 0.3);
+          tl.fromTo("#s4-menu", { opacity: 0, y: -14 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }, tPk + 0.35);
+
+          // "and generate a new one": the menu item is clicked and the key type panel opens.
+          const tG = cue(4, "one", 0);
+          to($("s4-mi1"), tG - 0.9, 0.7);
+          press(tG + 0.1);
+          tl.to("#s4-menu", { opacity: 0, duration: 0.2 }, tG + 0.25);
+          tl.fromTo("#s4-pop", { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.3, ease: "power2.out" }, tG + 0.25);
+
+          // "The default type is fine."
+          const tDef = cue(4, "default", 0);
+          ring("#s4-r4", tDef);
+          off("#s4-r4", cue(4, "fine", 0) + 0.45);
+
+          // Generate is pressed and the key fields appear.
+          const tGen = cue(4, "fine", 0) + 0.55;
+          ring("#s4-r5", tGen - 0.35);
+          to($("s4-pg"), tGen - 0.7, 0.6);
+          press(tGen);
+          off("#s4-r5", tGen + 0.15);
+          tl.to("#s4-pop", { opacity: 0, duration: 0.2 }, tGen + 0.15);
+          tl.to(["#s4-drop", "#s4-dropt", "#s4-addpkt"], { opacity: 0, duration: 0.15 }, tGen + 0.1);
+          tl.to("#s4-keys", { opacity: 1, duration: 0.3 }, tGen + 0.2);
+          tl.to(["#s4-more", "#s4-moret", "#s4-notes", "#s4-nl", "#s4-nt", "#s4-loc", "#s4-loct"], { opacity: 1, duration: 0.25 }, tGen + 0.3);
+
+          // "Give it any name, then save."
+          const tNm = cue(4, "give", 0) + 0.2;
+          tl.to("#s4-ph", { opacity: 0, duration: 0.1 }, tNm);
+          tl.to("#s4-name", { opacity: 1, duration: 0.01 }, tNm);
+          type(tl, $("s4-name"), tNm, 0.7);
+          const tSv = cue(4, "save", 0) + 0.15;
+          cam(tl, st, 960, 900, 0.7, tNm + 0.5, 1.0);
+          ring("#s4-r6", tSv - 0.3);
+          to($("s4-save"), tSv - 0.7, 0.6);
+          press(tSv);
+          leave(tl, 4, "#s4-in");
+          undo();
+          window.__timelines["s4"] = tl;
+        });
+      </script>
+    </template>
+  </body>
+</html>
