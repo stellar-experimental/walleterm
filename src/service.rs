@@ -175,7 +175,7 @@ fn run_tunnel(port: u16) -> i32 {
             println!("The signing bridge requires macOS and the 1Password SSH agent.");
             return 1;
         };
-        let probe_client = match crate::http::https_client() {
+        let probe_client = match crate::http::https_client(crate::dns::Resolver::direct()) {
             Ok(client) => std::sync::Arc::new(client),
             Err(e) => {
                 println!("{}", e.message);
@@ -264,7 +264,7 @@ pub fn run(command: &str, args: &[&str], out: &mut dyn Write) -> i32 {
 fn run_demo(port: u16) -> i32 {
     let Ok(runtime) = tokio::runtime::Builder::new_current_thread().enable_all().build() else { return 1 };
     runtime.block_on(async {
-        let client = match crate::http::https_client() {
+        let client = match crate::http::https_client(crate::dns::Resolver::direct()) {
             Ok(client) => std::sync::Arc::new(client),
             Err(e) => {
                 println!("{}", e.message);

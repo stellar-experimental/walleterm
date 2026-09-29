@@ -3,6 +3,7 @@
 
 mod support;
 
+use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -12,6 +13,7 @@ use serde_json::{Value, json};
 use tokio::sync::{mpsc, watch};
 use walleterm::bridge::BoxFuture;
 use walleterm::cancel::Cancel;
+use walleterm::dns::Resolver;
 use walleterm::error::{Error, Result};
 use walleterm::tunnel::{
     LaunchDeps, Output, Service, Tunnel, launch, public_ready, tunnel_origin, wait_for_tunnel,
@@ -553,6 +555,170 @@ async fn an_html_error_page_fails_the_probe() {
     assert_eq!(e.message, "The public response is not JSON.");
 }
 
+// ---------- Tunnel DNS ----------
+
+const NXDOMAIN: &str = "The DNS lookup found no such tunnel name.";
+
+/// A resolver that fails `misses` times, then returns loopback. It records each name that it receives.
+fn resolver(misses: usize, asked: Arc<Mutex<Vec<String>>>) -> Resolver {
+    Resolver::new(move |host| {
+        let mut asked = asked.lock().unwrap();
+        asked.push(host);
+        let found = asked.len() > misses;
+        Box::pin(async move {
+            if found { Ok(Ipv4Addr::LOCALHOST) } else { Err(Error::new("internal", NXDOMAIN)) }
+        })
+    })
+}
+
+type PlainClient = hyper_util::client::legacy::Client<
+    hyper_util::client::legacy::connect::HttpConnector<Resolver>,
+    http_body_util::Full<bytes::Bytes>,
+>;
+
+/// The production connector without TLS, so a loopback server can read the request.
+fn plain_client(resolver: Resolver) -> PlainClient {
+    hyper_util::client::legacy::Client::builder(hyper_util::rt::TokioExecutor::new())
+        .build(hyper_util::client::legacy::connect::HttpConnector::new_with_resolver(resolver))
+}
+
+fn probe_with(client: PlainClient) -> Box<walleterm::tunnel::ProbeFn> {
+    let client = Arc::new(client);
+    Box::new(move |origin, cancel| {
+        let client = client.clone();
+        Box::pin(async move { walleterm::tunnel::public_probe(&client, &origin, &cancel).await })
+    })
+}
+
+#[tokio::test]
+async fn readiness_asks_again_after_a_missing_tunnel_name() {
+    use http_body_util::Full;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let requests = Arc::new(Mutex::new(Vec::new()));
+    let seen = requests.clone();
+    tokio::spawn(async move {
+        while let Ok((stream, _)) = listener.accept().await {
+            let seen = seen.clone();
+            let service = hyper::service::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
+                seen.lock().unwrap().push(format!(
+                    "{} {}",
+                    req.headers()["host"].to_str().unwrap(),
+                    req.uri()
+                ));
+                async {
+                    Ok::<_, std::convert::Infallible>(hyper::Response::new(Full::new(
+                        bytes::Bytes::from_static(br#"{"service":"walleterm"}"#),
+                    )))
+                }
+            });
+            tokio::spawn(
+                hyper::server::conn::http1::Builder::new()
+                    .serve_connection(hyper_util::rt::TokioIo::new(stream), service),
+            );
+        }
+    });
+    let asked = Arc::new(Mutex::new(Vec::new()));
+    let probe = probe_with(plain_client(resolver(2, asked.clone())));
+    let origin = format!("http://bridge-name.trycloudflare.com:{port}");
+    public_ready(&origin, "walleterm", &probe, &Cancel::new()).await.unwrap();
+    // Each probe asks DNS again. The request reaches the resolved address with the tunnel host name.
+    assert_eq!(*asked.lock().unwrap(), vec!["bridge-name.trycloudflare.com"; 3]);
+    assert_eq!(*requests.lock().unwrap(), vec![format!("bridge-name.trycloudflare.com:{port} /api/session")]);
+}
+
+#[tokio::test(start_paused = true)]
+async fn readiness_names_the_last_dns_error_at_its_deadline() {
+    let asked = Arc::new(Mutex::new(Vec::new()));
+    let probe = probe_with(plain_client(resolver(usize::MAX, asked.clone())));
+    let started = tokio::time::Instant::now();
+    let e = public_ready("http://bridge-name.trycloudflare.com", "walleterm", &probe, &Cancel::new())
+        .await
+        .unwrap_err();
+    assert_eq!(started.elapsed(), Duration::from_secs(45));
+    assert_eq!(
+        e.message,
+        "The public site did not become ready (The DNS lookup found no such tunnel name). Check the Internet connection and run the command again."
+    );
+    assert!(asked.lock().unwrap().len() > 100);
+}
+
+#[tokio::test(start_paused = true)]
+async fn readiness_ends_a_hanging_probe_at_its_deadline() {
+    let calls = Arc::new(AtomicUsize::new(0));
+    let counter = calls.clone();
+    let probe: Box<walleterm::tunnel::ProbeFn> = Box::new(move |_, _| {
+        let first = counter.fetch_add(1, Ordering::SeqCst) == 0;
+        Box::pin(async move {
+            if first {
+                return Err(Error::new("internal", "The DNS lookup timed out."));
+            }
+            std::future::pending().await
+        })
+    });
+    let started = tokio::time::Instant::now();
+    let stop = Cancel::new();
+    let ready = public_ready("https://bridge-name.trycloudflare.com", "walleterm", &probe, &stop);
+    let e = tokio::time::timeout(Duration::from_secs(60), ready).await.expect("readiness ends").unwrap_err();
+    assert_eq!(started.elapsed(), Duration::from_secs(45));
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
+    assert!(
+        e.message.starts_with("The public site did not become ready (The DNS lookup timed out). "),
+        "{}",
+        e.message
+    );
+}
+
+#[tokio::test(start_paused = true)]
+async fn a_readiness_failure_keeps_the_last_probe_error() {
+    let (h, mut deps) = harness(Plan::default());
+    deps.ready = Box::new(|origin, name, cancel| {
+        Box::pin(async move {
+            // Startup work runs before readiness sets its own deadline.
+            tokio::time::sleep(Duration::from_millis(1)).await;
+            let probe: Box<walleterm::tunnel::ProbeFn> =
+                Box::new(|_, _| Box::pin(async { Err(Error::new("internal", NXDOMAIN)) }));
+            public_ready(&origin, name, &probe, &cancel).await
+        })
+    });
+    let Err((e, code)) = launch("Walleterm tunnel", 8791, h.service.clone(), deps).await else {
+        panic!("launch must fail")
+    };
+    assert_eq!(code, 1);
+    assert_eq!(
+        e.message,
+        "The public site did not become ready (The DNS lookup found no such tunnel name). Check the Internet connection and run the command again."
+    );
+}
+
+#[tokio::test]
+async fn the_production_client_names_the_tunnel_host_at_the_resolved_address() {
+    use tokio::io::AsyncReadExt;
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let hello = tokio::spawn(async move {
+        let (mut stream, _) = listener.accept().await.unwrap();
+        let mut header = [0u8; 5];
+        stream.read_exact(&mut header).await.unwrap();
+        let mut body = vec![0u8; u16::from_be_bytes([header[3], header[4]]) as usize];
+        stream.read_exact(&mut body).await.unwrap();
+        (header[0], body)
+    });
+    let asked = Arc::new(Mutex::new(Vec::new()));
+    let client = walleterm::http::https_client(resolver(0, asked.clone())).unwrap();
+    let origin = format!("https://bridge-name.trycloudflare.com:{port}");
+    assert!(walleterm::tunnel::public_probe(&client, &origin, &Cancel::new()).await.is_err());
+    assert_eq!(*asked.lock().unwrap(), vec!["bridge-name.trycloudflare.com"]);
+    let (kind, body) = tokio::time::timeout(Duration::from_secs(5), hello)
+        .await
+        .expect("a connection to the address")
+        .unwrap();
+    // A TLS handshake record whose server name is the tunnel host, not the loopback address.
+    assert_eq!(kind, 0x16);
+    let name = b"bridge-name.trycloudflare.com";
+    assert!(body.windows(name.len()).any(|w| w == name));
+}
+
 // ---------- The real supervisor ----------
 
 fn alive(pid: i32) -> bool {
@@ -1017,7 +1183,7 @@ async fn shutdown_during_retirement_cancels_bridge_signing_first() {
 fn the_production_client_is_https_only() {
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
     runtime.block_on(async {
-        let client = walleterm::http::https_client().unwrap();
+        let client = walleterm::http::https_client(resolver(0, Arc::default())).unwrap();
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
         assert!(walleterm::tunnel::public_probe(&client, &origin, &Cancel::new()).await.is_err());

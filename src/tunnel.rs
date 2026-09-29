@@ -144,6 +144,7 @@ pub fn stopped() -> Error {
 }
 
 /// Poll the public URL until it answers as `service`, for at most 45 seconds.
+/// A failure names the last probe result, so a slow DNS record reads differently from an HTTP error.
 pub async fn public_ready(origin: &str, service: &str, probe: &ProbeFn, stop: &Cancel) -> Result<()> {
     let deadline = Instant::now() + READY_TIMEOUT;
     let mut last = "no response".to_owned();
@@ -151,24 +152,27 @@ pub async fn public_ready(origin: &str, service: &str, probe: &ProbeFn, stop: &C
         if stop.is_cancelled() {
             return Err(stopped());
         }
-        match probe(origin.to_owned(), stop.clone()).await {
-            Ok((status, name)) => {
+        // The deadline also ends a probe in progress. The previous result stays the last one.
+        match tokio::time::timeout_at(deadline, probe(origin.to_owned(), stop.clone())).await {
+            Ok(Ok((status, name))) => {
                 last = format!("HTTP {status}");
                 if status == 200 && name.as_deref() == Some(service) {
                     return Ok(());
                 }
             }
-            Err(e) => last = e.message,
+            Ok(Err(e)) => last = e.message,
+            Err(_) => break,
         }
         tokio::select! {
-            () = tokio::time::sleep(Duration::from_millis(350)) => {}
+            () = tokio::time::sleep_until(deadline.min(Instant::now() + Duration::from_millis(350))) => {}
             () = stop.cancelled() => return Err(stopped()),
         }
     }
     Err(Error::new(
         "internal",
         format!(
-            "The public site did not become ready ({last}). Check the Internet connection and run the command again."
+            "The public site did not become ready ({}). Check the Internet connection and run the command again.",
+            last.trim_end_matches('.')
         ),
     ))
 }
@@ -470,12 +474,9 @@ pub async fn launch(
                 }
                 *shared.origin.lock().unwrap() = origin.clone();
                 service.set_public_origin(&origin);
-                let ready = tokio::time::timeout(
-                    READY_TIMEOUT,
-                    (deps.ready)(origin, service.name(), controller.clone()),
-                );
+                // The readiness check owns its 45-second limit, so its failure keeps the last probe error.
                 let ready = tokio::select! {
-                    r = ready => r.unwrap_or_else(|_| Err(Error::new("internal", "The public tunnel did not become ready. Check the Internet connection and try again."))),
+                    r = (deps.ready)(origin, service.name(), controller.clone()) => r,
                     () = controller.cancelled() => Err(stopped()),
                 };
                 ready?;
@@ -843,6 +844,7 @@ pub async fn run_supervisor(args: Vec<String>) -> i32 {
 }
 
 /// Probe `origin/api/session` over HTTPS: 2.5 seconds, 4096 response bytes, the JSON `service` field.
+/// The client's resolver finds the address. A DNS failure keeps its own message.
 pub async fn public_probe<C>(
     client: &hyper_util::client::legacy::Client<C, http_body_util::Full<bytes::Bytes>>,
     origin: &str,
@@ -855,7 +857,16 @@ where
     let url: hyper::Uri =
         format!("{origin}/api/session").parse().map_err(|_| unavailable("The public URL is invalid."))?;
     let work = async {
-        let response = client.get(url).await.map_err(|_| unavailable("The public request failed."))?;
+        let response = client.get(url).await.map_err(|e| {
+            let mut cause: Option<&(dyn std::error::Error + 'static)> = Some(&e);
+            while let Some(error) = cause {
+                if let Some(dns) = error.downcast_ref::<Error>() {
+                    return dns.clone();
+                }
+                cause = error.source();
+            }
+            unavailable("The public request failed.")
+        })?;
         let status = response.status().as_u16();
         let body = crate::http::capped(response.into_body(), 4096)
             .await

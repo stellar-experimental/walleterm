@@ -30,11 +30,12 @@ pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(15);
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
-pub type HttpsClient = Client<HttpsConnector<HttpConnector>, Full<Bytes>>;
+pub type HttpsClient = Client<HttpsConnector<HttpConnector<crate::dns::Resolver>>, Full<Bytes>>;
 
 /// An HTTPS-only client with platform certificate and hostname checks. Hyper follows no redirects and reads no proxy settings.
-pub fn https_client() -> Result<HttpsClient> {
-    let mut http = HttpConnector::new();
+/// `resolver` supplies the address. TLS and the `Host` header keep the URL host name.
+pub fn https_client(resolver: crate::dns::Resolver) -> Result<HttpsClient> {
+    let mut http = HttpConnector::new_with_resolver(resolver);
     http.enforce_http(false);
     http.set_connect_timeout(Some(CONNECT_TIMEOUT));
     let tls = native_tls::TlsConnector::new().map_err(|_| Error::new("internal", "TLS is unavailable."))?;
