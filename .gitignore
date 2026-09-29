@@ -40,6 +40,7 @@ __pycache__/
 !/evidence/live-rerun-2026-09-28.json
 !/evidence/openzeppelin-live-2026-09-28.json
 !/evidence/sep43-live-2026-09-28.json
+!/evidence/signing-live-2026-09-28.json
 !/evidence/tunnel-testnet-2026-09-25.json
 !/evidence/browser-qa-2026-09-25/
 /evidence/browser-qa-2026-09-25/*

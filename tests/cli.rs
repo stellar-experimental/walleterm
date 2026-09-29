@@ -259,7 +259,7 @@ const CLOSED: &str =
 const TRUNCATED: &str = "The agent returned a truncated frame.";
 
 /// Whether the agent answers the identities request, the bytes it then sends before it closes, and the message.
-/// Live runs saw a close after an unanswered prompt. The byte count was not recorded.
+/// On 2026-09-28, an unanswered prompt while 1Password was locked closed the connection before any response byte.
 /// Any partial frame stays a truncated frame.
 /// Live runs listed keys without a prompt, so a close before the identities answer keeps the old message.
 const CLOSES: [(bool, &[u8], &str); 5] = [
