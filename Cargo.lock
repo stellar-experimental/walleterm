@@ -1128,6 +1128,7 @@ dependencies = [
  "stellar-xdr",
  "subtle",
  "tokio",
+ "tower-service",
  "url",
 ]
 

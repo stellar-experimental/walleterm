@@ -37,6 +37,9 @@ No JavaScript runtime starts. The tunnel reads only `OP_VAULT` from `.env` in th
 The tunnel prints its wallet filter at startup. It warns about `OP_VAULT` in other `.env.*` files, which it ignores.
 Public mode needs cloudflared. The signing bridge also needs macOS and the 1Password SSH agent.
 Each public service owns a private temporary Cloudflare configuration and a supervised child process.
+Startup waits up to 45 seconds for the public URL to answer. A failure names the last check error.
+Checks ask the `/etc/resolv.conf` nameservers directly for the tunnel name's IPv4 address.
+They do not use the macOS resolver cache. That cache can keep a missing-name answer for a new tunnel.
 Each service checks its public URL every 15 seconds. Healthy checks produce no log output.
 An exit or six failed checks starts tunnel recovery. The local server stays running.
 Recovery permits three replacement attempts per ten minutes, with delays of two, four, and eight seconds.

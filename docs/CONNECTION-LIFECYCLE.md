@@ -22,7 +22,8 @@ The demo preserves uncertain signing and submission records. Check an uncertain 
 
 Each command owns its local server and public tunnel. Stopping one command does not stop the other.
 Each command checks `/api/session` every 15 seconds. The response must identify the exact service.
-Probe DNS lookup and HTTP response each permit 2.5 seconds.
+Each probe permits 2.5 seconds for DNS, connection, TLS, and the response. The DNS lookup permits 2 seconds of that.
+Probes ask the `/etc/resolv.conf` nameservers directly and keep no DNS cache.
 Healthy checks produce no log output. The terminal reports failures and recovery when they occur.
 The terminal repeats an ongoing failure at most once per minute.
 
