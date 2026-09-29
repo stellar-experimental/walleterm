@@ -11,7 +11,9 @@
 
 ## Safari
 
-- `agent-browser -p ios` needs Appium, which is not installed. It can also pick a simulator whose iOS runtime is missing.
+- `agent-browser -p ios` does not work in agent-browser 0.38.1, even with Appium and its XCUITest driver installed.
+  It opens an Appium session but answers `open` and `screenshot` from Chrome: a 1280-pixel screenshot is Chrome, not Safari.
+  Use the simulator commands below. Re-test after an agent-browser update.
 - Without Appium, drive Mobile Safari with the simulator directly. Screenshots come at the device's own ratio:
 
   ```sh
@@ -25,7 +27,7 @@
 - Serve `site/` from each version with `python3 -m http.server PORT --bind 0.0.0.0` in a `git archive` copy, one port for before and one for after.
 - The simulator cannot scroll without Appium. To see pictures below the fold, serve a small page that shows each `art/*.svg` at its site size.
 - An iPad Pro simulator gives desktop-class Safari at 2x. Its first launch can show a system banner over the top of the page.
-- Desktop Safari's `safaridriver` needs `safaridriver --enable` once, with an administrator password.
+- Desktop Safari's `safaridriver` needs `safaridriver --enable` once, with an administrator password. Then try `agent-browser -p safari`.
 
 ## Shell
 
