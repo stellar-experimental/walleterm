@@ -3,9 +3,9 @@
 
 use serde_json::{Value, json};
 
-use crate::authorization::{CheckedAuth, attach_auth_signature, inspect_auth_entry, verify};
+use crate::authorization::{CheckedAuth, attach_auth_signature, inspect_auth_entry};
 use crate::error::{Result, fail};
-use crate::stellar::{self, account_key};
+use crate::stellar::{self, account_key, verify};
 use crate::transaction::{self, CheckedTransaction};
 use crate::util::hex;
 use crate::{message, preimage};

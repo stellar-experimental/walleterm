@@ -8,8 +8,8 @@ use base64::engine::general_purpose::STANDARD;
 use ed25519_dalek::{Signer, SigningKey};
 use serde_json::{Value, json};
 use walleterm::artifact::{self, Artifact, Scope, Signed};
-use walleterm::authorization::verify;
 use walleterm::error::Error;
+use walleterm::stellar::verify;
 use walleterm::util::{hex, lower_hex, sha256};
 
 /// Reviewed behavior changes from `audit/2026-09-28-sign-design/DESIGN.md` (PR A). `"ok"` means the case now signs.

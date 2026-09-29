@@ -32,6 +32,14 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 
 pub type HttpsClient = Client<HttpsConnector<HttpConnector<crate::dns::Resolver>>, Full<Bytes>>;
 
+/// An exact `Host` match: the public origin's host and port, or loopback on the listen port.
+pub fn allowed_host(base: &url::Url, port: u64, host: Option<&str>) -> bool {
+    let public =
+        base.host_str().map(|h| base.port().map_or(h.to_owned(), |p| format!("{h}:{p}"))).unwrap_or_default();
+    let allowed = [public, format!("127.0.0.1:{port}"), format!("localhost:{port}")];
+    host.is_some_and(|h| allowed.iter().any(|a| a == h))
+}
+
 /// An HTTPS-only client with platform certificate and hostname checks. Hyper follows no redirects and reads no proxy settings.
 /// `resolver` supplies the address. TLS and the `Host` header keep the URL host name.
 pub fn https_client(resolver: crate::dns::Resolver) -> Result<HttpsClient> {

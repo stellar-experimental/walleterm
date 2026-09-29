@@ -12,11 +12,10 @@ use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD_NO_PAD;
 use serde::Serialize;
 
-use crate::authorization::verify;
 use crate::cancel::Cancel;
 use crate::error::{Error, Result};
 use crate::platform::current_uid;
-use crate::stellar::account_address;
+use crate::stellar::{account_address, verify};
 use crate::util::sha256;
 
 pub const MAX_FRAME: u32 = 1 << 20;

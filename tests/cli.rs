@@ -971,7 +971,7 @@ fn signed(request: &Value) -> (Value, String, String) {
     );
     let signature = lower_hex::<64>(out["signature"].as_str().unwrap()).unwrap();
     let digest = lower_hex::<32>(out["digest"].as_str().unwrap()).unwrap();
-    assert!(walleterm::authorization::verify(&mock_public(), &digest, &signature));
+    assert!(walleterm::stellar::verify(&mock_public(), &digest, &signature));
     (out, got.stderr, got.stdout)
 }
 

@@ -23,7 +23,6 @@
 *.tmp
 *.swp
 *.swo
-coverage.out
 __pycache__/
 **/test_snapshots/
 

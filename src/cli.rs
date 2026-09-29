@@ -205,7 +205,7 @@ struct SignRequest {
 /// Parse `sign` input strictly. Every failure is `invalid_input`, before any agent connection.
 fn parse_sign_request(bytes: &[u8]) -> Result<SignRequest> {
     if bytes.len() > MAX_INPUT {
-        return Err(invalid("The input must be at most 393216 bytes."));
+        return Err(invalid(&format!("The input must be at most {MAX_INPUT} bytes.")));
     }
     // A lossy conversion would change message bytes without an error.
     let Ok(text) = std::str::from_utf8(bytes) else {

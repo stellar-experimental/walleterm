@@ -200,6 +200,14 @@ fn run_tunnel(port: u16, vault: Option<String>) -> i32 {
     })
 }
 
+/// A public health probe through the shared HTTPS client.
+fn public_probe(client: std::sync::Arc<crate::http::HttpsClient>) -> Box<crate::tunnel::ProbeFn> {
+    Box::new(move |origin, cancel| {
+        let client = client.clone();
+        Box::pin(async move { crate::tunnel::public_probe(&client, &origin, &cancel).await })
+    })
+}
+
 /// Launch, wait for the service to end, and report a startup failure in plain text.
 pub async fn run_launch(
     label: &str,
@@ -208,25 +216,16 @@ pub async fn run_launch(
     output: std::sync::Arc<dyn crate::tunnel::Output>,
     client: std::sync::Arc<crate::http::HttpsClient>,
 ) -> i32 {
-    let probe_client = client.clone();
-    let probe: Box<crate::tunnel::ProbeFn> = Box::new(move |origin, cancel| {
-        let client = probe_client.clone();
-        Box::pin(async move { crate::tunnel::public_probe(&client, &origin, &cancel).await })
-    });
-    let ready_client = client.clone();
     let deps = crate::tunnel::LaunchDeps {
         spawn_tunnel: Box::new(crate::tunnel::spawn_supervisor),
-        ready: Box::new(move |origin, name, cancel| {
-            let client = ready_client.clone();
-            Box::pin(async move {
-                let probe: Box<crate::tunnel::ProbeFn> = Box::new(move |origin, cancel| {
-                    let client = client.clone();
-                    Box::pin(async move { crate::tunnel::public_probe(&client, &origin, &cancel).await })
-                });
-                crate::tunnel::public_ready(&origin, name, &probe, &cancel).await
-            })
+        ready: Box::new({
+            let client = client.clone();
+            move |origin, name, cancel| {
+                let probe = public_probe(client.clone());
+                Box::pin(async move { crate::tunnel::public_ready(&origin, name, &probe, &cancel).await })
+            }
         }),
-        probe,
+        probe: public_probe(client),
         output,
         environment: std::env::vars().collect(),
         health_interval: crate::tunnel::HEALTH_INTERVAL,

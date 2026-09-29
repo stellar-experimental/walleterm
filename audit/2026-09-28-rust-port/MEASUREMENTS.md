@@ -60,6 +60,10 @@ An earlier quiet-machine run (bcbd050) gave the same pattern at lower absolute t
 | TypeScript SDK (`sdk/`) | 2,554 | 2,667 (main's #27 and #31 added 113) |
 | TypeScript tests and harnesses (`*.test.ts`, `tests/`) | 20,192 | 18,852 |
 
+Correction (2026-09-28): The Rust art generator was reverted after this measurement.
+The generator stays in TypeScript at `design/art/*.ts`, and `tools/src/` has no art generator.
+The numbers above are the original measurements at 1bda24a. They do not include the revert.
+
 The Rust application is larger than the Go and TS host source it replaces (6,651 against 3,105 lines).
 It now does work that libraries and runtimes did before: the HTTP server and limits (`Bun.serve`), transaction and
 authorization inspection (the JS SDK), Bun's exact `.env` rules, Go's JSON and `%q` escaping, and process supervision.
