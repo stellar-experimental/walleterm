@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// Generate page code for a confirmed legacy Freighter message transport.
+// Generate page code that answers Freighter's window.postMessage transport and captures signing requests.
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { createPublicKey, verify } from 'node:crypto';
@@ -11,7 +11,7 @@ const options = new Map<string, string | true>();
 for (let index = 0; index < args.length; index++) {
   const key = args[index];
   if (!key.startsWith('--') || options.has(key)) throw Error(`Invalid option: ${key}`);
-  if (key === '--legacy-flag') {
+  if (key === '--window-flag') {
     options.set(key, true);
     continue;
   }
@@ -44,7 +44,7 @@ function stellarXdr(operation: string, xdr: string, options: string[] = []) {
 }
 
 if (command === 'inject') {
-  exactOptions(['--public-key', '--origin', '--legacy-flag']);
+  exactOptions(['--public-key', '--origin', '--window-flag']);
   const key = required('--public-key');
   if (!/^G[A-Z2-7]{55}$/.test(key)) throw Error('Use a full Ed25519 G-address.');
   const expectedOrigin = required('--origin');
@@ -56,7 +56,7 @@ if (command === 'inject') {
   ) {
     throw Error('Use an exact HTTPS origin or a loopback HTTP origin.');
   }
-  const flag = options.get('--legacy-flag') === true;
+  const flag = options.get('--window-flag') === true;
   process.stdout.write(`(() => {
   const publicKey = ${JSON.stringify(key)};
   const origin = location.origin;
@@ -89,7 +89,8 @@ if (command === 'inject') {
     if (request.messageId === undefined || request.messageId === null) return;
     const response = { source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE', messagedId: request.messageId };
     if (request.type === 'REQUEST_CONNECTION_STATUS') response.isConnected = true;
-    else if (request.type === 'REQUEST_ACCESS') response.publicKey = publicKey;
+    else if (request.type === 'REQUEST_ACCESS' || request.type === 'REQUEST_PUBLIC_KEY') response.publicKey = publicKey;
+    else if (request.type === 'REQUEST_ALLOWED_STATUS' || request.type === 'SET_ALLOWED_STATUS') response.isAllowed = true;
     else if (request.type === 'REQUEST_NETWORK') response.network = 'TESTNET';
     else if (request.type === 'REQUEST_NETWORK_DETAILS') response.networkDetails = {
       network: 'TESTNET', networkName: 'Testnet', networkUrl: 'https://horizon-testnet.stellar.org',

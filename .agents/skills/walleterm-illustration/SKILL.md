@@ -1,6 +1,8 @@
 ---
 name: walleterm-illustration
 description: Draw or change walleterm illustrations and the wallet mascot at parity with the reference images, and keep the Paper designs current. Use for a new scene, a site or social image, a change to the hand-drawn line or flat shapes, a parity check of art against design/reference, or any Paper or site layout change.
+metadata:
+  internal: true
 ---
 
 # Walleterm illustration

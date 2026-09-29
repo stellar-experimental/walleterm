@@ -2,12 +2,10 @@
 
 ## Pinned sources
 
-- Stellar CLI `v27.1.0`, commit [`8e402ea28202950b272fbabc34caad4d2f64fe87`](https://github.com/stellar/stellar-cli/tree/8e402ea28202950b272fbabc34caad4d2f64fe87).
 - Stellar XDR commit [`68fa1ac55692f68ad2a2ca549d0a283273554439`](https://github.com/stellar/stellar-xdr/blob/68fa1ac55692f68ad2a2ca549d0a283273554439/Stellar-transaction.x).
 - Protocol 28 auth preimages at Stellar protocol commit [`9cd703075d87a6ce293752b1532e7b68efe12ae1`](https://github.com/stellar/stellar-protocol/tree/9cd703075d87a6ce293752b1532e7b68efe12ae1/core).
 
-These formats passed dedicated testnet cases on 2026-09-25 with CLI 27.1.0 and protocol 28.
-Check current CLI output and network protocol before adapting the examples.
+Check `stellar --version`, the command help, and the network protocol before adapting the examples.
 
 ## V1 transaction envelope
 
@@ -32,10 +30,8 @@ The envelope signature authorizes transaction and operation sources. It does not
 1. Simulate the built transaction to collect authorization entries, invocation trees, nonces, and resources.
 2. Use `address_v2` credentials. Walleterm signs only `soroban_authorization_with_address` payloads (CAP-71-02).
    SDK 17.1.0 `simulateTransaction` records `address_v2` unless `useUpgradedAuth` is `false`.
-   Stellar CLI 27.1.0 record simulation returned `address` in a 2026-09-25 check. Check the current CLI first.
-3. Choose an expiration ledger. Read the latest ledger with `stellar ledger latest` or RPC `getLatestLedger`.
-   Walleterm reads no ledger and applies no window. It refuses only ledger 0. The network refuses an expired entry.
-   Use the shortest expiry that fits the flow.
+   Other tools can record the legacy `address` arm. Check the credential arm in the simulation result.
+3. Choose an expiration ledger, as the skill's authorization rules describe.
 4. Put that expiration in the credential. Copy the nonce and invocation exactly from simulation.
 5. For one signer that owns the address, send the entry shape with the `account` adapter:
    `{"public_key":"G...","network_passphrase":"...","auth_entry_xdr":"...","address":"<same G...>","adapter":{"type":"account"}}`.
@@ -45,9 +41,6 @@ The envelope signature authorizes transaction and operation sources. It does not
    Put each raw `signature` in a map with `public_key` bytes32 and `signature` bytes64.
    Sort the maps by increasing raw public key in the credential `signature.vec`.
 7. Re-simulate with `stellar tx simulate --auth-mode enforce`. Then sign the final envelope with the transaction shape.
-
-CLI 27.1.0 can add a resource fee to the existing fee during repeated simulation. Inspect the final fee and limit before envelope signing.
-After confirmation, decode `resultMetaXdr` to check contract return values. RPC `getTransaction` may omit `returnValue`.
 
 The credential shape is:
 
@@ -62,5 +55,4 @@ Do not sign an auth entry for the transaction source as if it were a separate no
 The host requires ordered public keys for multisig auth; see [`account_contract.rs`](https://github.com/stellar/rs-soroban-env/blob/v27.0.0/soroban-env-host/src/builtin_contracts/account_contract.rs).
 
 For `address_with_delegates`, read [CAP-71 delegation](delegation.md).
-Other C-account schemas need separate checks. CAP-72 contract signers are not planned and are out of scope.
-The [acceptance snapshot](acceptance.md) lists live coverage for each variant.
+Other C-account schemas need separate checks.

@@ -28,7 +28,7 @@ The host treats the delegate list as caller input. Attach only delegates that th
 ## Build and sign
 
 1. Record-simulate. Keep the root invocation, the nonce, and the top-level address.
-2. Choose an expiration ledger. Use the same value in the preimage and the credential. Walleterm refuses only ledger 0.
+2. Choose an expiration ledger. Use the same value in the preimage and the credential.
 3. Build `soroban_authorization_with_address` with the top-level address, even for delegate signatures.
 4. `P = SHA-256(XDR(HashIdPreimage))`. Every node receives this same `P`.
 5. Sign each node according to its own account:
