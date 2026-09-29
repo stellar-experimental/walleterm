@@ -1468,7 +1468,7 @@ fn listing_failure(e: Error) -> Fail {
     Fail { status: 502, error: sep43(&Error::new(reason, &e.message), None) }
 }
 
-/// The production dependencies: the 1Password agent and `OP_VAULT` discovery.
+/// The production dependencies: the 1Password agent and `--vault` discovery.
 pub fn production(socket: std::path::PathBuf, vault: Option<String>) -> Deps {
     let socket = Arc::new(socket);
     let (list_socket, sign_socket) = (socket.clone(), socket);
@@ -1484,8 +1484,7 @@ pub fn production(socket: std::path::PathBuf, vault: Option<String>) -> Deps {
             let socket = sign_socket.clone();
             Box::pin(async move {
                 let limit = Duration::from_secs(125);
-                let signature =
-                    crate::agent::nonblocking::sign(&socket, &public_key, &digest, limit, &cancel).await?;
+                let signature = crate::agent::sign(&socket, &public_key, &digest, limit, &cancel).await?;
                 Ok(hex(&signature))
             })
         }),

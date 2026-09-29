@@ -23,10 +23,12 @@ export interface HostOptions {
   /** Also serve the embedded demo website. Its origin is `demoOrigin`. */
   demo?: boolean;
   /**
-   * Live harnesses only: the real 1Password signer and `OP_VAULT` discovery, as `walleterm tunnel` wires them,
+   * Live harnesses only: the real 1Password signer and explicit vault discovery, as `walleterm tunnel` wires them,
    * on loopback. The mock dependencies above are ignored. Never use it in offline tests.
    */
   production?: boolean;
+  /** Explicit vault filter for production dependencies. */
+  vault?: string;
 }
 export interface ReviewRequest {
   origin: string;
@@ -62,9 +64,9 @@ function errorCode(error: unknown): { code: string; message: string } {
 }
 
 export async function createHost(options: HostOptions = {}): Promise<Host> {
-  const child = spawn(binary, [], {
+  const child = spawn(binary, options.vault === undefined ? [] : ['--vault', options.vault], {
     stdio: ['pipe', 'pipe', 'inherit'],
-    // Offline hosts get only PATH. The production host needs the shell's 1Password CLI environment and OP_VAULT.
+    // Offline hosts get only PATH. The production host needs the shell's 1Password CLI environment.
     env: options.production
       ? { ...process.env, WALLETERM_TEST_HOST_PRODUCTION: '1' }
       : {

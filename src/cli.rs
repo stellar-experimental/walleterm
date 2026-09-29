@@ -25,7 +25,7 @@ pub const DEADLINE: Duration = Duration::from_secs(120);
 
 pub const HELP: &str = r#"walleterm list [--human]
 walleterm sign < request.json
-walleterm tunnel [--port 8787]
+walleterm tunnel [--port 8787] [--vault <name-or-id>]
 walleterm demo [--port 8788]
 walleterm --help
 walleterm --version
@@ -44,8 +44,8 @@ Adapters: account, contract-ed25519, and openzeppelin-ed25519 with verifier and 
 
 Use 1Password desktop to create, manage, and approve signers.
 Tunnel starts the testnet signing bridge. It prints a connection code and QR code for websites.
-OP_VAULT limits website wallets to a 1Password vault name or ID. Filtering requires the 1Password CLI.
-OP_VAULT does not filter the local list or sign commands.
+--vault limits website wallets to a 1Password vault name or ID. Filtering requires the 1Password CLI.
+--vault does not filter the local list or sign commands.
 A connected website approves its own requests. 1Password can still ask for approval on the Mac.
 Demo starts an independent example website with its own temporary public URL and QR code.
 Walleterm computes the digest from the artifact. 1Password signs only those 32 bytes.
@@ -316,7 +316,11 @@ struct SignOutput<'a> {
 }
 
 fn list(human: bool, io: &mut Io) -> i32 {
-    let signers = match connect(io).and_then(|mut agent| agent.list()) {
+    let runtime = match agent_runtime() {
+        Ok(runtime) => runtime,
+        Err(e) => return output_error(io.out, human, &e),
+    };
+    let signers = match runtime.block_on(async { connect(io).await?.list().await }) {
         Ok(signers) => signers,
         Err(e) => return output_error(io.out, human, &e),
     };
@@ -332,11 +336,18 @@ fn list(human: bool, io: &mut Io) -> i32 {
     0
 }
 
-fn connect(io: &Io) -> Result<Agent> {
+fn agent_runtime() -> Result<tokio::runtime::Runtime> {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|_| crate::agent::unavailable())
+}
+
+async fn connect(io: &Io<'_>) -> Result<Agent> {
     let socket = io.socket.ok_or_else(|| {
         Error::new("unsupported_platform", "The 1Password socket is available only on macOS.")
     })?;
-    Agent::connect(socket, io.deadline)
+    Agent::connect(socket, io.deadline).await
 }
 
 /// Inspect one artifact, sign its digest once, then verify and attach the signature.
@@ -360,8 +371,13 @@ fn sign(io: &mut Io) -> i32 {
         Ok(checked) => checked,
         Err(e) => return fail(io.out, &invalid(&e.message)),
     };
-    let signature = match connect(io).and_then(|mut agent| {
-        let signers = agent.list()?;
+    let runtime = match agent_runtime() {
+        Ok(runtime) => runtime,
+        Err(e) => return fail(io.out, &e),
+    };
+    let signature = match runtime.block_on(async {
+        let mut agent = connect(io).await?;
+        let signers = agent.list().await?;
         let Some(signer) = signers.iter().find(|s| s.key == checked.key) else {
             return Err(Error::new(
                 "key_not_found",
@@ -371,7 +387,7 @@ fn sign(io: &mut Io) -> i32 {
         if write_output(io.diagnostic, &notice(&request, &checked)) != 0 {
             return Err(Error::new("output_error", "The signing notice could not be written."));
         }
-        agent.sign(signer, &checked.digest)
+        agent.sign(signer, &checked.digest).await
     }) {
         Ok(signature) => signature,
         Err(e) => return fail(io.out, &e),

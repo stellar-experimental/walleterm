@@ -8,7 +8,8 @@
   "scripts": {
     "build": "bun scripts/build.ts && tsc -p tsconfig.sdk.json",
     "typecheck": "tsc --noEmit",
-    "test": "bun run build && bun test && bun tests/contracts.ts && bun tests/extended-contracts.ts && bun tests/cap85.ts",
+    "test": "bun run build && bun run test:built",
+    "test:built": "bun test && bun tests/contracts.ts && bun tests/extended-contracts.ts && bun tests/cap85.ts",
     "test:live": "bun tests/live.ts",
     "format": "prettier --write \"**/*.ts\" \".agents/**/*.ts\"",
     "format:check": "prettier --check \"**/*.ts\" \".agents/**/*.ts\""

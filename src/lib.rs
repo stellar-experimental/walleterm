@@ -6,7 +6,6 @@ pub mod authorization;
 pub mod bridge;
 pub mod cancel;
 pub mod cli;
-pub mod config;
 pub mod demo;
 pub mod dns;
 pub mod error;

@@ -321,7 +321,7 @@ fn a_hash_sent_as_text_is_hashed_again() {
 fn every_parity_file_matches_its_recorded_hash() {
     let dir = concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/parity");
     let readme = std::fs::read_to_string(format!("{dir}/README.md")).unwrap();
-    for name in ["vectors.json", "cli.json", "dotenv.json"] {
+    for name in ["vectors.json", "cli.json"] {
         let bytes = std::fs::read(format!("{dir}/{name}")).unwrap();
         let row = readme.lines().find(|l| l.starts_with(&format!("| `{name}`"))).unwrap();
         let recorded = row.trim_end_matches(" |").rsplit('`').nth(1).unwrap();

@@ -1,5 +1,7 @@
 # Wallet switching validation
 
+The recorded `OP_VAULT` commands are historical. Use `walleterm tunnel --vault <name-or-id>` now.
+
 Date: 2026-09-26.
 
 ## Scope

@@ -20,6 +20,9 @@ pub fn package(root: &Path, out: &Path, version: Option<&str>) -> Result<String>
     if !valid_version(&version) {
         return Err("Use a version with letters, digits, \".\", \"+\", or \"-\".".into());
     }
+    let metadata = crate::notices::metadata(root)?;
+    let lock = std::fs::read_to_string(root.join("Cargo.lock")).map_err(|e| format!("Cargo.lock: {e}"))?;
+    crate::budgets::dependencies(&lock, &metadata)?;
     std::fs::create_dir_all(out).map_err(|e| format!("{}: {e}", out.display()))?;
     // Build browser files and the binary in a private directory. Concurrent builds cannot mix them.
     let work = Scratch::new(&std::env::temp_dir(), "walleterm-package-")?;
@@ -40,9 +43,10 @@ pub fn package(root: &Path, out: &Path, version: Option<&str>) -> Result<String>
         root,
         &env,
     )?;
-    std::fs::copy(target.join("release/walleterm"), out.join("walleterm"))
-        .map_err(|e| format!("copy walleterm: {e}"))?;
-    let notices = crate::notices::notices(root)?;
+    let binary = target.join("release/walleterm");
+    crate::budgets::binary(&binary)?;
+    std::fs::copy(&binary, out.join("walleterm")).map_err(|e| format!("copy walleterm: {e}"))?;
+    let notices = crate::notices::notices(root, &metadata)?;
     std::fs::write(out.join("NOTICES.txt"), notices).map_err(|e| format!("NOTICES.txt: {e}"))?;
     Ok(version)
 }

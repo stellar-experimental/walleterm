@@ -250,7 +250,11 @@ fn address(message: &[u8], count: u16, mut at: usize, name: &[u8]) -> Option<Ipv
             return Some(Ipv4Addr::new(b[0], b[1], b[2], b[3]));
         }
         let alias = owned().find(|r| r.kind == TYPE_CNAME)?;
-        target = read_name(message, alias.data.start)?.0;
+        let (name, end) = read_name(message, alias.data.start)?;
+        if end != alias.data.end {
+            return None;
+        }
+        target = name;
     }
     None
 }
@@ -397,6 +401,23 @@ mod tests {
         let at = forward.len() as u8 + 2;
         record(&mut forward, &[0xC0, at], TYPE_A, &[104, 16, 1, 2]);
         assert!(answer(&forward, 7, &name()).unwrap().is_err());
+    }
+
+    #[test]
+    fn a_cname_must_fill_exactly_its_declared_data() {
+        let alias = encode_name("edge.trycloudflare.com").unwrap();
+        // A zero-byte CNAME must not borrow the next record's owner as its target.
+        let mut empty = response(7, 0x8180, 2);
+        record(&mut empty, &QUESTION, TYPE_CNAME, &[]);
+        record(&mut empty, &alias, TYPE_A, &[104, 16, 1, 2]);
+        assert!(answer(&empty, 7, &name()).unwrap().is_err());
+        // An otherwise valid name with extra RDATA is malformed too.
+        let mut padded = response(7, 0x8180, 2);
+        let mut data = alias.clone();
+        data.push(0);
+        record(&mut padded, &QUESTION, TYPE_CNAME, &data);
+        record(&mut padded, &alias, TYPE_A, &[104, 16, 1, 2]);
+        assert!(answer(&padded, 7, &name()).unwrap().is_err());
     }
 
     /// A loopback DNS server that answers each query with `reply(query)` datagrams.

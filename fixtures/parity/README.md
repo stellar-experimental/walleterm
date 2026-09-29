@@ -8,15 +8,16 @@ except the reviewed changes in [One sign command](#one-sign-command).
 | --- | --- | --- | --- |
 | `vectors.json` | `sdk/authorization.ts`, `sdk/preimage.ts`, `bridge/authorization.ts`, `bridge/transaction.ts`; JS SDK 17.1.0 on Bun 1.4.2 | 99 | `5cacc734b910b20ea4f0e9822af7138260853c57df2700f096079bda247ca799` |
 | `cli.json` | `main.go` `run()` against scripted mock agents; Go 1.27.1 | 58 | `1c8bb6d80bf8158a5f88cb3ce9fc5f023037497cc41f1d30c131786ec67dd14a` |
-| `dotenv.json` | `dotenv.ts`: Bun 1.4.2 `node:util.parseEnv`, the legacy tunnel's `.env` parser | 2106 | `42ab2525d78d06f31cb4b10b048b1abcb29cff78b2848c1e9ace590c33addee8` |
 
-All were produced on 2026-09-28. `dotenv.json` was added after the Phase 3 review found `.env` inputs
-that removed the vault filter. It holds the review cases, fuzzing edge cases, and 2000 seeded random inputs.
-Before the freeze, three seeds with 120,000 inputs of up to 120 characters matched Bun exactly.
+The retained fixtures were produced on 2026-09-28.
+The former `dotenv.json` corpus held 2,106 cases for the removed Bun-compatible parser.
+Its SHA-256 was `42ab2525d78d06f31cb4b10b048b1abcb29cff78b2848c1e9ace590c33addee8`.
+The `--vault` CLI flag replaces `.env` and `OP_VAULT` configuration, so its corpus and producer were removed.
+Git history preserves them. Service and discovery tests now cover the flag and its empty-value rejection.
 Six `vectors.json` cases were added after the Phase 1 review:
 near-integer decimals, the Base64URL alias for each artifact kind, and the invalid asset code. The first 81 cases are unchanged.
 Twelve Soroban envelope cases (`tx-soroban-*`) were added in Phase 7 from the same `bridge/transaction.ts`,
-before `bridge/soroban-transaction.test.ts` was removed. The first 87 cases are unchanged. `tests/vectors.rs`, `tests/cli.rs`, and `tests/config.rs` read them; a hash check blocks silent regeneration.
+before `bridge/soroban-transaction.test.ts` was removed. The first 87 cases are unchanged. `tests/vectors.rs` and `tests/cli.rs` read them; a hash check blocks silent regeneration.
 `tests/vectors.test.ts` also checks `vectors.json` against the browser SDK modules.
 
 - `vectors.json`: digests, signatures, signed artifacts, review details, and errors for AddressV2 entries,

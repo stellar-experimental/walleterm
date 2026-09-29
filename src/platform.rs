@@ -52,20 +52,15 @@ pub fn terminal_columns() -> Option<usize> {
 }
 
 /// Wait until `fd` is readable or `deadline` passes. Returns `false` on timeout.
-pub fn wait_readable(fd: RawFd, deadline: Instant) -> io::Result<bool> {
-    wait_ready(fd, libc::POLLIN, deadline)
-}
-
-/// Wait until `fd` is ready for `events` (`POLLIN` or `POLLOUT`) or `deadline` passes.
 /// A hang-up or error also counts as ready; the next read or write reports it.
-pub fn wait_ready(fd: RawFd, events: libc::c_short, deadline: Instant) -> io::Result<bool> {
+pub fn wait_readable(fd: RawFd, deadline: Instant) -> io::Result<bool> {
     loop {
         let left = deadline.saturating_duration_since(Instant::now());
         if left.is_zero() {
             return Ok(false);
         }
         let millis = i32::try_from(left.as_millis().max(1)).unwrap_or(i32::MAX);
-        let mut poll = libc::pollfd { fd, events, revents: 0 };
+        let mut poll = libc::pollfd { fd, events: libc::POLLIN, revents: 0 };
         // SAFETY: one valid pollfd for the duration of the call.
         let ready = unsafe { libc::poll(&mut poll, 1, millis) };
         match ready {

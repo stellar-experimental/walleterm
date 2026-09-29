@@ -90,8 +90,8 @@ The 1Password prompt identifies the process and key. It does not show Stellar tr
 Cached approval can permit later signatures without a new prompt. `signing_refused` reports generic SSH agent failure.
 Create and manage private keys inside 1Password. Never read or export private-key fields.
 The fixed macOS socket is the only runtime socket. The CLI does not use `SSH_AUTH_SOCK`.
-`OP_VAULT` filters website wallet selection through `walleterm tunnel`. It accepts a vault name or ID.
-Filtering requires the 1Password CLI. Local `walleterm list` and `walleterm sign` remain independent of `OP_VAULT`.
+`--vault` filters website wallet selection through `walleterm tunnel`. It accepts a vault name or ID.
+Filtering requires the 1Password CLI. Local `walleterm list` and `walleterm sign` remain independent of `--vault`.
 The signature proves key possession. It does not prove vault history, network choice, policy approval, or transaction acceptance.
 Passkeys are not planned and are out of scope.
 Another C-account format needs a matching adapter, or the preimage shape with a signature layout that the caller builds.

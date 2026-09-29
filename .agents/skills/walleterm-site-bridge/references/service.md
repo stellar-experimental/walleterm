@@ -26,16 +26,17 @@ A code works once and expires after five minutes. A selected website session las
 The website origin must use HTTPS, or loopback HTTP for development. It must differ from the bridge origin.
 Cloudflare terminates TLS and can read the XDR and credentials. This bridge supports testnet only.
 
-If the user selects a vault, set `OP_VAULT` in the shell that starts the tunnel.
+If the user selects a vault, pass its name or ID with `--vault`.
 
 ```sh
-OP_VAULT=Private walleterm tunnel
+walleterm tunnel --vault Private
 ```
 
+The tunnel ignores `OP_VAULT` and `.env` files.
 `Private` is an example vault name. Use the user's selected vault name or ID.
 Filtering needs the 1Password CLI and its desktop integration or an existing sign-in.
 The bridge reads item metadata and public keys only. Lookup errors stop discovery and signing.
-An empty vault returns no wallets. An unset or empty `OP_VAULT` exposes all available Ed25519 agent keys.
+An empty vault returns no wallets. Omitting `--vault` exposes all available Ed25519 agent keys. Empty flag values fail.
 The bridge checks vault membership again before signing.
 `walleterm list` and `walleterm sign` do not use this filter.
 Restart the tunnel after changing the filter. Reconnect with its new URL and code.

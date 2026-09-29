@@ -301,9 +301,7 @@ async fn the_bridge_agent_client_names_the_same_close() {
         let agent = closing_agent(&scratch, listed, raw);
         let (socket, limit, cancel) =
             (scratch.socket(), Duration::from_secs(5), walleterm::cancel::Cancel::new());
-        let e = walleterm::agent::nonblocking::sign(&socket, &mock_address(), &[1; 32], limit, &cancel)
-            .await
-            .unwrap_err();
+        let e = walleterm::agent::sign(&socket, &mock_address(), &[1; 32], limit, &cancel).await.unwrap_err();
         assert_eq!((e.code, e.message.as_str()), ("agent_protocol", message), "{listed} {raw:?}");
         let requests = agent.join().unwrap();
         assert_eq!(kinds(&requests), if listed { &[11, 13][..] } else { &[11] }, "{listed} {raw:?}");
@@ -312,11 +310,40 @@ async fn the_bridge_agent_client_names_the_same_close() {
     let scratch = Scratch::new();
     let agent = closing_agent(&scratch, false, &[]);
     let cancel = walleterm::cancel::Cancel::new();
-    let e = walleterm::agent::nonblocking::list(&scratch.socket(), Duration::from_secs(5), &cancel)
-        .await
-        .unwrap_err();
+    let e = walleterm::agent::list(&scratch.socket(), Duration::from_secs(5), &cancel).await.unwrap_err();
     assert_eq!((e.code, e.message.as_str()), ("agent_protocol", TRUNCATED));
     assert_eq!(kinds(&agent.join().unwrap()), [11]);
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn canceling_the_shared_client_closes_a_partial_sign_response_without_retry() {
+    let scratch = Scratch::new();
+    let socket = scratch.socket();
+    let listener = UnixListener::bind(&socket).unwrap();
+    std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600)).unwrap();
+    let (started, received) = tokio::sync::oneshot::channel();
+    let agent = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        let list = read_frame(&mut stream).unwrap();
+        write_frame(&mut stream, &identities_body()).unwrap();
+        let sign = read_frame(&mut stream).unwrap();
+        stream.write_all(&[0, 0]).unwrap();
+        started.send(()).unwrap();
+        let mut byte = [0];
+        assert_eq!(stream.read(&mut byte).unwrap(), 0, "cancellation closes the socket");
+        vec![list, sign]
+    });
+    let cancel = walleterm::cancel::Cancel::new();
+    let flag = cancel.clone();
+    let task = tokio::spawn(async move {
+        walleterm::agent::sign(&socket, &mock_address(), &[1; 32], Duration::from_secs(5), &flag).await
+    });
+    tokio::time::timeout(Duration::from_secs(5), received).await.unwrap().unwrap();
+    cancel.abort();
+    let result = tokio::time::timeout(Duration::from_secs(1), task).await.unwrap().unwrap();
+    assert_eq!(result.unwrap_err(), cancel.reason());
+    assert_eq!(kinds(&agent.join().unwrap()), [11, 13]);
 }
 
 #[test]
@@ -702,8 +729,8 @@ fn a_late_notice_never_sends_a_signing_request_after_the_deadline() {
     );
 }
 
-#[test]
-fn a_buffered_response_after_the_deadline_is_not_read() {
+#[tokio::test(flavor = "current_thread")]
+async fn a_buffered_response_after_the_deadline_is_not_read() {
     let scratch = Scratch::new();
     let listener = UnixListener::bind(scratch.socket()).unwrap();
     std::fs::set_permissions(scratch.socket(), std::fs::Permissions::from_mode(0o600)).unwrap();
@@ -716,9 +743,9 @@ fn a_buffered_response_after_the_deadline_is_not_read() {
         read_frame(&mut stream).ok()
     });
     let deadline = Instant::now() + Duration::from_millis(20);
-    let mut connection = walleterm::agent::Agent::connect(&scratch.socket(), deadline).unwrap();
+    let mut connection = walleterm::agent::Agent::connect(&scratch.socket(), deadline).await.unwrap();
     std::thread::sleep(Duration::from_millis(60));
-    assert_eq!(connection.list().unwrap_err().code, "timeout");
+    assert_eq!(connection.list().await.unwrap_err().code, "timeout");
     drop(connection);
     assert_eq!(agent.join().unwrap(), None, "the expired client sent no request");
 }

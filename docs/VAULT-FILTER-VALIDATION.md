@@ -1,5 +1,7 @@
 # Vault filter validation
 
+The recorded `OP_VAULT` commands are historical. Use `walleterm tunnel --vault <name-or-id>` now.
+
 Checked on 2026-09-26.
 Later work replaced the Go signer and the Node.js bridge that these checks covered. Walleterm is now one Rust binary.
 

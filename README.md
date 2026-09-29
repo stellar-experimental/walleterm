@@ -13,6 +13,9 @@ It verifies each signature before returning it.
 `walleterm tunnel` also lets a connected testnet website request signatures.
 `walleterm` is one Rust binary. It embeds the demo website and needs no Bun, Node, or Go at runtime.
 Its Rust dependencies are pinned in `Cargo.lock` and checked with `cargo deny`.
+Packaging enforces a 10,000,000-byte executable limit and 160 packages in the root lockfile.
+It also permits at most 130 resolved Apple silicon workspace packages, including build, test, and test-host dependencies.
+The package check runs in CI. Independent contract and Kit workspaces are outside these limits.
 
 ## Install
 
@@ -105,21 +108,19 @@ The [site bridge skill](.agents/skills/walleterm-site-bridge/SKILL.md) covers tu
 Run the bridge in one terminal and the example website in another:
 
 ```sh
-export OP_VAULT=Private
-walleterm tunnel
+walleterm tunnel --vault Private
 walleterm demo
 ```
 
-`OP_VAULT` limits the website wallet list to SSH keys in that 1Password vault.
-Save `OP_VAULT=Private` in `.env` in the directory where you run `walleterm tunnel`.
-The tunnel reads only `OP_VAULT` from this file. An exported shell variable overrides the file.
-Keep `.env` local. Git ignores it, and the installer does not copy it.
+`--vault` limits the website wallet list to SSH keys in that 1Password vault.
+The tunnel reads its vault filter only from this flag. It ignores `OP_VAULT` and `.env` files.
+Use `walleterm tunnel --vault Private` when migrating an old `OP_VAULT=Private` setting.
 Restart the tunnel after changing the setting. Reconnect the website with the new tunnel URL and code.
 Use a vault name or ID. Vault filtering requires the 1Password CLI (`brew install --cask 1password-cli`).
 Enable 1Password CLI integration in the desktop app, or sign in before starting the tunnel.
 The bridge reads only item metadata and public keys. It matches the full public key against the SSH agent.
 A vault lookup failure stops wallet discovery. An empty vault returns an empty list.
-An unset or empty `OP_VAULT` lists all available Ed25519 agent keys.
+Omitting `--vault` lists all available Ed25519 agent keys. An empty flag value fails.
 The bridge checks vault membership again before signing. `walleterm list` still lists all available Ed25519 agent keys.
 
 The tunnel shows a public URL and an eight-digit connection code. It shows a QR code when the terminal is wide enough.

@@ -111,11 +111,11 @@ The explicit live runner uses existing dedicated testnet 1Password keys:
 ```sh
 cargo build --locked --features test-host --bin walleterm-test-host
 WALLETERM_BINARY=/isolated/prefix/bin/walleterm \
-  bun --no-env-file tests/contract-auth-demo-live.ts /path/to/public-test-keys.json
+  bun --no-env-file tests/contract-auth-demo-live.ts /path/to/public-test-keys.json --vault Private
 ```
 
 The SDK half uses the Rust bridge on loopback through the test host's production mode.
-That mode uses the real 1Password signer and `OP_VAULT` discovery, as `walleterm tunnel` does.
+That mode uses the real 1Password signer and explicit vault discovery, as `walleterm tunnel` does.
 
 The runner records reviewed entries, transaction hashes, ledgers, and counter values.
 It checks missing authorization, changed nonces, and changed calls through enforcing simulation.

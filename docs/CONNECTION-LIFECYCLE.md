@@ -27,6 +27,11 @@ Probes ask the `/etc/resolv.conf` nameservers directly and keep no DNS cache.
 Healthy checks produce no log output. The terminal reports failures and recovery when they occur.
 The terminal repeats an ongoing failure at most once per minute.
 
+The DNS parser accepts a CNAME only when its name uses exactly the record's declared data.
+Malformed names, unmatched questions, unrelated addresses, and truncated answers cannot supply a probe address.
+TLS still checks the tunnel hostname. The resolver changes only the connection address.
+Local tests exercise DNS replies and TLS hostname checks. They do not establish operation on every VPN or IPv6-only network.
+
 Cloudflared handles its own temporary connection failures. Walleterm permits six failed checks before replacing a running tunnel.
 A stopped tunnel process also starts recovery. Recovery keeps the local server running.
 Recovery permits three replacement attempts per ten minutes. The delays are two, four, and eight seconds.
