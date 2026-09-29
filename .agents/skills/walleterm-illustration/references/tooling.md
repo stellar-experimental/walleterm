@@ -17,7 +17,7 @@
 - Without Appium, drive Mobile Safari with the simulator directly. Screenshots come at the device's own ratio:
 
   ```sh
-  udid=$(xcrun simctl list devices available | grep 'iPhone 17 Pro (' | head -1 | sed -E 's/.*\(([0-9A-F-]+)\).*/\1/')
+  udid=$(xcrun simctl list devices available | grep 'iPhone 18 Pro (' | head -1 | sed -E 's/.*\(([0-9A-F-]+)\).*/\1/')
   xcrun simctl boot "$udid"; xcrun simctl bootstatus "$udid" -b
   xcrun simctl openurl "$udid" http://127.0.0.1:8802/   # the simulator reaches the Mac's loopback
   xcrun simctl io "$udid" screenshot /absolute/path/safari-iphone.png
@@ -27,7 +27,20 @@
 - Serve `site/` from each version with `python3 -m http.server PORT --bind 0.0.0.0` in a `git archive` copy, one port for before and one for after.
 - The simulator cannot scroll without Appium. To see pictures below the fold, serve a small page that shows each `art/*.svg` at its site size.
 - An iPad Pro simulator gives desktop-class Safari at 2x. Its first launch can show a system banner over the top of the page.
-- Desktop Safari's `safaridriver` needs `safaridriver --enable` once, with an administrator password. Then try `agent-browser -p safari`.
+- Desktop Safari: `agent-browser -p safari` has the same defect. It starts Safari, but its user agent reads `HeadlessChrome`.
+  Drive `safaridriver` directly instead. It needs `safaridriver --enable` once, with an administrator password (done on this Mac).
+  Run `safaridriver --port 4444` as a background task, then:
+
+  ```sh
+  sid=$(curl -s -X POST localhost:4444/session -H 'Content-Type: application/json' -d '{"capabilities":{"alwaysMatch":{"browserName":"safari"}}}' | python3 -c "import json,sys;print(json.load(sys.stdin)['value']['sessionId'])")
+  curl -s -X POST localhost:4444/session/$sid/window/rect -H 'Content-Type: application/json' -d '{"width":1440,"height":900}'
+  curl -s -X POST localhost:4444/session/$sid/url -H 'Content-Type: application/json' -d '{"url":"http://127.0.0.1:8802/"}'
+  curl -s localhost:4444/session/$sid/screenshot | python3 -c "import json,sys,base64;open('/absolute/path/safari-desktop.png','wb').write(base64.b64decode(json.load(sys.stdin)['value']))"
+  curl -s -X DELETE localhost:4444/session/$sid
+  ```
+
+  On a Retina screen the screenshot is 2x: a 1440×900 window gives 2880×1696 pixels of page. Safari allows one automation session at a time.
+- The simulators here run iOS 27.0 (iPhone 18 Pro, newest Safari) and iOS 26.5 (iPhone 17 Pro, the previous Safari).
 
 ## Shell
 
