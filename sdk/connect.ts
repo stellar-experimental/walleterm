@@ -1,5 +1,5 @@
 import { requestError, walletermError } from './errors.js';
-import { Walleterm, WalletermClient } from './walleterm.js';
+import { connectDeadline, Walleterm, WalletermClient } from './walleterm.js';
 import { scanConnection } from './scan.js';
 
 const short = (address: string) => `${address.slice(0, 7)}…${address.slice(-6)}`;
@@ -587,11 +587,20 @@ export class WalletermConnect {
   open() {
     if (this.destroyed || this.busy || this.working) return;
     this.hideMenu();
-    this.$('form').hidden = false;
-    this.$('picker').hidden = true;
+    this.showForm();
     this.$('scanner').hidden = true;
     this.$('code').value = '';
     this.$('url').value = this.client?.url || this.$('url').value;
+    this.message('');
+    this.update();
+    this.dialog.showModal();
+    this.trigger.setAttribute('aria-expanded', 'true');
+    this.$('scan').focus({ preventScroll: true });
+  }
+  // The first step. A failed connection returns to it.
+  showForm() {
+    this.$('form').hidden = false;
+    this.$('picker').hidden = true;
     this.element.querySelector('#wt-title')!.textContent = 'Connect Walleterm';
     this.$('description').textContent =
       this.wallet.walletScope === 'available'
@@ -599,11 +608,6 @@ export class WalletermConnect {
         : 'Connect your Mac. This website can use the one wallet you choose in the next step.';
     this.$('step-connect').setAttribute('aria-current', 'step');
     this.$('step-wallet').removeAttribute('aria-current');
-    this.message('');
-    this.update();
-    this.dialog.showModal();
-    this.trigger.setAttribute('aria-expanded', 'true');
-    this.$('scan').focus({ preventScroll: true });
   }
   close() {
     if (this.destroyed) return;
@@ -647,10 +651,13 @@ export class WalletermConnect {
       this.message('Connection details are ready. Select Continue.');
     } catch (errorValue) {
       const error = requestError(errorValue);
+      // A browser camera error is a short phrase, such as "Permission denied".
+      const reason =
+        error.name === 'NotAllowedError'
+          ? 'The browser blocked the camera.'
+          : error.message.replace(/\.?$/, '.');
       if (!this.destroyed && this.scanning === controller)
-        this.message(
-          controller.signal.aborted ? '' : `${error.message} Enter the connection details instead.`,
-        );
+        this.message(controller.signal.aborted ? '' : `${reason} Enter the connection details instead.`);
     } finally {
       this.$('camera').removeEventListener('playing', ready);
       if (!this.destroyed && this.scanning === controller) {
@@ -729,7 +736,7 @@ export class WalletermConnect {
     this.phase = 'connecting';
     const controller = new AbortController();
     this.connection = controller;
-    const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(300000)]);
+    const signal = AbortSignal.any([controller.signal, connectDeadline()]);
     this.setWorking(true);
     let next: WalletermClient | undefined,
       adopted = false;
@@ -777,8 +784,7 @@ export class WalletermConnect {
       const error = requestError(errorValue);
       if (!adopted) await next?.disconnect().catch(() => {});
       if (this.destroyed) return;
-      this.$('form').hidden = false;
-      this.$('picker').hidden = true;
+      this.showForm();
       this.message(error.message);
       this.sync();
     } finally {
@@ -786,7 +792,11 @@ export class WalletermConnect {
       this.phase = '';
       this.selectingKey = null;
       this.setWorking(false);
-      if (!this.destroyed && !this.dialog.open) this.trigger.focus();
+      // An open dialog here means that the connection failed. The used code field is enabled again.
+      if (!this.destroyed) {
+        if (this.dialog.open) this.$('code').focus({ preventScroll: true });
+        else this.trigger.focus();
+      }
     }
   }
   async disconnect() {

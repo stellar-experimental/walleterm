@@ -172,7 +172,7 @@ test('SDK switches in one session and recovers a lost selection response', async
   });
   const token = client.token;
   lose = true;
-  await assert.rejects(client.selectWallet(other.publicKey()), /Lost selection response/);
+  await assert.rejects(client.selectWallet(other.publicKey()), /could not reach the tunnel/);
   assert.equal(client.account?.address, other.publicKey());
   assert.equal(client.revision, 2);
   await client.selectWallet(publicKey);

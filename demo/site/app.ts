@@ -1,4 +1,4 @@
-import { requestError } from '../../sdk/errors.ts';
+import { deadline, requestError } from '../../sdk/errors.ts';
 import type { RequestError } from '../../sdk/errors.ts';
 import { createCodeView, highlightConnectionCommand } from './code-view.js';
 import { WalletermConnect } from '../../sdk/connect.ts';
@@ -290,7 +290,10 @@ $('review').addEventListener('keydown', (event) => {
   }
 });
 async function horizon<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${HORIZON}${path}`, { ...options, signal: AbortSignal.timeout(15000) });
+  const response = await fetch(`${HORIZON}${path}`, {
+    ...options,
+    signal: deadline(15000, 'Testnet did not answer in 15 seconds.'),
+  });
   const result = await response.json();
   if (!response.ok)
     throw new HorizonError(result.detail || `Horizon returned ${response.status}.`, response.status, result);
@@ -326,7 +329,7 @@ async function sourceAccount() {
     status('This testnet account does not exist yet. Funding it with Friendbot.');
     const response = await fetch(
       `https://friendbot.stellar.org/?addr=${encodeURIComponent(account!.address!)}`,
-      { signal: AbortSignal.timeout(30000) },
+      { signal: deadline(30000, 'Friendbot did not answer in 30 seconds.') },
     );
     progressLabel('Checking the funded account…');
     // A funded account can still be missing from Horizon for a moment. Check it before failing.
@@ -997,7 +1000,9 @@ async function build(kind: Action, stage: ContractStage | null, set: number) {
     if (!stage) throw Error('Choose a walkthrough step.');
     progressLabel('Checking the demo contracts and their code…');
     const prepared = await prepareContract(demoRpc(), account.address!, stage, set, async (file) => {
-      const response = await fetch(`/fixtures/${file}`, { signal: AbortSignal.timeout(15000) });
+      const response = await fetch(`/fixtures/${file}`, {
+        signal: deadline(15000, 'The demo server did not answer in 15 seconds.'),
+      });
       if (!response.ok) throw Error('The demo contract file is unavailable.');
       return new Uint8Array(await response.arrayBuffer());
     });
@@ -1123,7 +1128,7 @@ async function requestSignature() {
     const options = {
       signal: AbortSignal.any([
         controller.signal,
-        AbortSignal.timeout(Math.max(1, signingDeadline - Date.now())),
+        deadline(Math.max(1, signingDeadline - Date.now()), 'The signing request timed out.'),
       ]),
       onProgress({ state, expiresAt }: { state: string; expiresAt?: string }) {
         if (pending !== record || signingController !== controller) return;
