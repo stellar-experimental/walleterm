@@ -135,9 +135,9 @@ const fields = (data: Data | undefined): Fields =>
   data && typeof data === 'object' && !Array.isArray(data) ? data : {};
 
 // Classify a response. JSON-RPC reports errors inside HTTP 200 responses.
-function outcome(ok: boolean, status: number, data: Data, rpcMethod?: string, read = false) {
-  // A missing account or transaction is an answer, not a failure.
-  if (!ok && read && status === 404) return { error: false, label: 'not found' };
+function outcome(ok: boolean, status: number, data: Data, rpcMethod?: string, lookup = false) {
+  // A missing Horizon account or transaction is an answer, not a failure.
+  if (!ok && lookup && status === 404) return { error: false, label: 'not found' };
   if (!ok) return { error: true, label: String(status) };
   if (!rpcMethod) return { error: false, label: String(status) };
   const response = fields(data),
@@ -353,8 +353,11 @@ export class ActivityHistory {
         : `${method}:${url.href}`;
       const started = performance.now();
       const sent = read ? null : this.record(source, `${name} · sent`, request);
-      const finish = (category: string, title: string, data: Record<string, unknown>) =>
-        sent ? this.update(sent, { category, title, data }) : this.record(category, title, data);
+      const finish = (category: string, title: string, data: Record<string, unknown>) => {
+        // A failed read ends its group, so a later success is a new event.
+        if (category === 'error') this.reads.delete(readKey);
+        return sent ? this.update(sent, { category, title, data }) : this.record(category, title, data);
+      };
       try {
         const response = await fetcher(input, options);
         // Observe a clone without delaying delivery, consuming the original body, or changing cancellation.
@@ -364,7 +367,11 @@ export class ActivityHistory {
             .json()
             .then((result) => {
               const data = safeData(result);
-              const { error, label } = outcome(response.ok, response.status, data, rpcMethod, read);
+              const lookup =
+                url!.origin === HORIZON &&
+                method === 'GET' &&
+                /^\/(accounts|transactions)\/[^/]+$/.test(route);
+              const { error, label } = outcome(response.ok, response.status, data, rpcMethod, lookup);
               const signed =
                 source === 'walleterm' && typeof fields(data).signed_xdr === 'string'
                   ? this.signedData(fields(data).signed_xdr as string)

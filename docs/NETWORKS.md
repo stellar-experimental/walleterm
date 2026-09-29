@@ -201,6 +201,7 @@ Update those statements in the same change.
 | `demo/site/app.ts` `build`, `demo/site/contracts.ts` `build` | `fee: '100'` stroops | Transaction fee | Yes. Network settings and surge pricing set the fee. |
 | `demo/site/app.ts` `build` | 0.01 XLM payment, 0.1 XLM offer at 10 USDC | Action amounts | Yes. They move real funds on mainnet. |
 | `demo/site/code-view.ts` `MAX_HIGHLIGHT_LENGTH`, `MAX_TOKENS` | 50000 characters, 12000 tokens | Code display | No |
+| `demo/site/app.ts` walkthrough Copy buttons | 1.5 seconds | "Copied" label | No |
 
 ### Maintainer tools (`tools/`)
 

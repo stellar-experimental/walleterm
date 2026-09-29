@@ -367,3 +367,43 @@ test('transaction events name the action and the signature, and verification has
     'Deploy the counter · Transaction confirmed',
   ]);
 });
+
+test('only a missing Horizon account or transaction is a normal 404', async () => {
+  const history = new ActivityHistory({ store: memory() });
+  await history.ready;
+  const tracked = history.wrapFetch(async () => Response.json({ status: 404 }, { status: 404 }));
+  const horizon = 'https://horizon-testnet.stellar.org';
+  await tracked(`${horizon}/accounts/GMISSING`);
+  await tracked(`${horizon}/transactions/${'a'.repeat(64)}`);
+  await tracked(`${horizon}/accounts/GMISSING/offers`);
+  await tracked(RPC, rpcCall('getLedgerEntries', { keys: [] }));
+  await tracked('https://bridge.example/v1/signers');
+  await until(() => history.events.length === 5);
+  assert.deepEqual(history.events.map((event) => [event.category, event.title]).reverse(), [
+    ['network', 'Read testnet account · not found'],
+    ['network', 'Check transaction · not found'],
+    ['error', 'Read open offers · 404'],
+    ['error', 'Read ledger entries · 404'],
+    ['error', 'List wallets · 404'],
+  ]);
+});
+
+test('a failed read ends its group, so a recovery is a new event', async () => {
+  const history = new ActivityHistory({ store: memory() });
+  await history.ready;
+  let status = 200;
+  const tracked = history.wrapFetch(async () => Response.json({ sequence: '5' }, { status }));
+  const url = 'https://horizon-testnet.stellar.org/accounts/GREAD';
+  for (const next of [200, 200, 503, 200]) {
+    status = next;
+    await tracked(url);
+    await tick();
+  }
+  await until(() => history.events.length === 3);
+  assert.deepEqual(history.events.map((event) => [event.category, event.title]).reverse(), [
+    ['network', 'Read testnet account · 200'],
+    ['error', 'Read testnet account · 503'],
+    ['network', 'Read testnet account · 200'],
+  ]);
+  assert.equal(field(history.events[2].data, 'repeats'), 2);
+});

@@ -1691,6 +1691,9 @@ function walkthroughPage(read: (signer: string, pickSet: (latest: number) => num
     prepared,
     reads: () => reads.length,
     stored: () => stored,
+    setStored: (value: string | null) => {
+      stored = value;
+    },
     connect: async (address = signer) => {
       f.context.nextAddress = address;
       f.run('connection.onChange({wallet:{address:nextAddress}, account:{address:nextAddress}})');
@@ -1895,4 +1898,55 @@ test('an unfinished walkthrough transaction fixes the set and marks its step in 
   assert.equal(f.el('walkthrough-new-set').hidden, true);
   assert.equal(f.el('review-eyebrow').textContent, 'Walkthrough · Set 2 · Step 2 of 3');
   assert.equal(f.el('review-title').textContent, 'Deploy the counter');
+});
+
+test('a journal from another tab names the window, not the step that was selected', async () => {
+  const f = walkthroughPage(async (signer, pickSet) =>
+    ledgerFor(signer, pickSet(1), { account: false, target: false, latest: 0 }),
+  );
+  await f.connect();
+  const tx = new sdk.TransactionBuilder(new sdk.Account(f.signer, '1'), {
+    fee: '100',
+    networkPassphrase: sdk.Networks.TESTNET,
+  })
+    .addOperation(sdk.Operation.manageData({ name: 'walleterm-demo', value: 'other tab' }))
+    .setTimeout(180)
+    .build();
+  f.setStored(
+    JSON.stringify({
+      kind: 'note',
+      address: f.signer,
+      hash: hex(tx.hash()),
+      xdr: tx.toXDR(),
+      state: 'review',
+    }),
+  );
+  await f.click('walkthrough-deploy-account-action');
+  assert.equal(f.run('pending.kind'), 'note');
+  assert.equal(f.el('review-title').textContent, 'Write a note');
+  assert.equal(f.el('review-eyebrow').textContent, 'Demo transaction');
+  assert.match(f.el('status').textContent, /Another tab changed the transaction/);
+  assert.deepEqual(f.prepared, []);
+});
+
+test('a journal that changes during a ledger read gets a new read for its own set', async () => {
+  let release!: () => void;
+  const hold = new Promise<void>((resolve) => (release = resolve));
+  let calls = 0;
+  const f = walkthroughPage(async (signer, pickSet) => {
+    const set = pickSet(2);
+    if (++calls === 1) await hold;
+    return ledgerFor(signer, set, { target: false, latest: 2 });
+  });
+  const connecting = f.connect();
+  // Another tab saved an unfinished set 1 transaction while the first read was open.
+  const record = finishedStep(f, 'deploy-account', 1);
+  f.run("pending.state='review'; pending.contract.stage='deploy-target'");
+  release();
+  await connecting;
+  for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(calls, 2);
+  assert.equal(f.run('ledger.set'), 1);
+  assert.equal(record.contract.accountId, f.run('ledger.account.id'));
+  assert.equal(f.el('walkthrough-deploy-target-status').textContent, 'In progress');
 });

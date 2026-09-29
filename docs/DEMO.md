@@ -36,11 +36,12 @@ See [contract authorization](CONTRACT-AUTHORIZATION.md) for the signatures.
 | 2. Deploy the counter | Deploys the counter contract for this set. | 2 |
 | 3. Increase the counter | The smart account authorizes +1. The step repeats. | 2 |
 
-The ledger is the source of truth. The demo reads it when a wallet connects, after each confirmed step, and on Refresh.
+The demo reads the current ledger state when a wallet connects, after each confirmed step, and on Refresh.
 One `getLedgerEntries` request reads both code entries and the two instances of all 50 sets.
 The demo then checks the smart account owner and reads the counter.
-Each row shows Done, the next step, or the step that it waits for. Only the next row has a button.
+Each row shows Done, the next step, or the step that it waits for. Only the next row has a step button.
 A row with an unfinished transaction shows In progress and View transaction.
+A done counter row keeps Increase again, because that step repeats.
 A done deploy row shows its contract address with Copy.
 A failed read shows the error and keeps the last state. Select Refresh to read again.
 

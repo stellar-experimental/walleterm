@@ -379,6 +379,11 @@ async function refreshWalkthrough() {
   try {
     const state = await readWalkthrough(demoRpc(), signer, (latest) => walkthroughSet(signer, latest));
     if (generation !== ledgerGeneration || account?.address !== signer) return;
+    // The journal can change during the read, for example from another tab. Read again for its set.
+    if (state.set !== walkthroughSet(signer, state.latest)) {
+      void refreshWalkthrough();
+      return;
+    }
     const summary = (value: WalkthroughLedger | null) =>
       value && JSON.stringify({ ...value, count: undefined, done: walkthroughView(value).done });
     if (summary(state) !== summary(ledger)) {
@@ -753,8 +758,9 @@ function render() {
       journalBlocked;
   renderClassic();
   renderWalkthrough();
-  const kind = pending?.kind || selectedAction;
-  const stage = pending?.contract?.stage || selectedStage;
+  // A saved journal names the window. The selected action names it only during preparation without one.
+  const kind = pending ? pending.kind : selectedAction;
+  const stage = pending ? (pending.contract?.stage ?? null) : selectedStage;
   const title = kind ? actionTitle(kind, stage) : 'Your transaction';
   const set = pending?.contract ? contractSet(pending.address, pending.contract) : selectedSet;
   $('review-eyebrow').textContent = stage
@@ -932,6 +938,7 @@ async function action(fn: () => Promise<void>, phase = 'preparing') {
       }
       if (JSON.stringify(latest) !== JSON.stringify(pending)) {
         pending = latest;
+        void refreshWalkthrough();
         throw Error('Another tab changed the transaction. Review its latest record before continuing.');
       }
       await fn();
