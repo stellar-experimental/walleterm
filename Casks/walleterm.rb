@@ -1,6 +1,6 @@
 cask "walleterm" do
-  version "0.2.0"
-  sha256 "459e2fd9ef1188b3ed582e43e8c29aa94078fc01d3eb83a8bc269ebef7372e0b"
+  version "0.3.0"
+  sha256 "fe8a4aad5d05fa2184e84deff16e94bfac28552f1d68cd10d12662d9d6092efc"
 
   url "https://github.com/stellar-experimental/walleterm/releases/download/v#{version}/walleterm-#{version}-darwin-arm64.zip"
   name "walleterm"
