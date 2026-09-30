@@ -5,25 +5,27 @@ use std::os::unix::fs::PermissionsExt;
 
 fn usage(command: &str) -> &'static str {
     if command == "tunnel" {
-        "walleterm tunnel [--port 8787] [--vault <name-or-id>] [--network testnet|futurenet|local]"
+        "walleterm tunnel [--port 8787] [--vault <name-or-id>] [--network <name> | --network-passphrase <passphrase>] [--approve]"
     } else {
         "walleterm demo [--port 8788]"
     }
 }
 
-/// Service options. Only the signing tunnel accepts a vault filter and a network.
+/// Service options. Only the signing tunnel accepts a vault filter, a network, and approval.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Options {
     pub port: u16,
     pub vault: Option<String>,
     pub network: crate::network::Network,
+    /// Ask before each signature on a test network. The bridge always asks on every other network.
+    pub approve: bool,
 }
 
 /// Keep the existing port syntax. A vault or a network must be explicit, nonempty, and supplied only once.
+/// `--network` and `--network-passphrase` name the same choice, so only one of them can appear.
 pub fn parse_options(command: &str, args: &[&str]) -> Option<Options> {
     let mut port: u32 = if command == "tunnel" { 8787 } else { 8788 };
-    let mut vault = None;
-    let mut network = None;
+    let (mut vault, mut network, mut approve) = (None, None, false);
     let mut rest = args.iter();
     while let Some(&arg) = rest.next() {
         if arg == "--" {
@@ -33,6 +35,11 @@ pub fn parse_options(command: &str, args: &[&str]) -> Option<Options> {
             break;
         }
         let name = arg.strip_prefix("--").or_else(|| arg.strip_prefix('-'))?;
+        // `--approve` is the one option without a value.
+        if name == "approve" && command == "tunnel" && !approve {
+            approve = true;
+            continue;
+        }
         let (name, value) = match name.split_once('=') {
             Some((name, value)) => (name, value),
             None => {
@@ -55,13 +62,16 @@ pub fn parse_options(command: &str, args: &[&str]) -> Option<Options> {
                 vault = Some(value.to_owned());
             }
             "network" if command == "tunnel" && network.is_none() => {
-                network = Some(crate::network::tunnel(value)?);
+                network = Some(crate::network::named(value)?);
+            }
+            "network-passphrase" if command == "tunnel" && network.is_none() => {
+                network = Some(crate::network::custom(value)?);
             }
             _ => return None,
         }
     }
     let network = network.unwrap_or(crate::network::DEFAULT);
-    (1..=65535).contains(&port).then_some(Options { port: port as u16, vault, network })
+    (1..=65535).contains(&port).then_some(Options { port: port as u16, vault, network, approve })
 }
 
 fn on_path(program: &str) -> bool {
@@ -78,16 +88,18 @@ fn fail(out: &mut dyn Write, code: &'static str, message: &str) -> i32 {
     if code == "invalid_input" { 2 } else { 1 }
 }
 
-/// The bridge as a tunnel service: a loopback listener that serves the protocol.
+/// The bridge as a tunnel service: a loopback listener that serves the protocol,
+/// and the private approval socket when the bridge asks for approval.
 pub struct BridgeService {
     bridge: std::sync::Arc<crate::bridge::Bridge>,
     port: u16,
     stop: crate::cancel::Cancel,
+    approval: std::sync::Arc<std::sync::Mutex<Option<crate::approve::Server>>>,
 }
 
 impl BridgeService {
     pub fn new(bridge: std::sync::Arc<crate::bridge::Bridge>, port: u16) -> Self {
-        Self { bridge, port, stop: crate::cancel::Cancel::new() }
+        Self { bridge, port, stop: crate::cancel::Cancel::new(), approval: Default::default() }
     }
 }
 
@@ -99,7 +111,8 @@ impl crate::tunnel::Service for BridgeService {
         self.bridge.network().label
     }
     fn listen(&self) -> crate::bridge::BoxFuture<crate::error::Result<()>> {
-        let (bridge, port, stop) = (self.bridge.clone(), self.port, self.stop.clone());
+        let (bridge, port, stop, approval) =
+            (self.bridge.clone(), self.port, self.stop.clone(), self.approval.clone());
         Box::pin(async move {
             let listener = tokio::net::TcpListener::bind(("127.0.0.1", port)).await.map_err(|e| {
                 if e.kind() == std::io::ErrorKind::AddrInUse {
@@ -111,6 +124,14 @@ impl crate::tunnel::Service for BridgeService {
                     crate::error::Error::new("internal", "The local service did not start. Try again.")
                 }
             })?;
+            // The TCP port is ours now, so an approval socket for this port is stale. A failure stops startup
+            // before the public tunnel opens. Approval is never skipped.
+            if bridge.approval() {
+                let dir = crate::approve::directory().ok_or_else(|| {
+                    crate::error::Error::new("start_failed", "The approval socket needs a home directory.")
+                })?;
+                *approval.lock().unwrap() = Some(crate::approve::Server::start(&dir, port, bridge.clone())?);
+            }
             let handler: crate::http::Handler = std::sync::Arc::new(move |req, body| {
                 let bridge = bridge.clone();
                 Box::pin(async move { bridge.handle(req, body).await })
@@ -121,8 +142,10 @@ impl crate::tunnel::Service for BridgeService {
     }
     fn close(&self) -> crate::bridge::BoxFuture<()> {
         let (bridge, stop) = (self.bridge.clone(), self.stop.clone());
+        let approval = self.approval.lock().unwrap().take();
         Box::pin(async move {
             stop.abort();
+            drop(approval);
             bridge.close().await;
         })
     }
@@ -172,7 +195,7 @@ fn signals() -> crate::cancel::Cancel {
 }
 
 /// `walleterm tunnel`: the signing bridge for one network behind a Quick Tunnel.
-fn run_tunnel(port: u16, vault: Option<String>, network: crate::network::Network) -> i32 {
+fn run_tunnel(port: u16, vault: Option<String>, network: crate::network::Network, approve: bool) -> i32 {
     let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
         Ok(runtime) => runtime,
         Err(_) => return 1,
@@ -203,7 +226,15 @@ fn run_tunnel(port: u16, vault: Option<String>, network: crate::network::Network
                 return 1;
             }
         };
-        let bridge = crate::bridge::Bridge::new(crate::bridge::production(socket, vault), port, network);
+        let bridge =
+            crate::bridge::Bridge::new(crate::bridge::production(socket, vault), port, network, approve);
+        if bridge.approval() {
+            let flag =
+                if port == crate::approve::DEFAULT_PORT { String::new() } else { format!(" --port {port}") };
+            if !output.write(&format!("Approval: each signature waits for walleterm approve{flag}.\n")) {
+                return 1;
+            }
+        }
         let service = std::sync::Arc::new(BridgeService::new(bridge, port));
         run_launch("Walleterm tunnel", port, service, output, probe_client).await
     })
@@ -255,7 +286,7 @@ pub async fn run_launch(
 pub fn run(command: &str, args: &[&str], out: &mut dyn Write) -> i32 {
     if let ["--help" | "-h"] = args {
         let vault = if command == "tunnel" {
-            "Use --vault <name-or-id> to filter website wallets. Filtering requires the 1Password CLI.\nWith no --vault, all Ed25519 agent keys are available. Shell variables and .env files do not select a vault.\nUse --network futurenet or --network local to sign for that network. The default is testnet.\n"
+            "Use --vault <name-or-id> to filter website wallets. Filtering requires the 1Password CLI.\nWith no --vault, all Ed25519 agent keys are available. Shell variables and .env files do not select a vault.\nUse --network testnet, futurenet, local, or mainnet, or --network-passphrase for another network. The default is testnet.\nOn mainnet and every other network that is not a test network, each signature needs walleterm approve.\nUse --approve to require it on a test network too.\n"
         } else {
             ""
         };
@@ -275,7 +306,7 @@ pub fn run(command: &str, args: &[&str], out: &mut dyn Write) -> i32 {
         return fail(out, "start_failed", "Install cloudflared. On macOS, run: brew install cloudflared");
     }
     if command == "tunnel" {
-        return run_tunnel(options.port, options.vault, options.network);
+        return run_tunnel(options.port, options.vault, options.network, options.approve);
     }
     run_demo(options.port)
 }
@@ -375,16 +406,15 @@ mod tests {
     }
 
     #[test]
-    fn the_tunnel_network_is_testnet_futurenet_or_local() {
+    fn the_tunnel_network_is_a_stellar_cli_built_in_name() {
         let network = |args: &[&str]| parse_options("tunnel", args).map(|options| options.network.name);
         assert_eq!(network(&[]), Some("testnet"));
-        for name in ["testnet", "futurenet", "local"] {
+        for name in ["testnet", "futurenet", "local", "mainnet"] {
             assert_eq!(network(&["--network", name]), Some(name));
             assert_eq!(network(&[&format!("--network={name}"), "--vault", "Private"]), Some(name));
         }
         for args in [
-            &["--network", "mainnet"][..],
-            &["--network", "pubnet"],
+            &["--network", "pubnet"][..],
             &["--network", "Test SDF Network ; September 2015"],
             &["--network", "TESTNET"],
             &["--network"],
@@ -395,5 +425,32 @@ mod tests {
         }
         assert!(parse_options("demo", &["--network", "testnet"]).is_none());
         assert_eq!(parse_options("demo", &[]).unwrap().network, crate::network::DEFAULT);
+    }
+
+    #[test]
+    fn mainnet_a_custom_passphrase_and_approval_are_tunnel_options() {
+        let options = |args: &[&str]| parse_options("tunnel", args);
+        assert_eq!(options(&["--network", "mainnet"]).unwrap().network.sep43, "PUBLIC");
+        let custom = options(&["--network-passphrase", "Walleterm ; offline"]).unwrap().network;
+        assert_eq!((custom.sep43, custom.passphrase), ("CUSTOM", "Walleterm ; offline"));
+        // A built-in passphrase acts as its built-in network.
+        let testnet = options(&["--network-passphrase=Test SDF Network ; September 2015"]).unwrap();
+        assert_eq!(testnet.network, crate::network::DEFAULT);
+        assert!(!options(&[]).unwrap().approve);
+        assert!(options(&["--approve"]).unwrap().approve);
+        assert!(options(&["--approve", "--port", "9000"]).unwrap().approve);
+        assert!(options(&["--network", "mainnet", "--approve"]).unwrap().approve);
+        for args in [
+            &["--network", "mainnet", "--network-passphrase", "Walleterm ; offline"][..],
+            &["--network-passphrase", "a", "--network", "testnet"],
+            &["--network-passphrase", " "],
+            &["--network-passphrase"],
+            &["--approve", "--approve"],
+            &["--approve=true"],
+        ] {
+            assert!(options(args).is_none(), "{args:?}");
+        }
+        assert!(parse_options("demo", &["--approve"]).is_none());
+        assert!(parse_options("demo", &["--network-passphrase", "Walleterm ; offline"]).is_none());
     }
 }

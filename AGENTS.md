@@ -36,7 +36,7 @@ Target macOS first. Permit human approval through 1Password.
   - CLI, 1Password agent, and shared helpers: `main.rs`, `cli.rs`, `agent.rs`, `platform.rs`, `error.rs`, `json.rs`, `util.rs`.
   - `network.rs` holds the Stellar CLI built-in networks and the networks that the tunnel serves.
   - `lib.rs` exports the modules to the tests and the test host.
-  - Bridge protocol version 4: `bridge.rs`, `http.rs`, `vault.rs`, `cancel.rs`.
+  - Bridge protocol version 4: `bridge.rs`, `http.rs`, `vault.rs`, `cancel.rs`. `approve.rs` holds the approval socket and command.
   - Services: `service.rs`, `tunnel.rs`, `dns.rs`, `process.rs`, `qr.rs`, and `demo.rs` with the embedded website.
   - `src/bin/walleterm-test-host.rs` needs the `test-host` feature. It never enters a release.
 - `tools/` holds maintainer commands: package, install, release, and fixture manifests. It never ships.

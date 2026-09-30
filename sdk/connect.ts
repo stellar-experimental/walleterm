@@ -26,6 +26,7 @@ const NETWORKS: Record<string, string> = {
   FUTURENET: 'Futurenet',
   STANDALONE: 'Local',
   PUBLIC: 'Mainnet',
+  CUSTOM: 'Custom network',
 };
 export interface ConnectionChange {
   wallet: Walleterm | null;
@@ -389,6 +390,8 @@ export class WalletermConnect {
     const network = this.$('network');
     network.textContent = NETWORKS[this.account?.network ?? ''] ?? this.account?.network ?? '';
     network.hidden = !network.textContent;
+    // Mainnet and custom networks can hold real value. Their badge stands out.
+    network.classList.toggle('wt-network-live', ['PUBLIC', 'CUSTOM'].includes(this.account?.network ?? ''));
     const labels: Record<string, string> = {
       connecting: 'Connecting…',
       restoring: 'Reconnecting…',
@@ -700,10 +703,10 @@ export class WalletermConnect {
           this.wallet.walletScope === 'available'
             ? 'This website can switch among all listed wallets.'
             : 'This website can use only the wallet that you select.';
-        // The website's request is the approval. The bridge asks for none. 1Password can still ask.
+        // On a test network, the website's request is the approval. Other networks wait for walleterm approve.
         this.message(
           values.length
-            ? `${grant} Walleterm signs each request from this website. 1Password can ask you to approve. The connection lasts one hour.`
+            ? `${grant} Walleterm signs each request from this website. On mainnet and custom networks, each request first waits for approval in the tunnel. 1Password can ask you to approve. The connection lasts one hour.`
             : 'No wallets are available. Check the 1Password SSH agent on your Mac.',
         );
         this.$('retry-wallets').hidden = !!values.length;

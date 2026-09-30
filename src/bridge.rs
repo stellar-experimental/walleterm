@@ -11,7 +11,7 @@ use std::time::Duration;
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 use subtle::ConstantTimeEq;
-use tokio::sync::{Notify, OnceCell, mpsc};
+use tokio::sync::{Notify, OnceCell, mpsc, oneshot};
 
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD;
@@ -267,6 +267,8 @@ struct State {
     origin: String,
     closing: bool,
     next_seq: u64,
+    /// The record key of the one request that waits for `walleterm approve`, and its answer.
+    waiting: Option<(String, oneshot::Sender<bool>)>,
 }
 
 pub struct Bridge {
@@ -281,6 +283,8 @@ pub struct Bridge {
     port: u16,
     /// Every request must name this network. Each reply reports it.
     network: Network,
+    /// Each signature waits for `walleterm approve`. Always true on a network that is not a test network.
+    approval: bool,
 }
 
 fn new_code() -> String {
@@ -419,7 +423,8 @@ async fn object(
 
 impl Bridge {
     /// Create the bridge for one network and start its signing worker and deadline sweep. `origin` starts as loopback.
-    pub fn new(deps: Deps, port: u16, network: Network) -> Arc<Self> {
+    /// `approve` can only add approval. A network that is not a test network always requires it.
+    pub fn new(deps: Deps, port: u16, network: Network, approve: bool) -> Arc<Self> {
         let (queue, mut jobs) = mpsc::unbounded_channel::<(String, String)>();
         let now = (deps.now)();
         let bridge = Arc::new(Self {
@@ -439,6 +444,7 @@ impl Bridge {
                 origin: format!("http://127.0.0.1:{port}"),
                 closing: false,
                 next_seq: 0,
+                waiting: None,
             }),
             deps,
             global: Cancel::new(),
@@ -449,6 +455,7 @@ impl Bridge {
             idle: Notify::new(),
             port,
             network,
+            approval: approve || !network.is_test(),
         });
         let worker = Arc::downgrade(&bridge);
         tokio::spawn(async move {
@@ -889,7 +896,100 @@ impl Bridge {
         }
     }
 
+    /// Wait for `walleterm approve` while the request stays pending. The job signal ends the wait on a cancel,
+    /// a wallet change, a disconnection, an expiry, or shutdown. A denial ends the request as denied, with -4.
+    async fn wait_for_approval(&self, key: &str, session_id: &str, signal: &Cancel) -> Result<()> {
+        let answer = {
+            let mut state = self.state.lock().unwrap();
+            if !self.eligible(&state, key, session_id, signal, RequestState::Pending) {
+                return Err(self.ended(&state, key, session_id, signal));
+            }
+            let (sender, answer) = oneshot::channel();
+            state.waiting = Some((key.to_owned(), sender));
+            let r = &state.records[key];
+            let port = if self.port == 8787 { String::new() } else { format!(" --port {}", self.port) };
+            self.log(&format!(
+                "Waiting for approval: {} from {} on {}, until {}. Review it with: walleterm approve{port}\n",
+                about(r),
+                r.origin,
+                self.network.label,
+                crate::util::local_clock(r.expires as i64),
+            ));
+            answer
+        };
+        let approved = signal
+            .run(async {
+                answer.await.map_err(|_| Error::new("internal", "The approval ended without an answer."))
+            })
+            .await;
+        let mut state = self.state.lock().unwrap();
+        if state.waiting.as_ref().is_some_and(|(waiting, _)| waiting == key) {
+            state.waiting = None;
+        }
+        match approved? {
+            true => Ok(()),
+            false => Err(Error::new("rejected", "The approval was declined.")),
+        }
+    }
+
+    /// The request that waits for approval, as `walleterm approve` prints it, or null.
+    /// `decoded` is the `stellar-xdr` JSON of the exact artifact. The ID answers only this request.
+    pub fn waiting(&self) -> Value {
+        let state = self.state.lock().unwrap();
+        let Some(r) = state.waiting.as_ref().and_then(|(key, _)| state.records.get(key)) else {
+            return Value::Null;
+        };
+        let decoded = artifact::decode(&r.artifact);
+        json!({
+            "id": r.record_id,
+            "kind": kind(&r.artifact),
+            "origin": r.origin,
+            "public_key": r.public_key,
+            "network": self.network.name,
+            "network_passphrase": self.network.passphrase,
+            "hash": r.hash,
+            "expires_at": iso_millis(r.expires as i64),
+            "decoded": decoded.as_ref().ok(),
+            "decode_error": decoded.as_ref().err().map(|e| e.message.clone()),
+        })
+    }
+
+    /// Answer the request that waits for approval. The ID must name that request while it is still pending.
+    /// An artifact that does not decode can be denied but not approved.
+    pub fn answer(&self, id: &str, approved: bool) -> Result<()> {
+        let mut state = self.state.lock().unwrap();
+        let now = self.now();
+        let current = state.waiting.as_ref().and_then(|(key, _)| state.records.get(key)).filter(|r| {
+            r.record_id == id
+                && r.state == RequestState::Pending
+                && now < r.expires
+                && !state.closing
+                && self.session_live(&state, &r.session_id)
+                && state.jobs.get(&r.record_id).is_some_and(|job| !job.is_cancelled())
+        });
+        let Some(r) = current else {
+            return Err(Error::new(
+                "not_found",
+                "No request with this ID waits for approval. Run walleterm approve to see the current one.",
+            ));
+        };
+        if approved && artifact::decode(&r.artifact).is_err() {
+            return Err(Error::new("invalid_input", "The request does not decode. Deny it instead."));
+        }
+        let (_, sender) = state.waiting.take().expect("a waiting request has a sender");
+        let _ = sender.send(approved);
+        Ok(())
+    }
+
+    /// Each signature waits for `walleterm approve`.
+    pub fn approval(&self) -> bool {
+        self.approval
+    }
+
     async fn sign_steps(&self, key: &str, session_id: &str, signal: &Cancel) -> Result<()> {
+        if self.approval {
+            self.wait_for_approval(key, session_id, signal).await?;
+        }
         let (artifact, passphrase, address, public_key) = {
             let state = self.state.lock().unwrap();
             if !self.eligible(&state, key, session_id, signal, RequestState::Pending) {
@@ -899,6 +999,7 @@ impl Bridge {
             (r.artifact.clone(), r.network_passphrase.clone(), address_of(r), r.public_key.clone())
         };
         // A transaction can reach its max_time while it waits. The same scope finishes the signature.
+        // An approval wait comes first, so this check uses the time after the answer.
         let checked_at = self.now();
         admit(&artifact, &self.network, &passphrase, &address, &public_key, checked_at)?;
         self.set_state(key, RequestState::Approved);

@@ -24,7 +24,8 @@ pub const DEADLINE: Duration = Duration::from_secs(120);
 
 pub const HELP: &str = r#"walleterm list [--human]
 walleterm sign < request.json
-walleterm tunnel [--port 8787] [--vault <name-or-id>] [--network testnet|futurenet|local]
+walleterm tunnel [--port 8787] [--vault <name-or-id>] [--network <name> | --network-passphrase <passphrase>] [--approve]
+walleterm approve [<id> [--deny]] [--port 8787]
 walleterm demo [--port 8788]
 walleterm --help
 walleterm --version
@@ -43,7 +44,10 @@ Adapters: account, contract-ed25519, and openzeppelin-ed25519 with verifier and 
 
 Use 1Password desktop to create, manage, and approve signers.
 Tunnel starts the signing bridge for websites on testnet, or on the --network that you name.
-It prints a connection code and QR code.
+It prints a connection code and QR code. Network names: testnet, futurenet, local, and mainnet.
+On mainnet or another network that is not a test network, each signature waits for approval.
+--approve requires approval on a test network too.
+Approve prints the request that waits, with its decoded artifact, as JSON. Review it, then approve or deny its id.
 --vault limits website wallets to a 1Password vault name or ID. Filtering requires the 1Password CLI.
 --vault does not filter the local list or sign commands.
 A connected website approves its own requests. 1Password can still ask for approval on the Mac.
@@ -422,6 +426,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         ["list"] | ["list", "--human"] => list(human, io),
         ["sign"] => sign(io),
         [command @ ("tunnel" | "demo"), rest @ ..] => crate::service::run(command, rest, io.out),
+        ["approve", rest @ ..] => crate::approve::command(rest, io.out),
         // The private supervisor mode of `walleterm tunnel`. It is not part of the public interface.
         ["tunnel-child", rest @ ..] => {
             let args = rest.iter().map(|s| s.to_string()).collect();

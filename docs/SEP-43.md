@@ -11,7 +11,7 @@ After a connection, the Walleterm SDK and its header component drive the interfa
 - `getAddress()` owns pairing. Without a session, it opens the Walleterm dialog.
 - `signAuthEntry` signs a CAP-71 address-bound preimage and returns a Base64 Ed25519 signature.
 - `signMessage` signs SEP-53 text of 1–1024 UTF-8 bytes and returns a Base64 signature. See [section 2a](#2a-message-signing).
-- The network is the tunnel network: testnet, futurenet, or a local network. Each account reply names it.
+- The network is the tunnel network: testnet, futurenet, local, mainnet, or a custom passphrase. Each account reply names it.
 - The native SDK keeps wallet switching, both wallet scopes, and the `WalletermConnect` header component.
 - The native SDK keeps adapter signing as `signAuthorization`, outside SEP-43.
 - The bridge filters no operations. It keeps only structural invariants.
@@ -146,7 +146,8 @@ const signed = await authorizeEntry(
 A preimage does not show the credential variant, the final signature format, account policy, or the transaction.
 These gaps add no authority. The signature approves one tree for one address, network, nonce, and expiry.
 
-A connected website can relay a SEP-45 challenge. The network ID limits this risk to services on the tunnel network, a test network.
+A connected website can relay a SEP-45 challenge. The network ID limits this risk to services on the tunnel network.
+On mainnet and custom networks, the approver sees each challenge in `walleterm approve` before it is signed.
 
 ### Adapter signing extension
 
@@ -323,8 +324,10 @@ The bridge treats all tabs as one client. A wallet change cancels or withholds t
 
 ## 4. Network
 
-Each tunnel signs for one network: testnet by default, or futurenet or a local network. The tunnel does not sign for mainnet yet.
-The `network` field is the Stellar SDK `Networks` key: `TESTNET`, `FUTURENET`, or `STANDALONE`.
+Each tunnel signs for one network: testnet by default, or the network that `--network` or `--network-passphrase` names.
+The `network` field is the Stellar SDK `Networks` key: `TESTNET`, `FUTURENET`, `STANDALONE`, or `PUBLIC`.
+Any other passphrase is `CUSTOM`. The passphrase, not the name, identifies the network.
+On mainnet and custom networks, each request waits for `walleterm approve` in the tunnel. It stays `pending` until then.
 `getNetwork()` returns the tunnel network. Without a session, the wallet knows no network, so it returns `-3` `walleterm:not_connected`.
 Signing methods default to the tunnel network. Another passphrase returns `-3` before the signing request.
 A preimage with another network ID fails, whatever the options say.
@@ -432,8 +435,8 @@ The live acceptance steps are in [live tests](LIVE-TESTS.md#sep-43-wallet).
 | Item | Walleterm | Reason |
 | --- | --- | --- |
 | `signMessage` encoding | Base64 of the raw 64-byte signature | SEP-43 prose says hexadecimal. Freighter, its Kit module, and Stellar CLI use Base64. |
-| `signMessage` confirmation | The connected website confirms by sending. The tunnel prints the escaped text. | The bridge has no trusted display. Dedicated test keys are required. |
+| `signMessage` confirmation | The connected website confirms by sending. The tunnel prints the escaped text. Mainnet and custom networks also wait for `walleterm approve`. | The approver reviews the text. On a test network, dedicated test keys are required. |
 | V1 preimages | Return `-3` | Cross-address replay |
-| Networks | One test network for each tunnel | Bridge scope |
+| Networks | One network for each tunnel | Bridge scope |
 | `submit`, `submitUrl` | Return `-3` | The bridge never submits |
-| Review | The website approves by sending | Test-network design with dedicated keys |
+| Review | The website approves by sending. Mainnet and custom networks also wait for `walleterm approve`. | Approval in the tunnel is the gate for real value |

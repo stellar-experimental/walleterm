@@ -20,8 +20,9 @@ The terminal prints the bridge URL, an eight-digit code, and a QR code when the 
 A code works once and expires after five minutes. A selected website session lasts one hour.
 The website origin must use HTTPS, or loopback HTTP for development. It must differ from the bridge origin.
 Cloudflare terminates TLS and can read the XDR and credentials.
-The bridge signs for one network: testnet by default. Add `--network futurenet` or `--network local` for those networks.
-The ready line names the network. The tunnel does not sign for mainnet yet.
+The bridge signs for one network: testnet by default. Add `--network futurenet`, `local`, or `mainnet`, or `--network-passphrase "<passphrase>"`.
+The ready line names the network. On mainnet and custom networks, each request waits for `walleterm approve`.
+`--approve` adds that step on a test network. See [Approve requests](../SKILL.md#approve-requests).
 
 To limit website wallets to one 1Password vault, pass its name or ID: `walleterm tunnel --vault <name-or-id>`.
 Filtering needs the 1Password CLI. Without `--vault`, all Ed25519 agent keys are available.

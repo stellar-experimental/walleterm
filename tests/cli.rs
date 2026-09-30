@@ -650,6 +650,22 @@ fn help_version_and_usage() {
 }
 
 #[test]
+fn approve_prints_one_json_line_for_a_usage_error_or_a_missing_tunnel() {
+    let usage = json!({"ok": false, "error": {"code": "invalid_input", "message": "Use walleterm approve [<id> [--deny]] [--port 8787]."}});
+    for args in [&["approve", "--deny"][..], &["approve", "transaction"], &["approve", "--port", "0"]] {
+        let got = invoke(args, b"", None, None);
+        assert_eq!(got.exit, 2, "{args:?}");
+        assert_eq!(got.stdout.lines().count(), 1);
+        assert_eq!(serde_json::from_str::<Value>(&got.stdout).unwrap(), usage, "{args:?}");
+    }
+    // No tunnel listens on port 1. The command only reads the socket path; it creates nothing.
+    let got = invoke(&["approve", "--port", "1"], b"", None, None);
+    let out: Value = serde_json::from_str(&got.stdout).unwrap();
+    assert_eq!((got.exit, out["error"]["code"].as_str()), (1, Some("tunnel_unavailable")), "{}", got.stdout);
+    assert!(out["error"]["message"].as_str().unwrap().contains("port 1."));
+}
+
+#[test]
 fn human_comments_cannot_reach_the_terminal_raw() {
     use walleterm::cli::go_quote;
     assert_eq!(go_quote("name\x1b[31m\nnext"), r#""name\x1b[31m\nnext""#);

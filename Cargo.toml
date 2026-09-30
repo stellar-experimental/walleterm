@@ -9,7 +9,7 @@ default-run = "walleterm"
 description = "Stellar signing companion for agents using 1Password."
 
 [dependencies]
-stellar-xdr = { version = "=28.0.1", default-features = false, features = ["std", "base64"] }
+stellar-xdr = { version = "=28.0.1", default-features = false, features = ["std", "base64", "serde"] }
 stellar-strkey = { version = "=0.0.13", default-features = false }
 ed25519-dalek = { version = "=2.2.0", default-features = false, features = ["std"] }
 sha2 = { version = "=0.10.9", default-features = false, features = ["std"] }

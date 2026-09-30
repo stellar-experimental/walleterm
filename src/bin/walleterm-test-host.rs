@@ -148,10 +148,11 @@ fn main() {
         });
         // WALLETERM_TEST_HOST_NETWORK names the bridge network, as `walleterm tunnel --network` does.
         let network = match std::env::var("WALLETERM_TEST_HOST_NETWORK") {
-            Ok(name) => walleterm::network::tunnel(&name).expect("testnet, futurenet, or local"),
+            Ok(name) => walleterm::network::named(&name).expect("a Stellar CLI network name"),
             Err(_) => walleterm::network::DEFAULT,
         };
-        let bridge = Bridge::new(dependencies, port, network);
+        // Browser tests answer no approval. A mainnet host would wait for one that never comes.
+        let bridge = Bridge::new(dependencies, port, network, false);
         bridge.set_public_origin(&format!("http://127.0.0.1:{port}")).unwrap();
         bridge.on_pairing_changed(Box::new(|rotation| {
             let reason = match rotation {
