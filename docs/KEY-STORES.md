@@ -300,7 +300,7 @@ The values were current on 2026-09-29.
 | Passwords app SSH keys | None | macOS release notes |
 | CAP-72 contract signers for G-accounts | Draft, no target protocol | [CAP index](https://github.com/stellar/stellar-protocol/tree/master/core) |
 | CAP-87 ML-DSA verification | Awaiting Decision, protocol TBD | [CAP index](https://github.com/stellar/stellar-protocol/tree/master/core) |
-| Newest protocol | 28, on mainnet since 2026-09-16 | [Software versions](https://developers.stellar.org/docs/networks/software-versions) |
+| Newest protocol | 28 on mainnet since 2026-09-16. Testnet and futurenet reported 29 on 2026-09-29. | [Software versions](https://developers.stellar.org/docs/networks/software-versions) |
 | V1 address credentials after protocol 28 | Sources disagree | A testnet submission with a V1 entry |
 | OpenZeppelin `stellar-contracts` | v0.7.2 audited. v0.8.0-rc.3 not audited. | [Releases](https://github.com/OpenZeppelin/stellar-contracts/releases) |
 | Bitwarden new SSH agent | Behind `SSHAgentV2` in v2026.9.0 | Bitwarden desktop release notes |

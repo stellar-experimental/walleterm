@@ -1,7 +1,7 @@
 # Networks and hard-coded limits
 
 This file maps each network restriction, hard-coded network value, and hard-coded limit in the repository.
-Use it to find the code to change before Walleterm opens mainnet or a custom network.
+Use it to find the code that a network rule or a limit touches.
 A change that adds, changes, or removes one of these items must update this file in the same change.
 `tests/networks.test.ts` fails when a product file names a testnet value and this file does not name that file.
 
@@ -236,8 +236,8 @@ Update those statements in the same change.
 
 ## Tests and fixtures
 
-Tests and fixtures can stay testnet only. They use dedicated testnet keys or mock keys.
-When the bridge or the SDK opens a network, update the tests that assert `network_unsupported` or the testnet text.
+Live tests run on testnet. They use dedicated testnet keys. Offline tests use mock keys.
+A change to a network rule also changes the tests that assert `network_unsupported`, the network names, or approval.
 
 | Area | Files | Network use |
 | --- | --- | --- |
@@ -252,69 +252,27 @@ When the bridge or the SDK opens a network, update the tests that assert `networ
 | Test host | `src/bin/walleterm-test-host.rs` | Runs the production bridge rules for the browser tests. `WALLETERM_TEST_HOST_NETWORK` names its network. It never ships. |
 
 
-## Mainnet and custom networks
+## Network design
 
-Two pull requests opened every network. PR 1 opened the test networks. PR 2 opened mainnet and custom networks.
-
-### Decisions
-
-The user approved these decisions on 2026-09-30.
+These decisions set the network rules above. The user approved them on 2026-09-30.
 
 1. Input. `walleterm tunnel --network <name>` takes a Stellar CLI built-in name. `--network-passphrase <passphrase>` takes any other network.
    The bridge needs only a passphrase. So Walleterm reads no Stellar CLI configuration, no `STELLAR_NETWORK`, and no stored default.
    A Stellar CLI plugin inherits the stored default as `STELLAR_NETWORK`, so `stellar walleterm tunnel` ignores that default too.
-2. One network for each tunnel. The replies already carried `network` and `network_passphrase`.
-   But a version 3 SDK checks the network only in `readAccount`. After a fresh pairing, it reports testnet and signs for the tunnel network.
-   So the protocol moved to version 4. `/v1/connect` refuses a client that does not send `"protocol": 4`.
+2. One network for each tunnel. The account and selection replies name it. `/v1/connect` requires `"protocol": 4`.
 3. Names. The terminal uses the Stellar CLI names. SEP-43 replies use the Stellar SDK `Networks` keys. Any other passphrase is `CUSTOM`.
 4. `getNetwork` before a session returns `-3` with `walleterm:not_connected`. The wallet knows no network until the tunnel names it.
 5. Approval. On mainnet and on a custom passphrase, each signature waits for `walleterm approve`. `--approve` adds the step on a test network.
-   An agent can answer it as well as a human. The review shows the `stellar tx decode` JSON of the exact artifact.
-6. Transport. Approval replaces the end-to-end encryption precondition. A forged request gets no signature without an approval.
+   `Bridge::new` decides it from the resolved passphrase. No input removes it.
+6. The approver answers the bridge's random record ID, not the hash. A hash does not bind the signer or the origin.
+   The tunnel line names the command but not the ID. The ID comes only with the full decode.
+7. The decode is the `stellar-xdr` JSON that `stellar tx decode` prints. A decode deeper than 100 JSON levels can only be denied.
+8. Transport. Approval replaces end-to-end encryption as the gate for real value. A forged request gets no signature without an approval.
    Cloudflare can still read the traffic. `docs/WEB-BRIDGE.md` states it.
-7. The demo stays on testnet.
-8. Live runs follow `AGENTS.md`: a test network needs no separate approval. A mainnet run needs the user's approval, which can cover a batch.
+9. The demo stays on testnet.
+10. Live runs follow `AGENTS.md`: a test network needs no separate approval. A mainnet run needs the user's approval, which can cover a batch.
 
-### PR 1: futurenet and local
-
-- `src/network.rs` holds the built-in networks. `walleterm tunnel --network testnet|futurenet|local` selects one. Testnet is the default.
-- The bridge admits requests for its network only. Its replies and its ready line name that network. The protocol is version 4.
-- The SDK takes the network from the account reply. Requests default to it. `getNetwork` reports it.
-- The connection component shows the network. The demo sends no request to a tunnel on another network.
-- The CLI notice uses the Stellar CLI names `mainnet` and `local` in place of `pubnet` and a quoted passphrase.
-
-### PR 2: mainnet, custom networks, and `walleterm approve`
-
-- `walleterm tunnel` accepts `--network mainnet`, `--network-passphrase <passphrase>`, and `--approve`.
-  A built-in passphrase from `--network-passphrase` acts as that built-in network. A custom passphrase is `CUSTOM`.
-- `Bridge::new` decides approval from the resolved passphrase. `--approve` can only add it. No input removes it.
-- `Bridge::wait_for_approval` runs before admission, so admission uses the time after the answer.
-  The request stays `pending`. The job signal ends the wait on a cancel, a wallet change, a disconnection, an expiry, or shutdown.
-  A denial ends the request as `denied` with `-4`. No answer before the request expires ends it as `expired` with `-3`.
-- The approver answers the bridge's random record ID, not the hash. A hash does not bind the signer or the origin,
-  so two waiting requests in turn can share one hash.
-- The tunnel line names the request and the command `walleterm approve`, but not the ID. The ID comes only with the full decode.
-- `walleterm approve` polls. It prints the waiting request, or approves or denies one ID. It has no wait mode and no typed answer in the tunnel.
-- The socket lives in `~/Library/Application Support/walleterm`, from the account database. The directory has mode 0700.
-  The tunnel binds its TCP port first, then replaces a stale socket for that port. It checks the peer user ID with tokio `peer_cred`.
-  It removes only the socket that it created. A socket failure stops startup before the public tunnel opens.
-- The decode uses the `serde` feature of `stellar-xdr`, the crate and output that `stellar tx decode` uses.
-  On 2026-09-30, the feature added 43 resolved macOS packages (114 to 157) and 60 lockfile packages (135 to 195).
-  A release build that decodes each envelope grew from 5645520 to 5816944 bytes.
-  The package counts in `tools/src/budgets.rs` came from the Rust migration and had no other reason, so PR 2 removed them.
-  The binary limit and `cargo deny` stay.
-- The connection badge shows Mainnet or Custom network in a warm color. The picker text says that these networks wait for approval.
-- GPT-6 Astra, Fable 5.1, and Grok 4.7 reviewed this design before the code. Their findings set the ID, the wait position, the terminal line,
-  the socket checks, and the cuts.
-
-### History
-
-PR #72 recorded a larger first plan. GPT-6 Astra and GPT-6.1 Sol reviewed it independently.
-The user then chose these two pull requests. The approval step covers the risks that the larger plan handled separately:
-a forged request through the tunnel, a relayed login challenge, and a message signature from a funded key.
-The cut items were stored Stellar CLI networks, an encrypted transport, demo network support, and login-challenge rules.
-The independent review of PR 1 showed that a protocol change was still necessary. See decision 2.
-The design review of PR 2 replaced approval by hash with approval by record ID.
+GPT-6 Astra, GPT-6.1 Sol, Fable 5.1, and Grok 4.7 reviewed this design and its code independently.
 
 ### Sources
 
@@ -323,5 +281,6 @@ The design review of PR 2 replaced approval by hash with approval by record ID.
 - The `soroban-cli` 28.1.0 crate source: `config/network.rs` (`Args::resolve`) and `config/locator.rs` (`read_network`, `global_config_path`).
 - RPC `getNetwork` on 2026-09-29: mainnet reported protocol 28, and testnet and futurenet reported protocol 29.
   CAP-71 AddressV2 needs protocol 27, so mainnet accepts the Walleterm authorization formats.
+- `stellar-xdr` 28.0.1 with the `serde` feature: 43 more resolved macOS packages and 171424 more release binary bytes, measured on 2026-09-30.
 - Stellar Wallets Kit 2.7.0 in `fixtures/kit/`: `esm/types/mod.js` (`Networks`).
 - Network IDs: `shasum -a 256` of each passphrase. The `src/network.rs` tests check them.

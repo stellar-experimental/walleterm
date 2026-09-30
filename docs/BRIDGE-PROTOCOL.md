@@ -16,8 +16,7 @@ The tunnel flag `--vault` limits this list to one vault. See [the vault filter](
 `walleterm tunnel` prints the public URL, an eight-digit connection code, and a QR code.
 The QR code contains `{"walleterm":4,"url":"...","code":"...","expires_at":"..."}`.
 `GET /api/session` returns `{"service":"walleterm","protocol":4}`. The SDK accepts only version 4.
-Version 4 replies can name a network other than testnet. An older SDK would still report testnet.
-So `/v1/connect` refuses a request without `"protocol": 4` before it checks the code. That attempt does not count.
+`/v1/connect` requires `"protocol": 4`. It refuses any other value before it checks the code, so that attempt does not count.
 A code works once and expires after five minutes. The terminal shows each expiry in local time, such as "3:04 PM (in 5 minutes)".
 After a use or a lockout, the tunnel prints a new code block with its reason, the URL, and a QR code.
 When an unused code expires, the tunnel prints one line with the new code and no QR code. So idle rotation stays short.

@@ -1,5 +1,5 @@
-//! The native CLI through a real Unix socket mock agent. The Go signer transcripts (`fixtures/parity/cli.json`)
-//! still fix `list`, the agent protocol, and every agent failure. Frozen JS vectors fix each signed artifact.
+//! The native CLI through a real Unix socket mock agent. The recorded transcripts (`fixtures/parity/cli.json`)
+//! fix `list`, the agent protocol, and every agent failure. Frozen JS vectors fix each signed artifact.
 //! Mock seeds and the public SEP-53 test key only. Nothing here opens the real 1Password socket.
 
 use std::io::{self, Read, Write};
@@ -172,8 +172,7 @@ fn invoke(
     }
 }
 
-/// Cases that still apply byte for byte: `list` and its agent protocol failures.
-/// The digest `sign` input, `--human` on `sign`, and the old usage and help text were removed on purpose.
+/// The `list` transcripts and their agent protocol failures apply byte for byte.
 #[test]
 fn go_signer_transcripts_for_list() {
     let file = fixture("cli.json");

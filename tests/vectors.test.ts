@@ -29,24 +29,10 @@ const outcome = (run: () => Record<string, unknown>) => {
     return failure(error);
   }
 };
-// The v3 bridge adds these admission rules. The Rust host owns them; the SDK checks only structure.
-// The last message records the removed five-minute rule. The host now refuses only an expired max_time.
+// The bridge adds these admission rules. The Rust host owns them; the SDK checks only structure.
 const HOST_ONLY = [
   'Walleterm signs only on Stellar testnet.',
   'The requested account differs from the selected account.',
-  'Use time bounds that are valid now and end within five minutes.',
-];
-// The signing rules in docs/INTERFACE.md require no ledger read.
-// These frozen cases failed a ledger window or value check. They now sign. tests/vectors.rs lists them too.
-const NOW_SIGNS = [
-  'auth-window-61',
-  'auth-window-now',
-  'auth-ledger-zero',
-  'auth-ledger-fraction',
-  'auth-ledger-string',
-  'auth-ledger-near-integer',
-  'preimage-window-121',
-  'preimage-expired',
 ];
 
 test('the vector file keeps its producer and case count', () => {
@@ -54,15 +40,12 @@ test('the vector file keeps its producer and case count', () => {
   expect(vectors.producer.stellar_sdk).toBe('17.1.0');
   expect(key.publicKey()).toBe(G);
   expect(vectors.cases.length).toBeGreaterThanOrEqual(80);
-  const ids = (vectors.cases as Case[]).map((c) => c.id);
-  expect(NOW_SIGNS.filter((id) => ids.includes(id))).toEqual(NOW_SIGNS);
 });
 
 for (const c of vectors.cases as Case[]) {
   test(`vector ${c.id}`, () => {
     const check = (actual: Record<string, unknown>, expected: Record<string, unknown>) => {
-      if (NOW_SIGNS.includes(c.id)) expect(actual.error).toBeUndefined();
-      else expect(actual).toEqual(expected);
+      expect(actual).toEqual(expected);
     };
     if (c.kind === 'auth_entry') {
       const input = c.input as never;
