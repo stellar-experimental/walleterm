@@ -173,6 +173,8 @@ fn private_dir(name: &str) -> std::path::PathBuf {
     dir
 }
 
+// Not covered: a connection from another macOS user gets no reply (`peer_cred` in `src/approve.rs`).
+// That check needs a second account. It is skipped for now. See docs/LIVE-TESTS.md.
 #[tokio::test]
 async fn the_socket_shows_and_answers_the_waiting_request() {
     let (f, site, shown) = waiting(mainnet(), false).await;

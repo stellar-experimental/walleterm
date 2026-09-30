@@ -1,0 +1,63 @@
+{
+  "binary": "walleterm 0.2.0-19-g08ed836-dirty, a make build on branch networks-mainnet. The code is 08ed836; only the live runner and docs were uncommitted.",
+  "command": "walleterm tunnel --port 18787 --vault Wallace --approve (Stellar testnet)",
+  "started_at": "2026-09-30T20:41:29.615Z",
+  "port": "18787",
+  "public_key": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+  "socket": {
+    "directory_mode": "700",
+    "is_socket": true
+  },
+  "unsigned_xdr": "AAAAAgAAAABlbzeWNNDj7ylhZEtxVOxwuj+4QraJNwWPPc5acrXMwwAAAGQASj3gAAAAxQAAAAAAAAAAAAAAAQAAAAAAAAAKAAAAFndhbGxldGVybS1hcHByb3ZlLWxpdmUAAAAAAAEAAAAYMjAyNi0wOS0zMFQyMDo0MToyOS42MTVaAAAAAAAAAAA=",
+  "hash": "92ffd481131c41eaefcb36f1cd1e469b3a958682237005a342b3b034d425417c",
+  "deny": {
+    "id": "8db0ace3-2877-489c-93d7-342b97796d04",
+    "answer": {
+      "approved": false,
+      "ok": true
+    },
+    "result": {
+      "error": {
+        "code": -4,
+        "ext": [
+          "walleterm:rejected"
+        ],
+        "message": "The approval was declined.",
+        "requestState": "denied"
+      },
+      "expires_at": "2026-09-30T20:46:46.306Z",
+      "hash": "92ffd481131c41eaefcb36f1cd1e469b3a958682237005a342b3b034d425417c",
+      "id": "deny-1",
+      "kind": "transaction",
+      "state": "denied"
+    }
+  },
+  "approve": {
+    "id": "7e7f37fc-1aca-490c-a6db-ee1dc5d2ead1",
+    "answer": {
+      "approved": true,
+      "ok": true
+    },
+    "state": "signed"
+  },
+  "submission": {
+    "successful": true,
+    "ledger": 4955465,
+    "hash": "92ffd481131c41eaefcb36f1cd1e469b3a958682237005a342b3b034d425417c"
+  },
+  "signature_verified": true,
+  "finished_at": "2026-09-30T20:41:52.920Z",
+  "after_stop": {
+    "socket_removed": true,
+    "approve": {
+      "exit": 1,
+      "json": {
+        "error": {
+          "code": "tunnel_unavailable",
+          "message": "No walleterm tunnel with approval runs on port 18787. Start one, or name its --port. Socket: /Users/kalepail/Library/Application Support/walleterm/approve-18787.sock"
+        },
+        "ok": false
+      }
+    }
+  }
+}
