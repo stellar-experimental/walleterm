@@ -1,6 +1,6 @@
 # SEP-43 wallet interface
 
-This file describes the Walleterm browser SDK. It uses bridge protocol version 3.
+This file describes the Walleterm browser SDK. It uses bridge protocol version 4.
 Walleterm is SEP-43 compatible and Stellar Wallets Kit compatible.
 After a connection, the Walleterm SDK and its header component drive the interface.
 
@@ -11,7 +11,7 @@ After a connection, the Walleterm SDK and its header component drive the interfa
 - `getAddress()` owns pairing. Without a session, it opens the Walleterm dialog.
 - `signAuthEntry` signs a CAP-71 address-bound preimage and returns a Base64 Ed25519 signature.
 - `signMessage` signs SEP-53 text of 1–1024 UTF-8 bytes and returns a Base64 signature. See [section 2a](#2a-message-signing).
-- The network is testnet only.
+- The network is the tunnel network: testnet, futurenet, or a local network. Each account reply names it.
 - The native SDK keeps wallet switching, both wallet scopes, and the `WalletermConnect` header component.
 - The native SDK keeps adapter signing as `signAuthorization`, outside SEP-43.
 - The bridge filters no operations. It keeps only structural invariants.
@@ -46,7 +46,7 @@ type Sep43Error = {
 type Result<T> = T & { error?: Sep43Error };
 
 interface SignOptions {
-  networkPassphrase?: string; // Default: testnet. Another value fails.
+  networkPassphrase?: string; // Default: the tunnel network. Another value fails.
   address?: string; // Default: the selected G-address. Another value fails.
   signal?: AbortSignal; // Walleterm extension.
   onProgress?: (progress: { state: RequestState | 'retrying'; expiresAt?: string }) => void; // Walleterm extension.
@@ -70,8 +70,8 @@ So a `Walleterm` object is a Stellar SDK `contract.Signer`. Its `address` is an 
 | `getAddress()` | With a session, it confirms the session through `GET /v1/account`. Without one, it opens pairing. `skipRequestAccess: true` returns `-3 walleterm:not_connected` instead. A closed dialog returns `-4`. |
 | `signTransaction()` | It checks the envelope locally, sends one request, and verifies the returned envelope. `submit: true` or `submitUrl` returns `-3`. The bridge never submits. |
 | `signAuthEntry()` | Section 2. |
-| `signMessage()` | Section 2a. It checks the text and the network before any request, and the address before the signing request. |
-| `getNetwork()` | It returns `{ network: 'TESTNET', networkPassphrase: 'Test SDF Network ; September 2015' }` without a session. |
+| `signMessage()` | Section 2a. It checks the text before any request, and the network and the address before the signing request. |
+| `getNetwork()` | It returns the tunnel network, such as `{ network: 'FUTURENET', networkPassphrase: 'Test SDF Future Network ; October 2022' }`. Without a session, it returns `-3` `walleterm:not_connected`. |
 
 ### Native methods
 
@@ -93,7 +93,7 @@ These methods belong to the Walleterm SDK. Failures throw a `WalletermError` wit
 | Code | `ext[0]` | Cause |
 | --- | --- | --- |
 | `-3` | `walleterm:not_connected` | No session, or the bridge returned 401. |
-| `-3` | `walleterm:network_unsupported` | The passphrase or preimage network is not testnet. |
+| `-3` | `walleterm:network_unsupported` | The passphrase or preimage network is not the tunnel network. |
 | `-3` | `walleterm:address_mismatch` | `opts.address` differs from the selected key, or the key is not a required signer. |
 | `-3` | `walleterm:invalid_request` | Malformed, noncanonical, or oversized input. Message text that is not well-formed or has more than 1024 UTF-8 bytes. |
 | `-3` | `walleterm:unsupported` | Submission or a V1 preimage. |
@@ -138,7 +138,7 @@ const signed = await authorizeEntry(
 
 1. Canonical Base64 XDR of 32768 characters or fewer.
 2. Type `envelopeTypeSorobanAuthorizationWithAddress`. V1 fails, because it permits cross-address replay (CAP-71-02).
-3. The network ID of testnet.
+3. The network ID of the tunnel network.
 4. The bound address is the selected G-address or a C-address.
 5. At most 256 invocation contexts and 32 levels.
 6. A set expiration. Expiration ledger 0 fails. No check reads a ledger, and the network enforces expiry.
@@ -146,7 +146,7 @@ const signed = await authorizeEntry(
 A preimage does not show the credential variant, the final signature format, account policy, or the transaction.
 These gaps add no authority. The signature approves one tree for one address, network, nonce, and expiry.
 
-A connected website can relay a SEP-45 challenge. The testnet network ID limits this risk to testnet services.
+A connected website can relay a SEP-45 challenge. The network ID limits this risk to services on the tunnel network, a test network.
 
 ### Adapter signing extension
 
@@ -215,11 +215,11 @@ The SDK checks these points before it sends the signing request:
 1. `message` is a string, and `message.isWellFormed()` is true.
    `TextEncoder` turns a lone surrogate into U+FFFD, so the signature would cover other text.
 2. The text has 1–1024 UTF-8 bytes. The limit counts bytes, not characters.
-3. The network is testnet.
+3. The network is the tunnel network.
 4. `opts.address` is absent or the selected G-address.
 
-The SDK checks points 1–3 before any request.
-A restored session can read `GET /v1/account` before the SDK checks point 4.
+The SDK checks points 1 and 2 before any request.
+A restored session can read `GET /v1/account` before the SDK checks points 3 and 4.
 
 The SDK sends one `message` request. It verifies the result with `Keypair.verifyMessage` before it returns it.
 `signedMessage` is the Base64 64-byte signature. `signerAddress` is the selected G-address.
@@ -237,7 +237,7 @@ So a connected website, or a compromised script on it, can try these attacks:
 3. Claims. It requests a social-proof or agreement text of its own choice.
 4. Replay. It reuses a signature at a consumer that checks no nonce or expiry.
 
-The testnet rule does not limit a message signature. Connect only dedicated testnet keys.
+The network rule does not limit a message signature. Connect only dedicated test keys.
 Never use a Walleterm key as an identity or a key-derivation source for another service.
 
 ## 3. Pairing, switching, and sessions
@@ -289,7 +289,7 @@ Change events run after the switch settles, so a `fetchAddress()` call in the ho
 
 ### Sessions
 
-The SDK saves `{ version: 3, url, token, revision }` in `localStorage` under `walleterm:session`.
+The SDK saves `{ version: 4, url, token, revision }` in `localStorage` under `walleterm:session`.
 All tabs of one website share this session. A new tab uses it without a new code.
 `revision` only tells other tabs that the wallet changed. Each tab reads the account from the bridge.
 After pairing, the wallet owns the session. Destroying `WalletermConnect` does not revoke it.
@@ -323,10 +323,14 @@ The bridge treats all tabs as one client. A wallet change cancels or withholds t
 
 ## 4. Network
 
-`getNetwork()` returns testnet without a session.
-Signing methods default to testnet. Another passphrase returns `-3` before any request.
+Each tunnel signs for one network: testnet by default, or futurenet or a local network. The tunnel does not sign for mainnet yet.
+The `network` field is the Stellar SDK `Networks` key: `TESTNET`, `FUTURENET`, or `STANDALONE`.
+`getNetwork()` returns the tunnel network. Without a session, the wallet knows no network, so it returns `-3` `walleterm:not_connected`.
+Signing methods default to the tunnel network. Another passphrase returns `-3` before the signing request.
 A preimage with another network ID fails, whatever the options say.
-The Kit defaults to PUBLIC. A Kit website must set `Networks.TESTNET`.
+`onChange` reports the network with each address. A disconnection reports empty network fields.
+The Kit defaults to PUBLIC and sends its own passphrase to each signing call.
+A Kit website sets the Kit network to the passphrase from `getNetwork()`.
 
 ## 5. Transaction policy
 
@@ -335,7 +339,7 @@ The bridge keeps only these structural invariants:
 
 | Rule | Decision | Reason |
 | --- | --- | --- |
-| Network | Testnet only | The signature binds the network. |
+| Network | The tunnel network only | The signature binds the network. |
 | Envelope | Canonical V1 or fee-bump XDR. V0 fails. | The bridge must parse and hash exactly what it signs. SDK 17 builds V1. |
 | Required signer | The selected key is the transaction source, an operation source, or the fee-bump fee source. Muxed accounts use their base key. | A signature must serve this envelope. It reads account fields only. |
 | Existing signatures | Permitted, up to 19. The selected key must not have signed already. | Multi-party signing. The result appends one signature. |
@@ -345,13 +349,13 @@ The bridge keeps only these structural invariants:
 | Fees | No cap. | A fee cap blocks nothing that a payment cannot do. |
 | Embedded authorization entries | Not inspected. | The envelope signature covers them. The network enforces them. |
 
-## 6. Protocol version 3
+## 6. Protocol version 4
 
-The QR payload is `{"walleterm":3,"url":"...","code":"...","expires_at":"..."}`. `/api/session` reports `protocol: 3`.
+The QR payload is `{"walleterm":4,"url":"...","code":"...","expires_at":"..."}`. `/api/session` reports `protocol: 4`.
 
 | Route | Contract |
 | --- | --- |
-| `POST /v1/connect` | `{ code, wallet_scope }`. Returns `token`, `connection_id`, `expires_at`, `wallet_scope`, `selection_revision`. |
+| `POST /v1/connect` | `{ code, wallet_scope, protocol: 4 }`. Returns `token`, `connection_id`, `expires_at`, `wallet_scope`, `selection_revision`. |
 | `GET /v1/signers` | `signers`, and `grant_id` before an `available` selection. |
 | `POST /v1/select` | `{ public_key }`, plus `expected_revision` and the first `grant_id` for `available`. Returns `address`, `network`, `network_passphrase`, `selection_revision`, `expires_at`. |
 | `GET /v1/account` | `connection_id`, `address`, `network`, `network_passphrase`, `expires_at`, `wallet_scope`, `selection_revision`. |
@@ -428,8 +432,8 @@ The live acceptance steps are in [live tests](LIVE-TESTS.md#sep-43-wallet).
 | Item | Walleterm | Reason |
 | --- | --- | --- |
 | `signMessage` encoding | Base64 of the raw 64-byte signature | SEP-43 prose says hexadecimal. Freighter, its Kit module, and Stellar CLI use Base64. |
-| `signMessage` confirmation | The connected website confirms by sending. The tunnel prints the escaped text. | The bridge has no trusted display. Dedicated testnet keys are required. |
+| `signMessage` confirmation | The connected website confirms by sending. The tunnel prints the escaped text. | The bridge has no trusted display. Dedicated test keys are required. |
 | V1 preimages | Return `-3` | Cross-address replay |
-| Networks | Testnet only | Bridge scope |
+| Networks | One test network for each tunnel | Bridge scope |
 | `submit`, `submitUrl` | Return `-3` | The bridge never submits |
-| Review | The website approves by sending | Testnet design with dedicated keys |
+| Review | The website approves by sending | Test-network design with dedicated keys |

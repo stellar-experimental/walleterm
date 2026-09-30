@@ -26,17 +26,17 @@ Target macOS first. Permit human approval through 1Password.
 - `docs/KEY-STORES.md` before you add a key store or change how walleterm reaches one.
 - `docs/NETWORKS.md` maps network restrictions, hard-coded network values, and hard-coded limits.
   Update it in the same change that adds, changes, or removes one of them. `tests/networks.test.ts` checks it.
-- `design/ILLUSTRATION.md` before you change illustrations, the mascot, or `site/art/`.
 - The Paper designs are the official reference for `site/`. Change Paper first, then the site.
-  Read `.agents/skills/walleterm-illustration/references/paper.md` before any `site/` change.
+  Use the `walleterm-illustration` skill for illustrations, the mascot, `site/art/`, Paper, and any `site/` change.
 
 ## Code layout
 
 - `src/` holds the one `walleterm` binary. Keep new runtime code in Rust.
   - Signing core: `artifact.rs`, `stellar.rs`, `transaction.rs`, `authorization.rs`, `preimage.rs`, `message.rs`.
   - CLI, 1Password agent, and shared helpers: `main.rs`, `cli.rs`, `agent.rs`, `platform.rs`, `error.rs`, `json.rs`, `util.rs`.
+  - `network.rs` holds the Stellar CLI built-in networks and the networks that the tunnel serves.
   - `lib.rs` exports the modules to the tests and the test host.
-  - Bridge protocol version 3: `bridge.rs`, `http.rs`, `vault.rs`, `cancel.rs`.
+  - Bridge protocol version 4: `bridge.rs`, `http.rs`, `vault.rs`, `cancel.rs`.
   - Services: `service.rs`, `tunnel.rs`, `dns.rs`, `process.rs`, `qr.rs`, and `demo.rs` with the embedded website.
   - `src/bin/walleterm-test-host.rs` needs the `test-host` feature. It never enters a release.
 - `tools/` holds maintainer commands: package, install, release, and fixture manifests. It never ships.
@@ -54,10 +54,13 @@ Target macOS first. Permit human approval through 1Password.
   `bun run format:check`, and `cargo deny --workspace --locked check advisories licenses sources`.
 - Add tests for each changed behavior or failure. Run offline tests before you request live signatures.
 - Review security-sensitive signing and submission code independently before you accept it.
-- Use dedicated testnet accounts and contracts. Never use mainnet funds. Run one live runner at a time.
+- Live runs on testnet, futurenet, or a local network need no separate approval. Use dedicated test keys, accounts, and contracts.
+- A mainnet run needs the user's approval. One approval can cover a batch of runs when it names the keys, amounts, and actions.
+- Run one live runner at a time. Follow the `walleterm` skill to sign and the `walleterm-site-bridge` skill for the tunnel,
+  the demo, and websites. `docs/LIVE-TESTS.md` lists the live suites.
 - Do not change existing 1Password items or sign with unrelated keys.
 - Record live transaction hashes, ledger results, account states, and contract versions.
-- Distinguish local tests, live 1Password tests, and testnet acceptance. Do not claim a skipped or blocked test passed.
+- Distinguish local tests, live 1Password tests, and network acceptance. Do not claim a skipped or blocked test passed.
 
 ## Maintainer agent workflow
 

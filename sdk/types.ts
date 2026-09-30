@@ -1,6 +1,6 @@
 import type { AuthAdapter } from './authorization.js';
 import type { Sep43Error } from './errors.js';
-/** Bridge protocol version 3 values. Connection credentials stay in memory or in localStorage. */
+/** Bridge protocol version 4 values. Connection credentials stay in memory or in localStorage. */
 export interface Signer {
   public_key: string;
   comment?: string;
@@ -8,6 +8,8 @@ export interface Signer {
 }
 export interface Account {
   address: string | null;
+  /** The SEP-43 name of the tunnel network: a Stellar SDK `Networks` key. */
+  network: string;
   networkPassphrase: string;
 }
 /** `selected` fixes one wallet. `available` permits changes among the wallets granted at first selection. */

@@ -25,6 +25,7 @@ Read only the references that the current artifact needs. Resolve each link from
 ## Sign one artifact
 
 1. Select the network and the full G-address from `walleterm list`. Treat comments as display text.
+   Use the exact passphrase. `stellar network ls --long` prints it for each Stellar CLI network.
 2. Inspect the exact unsigned artifact, source accounts, operations, fees, destination, and contract effects.
    Check each authorization tree against the intended action and the contract's authorization rules before signing it.
    Simulate with the default authorization mode. Ask the user before you use `--auth-mode non-root`.
@@ -51,7 +52,9 @@ Invalid input exits with code 2 before any 1Password request.
 One call has a 120-second deadline for input, approval, and signing. After it, the call fails with `timeout`.
 Ask for a new decision only when the action exceeds the grant's network, signer, amount, fee, contract trust, or time window.
 After a submission timeout, query the original transaction hash before any new submission.
-Use dedicated keys. Use testnet unless the user's grant names another network. This skill does not grant signing or submission authority.
+Use dedicated keys. On testnet, futurenet, or a local network, dedicated test keys can sign without a separate approval.
+On mainnet or another network, sign only inside an explicit grant from the user. A parent agent can relay that grant.
+One grant can cover a batch when it names the network, keys, amounts, actions, and time window.
 
 ## Authorization rules
 

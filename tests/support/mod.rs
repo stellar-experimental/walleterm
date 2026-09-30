@@ -94,11 +94,12 @@ fn is_event(line: &str) -> bool {
 
 pub struct Options {
     pub key: SigningKey,
+    pub network: walleterm::network::Network,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Self { key: mock_key(7) }
+        Self { key: mock_key(7), network: walleterm::network::DEFAULT }
     }
 }
 
@@ -231,7 +232,7 @@ impl Fixture {
         }]);
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
-        let bridge = Bridge::new(deps(&controls, &options), port);
+        let bridge = Bridge::new(deps(&controls, &options), port, options.network);
         bridge.set_public_origin(&format!("http://127.0.0.1:{port}")).unwrap();
         let stop = Cancel::new();
         let handler_bridge = bridge.clone();
@@ -274,7 +275,9 @@ impl Fixture {
     /// Connect with a scope. The token is stored on the returned site.
     pub async fn open(&self, origin: &str, scope: &str) -> Site {
         let mut site = Site::new(origin);
-        let r = self.post("/v1/connect", json!({ "code": self.code(), "wallet_scope": scope }), &site).await;
+        let r = self
+            .post("/v1/connect", json!({ "code": self.code(), "wallet_scope": scope, "protocol": 4 }), &site)
+            .await;
         assert_eq!(r.status, 201, "{}", r.body);
         site.token = Some(r.body["token"].as_str().unwrap().to_owned());
         site

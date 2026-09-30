@@ -65,7 +65,7 @@ function fixture(artifact: unknown, reply = true) {
     },
   });
   client.token = 'session';
-  client.account = { address: key.publicKey(), networkPassphrase: Networks.TESTNET };
+  client.account = { address: key.publicKey(), network: 'TESTNET', networkPassphrase: Networks.TESTNET };
   return { client, requests: () => requests };
 }
 async function unknownOutcome(promise: Promise<unknown>) {
@@ -185,7 +185,7 @@ test('SDK freezes transaction signer and network options while awaiting the resp
     },
   });
   client.token = 'session';
-  client.account = { address: key.publicKey(), networkPassphrase: Networks.TESTNET };
+  client.account = { address: key.publicKey(), network: 'TESTNET', networkPassphrase: Networks.TESTNET };
   const options: SignOptions = { address: key.publicKey(), networkPassphrase: Networks.TESTNET };
   const promise = client.signTransaction(original, options);
   options.address = other.publicKey();
@@ -351,7 +351,7 @@ test('SEP-43 messages return a verified Base64 signature and send the exact text
     },
   });
   client.token = 'session';
-  client.account = { address: key.publicKey(), networkPassphrase: Networks.TESTNET };
+  client.account = { address: key.publicKey(), network: 'TESTNET', networkPassphrase: Networks.TESTNET };
   expect(await client.signMessage(message)).toEqual({
     signedMessage: messageSignature(message),
     signerAddress: key.publicKey(),

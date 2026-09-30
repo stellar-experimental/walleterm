@@ -109,11 +109,17 @@ function contextFor(html: string, extras: Record<string, unknown> = {}) {
       throw Error('This test does not read the walkthrough.');
     },
     // app.ts imports its SDK classes, and browserScript() removes imports. Each test's SDK mock supplies them.
+    // The connection handler compares each account with the testnet passphrase of the page's SDK.
+    Networks: sdk.Networks,
     ...(extras.StellarSdk as Record<string, unknown> | undefined),
     ...extras,
   });
   // Errors must come from the page realm. A test-realm requestError fails its instanceof check and drops fields.
   vm.runInContext(browserScript(new URL('../../sdk/errors.ts', import.meta.url)), context);
+  vm.runInContext(
+    "var mockTestnetAccount = (address) => ({ address, network: 'TESTNET', networkPassphrase: Networks.TESTNET });",
+    context,
+  );
   const run = (code: string): unknown => vm.runInContext(code, context);
   const el = (id: string) => {
     const node = elements.get(id);
@@ -487,7 +493,7 @@ for (const kind of ['note', 'payment', 'trustline', 'offer', 'cancel_offer'] as 
     const source = app();
     const f = contextFor(html, extras);
     f.run(source);
-    f.run('connection.onChange({wallet: client, account:{address}})');
+    f.run('connection.onChange({wallet: client, account: mockTestnetAccount(address)})');
     assert.deepEqual(JSON.parse(f.el('details').textContent).transaction, expected);
     assert.equal(f.el('sign').hidden, false);
     assert.equal(f.el('submit').hidden, true);
@@ -591,12 +597,32 @@ test('wallet changes preserve the original transaction journal and signer', () =
       `pending={kind:'note', address:'GORIGINAL', hash:'original-hash', xdr:'original-xdr', signed_xdr:'original-signature', state:'${state}'}; save()`,
     );
     const before = stored;
-    f.run("connection.onChange({ wallet: {address:'GSECOND'}, account: {address:'GSECOND'} })");
+    f.run("connection.onChange({ wallet: {address:'GSECOND'}, account: mockTestnetAccount('GSECOND') })");
     assert.equal(stored, before);
     assert.equal(f.run('pending.address'), 'GORIGINAL');
     assert.equal(f.run('pending.signed_xdr'), 'original-signature');
     assert.equal(f.run('connectedTo(pending.address)'), false);
   }
+});
+
+test('a tunnel on another network gets a restart message and no actions', () => {
+  const f = contextFor(readFileSync(new URL('../../demo/site/index.html', import.meta.url), 'utf8'), {
+    StellarSdk: reviewSdk,
+    localStorage: { getItem: () => null, setItem() {} },
+  });
+  f.run(app());
+  f.run(
+    "connection.onChange({ wallet: {address:'GFUTURE'}, account: {address:'GFUTURE', network:'FUTURENET', networkPassphrase:'Test SDF Future Network ; October 2022'} })",
+  );
+  assert.equal(
+    f.el('status').textContent,
+    'The tunnel signs on futurenet, but this demo uses testnet. Restart the tunnel without --network, then connect again.',
+  );
+  assert.equal(f.run('account'), null);
+  assert.equal(f.run("connectedTo('GFUTURE')"), false);
+  f.run("connection.onChange({ wallet: {address:'GFUTURE'}, account: mockTestnetAccount('GFUTURE') })");
+  assert.equal(f.el('status').textContent, 'Wallet connected. Choose a testnet action.');
+  assert.equal(f.run('account.address'), 'GFUTURE');
 });
 
 test('an unknown signing outcome remains distinct from a confirmed cancellation', async () => {
@@ -761,7 +787,7 @@ test('an unreadable saved record keeps its raw text in Activity until Discard sa
       }),
     });
     f.run(app());
-    f.run("connection.onChange({wallet:{address:'GSOURCE'}, account:{address:'GSOURCE'}})");
+    f.run("connection.onChange({wallet:{address:'GSOURCE'}, account: mockTestnetAccount('GSOURCE')})");
     // Connecting does not replace the blocked message with an invitation to act.
     assert.equal(
       f.el('status').textContent,
@@ -1363,7 +1389,7 @@ async function completedFixture(state = 'submitted') {
     }),
   });
   f.run(app());
-  f.run('connection.onChange({wallet: client, account:{address:next}})');
+  f.run('connection.onChange({wallet: client, account: mockTestnetAccount(next)})');
   // Connecting reads the account once for the account line. Count only the reads after it.
   const connected = reads;
   return { ...f, store, events, previous, next, reads: () => reads - connected, signs: () => signs };
@@ -1520,7 +1546,7 @@ async function confirmationFixture(
   const load = () => {
     const f = contextFor(html, extras);
     f.run(source);
-    f.run('connection.onChange({wallet: client, account:{address}})');
+    f.run('connection.onChange({wallet: client, account: mockTestnetAccount(address)})');
     return f;
   };
   return { ...load(), load, store, writes, requests, original, signs: () => signs };
@@ -1769,7 +1795,7 @@ function walkthroughPage(read: (signer: string, pickSet: (latest: number) => num
     },
     connect: async (address = signer) => {
       f.context.nextAddress = address;
-      f.run('connection.onChange({wallet:{address:nextAddress}, account:{address:nextAddress}})');
+      f.run('connection.onChange({wallet:{address:nextAddress}, account: mockTestnetAccount(nextAddress)})');
       for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
     },
   };
@@ -2142,7 +2168,7 @@ test('Add USDC trustline builds one changeTrust with the demo limit, and each bu
   });
   f.run(app());
   f.context.signer = signer;
-  f.run('connection.onChange({wallet:{address:signer}, account:{address:signer}})');
+  f.run('connection.onChange({wallet:{address:signer}, account: mockTestnetAccount(signer)})');
   for (let i = 0; i < 5; i++) await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(f.el('trustline').hidden, false);
   assert.equal(f.el('trustline').disabled, false);

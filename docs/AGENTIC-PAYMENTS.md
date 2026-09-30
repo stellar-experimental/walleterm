@@ -33,7 +33,7 @@ These limits are deliberate.
 - Walleterm signs only `address_v2` preimages and entries. V1 permits cross-address replay (CAP-71-02).
 - SEP-53 signs `SHA-256("Stellar Signed Message:\n" || text)`. That prefix differs from any MPP message.
 - The CLI preimage shape checks no bound address. The calling agent must check it.
-- The bridge also requires testnet and the selected G-address or a C-address.
+- The bridge also requires the tunnel network and the selected G-address or a C-address.
 - No path reads a ledger. Expiration ledger 0 fails. The network enforces expiry.
 
 ## The protocols on Stellar
@@ -161,9 +161,9 @@ Alternatively, build a custom `mppx` client method with `Method.toClient` in the
 - Spending policy. Cached 1Password approval can permit signatures without a prompt.
   See [ask for approval of each signature](../README.md#ask-for-approval-of-each-signature).
   The signer's invocation check is the main safeguard. A per-payment amount cap needs a decision.
-  For websites, the bridge `review` hook can apply the same policy.
+  For websites, the planned approval step in the tunnel can apply the same policy. See `docs/NETWORKS.md`.
 - Runtime support. Decide whether a payment signer becomes an SDK export after the fixture passes.
-- Mainnet. Real services settle USDC on mainnet. The project rules permit testnet only.
+- Mainnet. Real services settle USDC on mainnet. The tunnel does not sign for mainnet yet. A mainnet run needs the user's approval.
   The CLI accepts any network passphrase, so the signer must check it.
 
 ## Upstream watch list

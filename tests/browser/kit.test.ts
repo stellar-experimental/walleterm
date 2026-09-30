@@ -27,23 +27,15 @@ test('the module declares its Kit identity and answers availability at once', as
 
 test('module methods reject with the SEP-43 error object that the wallet resolves', async () => {
   const module = new WalletermModule({ wallet: new Walleterm({ storageKey: null }) });
-  expect(await module.getNetwork()).toEqual({ network: 'TESTNET', networkPassphrase: Networks.TESTNET });
   for (const [call, reason] of [
+    // Without a session, the wallet knows no network. The tunnel names it after pairing.
+    [() => module.getNetwork(), 'walleterm:not_connected'],
     [() => module.getAddress({ skipRequestAccess: true }), 'walleterm:not_connected'],
     [() => module.signMessage('hello'), 'walleterm:not_connected'],
     [() => module.signMessage('a\ud800b'), 'walleterm:invalid_request'],
-    [
-      () => module.signMessage('hello', { networkPassphrase: Networks.PUBLIC }),
-      'walleterm:network_unsupported',
-    ],
-    [
-      () => module.signTransaction('AAAA', { networkPassphrase: Networks.PUBLIC }),
-      'walleterm:network_unsupported',
-    ],
-    [
-      () => module.signAuthEntry('AAAA', { networkPassphrase: Networks.PUBLIC }),
-      'walleterm:network_unsupported',
-    ],
+    [() => module.signMessage('hello', { networkPassphrase: Networks.PUBLIC }), 'walleterm:not_connected'],
+    [() => module.signTransaction('AAAA', { networkPassphrase: Networks.PUBLIC }), 'walleterm:not_connected'],
+    [() => module.signAuthEntry('AAAA', { networkPassphrase: Networks.PUBLIC }), 'walleterm:not_connected'],
     [
       () => module.signTransaction('AAAA', { networkPassphrase: Networks.TESTNET }),
       'walleterm:not_connected',
@@ -70,13 +62,13 @@ test('onChange reports switches and disconnection in the Kit event shape', () =>
   const events: unknown[] = [];
   new WalletermModule({ wallet }).onChange((event) => events.push(event));
   publish({ address: 'GSECOND', network: 'TESTNET', networkPassphrase: Networks.TESTNET });
-  publish({ address: null, network: 'TESTNET', networkPassphrase: Networks.TESTNET });
+  publish({ address: null, network: '', networkPassphrase: '' });
   expect(events).toEqual([
     { address: 'GSECOND', network: 'TESTNET', networkPassphrase: Networks.TESTNET },
     {
       address: '',
-      network: 'TESTNET',
-      networkPassphrase: Networks.TESTNET,
+      network: '',
+      networkPassphrase: '',
       error: { code: -3, message: 'Walleterm disconnected. Connect again.' },
     },
   ]);
@@ -88,7 +80,7 @@ test('onChange confirms a restored session once, so a Kit restored on load match
     const stored = new Map([
       [
         'walleterm:session',
-        JSON.stringify({ version: 3, url: 'https://bridge.example', token: 's'.repeat(43), revision: 2 }),
+        JSON.stringify({ version: 4, url: 'https://bridge.example', token: 's'.repeat(43), revision: 2 }),
       ],
     ]);
     Object.assign(globalThis, {
@@ -123,8 +115,8 @@ test('onChange confirms a restored session once, so a Kit restored on load match
         ? { address, network: 'TESTNET', networkPassphrase: Networks.TESTNET }
         : {
             address: '',
-            network: 'TESTNET',
-            networkPassphrase: Networks.TESTNET,
+            network: '',
+            networkPassphrase: '',
             error: { code: -3, message: 'Walleterm disconnected. Connect again.' },
           },
     ]);
@@ -148,7 +140,7 @@ test('a hook connected after the restored session ended still reports one discon
   const stored = new Map([
     [
       'walleterm:session',
-      JSON.stringify({ version: 3, url: 'https://bridge.example', token: 's'.repeat(43), revision: 2 }),
+      JSON.stringify({ version: 4, url: 'https://bridge.example', token: 's'.repeat(43), revision: 2 }),
     ],
   ]);
   Object.assign(globalThis, {
@@ -177,8 +169,8 @@ test('a hook connected after the restored session ended still reports one discon
   expect(events).toEqual([
     {
       address: '',
-      network: 'TESTNET',
-      networkPassphrase: Networks.TESTNET,
+      network: '',
+      networkPassphrase: '',
       error: { code: -3, message: 'Walleterm disconnected. Connect again.' },
     },
   ]);

@@ -33,6 +33,10 @@ const RETAINED_OUTPUT: usize = 16384;
 pub trait Service: Send + Sync {
     /// The `service` field that `/api/session` returns.
     fn name(&self) -> &'static str;
+    /// The network in the ready line. Only the bridge can serve a network other than testnet.
+    fn network(&self) -> &'static str {
+        crate::network::DEFAULT.label
+    }
     fn listen(&self) -> BoxFuture<Result<()>>;
     fn close(&self) -> BoxFuture<()>;
     fn set_public_origin(&self, origin: &str);
@@ -530,7 +534,7 @@ pub async fn launch(
         let (deps, shared, service, label) =
             (deps.clone(), shared.clone(), service.clone(), label.to_owned());
         Arc::new(move || -> bool {
-            let mut text = format!("{label} is ready on Stellar testnet.\n");
+            let mut text = format!("{label} is ready on {}.\n", service.network());
             match service.pairing() {
                 Some(pairing) => {
                     text.push_str(&pairing_text(&pairing, None, now_ms() as i64, deps.output.columns()))

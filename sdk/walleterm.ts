@@ -1,4 +1,4 @@
-import { Keypair, Networks } from '@stellar/stellar-sdk';
+import { Keypair } from '@stellar/stellar-sdk';
 import { inspectTransactionRequest, verifyTransactionSignature } from './transaction.js';
 import { inspectAuthEntry, verifyAuthEntrySignature } from './authorization.js';
 import { base64, inspectAuthPreimage, verifyPreimageSignature } from './preimage.js';
@@ -8,9 +8,10 @@ export * from './preimage.js';
 import { deadline, isTunnelUrl, requestError, sep43Error, walletermError, WalletermError } from './errors.js';
 export { WalletermError };
 export type { Sep43Code, Sep43Error, Sep43Reason } from './errors.js';
-// Browser adapter for Walleterm bridge protocol version 3.
+// Browser adapter for Walleterm bridge protocol version 4.
 import type {
   Account,
+  AccountResult,
   BridgeResponse,
   ConnectOptions,
   Fetch,
@@ -41,6 +42,16 @@ export type {
 // A response that claims signing succeeded cannot prove that no signature was produced.
 function unverifiedResult(caught: unknown) {
   return Object.assign(requestError(caught), { requestState: 'unknown' as const, canceled: false });
+}
+/** Each tunnel signs for one network. Its account replies name it. */
+function accountNetwork(result: Pick<AccountResult, 'network' | 'network_passphrase'>) {
+  if (
+    typeof result.network !== 'string' ||
+    typeof result.network_passphrase !== 'string' ||
+    !result.network_passphrase
+  )
+    throw walletermError('internal', 'The tunnel returned no network.');
+  return { network: result.network, networkPassphrase: result.network_passphrase };
 }
 /** SEP-53 text: well-formed, 1 to 1024 UTF-8 bytes. `TextEncoder` would turn a lone surrogate into U+FFFD. */
 function inspectMessage(message: string) {
@@ -232,7 +243,11 @@ export class WalletermClient {
     if (!this.token) {
       if (typeof code !== 'string' || !/^\d{8}$/.test(code))
         throw walletermError('invalid_request', 'Enter the eight-digit code from the tunnel terminal.');
-      const result = await this.request('/v1/connect', { code, wallet_scope: walletScope }, signal);
+      const result = await this.request(
+        '/v1/connect',
+        { code, wallet_scope: walletScope, protocol: 4 },
+        signal,
+      );
       this.token = result.token;
       this.selecting = false;
       this.selectionUncertain = null;
@@ -300,7 +315,7 @@ export class WalletermClient {
         throw walletermError('internal', 'The tunnel returned an invalid wallet selection.');
       this.selectionUncertain = null;
       this.revision = result.selection_revision;
-      this.setAccount({ address: result.address, networkPassphrase: result.network_passphrase });
+      this.setAccount({ address: result.address, ...accountNetwork(result) });
       return { ...this.account! };
     } catch (errorValue) {
       const error = requestError(errorValue);
@@ -350,12 +365,11 @@ export class WalletermClient {
         'conflict',
         'The wallet selection is not confirmed. Reconnect or recover the account later.',
       );
-    if (result.network_passphrase !== Networks.TESTNET)
-      throw walletermError('network_unsupported', 'The tunnel reported a network other than testnet.');
+    const network = accountNetwork(result);
     this.selectionUncertain = null;
     this.revision = result.selection_revision;
     this.walletScope = result.wallet_scope;
-    this.setAccount({ address: result.address, networkPassphrase: result.network_passphrase });
+    this.setAccount({ address: result.address, ...network });
     return { ...this.account! };
   }
   // Retry after a network error or a 5xx response. Stop when the connection changes.
@@ -387,7 +401,10 @@ export class WalletermClient {
       throw walletermError('not_connected', 'Connect and select a wallet first.');
     const passphrase = networkPassphrase ?? selected.networkPassphrase;
     if (passphrase !== selected.networkPassphrase)
-      throw walletermError('network_unsupported', 'Walleterm signs only on Stellar testnet.');
+      throw walletermError(
+        'network_unsupported',
+        `The tunnel signs only on ${selected.network}. Use the passphrase from getNetwork().`,
+      );
     if (address != null && address !== selected.address)
       throw walletermError('address_mismatch', 'The requested signer differs from the selected account.');
     return { address: selected.address, networkPassphrase: passphrase };
@@ -627,9 +644,10 @@ export interface SignRequestOptions extends SignalOptions {
   address?: string;
   onProgress?: (progress: Progress) => void;
 }
+/** A disconnection reports a null address and empty network fields. */
 export interface AddressChange {
   address: string | null;
-  network: 'TESTNET';
+  network: string;
   networkPassphrase: string;
 }
 /** The interface that obtains access. `WalletermConnect` implements it. */
@@ -718,11 +736,14 @@ export class Walleterm {
     // Report a confirmed address or an ended session. An account that awaits confirmation is not a change.
     if (this.client?.token && !this.client.account?.address) return;
     const address = this.address || null;
-    if (address === this.#published) return;
-    this.#published = address;
+    const { network = '', networkPassphrase = '' } = (address && this.client?.account) || {};
+    // The same key on another tunnel network is a change too.
+    const published = address && `${address} ${networkPassphrase}`;
+    if (published === this.#published) return;
+    this.#published = published;
     for (const listener of this.#listeners)
       try {
-        listener({ address, network: 'TESTNET', networkPassphrase: Networks.TESTNET });
+        listener({ address, network, networkPassphrase });
       } catch {
         /* Observers must not change the connection. */
       }
@@ -747,7 +768,7 @@ export class Walleterm {
       if (client?.token && client.account?.address) {
         storage.setItem(
           this.storageKey!,
-          JSON.stringify({ version: 3, url: client.url, token: client.token, revision: client.revision }),
+          JSON.stringify({ version: 4, url: client.url, token: client.token, revision: client.revision }),
         );
         this.#token = client.token;
       } else if (!client?.token) {
@@ -768,7 +789,7 @@ export class Walleterm {
     }
     try {
       const value = JSON.parse(saved ?? 'null');
-      return value?.version === 3 && /^[A-Za-z0-9_-]{43}$/.test(value.token) ? (value.token as string) : null;
+      return value?.version === 4 && /^[A-Za-z0-9_-]{43}$/.test(value.token) ? (value.token as string) : null;
     } catch {
       return null;
     }
@@ -780,7 +801,7 @@ export class Walleterm {
       if (!saved) return null;
       const value = JSON.parse(saved);
       if (
-        value?.version !== 3 ||
+        value?.version !== 4 ||
         typeof value.url !== 'string' ||
         typeof value.token !== 'string' ||
         !/^[A-Za-z0-9_-]{43}$/.test(value.token)
@@ -922,12 +943,8 @@ export class Walleterm {
     if (!client?.token) throw walletermError('not_connected', 'Connect Walleterm first.');
     return client;
   }
-  async #ready(options: SignRequestOptions) {
-    if ((options.networkPassphrase ?? Networks.TESTNET) !== Networks.TESTNET)
-      throw walletermError(
-        'network_unsupported',
-        'Walleterm signs only on Stellar testnet. Use Networks.TESTNET.',
-      );
+  // The session network is known only after the tunnel names it. The client then checks each request against it.
+  async #ready() {
     const client = this.#connected();
     if (!client.account?.address) await client.getAccount();
     return client;
@@ -965,31 +982,32 @@ export class Walleterm {
           'unsupported',
           'Walleterm does not submit transactions. Submit the signed transaction.',
         );
-      const client = await this.#ready(options);
+      const client = await this.#ready();
       return client.signTransaction(xdr, options);
     });
   }
   signAuthEntry(authEntry: string, options: SignRequestOptions = {}) {
-    return settle(emptyAuthEntry, async () => (await this.#ready(options)).signAuthEntry(authEntry, options));
+    return settle(emptyAuthEntry, async () => (await this.#ready()).signAuthEntry(authEntry, options));
   }
   signMessage(message: string, options: SignRequestOptions = {}) {
     return settle(emptyMessage, async () => {
       // Refuse bad text before the session check, which can send a request.
       inspectMessage(message);
-      return (await this.#ready(options)).signMessage(message, options);
+      return (await this.#ready()).signMessage(message, options);
     });
   }
+  /** The network of the connected tunnel. Without a session, the network is unknown: `-3` `walleterm:not_connected`. */
   getNetwork() {
-    return settle({ network: '', networkPassphrase: '' }, async () => ({
-      network: 'TESTNET',
-      networkPassphrase: Networks.TESTNET,
-    }));
+    return settle({ network: '', networkPassphrase: '' }, async () => {
+      const { network, networkPassphrase } = (await this.#ready()).account!;
+      return { network, networkPassphrase };
+    });
   }
 
   // Walleterm extensions.
   signAuthorization(authEntryXdr: string, options: AuthSignOptions) {
     return settle({ signedAuthEntryXdr: '', signerAddress: '' }, async () =>
-      (await this.#ready(options)).signAuthorization(authEntryXdr, options),
+      (await this.#ready()).signAuthorization(authEntryXdr, options),
     );
   }
   async listWallets(options: SignalOptions = {}): Promise<Signer[]> {

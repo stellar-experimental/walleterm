@@ -28,6 +28,8 @@ export interface HostOptions {
   production?: boolean;
   /** Explicit vault filter for production dependencies. */
   vault?: string;
+  /** The bridge network, as `walleterm tunnel --network` names it. The default is testnet. */
+  network?: 'testnet' | 'futurenet' | 'local';
 }
 export interface Pairing {
   walleterm: number;
@@ -68,6 +70,7 @@ export async function createHost(options: HostOptions = {}): Promise<Host> {
       : {
           PATH: process.env.PATH ?? '',
           ...(options.demo ? { WALLETERM_TEST_HOST_DEMO: '1' } : {}),
+          ...(options.network ? { WALLETERM_TEST_HOST_NETWORK: options.network } : {}),
         },
   });
   const lines = createInterface({ input: child.stdout });

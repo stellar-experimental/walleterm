@@ -35,7 +35,7 @@ impl MockService {
             closed: AtomicBool::new(false),
             origin: Mutex::default(),
             pairing: Mutex::new(
-                json!({"walleterm": 3, "url": "https://bridge-name.trycloudflare.com", "code": "01234567", "expires_at": "2026-09-25T00:00:00.000Z"}),
+                json!({"walleterm": 4, "url": "https://bridge-name.trycloudflare.com", "code": "01234567", "expires_at": "2026-09-25T00:00:00.000Z"}),
             ),
             changed: Mutex::default(),
             listen_gate: Mutex::default(),
@@ -1252,8 +1252,8 @@ async fn shutdown_during_retirement_cancels_bridge_signing_first() {
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     f.port = listener.local_addr().unwrap().port();
     drop(listener);
-    let options = support::Options { key: f.key.clone() };
-    f.bridge = walleterm::bridge::Bridge::new(support::deps(&f.controls, &options), f.port);
+    let options = support::Options { key: f.key.clone(), ..Default::default() };
+    f.bridge = walleterm::bridge::Bridge::new(support::deps(&f.controls, &options), f.port, options.network);
     let service = Arc::new(walleterm::service::BridgeService::new(f.bridge.clone(), f.port));
     let running = launch("Walleterm tunnel", f.port, service, deps).await.map_err(|e| e.0).unwrap();
     let site = f.connect("https://review.example").await;

@@ -5,23 +5,25 @@ use std::os::unix::fs::PermissionsExt;
 
 fn usage(command: &str) -> &'static str {
     if command == "tunnel" {
-        "walleterm tunnel [--port 8787] [--vault <name-or-id>]"
+        "walleterm tunnel [--port 8787] [--vault <name-or-id>] [--network testnet|futurenet|local]"
     } else {
         "walleterm demo [--port 8788]"
     }
 }
 
-/// Service options. Only the signing tunnel accepts a vault filter.
+/// Service options. Only the signing tunnel accepts a vault filter and a network.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Options {
     pub port: u16,
     pub vault: Option<String>,
+    pub network: crate::network::Network,
 }
 
-/// Keep the existing port syntax. A vault must be explicit, nonempty, and supplied only once.
+/// Keep the existing port syntax. A vault or a network must be explicit, nonempty, and supplied only once.
 pub fn parse_options(command: &str, args: &[&str]) -> Option<Options> {
     let mut port: u32 = if command == "tunnel" { 8787 } else { 8788 };
     let mut vault = None;
+    let mut network = None;
     let mut rest = args.iter();
     while let Some(&arg) = rest.next() {
         if arg == "--" {
@@ -52,10 +54,14 @@ pub fn parse_options(command: &str, args: &[&str]) -> Option<Options> {
             "vault" if command == "tunnel" && vault.is_none() && !crate::util::js_blank(value) => {
                 vault = Some(value.to_owned());
             }
+            "network" if command == "tunnel" && network.is_none() => {
+                network = Some(crate::network::tunnel(value)?);
+            }
             _ => return None,
         }
     }
-    (1..=65535).contains(&port).then_some(Options { port: port as u16, vault })
+    let network = network.unwrap_or(crate::network::DEFAULT);
+    (1..=65535).contains(&port).then_some(Options { port: port as u16, vault, network })
 }
 
 fn on_path(program: &str) -> bool {
@@ -88,6 +94,9 @@ impl BridgeService {
 impl crate::tunnel::Service for BridgeService {
     fn name(&self) -> &'static str {
         "walleterm"
+    }
+    fn network(&self) -> &'static str {
+        self.bridge.network().label
     }
     fn listen(&self) -> crate::bridge::BoxFuture<crate::error::Result<()>> {
         let (bridge, port, stop) = (self.bridge.clone(), self.port, self.stop.clone());
@@ -162,8 +171,8 @@ fn signals() -> crate::cancel::Cancel {
     stop
 }
 
-/// `walleterm tunnel`: the testnet signing bridge behind a Quick Tunnel.
-fn run_tunnel(port: u16, vault: Option<String>) -> i32 {
+/// `walleterm tunnel`: the signing bridge for one network behind a Quick Tunnel.
+fn run_tunnel(port: u16, vault: Option<String>, network: crate::network::Network) -> i32 {
     let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
         Ok(runtime) => runtime,
         Err(_) => return 1,
@@ -194,7 +203,7 @@ fn run_tunnel(port: u16, vault: Option<String>) -> i32 {
                 return 1;
             }
         };
-        let bridge = crate::bridge::Bridge::new(crate::bridge::production(socket, vault), port);
+        let bridge = crate::bridge::Bridge::new(crate::bridge::production(socket, vault), port, network);
         let service = std::sync::Arc::new(BridgeService::new(bridge, port));
         run_launch("Walleterm tunnel", port, service, output, probe_client).await
     })
@@ -246,7 +255,7 @@ pub async fn run_launch(
 pub fn run(command: &str, args: &[&str], out: &mut dyn Write) -> i32 {
     if let ["--help" | "-h"] = args {
         let vault = if command == "tunnel" {
-            "Use --vault <name-or-id> to filter website wallets. Filtering requires the 1Password CLI.\nWith no --vault, all Ed25519 agent keys are available. Shell variables and .env files do not select a vault.\n"
+            "Use --vault <name-or-id> to filter website wallets. Filtering requires the 1Password CLI.\nWith no --vault, all Ed25519 agent keys are available. Shell variables and .env files do not select a vault.\nUse --network futurenet or --network local to sign for that network. The default is testnet.\n"
         } else {
             ""
         };
@@ -266,7 +275,7 @@ pub fn run(command: &str, args: &[&str], out: &mut dyn Write) -> i32 {
         return fail(out, "start_failed", "Install cloudflared. On macOS, run: brew install cloudflared");
     }
     if command == "tunnel" {
-        return run_tunnel(options.port, options.vault);
+        return run_tunnel(options.port, options.vault, options.network);
     }
     run_demo(options.port)
 }
@@ -336,6 +345,7 @@ mod tests {
             let text = String::from_utf8(out).unwrap();
             assert!(text.contains(&format!("walleterm {command}")));
             assert_eq!(text.contains("--vault"), command == "tunnel");
+            assert_eq!(text.contains("--network"), command == "tunnel");
             assert!(!text.contains("OP_VAULT"));
             assert!(!text.contains("--recipient") && !text.contains("--human") && !text.contains("--public"));
         }
@@ -362,5 +372,28 @@ mod tests {
             assert!(parse_options("tunnel", args).is_none(), "{args:?}");
         }
         assert!(parse_options("demo", &["--vault", "Private"]).is_none());
+    }
+
+    #[test]
+    fn the_tunnel_network_is_testnet_futurenet_or_local() {
+        let network = |args: &[&str]| parse_options("tunnel", args).map(|options| options.network.name);
+        assert_eq!(network(&[]), Some("testnet"));
+        for name in ["testnet", "futurenet", "local"] {
+            assert_eq!(network(&["--network", name]), Some(name));
+            assert_eq!(network(&[&format!("--network={name}"), "--vault", "Private"]), Some(name));
+        }
+        for args in [
+            &["--network", "mainnet"][..],
+            &["--network", "pubnet"],
+            &["--network", "Test SDF Network ; September 2015"],
+            &["--network", "TESTNET"],
+            &["--network"],
+            &["--network="],
+            &["--network", "testnet", "--network", "local"],
+        ] {
+            assert!(network(args).is_none(), "{args:?}");
+        }
+        assert!(parse_options("demo", &["--network", "testnet"]).is_none());
+        assert_eq!(parse_options("demo", &[]).unwrap().network, crate::network::DEFAULT);
     }
 }

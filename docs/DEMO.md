@@ -2,6 +2,8 @@
 
 `walleterm demo` serves an example Stellar testnet website.
 The website builds transactions in the browser, requests signatures through `walleterm tunnel`, and submits them to testnet.
+It needs a tunnel on testnet. The demo treats a tunnel on another network as no connection and sends it no request.
+The status says to restart the tunnel without `--network`. A transaction that was signed earlier can still be submitted to testnet.
 The header holds the [connection component](CONNECTION-UI.md). The rest of the page belongs to the demo.
 The demo is separate from the SDK. It does not add trusted transaction review to the bridge.
 See [the website signing bridge](WEB-BRIDGE.md) for the steps to run both commands.

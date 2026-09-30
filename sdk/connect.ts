@@ -20,6 +20,13 @@ interface ConnectElements {
   'retry-wallets': HTMLButtonElement;
   copy: HTMLButtonElement;
 }
+/** Badge text for the SEP-43 names of the Stellar CLI built-in networks. */
+const NETWORKS: Record<string, string> = {
+  TESTNET: 'Testnet',
+  FUTURENET: 'Futurenet',
+  STANDALONE: 'Local',
+  PUBLIC: 'Mainnet',
+};
 export interface ConnectionChange {
   wallet: Walleterm | null;
   account: Account | null;
@@ -99,7 +106,7 @@ export class WalletermConnect {
       <button type="button" class="wt-trigger" aria-haspopup="dialog" aria-expanded="false"><span class="wt-mark" aria-hidden="true">w</span><span data-wt="trigger-label">Connect Walleterm</span><span data-wt="chevron" hidden aria-hidden="true">⌄</span></button>
       <p class="wt-message wt-health" data-wt="health" role="status" hidden></p>
       <div class="wt-menu" data-wt="menu" hidden role="dialog" aria-label="Wallet connection">
-        <div class="wt-menu-heading"><span class="wt-brand">Walleterm</span><span class="wt-network">Testnet</span></div>
+        <div class="wt-menu-heading"><span class="wt-brand">Walleterm</span><span class="wt-network" data-wt="network"></span></div>
         <p class="wt-caption">Active wallet</p><strong data-wt="wallet-name"></strong>
         <button type="button" class="wt-address" data-wt="copy" aria-label="Copy wallet address"><span data-wt="address"></span><span class="wt-copy-label" data-wt="copy-label">Copy address</span></button>
         <div class="wt-menu-section"><div class="wt-list-heading"><span>Your wallets</span><button type="button" class="wt-text-button" data-wt="refresh">Refresh</button></div><div data-wt="wallets" class="wt-wallets"></div></div>
@@ -379,6 +386,9 @@ export class WalletermConnect {
   }
   update() {
     if (this.destroyed) return;
+    const network = this.$('network');
+    network.textContent = NETWORKS[this.account?.network ?? ''] ?? this.account?.network ?? '';
+    network.hidden = !network.textContent;
     const labels: Record<string, string> = {
       connecting: 'Connecting…',
       restoring: 'Reconnecting…',
@@ -663,7 +673,7 @@ export class WalletermConnect {
     this.$('form').hidden = true;
     this.$('picker').hidden = false;
     this.element.querySelector('#wt-title')!.textContent = 'Choose a wallet';
-    this.$('description').textContent = 'Select a dedicated testnet wallet from 1Password.';
+    this.$('description').textContent = 'Select a dedicated wallet from 1Password.';
     this.$('step-connect').removeAttribute('aria-current');
     this.$('step-wallet').setAttribute('aria-current', 'step');
     return new Promise<string>((resolve, reject) => {

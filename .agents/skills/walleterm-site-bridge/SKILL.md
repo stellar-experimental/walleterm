@@ -1,6 +1,6 @@
 ---
 name: walleterm-site-bridge
-description: Connect or test Stellar testnet websites through walleterm tunnel or walleterm demo, the Walleterm browser SDK, or interception of a website's own wallet requests. Use walleterm for direct signing.
+description: Connect or test Stellar test-network sites through walleterm tunnel, walleterm demo, the browser SDK, or a website's intercepted wallet requests. Use walleterm for direct signing.
 ---
 
 # Walleterm website signing
@@ -24,7 +24,7 @@ Use Stellar Raven, when available, and current primary sources for protocol or w
 
 ## Authority
 
-Use dedicated testnet keys. Keep private keys inside 1Password. Never read, export, print, log, or cache private-key fields.
+Use dedicated test keys. Keep private keys inside 1Password. Never read, export, print, log, or cache private-key fields.
 Check the user's grant before connecting a website or returning a signature.
 A connection code lets the website request supported signatures after wallet selection.
 The bridge signs valid requests without a terminal approval step. This includes SEP-53 messages.
@@ -41,7 +41,7 @@ Use structured files and argument arrays for local commands. Keep codes and sess
 
 For transaction requests, follow these steps. Every path uses them.
 
-1. Confirm the exact website origin, selected G-address, and `Test SDF Network ; September 2015` passphrase.
+1. Confirm the exact website origin, the selected G-address, and the tunnel network passphrase from `getNetwork()`.
 2. Check live account sequence, signers, thresholds, balances, and required trustlines.
 3. Save and decode the exact unsigned XDR with `stellar tx decode`. Record its hash before signing.
 4. Check sources, sequence, preconditions, fees, memo, operations, destinations, amounts, assets, and contract effects.
@@ -62,4 +62,4 @@ Cancellation can withhold a result. It cannot undo a signature already produced 
 Disconnect the website when finished. Stop only the tunnel processes that this task started.
 
 Report connection, capture, signing, submission, and ledger acceptance as separate stages.
-Name skipped or blocked stages. Keep local tests, live 1Password checks, and testnet acceptance separate.
+Name skipped or blocked stages. Keep local tests, live 1Password checks, and network acceptance separate.

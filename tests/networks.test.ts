@@ -27,6 +27,6 @@ test('docs/NETWORKS.md names every product file with a testnet value', () => {
   const files = product.flatMap((pattern) => [...new Bun.Glob(pattern).scanSync({ cwd: root, dot: true })]);
   const matched = files.filter((file) => testnet.test(readFileSync(`${root}${file}`, 'utf8')));
   // Guard the scan itself: a broken pattern must not pass by matching nothing.
-  assert.ok(matched.includes('src/bridge.rs') && matched.includes('sdk/walleterm.ts'));
+  assert.ok(matched.includes('src/network.rs') && matched.includes('sdk/connect.ts'));
   assert.deepEqual(matched.filter((file) => !doc.includes(`\`${file}\``)).sort(), []);
 });

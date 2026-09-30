@@ -1,6 +1,7 @@
 # Live tests
 
 Live tests request 1Password signatures and change Stellar testnet state. They run by hand only. CI never runs them.
+A run on testnet, futurenet, or a local network needs no separate approval. A mainnet run needs the user's approval. See `AGENTS.md`.
 Use dedicated test keys and confirm the intended test scope before you run them.
 Run one live suite at a time.
 
