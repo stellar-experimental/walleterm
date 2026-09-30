@@ -311,6 +311,46 @@ async fn a_request_signs_with_no_terminal_step() {
     f.close().await;
 }
 
+/// A bridge serves one network. Its replies report it. A request for another network never reaches the signer.
+#[tokio::test]
+async fn a_futurenet_bridge_signs_only_futurenet_requests() {
+    let futurenet = walleterm::network::named("futurenet").unwrap();
+    let f = Fixture::new(Options { network: futurenet, ..Default::default() }).await;
+    let a = f.open(SITE, "selected").await;
+    let selected = f.post("/v1/select", json!({ "public_key": f.public_key }), &a).await;
+    let account = f.get("/v1/account", &a).await;
+    for reply in [&selected.body, &account.body] {
+        assert_eq!(reply["network"], "FUTURENET", "{reply}");
+        assert_eq!(reply["network_passphrase"], futurenet.passphrase, "{reply}");
+    }
+    let refused = f.post("/v1/requests", transaction_request("testnet-1", &f), &a).await;
+    assert_eq!(refused.status, 400);
+    assert_eq!(refused.body["error"]["ext"][0], "walleterm:network_unsupported");
+    assert_eq!(refused.body["error"]["message"], "Walleterm signs only on Stellar futurenet.");
+    let mut request = transaction_request("futurenet-1", &f);
+    request["network_passphrase"] = json!(futurenet.passphrase);
+    assert_eq!(f.post("/v1/requests", request.clone(), &a).await.status, 201);
+    let done = f.result(&a, "futurenet-1").await;
+    assert_eq!(done.body["state"], "signed", "{}", done.body);
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
+    // The signature covers the futurenet hash of the unchanged body.
+    let unsigned = walleterm::transaction::inspect(
+        request["xdr"].as_str().unwrap(),
+        &f.key.verifying_key().to_bytes(),
+        futurenet.passphrase,
+        f.controls.now(),
+    )
+    .unwrap();
+    assert_eq!(done.body["hash"], json!(walleterm::util::hex(&unsigned.hash)));
+    // The tunnel prints "Walleterm tunnel is ready on Stellar futurenet."
+    use walleterm::tunnel::Service as _;
+    assert_eq!(
+        walleterm::service::BridgeService::new(f.bridge.clone(), f.port).network(),
+        "Stellar futurenet"
+    );
+    f.close().await;
+}
+
 /// Each connection event prints one line. No line holds a code, a token, or a grant ID.
 #[tokio::test]
 async fn the_terminal_names_each_connection_event_without_secrets() {

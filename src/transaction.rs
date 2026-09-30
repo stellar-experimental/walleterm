@@ -9,10 +9,10 @@ use stellar_xdr::{
 };
 
 use crate::error::{Result, fail};
+use crate::network::TESTNET;
 use crate::stellar::{self, Decode, verify};
 use crate::util::{hex, sha256, valid_passphrase};
 
-pub const TESTNET: &str = "Test SDF Network ; September 2015";
 pub const MAX_TRANSACTION_XDR: usize = 262144;
 /// The protocol permits 20 envelope signatures. The selected key adds one.
 const MAX_EXISTING_SIGNATURES: usize = 19;

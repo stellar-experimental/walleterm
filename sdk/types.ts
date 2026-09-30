@@ -8,6 +8,8 @@ export interface Signer {
 }
 export interface Account {
   address: string | null;
+  /** The SEP-43 name of the tunnel network: a Stellar SDK `Networks` key. */
+  network: string;
   networkPassphrase: string;
 }
 /** `selected` fixes one wallet. `available` permits changes among the wallets granted at first selection. */

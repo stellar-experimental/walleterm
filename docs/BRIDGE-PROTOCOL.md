@@ -1,6 +1,7 @@
 # Walleterm bridge protocol version 3
 
-The bridge signs testnet transaction envelopes, authorization payloads, and SEP-53 messages.
+The bridge signs transaction envelopes, authorization payloads, and SEP-53 messages for one network.
+That network is testnet, or the network of `walleterm tunnel --network`: futurenet or a local network.
 It never builds or submits transactions.
 The bridge and `walleterm sign` share one Rust core for each artifact. The bridge adds only its website rules.
 The browser SDK exposes this protocol through a SEP-43 wallet. See [the SEP-43 design](SEP-43.md).
@@ -99,7 +100,7 @@ A connection permits 1000 requests. The bridge permits 32 active requests and 64
 | Code | Reason | Cause |
 | --- | --- | --- |
 | `-3` | `walleterm:not_connected` | No session, an expired session, or no selected key. |
-| `-3` | `walleterm:network_unsupported` | A network other than testnet. |
+| `-3` | `walleterm:network_unsupported` | A network other than the tunnel network. |
 | `-3` | `walleterm:address_mismatch` | A signer other than the selected key, or a key that the envelope does not need. |
 | `-3` | `walleterm:invalid_request` | Malformed fields or artifacts, a body that is not valid UTF-8, message text outside 1–1024 bytes, an expired `max_time`, or expiration ledger 0. |
 | `-3` | `walleterm:unsupported` | A V1 authorization preimage. |
@@ -127,7 +128,7 @@ The bridge signs every structurally valid request, one at a time.
 1Password can still require its own approval on the Mac. Cached 1Password approval can skip that prompt.
 A 1Password setting can require approval of each request. See [the README](../README.md#ask-for-approval-of-each-signature).
 The connection code is the only gate. A website with a valid session can request any valid signature.
-This fits testnet use only. A message signature is valid on every network. See [Messages](#messages).
+This fits test networks only. The tunnel does not sign for mainnet yet. A message signature is valid on every network. See [Messages](#messages).
 A declined 1Password prompt ends the request as `denied`. The selected key must still exist before signing.
 The bridge independently verifies every returned signature.
 
@@ -136,7 +137,7 @@ The bridge independently verifies every returned signature.
 The bridge filters no operations. The website reviews the content of each request.
 It keeps these structural invariants:
 
-- Testnet only. A canonical V1 or fee-bump envelope. V0 envelopes fail.
+- The tunnel network only. A canonical V1 or fee-bump envelope. V0 envelopes fail.
 - The selected key is the transaction source, an operation source, or the fee-bump fee source.
   Muxed accounts use their base key.
 - At most 19 existing signatures. The selected key must not have signed already.
@@ -155,7 +156,7 @@ Transaction XDR permits 262144 Base64 characters. Request bodies permit 393216 b
 
 1. Canonical Base64 `HashIdPreimage` XDR of 32768 characters or fewer.
 2. Type `envelopeTypeSorobanAuthorizationWithAddress`. The V1 preimage fails because it permits cross-address replay.
-3. The testnet network ID.
+3. The network ID of the tunnel network.
 4. A bound address that is the selected G-address or a C-address.
 5. At most 256 invocation contexts and 32 levels.
 6. A set expiration. Expiration ledger 0 fails.
@@ -181,7 +182,7 @@ No request accepts a precomputed hash. The bridge checks the message before sign
 
 1. The request body is valid UTF-8. JSON with a lone surrogate escape fails. The bridge never replaces a character.
 2. The text has 1–1024 UTF-8 bytes. The limit counts bytes, not characters.
-3. `network_passphrase` is testnet. This is a session check only. The signature binds no network.
+3. `network_passphrase` is the tunnel network. This is a session check only. The signature binds no network.
 4. `address` is the selected G-address.
 
 The bridge applies no Unicode normalization and no content filter. NUL, control, and bidirectional characters are accepted.
@@ -190,9 +191,9 @@ Before signing, the tunnel prints the origin, key, byte count, digest, and escap
 The line escapes control, format, bidirectional, separator, and private-use characters. The usual result line follows.
 A SEP-53 signature is a permanent, portable proof that the key approved the text.
 It binds no network, origin, nonce, or expiry, unless the text contains them.
-So the testnet rule does not limit a message signature.
+So the network rule does not limit a message signature.
 The 1Password prompt shows no text. Cached 1Password approval can skip that prompt.
-Connect only dedicated testnet keys. Never use a Walleterm key as an identity or a key-derivation source for another service.
+Connect only dedicated test keys. Never use a Walleterm key as an identity or a key-derivation source for another service.
 
 ## Expiry
 

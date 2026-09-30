@@ -11,7 +11,6 @@ use crate::agent::{Agent, Signer};
 use crate::artifact::{self, Artifact, Checked, Scope, Signed};
 use crate::error::{Error, Result};
 use crate::stellar::account_key;
-use crate::transaction::TESTNET;
 use crate::util::{hex, now_ms, valid_passphrase};
 
 pub const VERSION: &str = match option_env!("WALLETERM_VERSION") {
@@ -25,7 +24,7 @@ pub const DEADLINE: Duration = Duration::from_secs(120);
 
 pub const HELP: &str = r#"walleterm list [--human]
 walleterm sign < request.json
-walleterm tunnel [--port 8787] [--vault <name-or-id>]
+walleterm tunnel [--port 8787] [--vault <name-or-id>] [--network testnet|futurenet|local]
 walleterm demo [--port 8788]
 walleterm --help
 walleterm --version
@@ -43,7 +42,8 @@ A transaction adds signed_transaction_xdr. An authorization entry adds signed_au
 Adapters: account, contract-ed25519, and openzeppelin-ed25519 with verifier and context_rule_ids.
 
 Use 1Password desktop to create, manage, and approve signers.
-Tunnel starts the testnet signing bridge. It prints a connection code and QR code for websites.
+Tunnel starts the signing bridge for websites on testnet, or on the --network that you name.
+It prints a connection code and QR code.
 --vault limits website wallets to a 1Password vault name or ID. Filtering requires the 1Password CLI.
 --vault does not filter the local list or sign commands.
 A connected website approves its own requests. 1Password can still ask for approval on the Mac.
@@ -264,13 +264,11 @@ fn parse_sign_request(bytes: &[u8]) -> Result<SignRequest> {
     Ok(SignRequest { public_key, passphrase, artifact })
 }
 
-/// The notice name of a public network. Any other passphrase is quoted.
+/// The notice name: the Stellar CLI name of a built-in network. Any other passphrase is quoted.
 fn network_name(passphrase: &str) -> String {
-    match passphrase {
-        TESTNET => "testnet".into(),
-        "Public Global Stellar Network ; September 2015" => "pubnet".into(),
-        "Test SDF Future Network ; October 2022" => "futurenet".into(),
-        other => format!("network {}", go_quote(other)),
+    match crate::network::of(passphrase) {
+        Some(network) => network.name.into(),
+        None => format!("network {}", go_quote(passphrase)),
     }
 }
 

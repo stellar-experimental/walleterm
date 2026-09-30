@@ -94,11 +94,12 @@ fn is_event(line: &str) -> bool {
 
 pub struct Options {
     pub key: SigningKey,
+    pub network: walleterm::network::Network,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Self { key: mock_key(7) }
+        Self { key: mock_key(7), network: walleterm::network::DEFAULT }
     }
 }
 
@@ -231,7 +232,7 @@ impl Fixture {
         }]);
         let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
         let port = listener.local_addr().unwrap().port();
-        let bridge = Bridge::new(deps(&controls, &options), port);
+        let bridge = Bridge::new(deps(&controls, &options), port, options.network);
         bridge.set_public_origin(&format!("http://127.0.0.1:{port}")).unwrap();
         let stop = Cancel::new();
         let handler_bridge = bridge.clone();

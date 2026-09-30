@@ -19,7 +19,9 @@ The default local port is 8787. Use `--port` only when another local process use
 The terminal prints the bridge URL, an eight-digit code, and a QR code when the terminal is wide enough.
 A code works once and expires after five minutes. A selected website session lasts one hour.
 The website origin must use HTTPS, or loopback HTTP for development. It must differ from the bridge origin.
-Cloudflare terminates TLS and can read the XDR and credentials. The bridge supports testnet only.
+Cloudflare terminates TLS and can read the XDR and credentials.
+The bridge signs for one network: testnet by default. Add `--network futurenet` or `--network local` for those networks.
+The ready line names the network. The tunnel does not sign for mainnet yet.
 
 To limit website wallets to one 1Password vault, pass its name or ID: `walleterm tunnel --vault <name-or-id>`.
 Filtering needs the 1Password CLI. Without `--vault`, all Ed25519 agent keys are available.
@@ -30,7 +32,7 @@ Wallet discovery and selection can take up to 115 seconds. A 1Password CLI appro
 
 ## Try the demo
 
-Run `walleterm demo` in a second persistent terminal. Its default local port is 8788.
+Run `walleterm demo` in a second persistent terminal. Its default local port is 8788. The demo needs a tunnel on testnet.
 Open its public URL. Choose **Connect Walleterm**, enter the tunnel URL and code, then select a dedicated testnet wallet.
 Create and review a supported transaction. Choose **Sign**, then approve 1Password on the Mac if it asks.
 Submit separately from the demo. Verify the original hash on testnet.
@@ -39,7 +41,7 @@ The demo's actions are in [DEMO.md](https://github.com/stellar-experimental/wall
 ## What the bridge signs
 
 The bridge filters no operations. Review each request against the user's grant.
-It accepts canonical testnet V1 and fee-bump envelopes. V0 envelopes fail. Mainnet fails before signing.
+It accepts canonical V1 and fee-bump envelopes for the tunnel network. V0 envelopes fail. Another network fails before signing.
 The selected G-address must be the transaction source, an operation source, or the fee-bump fee source.
 Existing signatures from other keys stay in place. The selected key must not have signed already.
 A nonzero `max_time` at or before now fails. A fee bump uses its inner bounds.
@@ -57,8 +59,9 @@ import { Walleterm } from './dist/sdk/walleterm.js';
 
 const wallet = new Walleterm(); // One fixed wallet. Use { walletScope: 'available' } for switching.
 const { address, error } = await wallet.getAddress(); // Opens the pairing dialog without a session.
-// Build and review the unsigned transaction for address on testnet.
-const result = await wallet.signTransaction(unsignedXdr, { networkPassphrase: 'Test SDF Network ; September 2015' });
+const { networkPassphrase } = await wallet.getNetwork(); // The tunnel network.
+// Build and review the unsigned transaction for address on that network.
+const result = await wallet.signTransaction(unsignedXdr, { networkPassphrase });
 if (result.error) throw result.error; // { code, message, ext, requestState? }
 // Verify the signed body, hash, and signature. Submit only within the user's grant.
 await wallet.disconnect();
@@ -73,7 +76,7 @@ For a Stellar Wallets Kit website, add `WalletermModule` from `walleterm/kit`. U
 ## Explicit authorization
 
 `wallet.signAuthEntry(preimageXdr)` signs an address-bound preimage from `buildAuthorizationEntryPreimage`.
-The preimage must be `envelopeTypeSorobanAuthorizationWithAddress` on testnet. V1 preimages return `-3`.
+The preimage must be `envelopeTypeSorobanAuthorizationWithAddress` for the tunnel network. V1 preimages return `-3`.
 The bound address must be the selected G-address or a C-address. Expiration ledger 0 fails.
 `wallet.signAuthorization(entryXdr, { address, adapter })` signs through an adapter and returns `signedAuthEntryXdr`.
 The adapters are `account`, `contract-ed25519`, and the pinned `openzeppelin-ed25519`.

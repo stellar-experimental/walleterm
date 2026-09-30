@@ -926,7 +926,7 @@ mod build {
     }
 }
 
-const TESTNET: &str = walleterm::transaction::TESTNET;
+const TESTNET: &str = walleterm::network::TESTNET;
 const PUBNET: &str = "Public Global Stellar Network ; September 2015";
 
 fn mock_public() -> [u8; 32] {
@@ -1008,7 +1008,8 @@ fn transactions_sign_without_time_bounds_for_any_signer_and_any_network() {
         ("the largest max_time", build::transaction(me, Some(u64::MAX)), TESTNET),
         ("a co-signer for another account", build::transaction(other, None), TESTNET),
         ("a fee bump for another fee source", build::fee_bump(other, build::transaction(me, None)), TESTNET),
-        ("pubnet", build::transaction(me, None), PUBNET),
+        ("mainnet", build::transaction(me, None), PUBNET),
+        ("local", build::transaction(me, None), "Standalone Network ; February 2017"),
         ("a custom network", build::transaction(me, None), "Walleterm ; offline"),
     ];
     for (name, envelope, network) in cases {
@@ -1037,7 +1038,8 @@ fn transactions_sign_without_time_bounds_for_any_signer_and_any_network() {
         );
         let label = match network {
             TESTNET => "testnet".to_owned(),
-            PUBNET => "pubnet".to_owned(),
+            PUBNET => "mainnet".to_owned(),
+            "Standalone Network ; February 2017" => "local".to_owned(),
             custom => format!("network {}", walleterm::cli::go_quote(custom)),
         };
         assert_eq!(notice, format!("Sign transaction {} on {label} with {}.\n", hex(&hash), mock_address()));

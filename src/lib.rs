@@ -12,6 +12,7 @@ pub mod error;
 pub mod http;
 pub mod json;
 pub mod message;
+pub mod network;
 pub mod platform;
 pub mod preimage;
 pub mod process;

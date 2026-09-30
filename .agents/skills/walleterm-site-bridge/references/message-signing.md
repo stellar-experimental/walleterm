@@ -19,8 +19,8 @@ Confirm from the deployed client and current primary sources that the consumer v
 Stop when the required bytes, digest, or signature use remain unknown.
 
 A SEP-53 signature binds no network, site, nonce, or expiry, unless the text contains them.
-The testnet rule therefore does not limit it. A website can use it as a login proof at any service that trusts the key.
-Connect only dedicated testnet keys. Never use such a key as an identity or a key-derivation source for another service.
+The tunnel network rule therefore does not limit it. A website can use it as a login proof at any service that trusts the key.
+Connect only dedicated test keys. Never use such a key as an identity or a key-derivation source for another service.
 
 An application can derive a separate private key from the returned signature.
 Treat such a signature as secret material. Keep it out of public reports and terminal output.

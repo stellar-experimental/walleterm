@@ -16,6 +16,10 @@ Enter both in the website. Or scan the QR code with the website's Scan tunnel bu
 The QR code appears when the terminal is wide enough. A narrow terminal shows the required width instead.
 The terminal needs no input. Ctrl+C stops the bridge.
 
+The bridge signs for testnet. To sign for futurenet or a local network, name it: `walleterm tunnel --network futurenet`.
+The names are the Stellar CLI names `testnet`, `futurenet`, and `local`. The ready line names the network.
+Each tunnel serves one network. Run a second tunnel on another `--port` for a second network. The tunnel does not sign for mainnet yet.
+
 The terminal prints one line for each connection event and for each request that ends.
 Each line starts with the local time. A line names the request kind, its full hash, and the short signer address:
 
@@ -110,7 +114,7 @@ See [the demo guide](DEMO.md) for each action and the activity log.
 
 The connection code lets a website list your 1Password Ed25519 public keys and request signatures.
 The website approves its own requests. The bridge signs every valid request from a connected website.
-Use only dedicated testnet keys. Enter codes only into websites that you trust.
+Use only dedicated test keys. Enter codes only into websites that you trust.
 
 ## Components
 
@@ -140,8 +144,9 @@ import { Walleterm } from './walleterm.js';
 
 const wallet = new Walleterm();
 const { address, error } = await wallet.getAddress(); // Opens the pairing dialog once.
-// The website builds and reviews an unsigned testnet transaction.
-const { signedTxXdr } = await wallet.signTransaction(unsignedXdr, { networkPassphrase: Networks.TESTNET });
+const { networkPassphrase } = await wallet.getNetwork(); // The tunnel network.
+// The website builds and reviews an unsigned transaction for that network.
+const { signedTxXdr } = await wallet.signTransaction(unsignedXdr, { networkPassphrase });
 // The website verifies the result and asks the user before submission.
 await wallet.disconnect();
 ```
@@ -159,13 +164,13 @@ See [the connection component](CONNECTION-UI.md) for scopes, sessions, and tabs.
 
 ## Supported transactions
 
-The bridge signs testnet transaction envelopes that need the selected key. It filters no operations.
+The bridge signs transaction envelopes for the tunnel network that need the selected key. It filters no operations.
 The selected key must be the transaction source, an operation source, or the fee-bump fee source.
 A nonzero `max_time` at or before now fails. Time bounds are otherwise optional.
 Existing signatures from other keys stay in place. The bridge appends one signature.
 Explicit Soroban authorization entries use `signAuthEntry` before envelope signing.
 See [contract authorization](CONTRACT-AUTHORIZATION.md) for the separate authorization and transaction steps.
-Mainnet and V0 envelopes fail before signing. See [the bridge protocol](BRIDGE-PROTOCOL.md) for the exact rules.
+Another network and V0 envelopes fail before signing. See [the bridge protocol](BRIDGE-PROTOCOL.md) for the exact rules.
 
 ## Approval and recovery
 

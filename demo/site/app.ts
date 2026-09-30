@@ -193,23 +193,30 @@ const connection = new WalletermConnect($('wallet-connection'), {
   onChange(value) {
     const previousAddress = account?.address;
     wallet = value.wallet;
-    account = value.account;
+    // The demo builds, funds, and submits on testnet only. A tunnel on another network gets no actions.
+    const otherNetwork =
+      value.account && value.account.networkPassphrase !== Networks.TESTNET ? value.account : null;
+    account = otherNetwork ? null : value.account;
     activity.record(
       'walleterm',
-      account
-        ? previousAddress && previousAddress !== account.address
-          ? 'Active wallet changed'
-          : 'Wallet connected'
-        : 'Wallet disconnected',
-      { previous_address: previousAddress, account },
+      otherNetwork
+        ? 'Wallet on another network'
+        : account
+          ? previousAddress && previousAddress !== account.address
+            ? 'Active wallet changed'
+            : 'Wallet connected'
+          : 'Wallet disconnected',
+      { previous_address: previousAddress, account: value.account },
     );
     // An unreadable saved record still blocks actions, so its message stays.
     status(
       journalBlocked
         ? BLOCKED
-        : account
-          ? 'Wallet connected. Choose a testnet action.'
-          : 'The website is disconnected.',
+        : otherNetwork
+          ? `The tunnel signs on ${otherNetwork.network.toLowerCase()}, but this demo uses testnet. Restart the tunnel without --network, then connect again.`
+          : account
+            ? 'Wallet connected. Choose a testnet action.'
+            : 'The website is disconnected.',
     );
     if (account?.address !== previousAddress) {
       chosenSet = 0;

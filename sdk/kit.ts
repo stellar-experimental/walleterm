@@ -1,4 +1,3 @@
-import { Networks } from '@stellar/stellar-sdk';
 import { Walleterm } from './walleterm.js';
 import type { AddressChange, Result } from './walleterm.js';
 
@@ -95,7 +94,7 @@ export class WalletermModule {
     else if (client && !client.token)
       queueMicrotask(() => {
         if (this.wallet.client === client && !client.token)
-          report({ address: null, network: 'TESTNET', networkPassphrase: Networks.TESTNET });
+          report({ address: null, network: '', networkPassphrase: '' });
       });
   }
   async disconnect() {

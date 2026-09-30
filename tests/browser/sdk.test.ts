@@ -28,7 +28,7 @@ test('wallet discovery can refresh without replacing the selected account', asyn
   });
   await assert.rejects(client.listWallets(), /Connect the website first/);
   client.token = 'session';
-  client.account = { address: 'GFIRST', networkPassphrase: 'testnet' };
+  client.account = { address: 'GFIRST', network: 'TESTNET', networkPassphrase: 'testnet' };
   assert.deepEqual(await client.listWallets(), keys);
   keys = [{ public_key: 'GSECOND', comment: 'Second' }];
   assert.deepEqual(await client.listWallets(), keys);
@@ -217,7 +217,7 @@ test('the default connection and signing deadlines give plain reasons', async ()
   });
   deadlines.clear();
   client.token = 'session';
-  client.account = { address: mockKey.publicKey(), networkPassphrase: Networks.TESTNET };
+  client.account = { address: mockKey.publicKey(), network: 'TESTNET', networkPassphrase: Networks.TESTNET };
   const signing = client.signTransaction(unsignedXdr, {
     onProgress: () => deadlines.get(300000)?.abort(),
   });
@@ -268,7 +268,7 @@ test('an empty wallet picker can refresh discovery within its current connection
       if (url.endsWith('/v1/signers')) value = { signers: listings++ ? [{ public_key: 'GAVAILABLE' }] : [] };
       if (url.endsWith('/v1/select')) {
         assert.equal(JSON.parse(String(options?.body)).public_key, 'GAVAILABLE');
-        value = { address: 'GAVAILABLE', network_passphrase: 'testnet' };
+        value = { address: 'GAVAILABLE', network: 'TESTNET', network_passphrase: 'testnet' };
       }
       return Response.json(value);
     },
@@ -301,7 +301,7 @@ test('signing retries preserve the request ID and report network recovery', asyn
     },
   });
   client.token = 'session';
-  client.account = { address: mockKey.publicKey(), networkPassphrase: Networks.TESTNET };
+  client.account = { address: mockKey.publicKey(), network: 'TESTNET', networkPassphrase: Networks.TESTNET };
   const result = await client.signTransaction(unsignedXdr, {
     onProgress(progress) {
       states.push(progress.state);
@@ -336,7 +336,7 @@ test('an unreachable bridge bounds cancellation and preserves signing uncertaint
     },
   });
   client.token = 'session';
-  client.account = { address: mockKey.publicKey(), networkPassphrase: Networks.TESTNET };
+  client.account = { address: mockKey.publicKey(), network: 'TESTNET', networkPassphrase: Networks.TESTNET };
   await assert.rejects(
     client.signTransaction(unsignedXdr, {
       signal: controller.signal,
@@ -361,7 +361,7 @@ test('failed remote disconnection retains credentials until an explicit local di
   const active = new AbortController();
   client.signings.add(active);
   client.token = 'session';
-  client.account = { address: mockKey.publicKey(), networkPassphrase: Networks.TESTNET };
+  client.account = { address: mockKey.publicKey(), network: 'TESTNET', networkPassphrase: Networks.TESTNET };
   const generation = client.generation;
   await assert.rejects(client.disconnect(), /could not reach the tunnel/);
   assert.equal(client.token, 'session');

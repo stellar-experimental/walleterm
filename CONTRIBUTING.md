@@ -79,7 +79,7 @@ The release package has budgets. `tools/src/budgets.rs` holds them:
 
 ## Rules
 
-- Use Stellar testnet only. Never use mainnet funds.
+- Use test networks: testnet, futurenet, or a local network. A mainnet run needs the project owner's approval.
 - Use dedicated test keys that you generate inside 1Password. Never change other 1Password items.
 - Never commit key material: seeds, private keys, vault exports, or `.env` files.
 - Offline tests use mock keys only. Never fund or submit with a mock key.

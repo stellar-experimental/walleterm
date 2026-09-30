@@ -8,13 +8,13 @@ The binary name is `walleterm`. A `stellar-walleterm` alias enables Stellar CLI 
 ```text
 walleterm list [--human]
 walleterm sign < request.json
-walleterm tunnel [--port 8787] [--vault <name-or-id>]
+walleterm tunnel [--port 8787] [--vault <name-or-id>] [--network testnet|futurenet|local]
 walleterm demo [--port 8788]
 walleterm --help
 walleterm --version
 ```
 
-`tunnel` starts the testnet signing bridge for websites. `demo` starts an example website.
+`tunnel` starts the signing bridge for websites on one network. `demo` starts an example testnet website.
 Each command runs its own local server and Cloudflare Quick Tunnel, and prints its public URL and a QR code.
 `tunnel` also prints one line for each connection event and each request that ends. No line holds a code or a token.
 Event and status lines start with the local time. Ctrl+C prints a last line, such as "Walleterm tunnel stopped."
@@ -24,7 +24,11 @@ See [the website bridge guide](WEB-BRIDGE.md) and [the bridge protocol](BRIDGE-P
 `--vault <name-or-id>` limits the website wallets of `tunnel` to one 1Password vault. It needs the 1Password CLI.
 Both `--vault Private` and `--vault=Private` work. Quote a name that contains spaces.
 An empty, whitespace-only, missing, or repeated value fails with exit code 2 before startup.
-Only `tunnel` accepts `--vault`. It does not change `list` or `sign`.
+`--network <name>` selects the network of `tunnel`: `testnet`, `futurenet`, or `local`. These are the Stellar CLI names. The default is `testnet`.
+The bridge then signs only for that passphrase. `--network futurenet` and `--network=futurenet` work.
+Walleterm reads no Stellar CLI configuration and no `STELLAR_NETWORK`. The tunnel does not sign for mainnet yet.
+An unknown, missing, or repeated value fails with exit code 2 before startup.
+Only `tunnel` accepts `--vault` and `--network`. They do not change `list` or `sign`.
 `--port` takes a decimal port number. These commands have no `--human` or `--public` flag.
 
 ## List
@@ -164,7 +168,7 @@ Sign authorization entry <digest> for C... (contract-ed25519) on testnet with G.
 Sign SEP-53 message <digest> with G... (43 bytes, no network, site, or expiry binding): "example.com asks..."
 ```
 
-The notice names `testnet`, `pubnet`, and `futurenet` for their exact passphrases. It quotes any other passphrase.
+The notice uses the Stellar CLI names `testnet`, `futurenet`, `local`, and `mainnet` for their exact passphrases. It quotes any other passphrase.
 The notice quotes the message text. Quotes, backslashes, and control, format, bidirectional, separator, and private-use characters appear as escapes.
 
 ## Errors and output

@@ -1,5 +1,5 @@
 //! Bridge protocol version 3 (`docs/BRIDGE-PROTOCOL.md`): sessions, wallet grants, selection revisions,
-//! and one signing queue. State stays in memory under one mutex that no await ever holds.
+//! and one signing queue for one network. State stays in memory under one mutex that no await ever holds.
 //! The shared core (`artifact.rs`) checks and finishes each artifact. This module adds only the website rules.
 
 use std::collections::{HashMap, HashSet};
@@ -19,7 +19,8 @@ use base64::engine::general_purpose::STANDARD;
 use crate::artifact::{self, Artifact, Signed};
 use crate::cancel::Cancel;
 use crate::error::{Error, Result};
-use crate::transaction::{TESTNET, signer_role};
+use crate::network::Network;
+use crate::transaction::signer_role;
 use crate::util::{hex, iso_millis, lower_hex, random_below, token, uuid};
 
 pub type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
@@ -278,6 +279,8 @@ pub struct Bridge {
     pending_jobs: AtomicUsize,
     idle: Notify,
     port: u16,
+    /// Every request must name this network. Each reply reports it.
+    network: Network,
 }
 
 fn new_code() -> String {
@@ -415,8 +418,8 @@ async fn object(
 }
 
 impl Bridge {
-    /// Create the bridge and start its signing worker and deadline sweep. `origin` starts as loopback.
-    pub fn new(deps: Deps, port: u16) -> Arc<Self> {
+    /// Create the bridge for one network and start its signing worker and deadline sweep. `origin` starts as loopback.
+    pub fn new(deps: Deps, port: u16, network: Network) -> Arc<Self> {
         let (queue, mut jobs) = mpsc::unbounded_channel::<(String, String)>();
         let now = (deps.now)();
         let bridge = Arc::new(Self {
@@ -445,6 +448,7 @@ impl Bridge {
             pending_jobs: AtomicUsize::new(0),
             idle: Notify::new(),
             port,
+            network,
         });
         let worker = Arc::downgrade(&bridge);
         tokio::spawn(async move {
@@ -896,7 +900,7 @@ impl Bridge {
         };
         // A transaction can reach its max_time while it waits. The same scope finishes the signature.
         let checked_at = self.now();
-        admit(&artifact, &passphrase, &address, &public_key, checked_at)?;
+        admit(&artifact, &self.network, &passphrase, &address, &public_key, checked_at)?;
         self.set_state(key, RequestState::Approved);
         // Vault discovery stops its CLI children before it returns, so it is awaited, not dropped.
         let keys = (self.deps.list_signers)(signal.clone()).await;
@@ -1042,8 +1046,8 @@ impl Bridge {
                     json!({
                         "connection_id": s.id,
                         "address": s.public_key,
-                        "network": "TESTNET",
-                        "network_passphrase": TESTNET,
+                        "network": self.network.sep43,
+                        "network_passphrase": self.network.passphrase,
                         "expires_at": iso_millis(s.expires as i64),
                         "wallet_scope": s.scope.as_str(),
                         "selection_revision": s.selection_revision,
@@ -1321,8 +1325,8 @@ impl Bridge {
             200,
             json!({
                 "address": s.public_key,
-                "network": "TESTNET",
-                "network_passphrase": TESTNET,
+                "network": self.network.sep43,
+                "network_passphrase": self.network.passphrase,
                 "selection_revision": s.selection_revision,
                 "expires_at": iso_millis(s.expires as i64),
             }),
@@ -1425,7 +1429,8 @@ impl Bridge {
         let (passphrase, address) = (text("network_passphrase").unwrap(), text("address").unwrap());
         let public_key = public_key.unwrap();
         let now = self.now();
-        let (details, hash) = admit(&artifact, &passphrase, &address, &public_key, now).map_err(rejected)?;
+        let (details, hash) =
+            admit(&artifact, &self.network, &passphrase, &address, &public_key, now).map_err(rejected)?;
         // No display shows a message except this line. The signature binds nothing that the text does not name.
         if let Artifact::Message(text) = &artifact {
             self.log(&format!(
@@ -1529,20 +1534,26 @@ impl Bridge {
     pub fn closing(&self) -> bool {
         self.state.lock().unwrap().closing
     }
+
+    /// The one network that this bridge signs for.
+    pub fn network(&self) -> Network {
+        self.network
+    }
 }
 
-/// The shared inspection with the website rules: testnet only, the selected key as `address`,
+/// The shared inspection with the website rules: the bridge network only, the selected key as `address`,
 /// the transaction signer role, and the selected G-address or a C-address as the preimage bound address.
-/// A message binds no network. Its testnet passphrase is a session check only.
+/// A message binds no network. Its passphrase is a session check only.
 pub fn admit(
     artifact: &Artifact,
+    network: &Network,
     passphrase: &str,
     address: &str,
     key: &str,
     now: u64,
 ) -> Result<(Value, String)> {
-    if passphrase != TESTNET {
-        return Err(Error::new("network_unsupported", "Walleterm signs only on Stellar testnet."));
+    if passphrase != network.passphrase {
+        return Err(Error::new("network_unsupported", format!("Walleterm signs only on {}.", network.label)));
     }
     if address != key {
         return Err(Error::new(

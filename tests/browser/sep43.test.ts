@@ -83,10 +83,10 @@ function holdable() {
 // Connection lines are not about signing. These tests read only the signing lines.
 const signingLines = (lines: string[]) =>
   lines.filter((line) => !/^(Connected|Selected wallet|Could not list the wallets) /.test(line));
-function transaction(source = key.publicKey()) {
+function transaction(source = key.publicKey(), networkPassphrase: string = Networks.TESTNET) {
   return new TransactionBuilder(new Account(source, '10'), {
     fee: '100',
-    networkPassphrase: Networks.TESTNET,
+    networkPassphrase,
   })
     .addOperation(Operation.manageData({ name: 'sep43', value: 'yes' }))
     .setTimeout(120)
@@ -129,9 +129,13 @@ function preimage(address: string, { expiration = 150, network = Networks.TESTNE
   return buildAuthorizationEntryPreimage(entry(address, expiration), expiration, network).toXDR('base64');
 }
 
-test('getNetwork answers without a session or bridge request', async () => {
+test('getNetwork names the tunnel network, and a wallet without a session knows no network', async () => {
   const f = await fixture();
-  expect(await f.wallet.getNetwork()).toEqual({ network: 'TESTNET', networkPassphrase: Networks.TESTNET });
+  expect(await f.wallet.getNetwork()).toEqual({
+    network: '',
+    networkPassphrase: '',
+    error: expect.objectContaining({ code: -3, ext: ['walleterm:not_connected'] }),
+  });
   expect((await f.wallet.signMessage('Sign in to example.com')).error).toMatchObject({
     code: -3,
     ext: ['walleterm:not_connected'],
@@ -142,6 +146,34 @@ test('getNetwork answers without a session or bridge request', async () => {
     ext: ['walleterm:invalid_request'],
   });
   expect(f.requests()).toBe(0);
+  await f.wallet.getAddress();
+  expect(await f.wallet.getNetwork()).toEqual({ network: 'TESTNET', networkPassphrase: Networks.TESTNET });
+});
+
+test('a futurenet tunnel names its network, and the wallet signs only for it', async () => {
+  const f = await fixture({ network: 'futurenet' });
+  await f.wallet.getAddress();
+  expect(await f.wallet.getNetwork()).toEqual({
+    network: 'FUTURENET',
+    networkPassphrase: Networks.FUTURENET,
+  });
+  const requests = f.requests();
+  // The testnet passphrase fails before any request.
+  expect(
+    (await f.wallet.signTransaction(transaction(), { networkPassphrase: Networks.TESTNET })).error,
+  ).toMatchObject({
+    code: -3,
+    ext: ['walleterm:network_unsupported'],
+    message: 'The tunnel signs only on FUTURENET. Use the passphrase from getNetwork().',
+  });
+  expect(f.requests()).toBe(requests);
+  // The default passphrase is the session network. The signature covers the futurenet hash.
+  const unsigned = transaction(key.publicKey(), Networks.FUTURENET);
+  const result = await f.wallet.signTransaction(unsigned);
+  expect(result.error).toBeUndefined();
+  const signed = TransactionBuilder.fromXDR(result.signedTxXdr, Networks.FUTURENET);
+  expect(key.verify(signed.hash(), signed.signatures[0].signature.toBytes())).toBe(true);
+  expect(f.calls()).toBe(1);
 });
 
 test('signMessage signs SEP-53 text and the tunnel prints one escaped line', async () => {
@@ -487,19 +519,21 @@ test('a network failure is an external service error and keeps the session', asy
 
 test('onChange reports pairing, switching, and disconnection once each', async () => {
   const f = await fixture({}, 'available');
-  const changes: (string | null)[] = [];
-  const stop = f.wallet.onChange(({ address, network, networkPassphrase }) => {
-    expect(network).toBe('TESTNET');
-    expect(networkPassphrase).toBe(Networks.TESTNET);
-    changes.push(address);
-  });
+  const changes: [string | null, string, string][] = [];
+  const stop = f.wallet.onChange(({ address, network, networkPassphrase }) =>
+    changes.push([address, network, networkPassphrase]),
+  );
   await f.wallet.getAddress();
   await f.wallet.getAddress();
   await f.wallet.selectWallet(other.publicKey());
   await f.wallet.disconnect();
   stop();
   await f.wallet.getAddress();
-  expect(changes).toEqual([key.publicKey(), other.publicKey(), null]);
+  expect(changes).toEqual([
+    [key.publicKey(), 'TESTNET', Networks.TESTNET],
+    [other.publicKey(), 'TESTNET', Networks.TESTNET],
+    [null, '', ''],
+  ]);
 });
 
 test('a change listener can read the new address at once, as a Kit fetchAddress does', async () => {

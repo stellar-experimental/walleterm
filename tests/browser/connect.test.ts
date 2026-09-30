@@ -665,6 +665,9 @@ test('opening the wallet menu after a reload loads the wallet list once', async 
     ['GRECOVERED', 'GSECOND'],
   );
   assert.equal(f.node('wallet-name').textContent, 'First');
+  // The badge names the network from the account reply.
+  assert.equal(f.node('network').textContent, 'Testnet');
+  assert.equal(f.node('network').hidden, false);
   assert.equal(f.ui.refreshing, false);
   f.ui.toggleMenu();
   f.ui.toggleMenu();
@@ -1176,7 +1179,7 @@ for (const stage of ['discovery', 'wallet-choice', 'selection', 'replacement', '
       f.context,
     );
     previous.token = oldToken;
-    const account = { address: 'GOLD', networkPassphrase: Networks.TESTNET };
+    const account = { address: 'GOLD', network: 'TESTNET', networkPassphrase: Networks.TESTNET };
     previous.account = account;
     Object.assign(f.ui, { client: previous, account, state: 'connected' });
     Object.assign(f.ui.wallet, { client: previous });

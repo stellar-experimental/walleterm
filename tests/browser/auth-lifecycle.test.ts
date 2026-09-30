@@ -209,7 +209,7 @@ test('SDK freezes adapter options and rejects a substituted signed artifact', as
     },
   });
   client.token = 'token';
-  client.account = { address: key.publicKey(), networkPassphrase: Networks.TESTNET };
+  client.account = { address: key.publicKey(), network: 'TESTNET', networkPassphrase: Networks.TESTNET };
   const promise = client.signAuthorization(input.auth_entry_xdr, { address, adapter: input.adapter });
   if (input.adapter.type !== 'openzeppelin-ed25519') throw Error();
   input.adapter.context_rule_ids[0] = 9;

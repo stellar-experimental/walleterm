@@ -31,7 +31,7 @@ const wallet = new Walleterm({ walletScope: 'available' });
 const connection = new WalletermConnect(document.getElementById('wallet-connection'), {
   wallet, // Optional. Share one wallet with a Stellar Wallets Kit module.
   onChange({ wallet: connected, account }) {
-    renderAccount(account); // { address, networkPassphrase }, or null after disconnection.
+    renderAccount(account); // { address, network, networkPassphrase }, or null after disconnection.
   },
 });
 
@@ -51,6 +51,7 @@ The component registers itself as the wallet's pairing interface.
 Closing the dialog resolves `getAddress()` with error `-4`.
 Without a mounted component, `getAddress()` loads a dialog-only component. Load `connect.css` on that page too.
 The component also follows changes made through the wallet, such as `wallet.disconnect()` or session expiry.
+The menu badge names the tunnel network: Testnet, Futurenet, or Local.
 The optional `onBusyChange` callback reports when connection work starts or finishes.
 `setBusy(true)` blocks connection changes while the website works.
 

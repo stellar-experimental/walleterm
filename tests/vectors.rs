@@ -9,6 +9,7 @@ use ed25519_dalek::{Signer, SigningKey};
 use serde_json::{Value, json};
 use walleterm::artifact::{self, Artifact, Scope, Signed};
 use walleterm::error::Error;
+use walleterm::network::DEFAULT;
 use walleterm::stellar::verify;
 use walleterm::util::{hex, lower_hex, sha256};
 
@@ -83,7 +84,14 @@ fn run(case: &Value, key: &SigningKey, public_key: &str) -> Value {
             // A request for another signer: the CLI names its key in `public_key`, and the bridge admission refuses it.
             let requested = text("public_key");
             if requested != public_key {
-                return match walleterm::bridge::admit(&artifact, &passphrase, &requested, public_key, 0) {
+                return match walleterm::bridge::admit(
+                    &artifact,
+                    &DEFAULT,
+                    &passphrase,
+                    &requested,
+                    public_key,
+                    0,
+                ) {
                     Ok(_) => json!({ "admitted": requested }),
                     Err(e) => error(e),
                 };
@@ -109,7 +117,7 @@ fn run(case: &Value, key: &SigningKey, public_key: &str) -> Value {
             };
             let mut out = json!({ "digest": hex(&checked.digest), "address": checked.details["address"] });
             // The frozen file records a signature only for cases that ran with a ledger on testnet.
-            if case["latest_ledger"].is_number() && network == walleterm::transaction::TESTNET {
+            if case["latest_ledger"].is_number() && network == walleterm::network::TESTNET {
                 match sign(&artifact, &scope, key) {
                     Ok((_, raw, signed)) => {
                         out["signature"] = json!(hex(&raw));
@@ -128,6 +136,7 @@ fn run(case: &Value, key: &SigningKey, public_key: &str) -> Value {
             let artifact = Artifact::Transaction(xdr.to_owned());
             let admitted = walleterm::bridge::admit(
                 &artifact,
+                &DEFAULT,
                 passphrase,
                 input["address"].as_str().unwrap(),
                 public_key,
@@ -210,7 +219,7 @@ fn structural_admission_accepts_what_the_sdk_cannot_model() {
         let passphrase = input["network_passphrase"].as_str().unwrap();
         let now = case["now_ms"].as_u64().unwrap();
         let artifact = Artifact::Transaction(xdr.to_owned());
-        walleterm::bridge::admit(&artifact, passphrase, public_key, public_key, now).unwrap();
+        walleterm::bridge::admit(&artifact, &DEFAULT, passphrase, public_key, public_key, now).unwrap();
         let scope = Scope { key: public_key, passphrase: Some(passphrase), now_ms: now };
         let (_, _, signed) = sign(&artifact, &scope, &key).unwrap();
         let (TransactionEnvelope::Tx(before), TransactionEnvelope::Tx(after)) = (
