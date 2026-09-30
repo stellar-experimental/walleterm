@@ -906,9 +906,12 @@ test('a timed-out connection returns to the connect step with a plain message', 
   const f = fixture(
     () => {},
     class {
+      // Like the real client, a failure after pairing reports that the code is spent.
       async connect({ signal }: { signal: AbortSignal }) {
         await new Promise((_resolve, reject) =>
-          signal.addEventListener('abort', () => reject(signal.reason), { once: true }),
+          signal.addEventListener('abort', () => reject(Object.assign(signal.reason, { codeUsed: true })), {
+            once: true,
+          }),
         );
       }
       async disconnect() {}
@@ -927,8 +930,10 @@ test('a timed-out connection returns to the connect step with a plain message', 
   await pending;
   assert.equal(
     f.node('status').textContent,
-    'The connection timed out after 5 minutes. Use the current code from your tunnel terminal.',
+    'The connection timed out after 5 minutes. Use the new code from your tunnel terminal.',
   );
+  // The spent code does not stay in the field.
+  assert.equal(f.node('code').value, '');
   assert.equal(f.node('#wt-title').textContent, 'Connect Walleterm');
   assert.equal(f.node('form').hidden, false);
   assert.equal(f.node('picker').hidden, true);

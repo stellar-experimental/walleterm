@@ -70,6 +70,8 @@ The Tunnel URL must be an exact HTTPS origin, or a loopback HTTP origin for deve
 A path, a query, or credentials fail, so the visible host is the host that the SDK calls.
 The help text then asks for the URL exactly as the tunnel prints it. The help text never reports readiness.
 A change to a detail clears the previous status message, such as an error.
+A failure after pairing spent the code. The dialog then clears the code field and says to use the new code from the tunnel terminal.
+`WalletermClient.connect()` marks such a failure with `codeUsed: true`.
 `WalletermConnect`, the QR code parser, and `WalletermClient` use the same check, `isTunnelUrl()` in `sdk/errors.ts`.
 Camera denial leaves manual entry available.
 

@@ -6,6 +6,8 @@ export interface RequestError extends Error {
   exitCode?: number;
   canceled?: boolean;
   requestState?: RequestState;
+  /** The bridge spent the connection code before this failure. The tunnel terminal shows the next code. */
+  codeUsed?: boolean;
 }
 
 /** A deadline whose reason says what timed out. `AbortSignal.timeout` says only "signal timed out". */

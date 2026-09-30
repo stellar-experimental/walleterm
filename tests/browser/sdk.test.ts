@@ -2,6 +2,7 @@ import { Account, Keypair, Networks, Operation, TransactionBuilder } from '@stel
 import { jest, onTestFinished, spyOn, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { WalletermClient } from '../../sdk/walleterm.ts';
+import type { RequestError } from '../../sdk/errors.ts';
 import { isTunnelUrl, sep43Error } from '../../sdk/errors.ts';
 import { requestSignal, requestUrl } from './support.ts';
 
@@ -211,7 +212,8 @@ test('the default connection and signing deadlines give plain reasons', async ()
   deadlines.get(300000)!.abort();
   await assert.rejects(connecting, {
     name: 'TimeoutError',
-    message: 'The connection timed out after 5 minutes. Use the current code from your tunnel terminal.',
+    message: 'The connection timed out after 5 minutes.',
+    codeUsed: true,
   });
   deadlines.clear();
   client.token = 'session';
@@ -220,6 +222,39 @@ test('the default connection and signing deadlines give plain reasons', async ()
     onProgress: () => deadlines.get(300000)?.abort(),
   });
   await assert.rejects(signing, { message: 'The signing request timed out after 5 minutes.' });
+});
+
+test('a failure after pairing reports a spent code, and a refused code does not', async () => {
+  const failing = (connect: number, signers: number) =>
+    new WalletermClient('https://bridge.example', {
+      fetch: async (input) => {
+        const url = requestUrl(input);
+        if (url.endsWith('/v1/connect'))
+          return connect === 201
+            ? Response.json({ token: 'session', wallet_scope: 'selected' }, { status: 201 })
+            : Response.json(
+                { error: { code: -3, message: 'The connection code is incorrect.' } },
+                { status: 403 },
+              );
+        if (url.endsWith('/v1/signers'))
+          return Response.json(
+            { error: { code: -2, message: '1Password did not allow the vault check.' } },
+            { status: signers },
+          );
+        return Response.json({ disconnected: true });
+      },
+    });
+  const options = { code: '01234567', selectWallet: async () => 'GMOCK' };
+  await assert.rejects(failing(201, 502).connect(options), (error: RequestError) => {
+    assert.equal(error.message, '1Password did not allow the vault check.');
+    assert.equal(error.codeUsed, true);
+    return true;
+  });
+  await assert.rejects(failing(403, 502).connect(options), (error: RequestError) => {
+    assert.equal(error.message, 'The connection code is incorrect.');
+    assert.equal(error.codeUsed, undefined);
+    return true;
+  });
 });
 
 test('an empty wallet picker can refresh discovery within its current connection', async () => {

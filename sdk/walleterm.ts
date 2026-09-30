@@ -228,6 +228,7 @@ export class WalletermClient {
         if (error.status !== 401) throw error;
       }
     }
+    let paired = false;
     if (!this.token) {
       if (typeof code !== 'string' || !/^\d{8}$/.test(code))
         throw walletermError('invalid_request', 'Enter the eight-digit code from the tunnel terminal.');
@@ -239,6 +240,7 @@ export class WalletermClient {
       this.revision = 0;
       this.generation++;
       this.setAccount(null);
+      paired = true;
     }
     try {
       const signers = await this.listWallets({ signal });
@@ -252,6 +254,7 @@ export class WalletermClient {
       await this.disconnect().catch(() => {});
       this.token = null;
       this.setAccount(null);
+      if (paired) error.codeUsed = true;
       throw error;
     }
   }
@@ -640,11 +643,7 @@ export interface WalletermOptions extends ClientOptions {
   ui?: AccessInterface | null;
 }
 /** The time to pair and choose a wallet. The bridge ends a session without a wallet after 5 minutes. */
-export const connectDeadline = () =>
-  deadline(
-    300000,
-    'The connection timed out after 5 minutes. Use the current code from your tunnel terminal.',
-  );
+export const connectDeadline = () => deadline(300000, 'The connection timed out after 5 minutes.');
 async function settle<T extends Record<string, string>>(
   empty: T,
   work: () => Promise<T>,

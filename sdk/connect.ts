@@ -775,7 +775,11 @@ export class WalletermConnect {
       if (!adopted) await next?.disconnect().catch(() => {});
       if (this.destroyed) return;
       this.showForm();
-      this.message(error.message);
+      // A failure after pairing spent the code. The tunnel terminal already shows the next one.
+      if (error.codeUsed) this.$('code').value = '';
+      this.message(
+        error.codeUsed ? `${error.message} Use the new code from your tunnel terminal.` : error.message,
+      );
       this.sync();
     } finally {
       this.connection = null;

@@ -3,7 +3,7 @@
   "network": "testnet",
   "network_passphrase": "Test SDF Network ; September 2015",
   "subject": "The tunnel terminal lines, the connect dialog text, the demo USDC trustline step, an offer and its cancellation, and declined 1Password prompts",
-  "status": "passed_with_findings",
+  "status": "passed",
   "window_utc": {
     "first_transaction": "2026-09-29T21:24:07Z",
     "last_transaction": "2026-09-29T21:25:37Z"
@@ -129,7 +129,7 @@
   "refusals": [
     {
       "case": "1Password locked, vault check prompt canceled",
-      "status": "finding",
+      "status": "finding_fixed",
       "state": "denied",
       "page": "The selected 1Password vault is unavailable. Check --vault and the 1Password CLI.",
       "phase": "The signing request was declined. Nothing was signed.",
@@ -137,7 +137,8 @@
       "findings": [
         "The message blames --vault when the person canceled the prompt.",
         "The tunnel printed no line for a request that ended before signing."
-      ]
+      ],
+      "fixed_in": "84b9c67"
     },
     {
       "case": "SSH key approval declined",
@@ -169,6 +170,88 @@
   "limits": [
     "The page used the loopback bridge, not the Cloudflare URL.",
     "The Cloudflare 524 limit was measured by the bridge agent with a local slow server, not with a slow vault lookup.",
-    "The findings in refusals[0] are fixed after this record; see the follow-up in the PR."
-  ]
+    "The spent-code dialog fix (after the follow-up run) has unit tests only."
+  ],
+  "follow_up_run": {
+    "source": {
+      "revision": "84b9c67",
+      "branch": "ux-review-fixes"
+    },
+    "window_local": "2026-09-29 9:34 PM to 9:41 PM (UTC-4)",
+    "checks": [
+      {
+        "case": "time prefix",
+        "status": "passed",
+        "observed": "5:44:35 PM  Incorrect connection code from https://probe.example (attempt 1 of 5)."
+      },
+      {
+        "case": "idle expiry",
+        "status": "passed",
+        "observed": "9:34:58 PM  The previous code expired, so the QR code above no longer works. Enter code <new code> with <tunnel URL>. It expires at 9:39 PM (in 5 minutes)."
+      },
+      {
+        "case": "connect while 1Password is locked, unlock prompt canceled",
+        "status": "passed",
+        "page": "1Password did not allow the vault check. Unlock 1Password and approve its prompt, then try again.",
+        "terminal": [
+          "9:38:40 PM  Connected http://127.0.0.1:18788. It can switch among the listed wallets.",
+          "9:38:43 PM  Could not list the wallets for http://127.0.0.1:18788. 1Password did not allow the vault check. Unlock 1Password and approve its prompt, then try again.",
+          "9:38:43 PM  Disconnected http://127.0.0.1:18788."
+        ],
+        "finding": "The used code stayed in the dialog, so 'try again' would send a spent code. Fixed after this run: the dialog clears the code and says to use the new one. Unit tests cover the fix. It was not run live again."
+      },
+      {
+        "case": "sign and submit a note",
+        "status": "passed",
+        "hash": "c6da4c932df639153d8aa1b346d42c21f272abbcb5e235c4d5c0bd23d07fe336",
+        "ledger": 4941760,
+        "created_at": "2026-09-30T01:39:47Z",
+        "fee_charged_stroops": 100,
+        "terminal": "9:39:34 PM  Signed transaction c6da4c93…fe336 (account GBMU6VU…SF5IR5, sequence 20897184853524522) for http://127.0.0.1:18788."
+      },
+      {
+        "case": "signed without a prompt, cleared without submission",
+        "status": "observed",
+        "hash": "29fdcf9c400f12e891c65c3daf1df25cda47f6a57d5f3ee86191f06a1d9a7ec2",
+        "sequence": "20897184853524523",
+        "note": "1Password was not locked yet. Horizon returns 404 for this hash."
+      },
+      {
+        "case": "sign while 1Password is locked, unlock prompt canceled",
+        "status": "passed",
+        "state": "denied",
+        "page": "1Password did not allow the vault check. Unlock 1Password and approve its prompt, then try again.",
+        "phase": "The signing request was declined. Nothing was signed.",
+        "terminal": "9:40:59 PM  Did not sign transaction 7fd7d183a0dc5102e0309226e81bb6e770cf13e8c4e50fb65771c82014b35664 (account GBMU6VU…SF5IR5, sequence 20897184853524523) for http://127.0.0.1:18788. 1Password did not allow the vault check. Unlock 1Password and approve its prompt, then try again."
+      },
+      {
+        "case": "disconnect and stop",
+        "status": "passed",
+        "terminal": [
+          "9:41:16 PM  Disconnected http://127.0.0.1:18788.",
+          "9:41:24 PM  Walleterm tunnel stopped.",
+          "9:41:24 PM  Walleterm demo stopped."
+        ]
+      }
+    ],
+    "final_account_state": {
+      "sequence": "20897184853524522",
+      "balances": [
+        {
+          "asset": "USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5",
+          "balance": "0.0000000",
+          "limit": "100.0000000"
+        },
+        {
+          "asset": "XLM",
+          "balance": "10003.0070248"
+        }
+      ],
+      "data_entries": [
+        "sep43-kit",
+        "walleterm-demo"
+      ],
+      "open_offers": 0
+    }
+  }
 }
