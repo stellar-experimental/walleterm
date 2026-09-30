@@ -75,7 +75,9 @@ The bridge and the SDK call testnet `TESTNET`.
 | `demo/site/contracts.ts` `DEMO_WASM` | The demo uploads and deploys its own contracts by WASM hash. It has no fixed contract ID. | Two SHA-256 hashes | None for the hashes. An upload costs real fees on mainnet. |
 | `demo/site/activity.ts` `ActivityHistory.wrapFetch` and `categories` | Logs only the testnet Horizon, Friendbot, and Soroban RPC origins. Names RPC calls by method. Labels: "Fund testnet account", "Read testnet account", "Read testnet data", and "Testnet". | Testnet hosts | Match the chosen hosts and names. |
 | `demo/site/index.html` and `demo/site/app.ts` status text | "Stellar testnet", "Submit to testnet", and testnet account notes. | Text | Change the copy. |
-| `src/demo.rs` `CSP` | `connect-src` permits any HTTPS host and loopback HTTP. | Any HTTPS host | None. A local network on `localhost` also fits. |
+| `demo/site/walkthrough.ts` step labels | "Submit to testnet", "Waiting for the testnet result.", and "Testnet rejected it". | Text | Change the copy. |
+| `demo/site/app.ts` `Journal` | The saved request records store no network. Recovery reads the current endpoints. | None | Store the passphrase. Refuse to recover a record from another network. |
+| `src/demo.rs` `CSP` | `connect-src` permits any HTTPS host and loopback HTTP. | Any HTTPS host | An RPC on `localhost` fits. A plain HTTP RPC on another host fails. The RPC must also send CORS headers. |
 
 ## Skills (`.agents/skills/`)
 
@@ -98,10 +100,17 @@ The bridge and the SDK call testnet `TESTNET`.
 | `docs/INTERFACE.md` | The command text says that `tunnel` is the testnet bridge. The sign section says that the CLI accepts any network. The notice examples use testnet. | Change the tunnel text with the bridge. |
 | `docs/WEB-BRIDGE.md` | The setup uses testnet, Friendbot, and the testnet USDC issuer. "Add end-to-end encryption before any mainnet use." | Change with the bridge and the demo. |
 | `docs/DEMO.md`, `docs/CONNECTION-UI.md` | The demo and the connection component use testnet. | Change with the demo and the SDK. |
+| `docs/CONTRACT-AUTHORIZATION.md` | The demo steps say "Submit to testnet". The code examples use `Networks.TESTNET`. | Change with the demo. |
+| `docs/AGENTIC-PAYMENTS.md` | The website x402 flow goes through the bridge, so it works on testnet only. "The project rules permit testnet only." | Change with the bridge. |
+| `docs/STELLAR-CLI.md` | The digest section gives the testnet network ID as an example. | None. The CLI path accepts any network. |
+| `SECURITY.md` | "Use testnet accounts and dedicated test keys to show the problem." | None. Reports stay on testnet. |
 | `docs/LIVE-TESTS.md` | The live suites run on testnet with Friendbot funding. | None. Live tests stay on testnet. |
 | `README.md` | The website bridge signs for testnet only. The CLI example uses `--network testnet`. | Change with the bridge. |
 | `site/index.html` | No network text. | None. |
 | `Casks/walleterm.rb` | No network text. | None. |
+
+`docs/KEY-STORES.md`, `docs/SECURE-ENCLAVE.md`, `docs/1PASSWORD-VIDEO.md`, and `design/reference/README.md` name testnet only in research records, examples, and art labels.
+They state no restriction.
 
 ## Hard-coded limits
 
@@ -231,6 +240,25 @@ When the bridge or the SDK opens a network, update the tests that assert `networ
 
 ## Opening other networks
 
+This section is the plan to open mainnet and custom networks. It is a plan only. No code follows it yet.
+It records the research of 2026-09-29, an independent review of the first draft, and the open decisions.
+
+### Findings
+
+- `walleterm sign` already signs for mainnet and for a custom network. It hashes the exact passphrase and reads no ledger.
+  Its limits stay: a passphrase of 1–256 UTF-16 units, no V0 envelope, and only V2 address credentials.
+  A message binds no network on any path.
+- Only the website path has the testnet rule. It is in `admit`, the bridge replies, the SDK, the connection component, the Kit module, and the demo.
+- The bridge and the SDK must change in one release. The current SDK refuses an account reply that is not testnet.
+- The bridge has no approval step. Pull request #71 removed the unused `review` field from `Deps`.
+  `transaction::details` still builds review details. They name operation types and sources only.
+- RPC `getNetwork` on 2026-09-29 reported protocol 28 for mainnet and protocol 29 for testnet and futurenet.
+  CAP-71 AddressV2 needs protocol 27, so mainnet accepts the Walleterm authorization formats. A custom network below protocol 27 does not.
+  CAP-85 passed on testnet at protocol 28, the mainnet version. See `evidence/protocol-acceptance.json`.
+- A Stellar CLI plugin inherits the stored default network.
+  With `network = "local"` in `config.toml`, a stub plugin run as `stellar envcheck` received `STELLAR_NETWORK=local` and `STELLAR_NETWORK_SOURCE=use`.
+  So `stellar walleterm tunnel` would change its network if Walleterm read `STELLAR_NETWORK`.
+
 ### The Stellar CLI model
 
 Stellar CLI 28.1.0 resolves one network from three fields: an RPC URL, optional RPC headers, and a passphrase.
@@ -242,48 +270,219 @@ Stellar CLI 28.1.0 resolves one network from three fields: an RPC URL, optional 
 
 Other rules:
 
-- An RPC URL without a passphrase fails. A passphrase without an RPC URL also fails.
+- An RPC URL without a passphrase fails, even with a name. A passphrase without an RPC URL also fails.
   Commands that never call RPC, such as `tx sign` and `tx hash`, accept a passphrase alone.
 - `stellar network add <name> --rpc-url <url> --network-passphrase <passphrase>` stores a custom network.
-  Each `--rpc-header "Name: value"` adds an RPC header. `STELLAR_RPC_HEADERS` does the same.
-- The built-in names are `testnet`, `futurenet`, `mainnet`, and `local`. A stored network with the same name replaces the built-in one.
-- A stored network has no Horizon URL and no Friendbot URL.
+  Each `--rpc-header "Name: value"` adds an RPC header.
+  `STELLAR_RPC_HEADERS` applies only when `--rpc-url` and `--network-passphrase` define the network directly. A stored network uses its own headers.
+- The built-in names are `testnet`, `futurenet`, `mainnet`, and `local`. The built-in `mainnet` has no RPC URL. `stellar network ls --long` shows "Bring Your Own".
+- The CLI checks the name. It reads a stored file first. It uses a built-in network only when no stored file has that name.
+  So a stored network can replace a built-in one, and it can give a built-in name another passphrase.
+- A stored network is the file `network/<name>.toml` with `rpc_url`, `rpc_headers`, and `network_passphrase`. It has no Horizon URL and no Friendbot URL.
+- The configuration directory is the first of these:
+  1. `--config-dir`.
+  2. `STELLAR_CONFIG_HOME`, used as the directory itself.
+  3. `$XDG_CONFIG_HOME/stellar`, or `$XDG_CONFIG_HOME/soroban` when only that legacy directory exists.
+  4. `~/.config/stellar`, with the same `soroban` fallback.
+- The CLI no longer reads a `.stellar` directory in the project. It prints a warning that names `stellar config migrate`.
 - The CLI finds Friendbot through the RPC `getNetwork` field `friendbotUrl`. For the `local` passphrase, it uses `/friendbot` on the RPC host.
 - Stellar Lab adds a Horizon URL to these fields for a custom network.
 
+### Proposed design
+
+| Input | `walleterm tunnel` | `walleterm demo` | `walleterm sign` |
+| --- | --- | --- | --- |
+| `--network <name>` | Yes | Yes | No change |
+| `--network-passphrase <passphrase>` | Yes | Yes, with `--rpc-url` | The `network_passphrase` field, as today |
+| `--rpc-url <url>` | No. The bridge makes no RPC call. | Yes, with `--network-passphrase` | No |
+| A stored Stellar CLI network | Read only | Read only | No |
+| `STELLAR_NETWORK`, `STELLAR_NETWORK_PASSPHRASE`, and the `stellar network use` default | Not read | Not read | Not read |
+| No input | testnet | testnet | Not applicable |
+
+- Each flag is explicit, appears once, and is not blank, as `--vault` is. A failure exits with code 2 before startup.
+- `--network` and `--network-passphrase` together fail. The CLI lets the passphrase win, but a signing network must be clear.
+- Walleterm reads the Stellar CLI configuration directory in the CLI order. It never writes it. Users add a network with `stellar network add`.
+- Walleterm ignores the environment and the stored default on purpose, as `--vault` ignores `OP_VAULT`. The network of a signing bridge is a consequential choice.
+  The docs must state this difference from the CLI.
+- Each tunnel process serves one network. The startup text, the QR payload, `/api/session`, `/v1/connect`, `/v1/select`, and `/v1/account` state it.
+  Two networks need two tunnels.
+
+Every rule keys on the resolved passphrase, never on the name.
+
+- Test networks have the testnet, futurenet, or standalone passphrase. `Standalone Network ; February 2017` is the `local` passphrase.
+- Production networks have the mainnet passphrase or any other passphrase. A custom network can hold real value, so it gets the mainnet controls.
+
+Names are display text. The passphrase is the only signing identity.
+
+- Terminal text uses the Stellar CLI names `testnet`, `futurenet`, `mainnet`, and `local`.
+  A stored custom network shows its name and the escaped passphrase. A passphrase from `--network-passphrase` shows as an escaped quote.
+- SEP-43 defines `network` as a free string. Proposal: the Stellar SDK `Networks` keys `TESTNET`, `FUTURENET`, `PUBLIC`, and `STANDALONE`.
+  The Stellar Wallets Kit uses the same keys. A stored custom network reports its stored name.
+
+### Phase 1: network plumbing for the test networks
+
+Rust:
+
+- A new `src/network.rs` holds the built-in table, resolution, the stored-network lookup, the network class, and one `name` function.
+  It replaces `transaction::TESTNET`, `cli::network_name`, and the name in `transaction::details`. Add it to the code layout in `AGENTS.md`.
+- Stored networks need a TOML reader, probably the `toml` crate. Pin it, then measure the package counts and the binary before you accept it.
+  On 2026-09-29, the lockfile had 135 of 160 packages, and macOS resolved 114 of 130. The binary limit is 10000000 bytes.
+- `service::parse_options` accepts the flags in the table.
+- `Bridge::new` takes the network. `admit` compares each request with it.
+  `Bridge::pairing`, `/api/session`, `Bridge::select`, and `/v1/account` report it. `PROTOCOL` becomes 4.
+- A production passphrase stops `walleterm tunnel` at startup with a plain message. This rule stays until Phase 2 ends.
+- `tunnel.rs` `launch` prints the network name and the passphrase. `cli.rs` `HELP` and the notice use the Stellar CLI names.
+  The notice keeps the escaped quote for an unknown passphrase.
+- `src/bin/walleterm-test-host.rs` takes a network, so browser tests can use each network class.
+
+SDK:
+
+- Protocol 4 applies in `sdk/scan.ts`, the manual path in `WalletermClient.connect`, and the saved session.
+  The saved session stores `version: 3` today.
+  Manual pairing posts to `/v1/connect` and checks no version. The SDK never reads `/api/session`.
+  So `/v1/connect` returns the protocol and the network.
+- An optional `new Walleterm({ networkPassphrase })` names the network that the website expects.
+  The SDK checks it in each account path: `readAccount`, `selectWallet`, a restore, and a change from another tab.
+  `WalletermClient.selectWallet` sets the account with no network check today.
+- `#ready` and `signer` default to the session network. `getNetwork` returns it.
+- `AddressChange.network` becomes `string`. `#publish` reports a network change, even when the address stays the same.
+- The Kit starts on `Networks.PUBLIC` and sends its own passphrase to each signing call.
+  A Kit website sets the Kit network from `getNetwork()`. Update the Kit example in `docs/SEP-43.md` and the Kit checks.
+- `sdk/connect.ts` shows the network before the code step and a network badge after pairing. A production network gets a distinct badge.
+
+Tests:
+
+- Rust: resolution order, a stored file in a temporary configuration directory, a stored `testnet` with the mainnet passphrase,
+  flag conflicts, admission for each network, the QR payload, and the tunnel text.
+- SDK and browser: a bridge on another network, each account path, the change event, and the Kit.
+- Signing vectors with mock keys for futurenet, standalone, mainnet, and a custom passphrase. They need no funds.
+
+### Phase 2: controls for production networks
+
+The bridge refuses production networks until each control exists and passes an independent review.
+
+1. Approval in the tunnel terminal.
+   A connected website approves each request when it sends it. "The connection code is the only gate." The 1Password prompt shows no artifact.
+   Add an approval step to `Bridge::sign_job` before the agent call. The terminal shows each request and waits for an explicit answer.
+   The display names the origin, the key, the kind, the network, and the hash. It also decodes the content:
+   - A transaction: each operation with its destination, amount, asset, and arguments, and the memo and the fees.
+   - An authorization: the contract, the function, and the arguments of each invocation.
+   - A message: the escaped text and the session network.
+
+   The step denies a request that it cannot display. A denial ends the request as `denied` with `-4`.
+   Messages need approval on every network. A SEP-53 signature works on all networks, so a testnet session can get one from a funded key.
+   This display overlaps the decoded notice that the user deferred on 2026-09-29. It needs the user's decision.
+2. Transport.
+   Cloudflare terminates TLS. It can read the connection code, the bearer token, and each artifact.
+   The bridge requires the connected Origin. A program outside a browser can send that header, so a party with the token can send requests.
+   Encryption does not protect against the connected website or a script in it. Approval is the main control. The transport is a second layer.
+   `docs/WEB-BRIDGE.md` requires end-to-end encryption before any mainnet use. The user decides if that stays a hard gate.
+   CPace on ristretto255 with the 8-digit code is a candidate. It is still an IETF draft. The design must state these points:
+   - Identity binding to the tunnel, the network, the session, and the protocol version.
+   - Key confirmation and a separate key for each direction.
+   - Nonce rules, replay rejection, retries, and session restore.
+   - Attempt limits, and no unencrypted fallback on a production network.
+   - Test vectors that the Rust code and the browser both pass, and an independent review.
+
+   Rust has `curve25519-dalek` through `ed25519-dalek`. An AEAD crate would be new.
+   The SDK needs `@noble/curves` and an AEAD, such as `@noble/ciphers` or WebCrypto AES-GCM.
+3. Login challenges.
+   A SEP-10 challenge passes the bridge rules. The selected key is a `manageData` source, and no rule checks sequence 0.
+   A SEP-45 challenge passes when it uses AddressV2 entries and a supported adapter. It can arrive as `auth_entry` or as `authorization`.
+   On a production network, a website can relay the challenge of a real service and sign in as the user.
+   A rule that the home domain equals the Origin host is wrong. A wallet website signs in to an anchor that has another domain.
+   The approval display names the login service instead. Tests cover both SEP-45 request kinds.
+4. Key isolation.
+   Without `--vault`, the bridge offers every Ed25519 agent key, SSH login keys included. A production network requires `--vault`.
+5. Review and release.
+   An independent reviewer checks each control. Then the bridge opens production networks.
+   `fixtures/kit/live/negatives.mts` changes too. It asserts today that `Networks.PUBLIC` fails.
+
+### Phase 3: the demo on other networks
+
+This phase is optional. It ships apart from the bridge.
+
+- `walleterm demo --network <name>` sends the passphrase, the RPC URL, and the Friendbot URL to the page. A new route carries them.
+  Today the demo serves its assets and `/api/session` only.
+- Before it funds, builds, or submits, the page checks that RPC `getNetwork` and the bridge both report the expected passphrase.
+- The request journal stores the passphrase. The page refuses to recover a record from another network.
+- The demo uses Horizon to read accounts, recent operation sources, offers, ledgers, and results, and to submit classic transactions.
+  A Stellar CLI network has no Horizon URL. RPC cannot list the offers of an account or recent operation sources.
+  So choose one: keep Horizon with a Horizon URL for each network, or make the demo actions smaller.
+- Funding uses the RPC `getNetwork` field `friendbotUrl`, or `/friendbot` on the RPC host for `local`. Without Friendbot, the account must hold funds.
+- A USDC issuer and faucet table covers each network. Without an entry, the page hides the trustline, the offer, and the faucet line.
+- The fee comes from RPC. The demo sends a fixed `'100'` today.
+- `testnetFetch` and `activity.ts` take their hosts and text from the configuration.
+- The demo refuses RPC headers and credentials inside RPC URLs. The tunnel makes the page public, so every visitor would receive them.
+- A phone cannot reach an RPC URL on `localhost`. A stored `local` network with a remote RPC URL works.
+- Proposal: the demo refuses production networks. Its actions move funds and upload test contracts.
+
+### Phase 4: docs, skills, and the inventory test
+
+- Change each row in the tables above with the component that it describes.
+- `tests/networks.test.ts` reads only product files. Widen its file set to the docs and the skills, and match the mainnet passphrase too.
+  Keep the records of past testnet runs unchanged.
+- The `walleterm` skill gets the passphrase from `stellar network ls --long`. It states the network in each plan.
+  A production network needs an explicit grant.
+- Update each `walleterm-site-bridge` reference and `freighter-page.ts`.
+- `site/` has no network text now. If that changes, change the Paper design first.
+
+### Acceptance
+
+- Offline tests with mock keys cover each network class. They need no funds.
+- Live tests stay on testnet, because `AGENTS.md` permits live tests only there.
+  A futurenet, local, or mainnet run needs the user's approval. Keep one live runner at a time.
+
 ### Decisions to make
 
-These are open choices. This file does not select one.
+These are open choices. The user makes them.
 
-1. Scope. Choose the components that open. `walleterm sign` accepts any passphrase. The bridge, the SDK, and the demo accept only testnet.
-2. The bridge network set. Options: one network for each tunnel process, a fixed list, or any passphrase in each request.
-   The bridge reads no ledger, so it needs only a passphrase.
-3. The network input. `walleterm tunnel` has no network input.
-   The Stellar CLI model offers a name, a passphrase, and a stored default. Walleterm can also read the Stellar CLI network configuration.
-4. Network names. The bridge and the SDK return `TESTNET`. SEP-43 `getNetwork` returns a name and a passphrase.
-   Choose a name for each other network and a rule for a custom passphrase.
-5. The SDK reply without a session. `getNetwork` returns testnet before any connection.
-6. The security preconditions that the current docs state:
-   - `docs/WEB-BRIDGE.md`: Cloudflare terminates TLS and can read tokens and XDR. Add end-to-end encryption before any mainnet use.
-   - `docs/SEP-43.md`: the testnet network ID limits a relayed SEP-45 challenge to testnet services.
-   - `docs/BRIDGE-PROTOCOL.md`: the connection code is the only gate. "This fits testnet use only."
-   - A message signature binds no network. The testnet rule never limited it.
-   - `AGENTS.md` forbids mainnet funds in project work.
-7. The demo endpoints. The demo needs an RPC URL, a Horizon URL, a funding path, and an asset issuer for each network.
-   Mainnet has no Friendbot. Stellar CLI has no built-in mainnet RPC.
+1. Scope. Proposal: the bridge and the SDK open production networks after Phase 2. The demo stays on test networks.
+2. Test networks. Proposal: exactly the testnet, futurenet, and standalone passphrases. Every other passphrase gets the production controls.
+3. Network input. Proposal: flags and stored names only, as the table shows. The alternative is the full CLI order with `STELLAR_NETWORK` and the stored default.
+4. Stored networks. Proposal: add a TOML reader. The alternative is the built-in names and `--network-passphrase` only.
+5. Names. The SEP-43 name of a custom network. The `getNetwork` reply before a session: the expected network, or `-3` with `walleterm:not_connected`.
+6. Approval. Proposal: terminal approval of each production request, and of each message on every network, with the full decoded display.
+7. Transport. Encryption as a hard gate, encryption as a later layer, or a production bridge on loopback only, with no tunnel.
+8. Protocol versions. Proposal: Phase 1 ships protocol 4, and the transport ships protocol 5. Forward-only work before 1.0 permits two changes.
+   The alternative is to design the transport first and change the protocol once.
+9. Live tests on futurenet, local, or mainnet.
 
 ### Order of changes
 
-1. Record the decisions and the user's approval.
-2. Rust bridge: `admit`, the account and selection replies, the `details` names, the tunnel text, `HELP`, and any new tunnel input.
-   Update `tests/bridge.rs` and `tests/tunnel.rs`.
-3. Browser SDK: `readAccount`, `#ready`, `signer`, `getNetwork`, `AddressChange`, the Kit `onChange`, and the connection interface.
-   The current SDK refuses an account reply that is not testnet. So release the SDK change with the bridge change.
-4. The docs and skills in the tables above. Change the Paper design first, then `site/`.
-5. The demo, if it opens: endpoints, issuer, fee, amounts, and copy.
-6. Tests: the `network_unsupported` cases, the Kit negatives, and new cases for each accepted network.
-   Live tests stay on testnet unless the user approves another network.
-7. Update this file.
+1. This plan. Record the decisions and the user's approval in this file.
+2. Phase 1. The bridge, the SDK, the connection component, their tests, and their docs change in one pull request.
+3. Phase 2. First the approval step, then key isolation and the login display, then the transport.
+   The last pull request opens production networks.
+4. Phase 3, if the user wants the demo on other networks.
+5. Phase 4 with each pull request, then one final check of this file.
+
+### Independent review
+
+On 2026-09-29, two reviewers checked the first draft of this plan in read-only Codex sessions.
+They were GPT-6 Astra (`gpt-6-astra`) and GPT-6.1 Sol (`gpt-6.1-sol`), both at high reasoning effort.
+Each reviewer treated the draft as wrong and checked each claim in the code and in primary sources. The author then checked each finding.
+Both reviewers found the same main faults. This version has these corrections:
+
+- The rules key on the resolved passphrase. A custom network counts as a production network.
+- Approval is the main control, because encryption does not protect against the connected website.
+- The approval display must decode each request.
+- CPace is a candidate, not a complete transport design.
+- A stolen token needs the connected Origin. A program outside a browser can send it.
+- The draft proposed a login rule that the home domain equals the Origin host. That rule is gone, because it blocks normal anchor logins.
+- CAP-85 needs no mainnet recheck.
+- The Stellar CLI configuration order and header rules are now complete.
+- The SDK plan covers each account path, the change event, manual pairing, and the saved session.
+- The Kit network needs its own step.
+- The demo plan covers the RPC gaps, the journal, the CSP, and credentials in URLs.
+- Futurenet and local live runs need the user's approval.
+- The inventory test reads no docs.
+- Dependency estimates need a measurement.
+
+The author did not accept two findings.
+The demo contract ID cache omits the network, but it lives in page memory for one network. So the risk is low.
+One statement about Freighter network names was unclear. The names stay a decision.
+Pull request #71 removed the unused `review` field after the review. So Phase 2 adds a new approval step.
 
 ### Sources
 
@@ -293,6 +492,13 @@ These are open choices. This file does not select one.
 - Stellar CLI source at tag `v28.0.0`, read through the GitHub API on 2026-09-28. These parts did not change in `v28.1.0`:
   `cmd/soroban-cli/src/config/network.rs` (`Args::resolve`, `DEFAULTS`, `Network::helper_url`), `config/network/passphrase.rs`,
   `config/locator.rs` (`read_network`), and `cli.rs` (`set_env_from_config`, `set_env_value_from_config`).
+- The `soroban-cli` 28.1.0 crate source, read on 2026-09-29: `config/network.rs` (`Args::resolve`),
+  `config/locator.rs` (`read_network`, `global_config_path`, `read_with_global_with_location`), and `commands/plugin/default.rs`.
+- Local checks with Stellar CLI 28.1.0 on 2026-09-29: the stub plugin, a project `.stellar` directory, `XDG_CONFIG_HOME`, and `STELLAR_CONFIG_HOME`.
+- RPC `getNetwork` and `getLatestLedger` on 2026-09-29: `https://mainnet.sorobanrpc.com`, `https://soroban-testnet.stellar.org`, and `https://rpc-futurenet.stellar.org`.
+- Stellar Wallets Kit 2.7.0 in `fixtures/kit/`: `script/sdk/kit.js` (`signTransaction`), `script/state/values.js` (`selectedNetwork`), and `esm/types/mod.js` (`Networks`).
+- The reviewers read SEP-10, SEP-43, and SEP-45 in `stellar-protocol`, the CPace Internet-Draft `draft-irtf-cfrg-cpace`,
+  and the Stellar guide "Migrate from Horizon to RPC".
 - Stellar Raven `stellarDocs` search on 2026-09-28: the Stellar CLI manual for `stellar network add`, and the Stellar Lab custom network fields.
   The Stellar Lab overview states that Friendbot funds accounts on Testnet and Futurenet.
 - Network IDs: `shasum -a 256` of each passphrase.
