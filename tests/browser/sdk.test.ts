@@ -2,6 +2,8 @@ import { Account, Keypair, Networks, Operation, TransactionBuilder } from '@stel
 import { jest, onTestFinished, spyOn, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { WalletermClient } from '../../sdk/walleterm.ts';
+import type { RequestError } from '../../sdk/errors.ts';
+import { isTunnelUrl, sep43Error } from '../../sdk/errors.ts';
 import { requestSignal, requestUrl } from './support.ts';
 
 const mockKey = Keypair.random(); // Offline mock key only.
@@ -47,8 +49,8 @@ test('discovery and selection permit slow vault lookup but keep a bounded deadli
     timeout.mockRestore();
   });
   for (const [path, deadline] of [
-    ['/v1/signers', 135000],
-    ['/v1/select', 135000],
+    ['/v1/signers', 115000],
+    ['/v1/select', 115000],
     ['/v1/account', 15000],
   ] as const) {
     let requestedSignal: AbortSignal | undefined;
@@ -118,6 +120,65 @@ test('a lost or silent tunnel gets a plain message, and a caller cancellation ke
   });
 });
 
+test('a non-JSON answer from the tunnel host names the likely cause', async () => {
+  const answering = (body: string, status: number) =>
+    new WalletermClient('https://bridge.example', { fetch: async () => new Response(body, { status }) });
+  // Cloudflare answers 524 with an HTML page when the bridge waits too long, often for 1Password.
+  const timedOut = await answering('<html>A timeout occurred</html>', 524)
+    .request('/v1/signers')
+    .catch((error) => error);
+  assert.deepEqual(
+    { message: timedOut.message, status: timedOut.status, ext: timedOut.ext },
+    {
+      message: 'The tunnel connection timed out. Check for a 1Password prompt on your Mac, then try again.',
+      status: 524,
+      ext: ['walleterm:bridge_unavailable'],
+    },
+  );
+  assert.deepEqual(sep43Error(timedOut), {
+    code: -2,
+    message: timedOut.message,
+    ext: ['walleterm:bridge_unavailable'],
+  });
+  await assert.rejects(answering('<html>Bad gateway</html>', 502).request('/v1/account'), {
+    message: 'The tunnel is unavailable (error 502). Check that walleterm tunnel is running on your Mac.',
+    status: 502,
+    ext: ['walleterm:bridge_unavailable'],
+  });
+  await assert.rejects(answering('<html>Too large</html>', 413).request('/v1/account'), {
+    message: 'The tunnel returned an unreadable response (413).',
+    status: 413,
+  });
+  await assert.rejects(answering('{}', 500).request('/v1/account'), {
+    message: 'The tunnel request failed (500).',
+    status: 500,
+  });
+});
+
+test('one tunnel URL check accepts only an exact HTTPS or loopback origin', () => {
+  for (const url of ['https://bridge.example', 'http://127.0.0.1:8787', 'http://localhost:8787'])
+    assert.equal(isTunnelUrl(url), true, url);
+  for (const url of [
+    '',
+    'bridge.example',
+    'https://bridge.example/',
+    'https://bridge.example/path',
+    'https://bridge.example?code=1',
+    'https://bridge.example#code',
+    'https://user:password@bridge.example',
+    // The visible start of this URL is not its host.
+    'https://bridge.example@attacker.example',
+    'http://bridge.example',
+    'javascript:alert(1)',
+  ])
+    assert.equal(isTunnelUrl(url), false, url);
+  assert.throws(() => new WalletermClient('https://bridge.example/path'), {
+    message:
+      'Use the Tunnel URL exactly as walleterm tunnel prints it. It starts with https:// and has no path.',
+    ext: ['walleterm:invalid_request'],
+  });
+});
+
 test('the default connection and signing deadlines give plain reasons', async () => {
   const deadlines = new Map<number, AbortController>();
   const timeout = spyOn(AbortSignal, 'timeout').mockImplementation((milliseconds) => {
@@ -151,7 +212,8 @@ test('the default connection and signing deadlines give plain reasons', async ()
   deadlines.get(300000)!.abort();
   await assert.rejects(connecting, {
     name: 'TimeoutError',
-    message: 'The connection timed out after 5 minutes. Use the current code from your tunnel terminal.',
+    message: 'The connection timed out after 5 minutes.',
+    codeUsed: true,
   });
   deadlines.clear();
   client.token = 'session';
@@ -160,6 +222,39 @@ test('the default connection and signing deadlines give plain reasons', async ()
     onProgress: () => deadlines.get(300000)?.abort(),
   });
   await assert.rejects(signing, { message: 'The signing request timed out after 5 minutes.' });
+});
+
+test('a failure after pairing reports a spent code, and a refused code does not', async () => {
+  const failing = (connect: number, signers: number) =>
+    new WalletermClient('https://bridge.example', {
+      fetch: async (input) => {
+        const url = requestUrl(input);
+        if (url.endsWith('/v1/connect'))
+          return connect === 201
+            ? Response.json({ token: 'session', wallet_scope: 'selected' }, { status: 201 })
+            : Response.json(
+                { error: { code: -3, message: 'The connection code is incorrect.' } },
+                { status: 403 },
+              );
+        if (url.endsWith('/v1/signers'))
+          return Response.json(
+            { error: { code: -2, message: '1Password did not allow the vault check.' } },
+            { status: signers },
+          );
+        return Response.json({ disconnected: true });
+      },
+    });
+  const options = { code: '01234567', selectWallet: async () => 'GMOCK' };
+  await assert.rejects(failing(201, 502).connect(options), (error: RequestError) => {
+    assert.equal(error.message, '1Password did not allow the vault check.');
+    assert.equal(error.codeUsed, true);
+    return true;
+  });
+  await assert.rejects(failing(403, 502).connect(options), (error: RequestError) => {
+    assert.equal(error.message, 'The connection code is incorrect.');
+    assert.equal(error.codeUsed, undefined);
+    return true;
+  });
 });
 
 test('an empty wallet picker can refresh discovery within its current connection', async () => {

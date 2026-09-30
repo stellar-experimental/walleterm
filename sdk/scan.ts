@@ -1,4 +1,4 @@
-import { deadline, requestError } from './errors.js';
+import { deadline, isTunnelUrl, requestError } from './errors.js';
 // Camera access starts only when the calling site asks to scan.
 import type { Connection, SignalOptions } from './types.js';
 
@@ -11,15 +11,7 @@ export function parseConnection(value: string): Connection {
   }
   if (!data || data.walleterm !== 3 || typeof data.code !== 'string' || !/^\d{8}$/.test(data.code))
     throw Error('Scan a Walleterm tunnel QR code.');
-  const url = new URL(data.url);
-  if (
-    url.origin !== data.url ||
-    !(
-      url.protocol === 'https:' ||
-      (url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))
-    )
-  )
-    throw Error('The tunnel URL is invalid.');
+  if (!isTunnelUrl(data.url)) throw Error('The tunnel URL is invalid.');
   if (!Number.isFinite(Date.parse(data.expires_at)) || Date.parse(data.expires_at) <= Date.now())
     throw Error('This QR code expired. Use the current code from the tunnel terminal.');
   return { url: data.url, code: data.code };

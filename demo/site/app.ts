@@ -4,6 +4,7 @@ import { createCodeView, highlightConnectionCommand } from './code-view.js';
 import { WalletermConnect } from '../../sdk/connect.ts';
 import { createActivityLog } from './activity.ts';
 import {
+  CONTRACT_RPC,
   MAX_SETS,
   assembleAuthorizedContract,
   authorizationExpiry,
@@ -30,11 +31,12 @@ import {
   xdr,
 } from '@stellar/stellar-sdk';
 import type { Horizon, Transaction } from '@stellar/stellar-sdk';
-import type { Account as WalletAccount } from '../../sdk/types.ts';
+import type { Account as WalletAccount, Fetch } from '../../sdk/types.ts';
 import type { Sep43Error } from '../../sdk/errors.ts';
 import type { Walleterm } from '../../sdk/walleterm.ts';
 
-type Action = 'note' | 'payment' | 'offer' | 'cancel_offer' | 'contract_setup' | 'contract_counter';
+type Action =
+  'note' | 'payment' | 'trustline' | 'offer' | 'cancel_offer' | 'contract_setup' | 'contract_counter';
 type State =
   | 'review'
   | 'waiting'
@@ -92,8 +94,10 @@ interface Elements {
   'transaction-details': HTMLDetailsElement;
   note: HTMLButtonElement;
   payment: HTMLButtonElement;
+  trustline: HTMLButtonElement;
   offer: HTMLButtonElement;
   'cancel-offer': HTMLButtonElement;
+  'discard-record': HTMLButtonElement;
   sign: HTMLButtonElement;
   submit: HTMLButtonElement;
   check: HTMLButtonElement;
@@ -117,8 +121,13 @@ function $<K extends string>(id: K): K extends keyof Elements ? Elements[K] : HT
 }
 const updateDetails = createCodeView($('details'), { label: 'JSON', disclosure: $('transaction-details') });
 const HORIZON = 'https://horizon-testnet.stellar.org';
+const FRIENDBOT = 'https://friendbot.stellar.org';
 const ISSUER = 'GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5';
+// The trustline leaves room for the offer's 1 USDC and for Circle's 20 USDC faucet payments.
+const USDC_LIMIT = '100';
 const STORAGE = 'walleterm-demo-request-v1';
+const OFFLINE = 'The demo could not reach testnet. Check your network.';
+const BLOCKED = 'The saved transaction record cannot be read. Activity has a copy.';
 const activity = createActivityLog($('activity'), {
   decodeSigned(signedXdr) {
     const transaction = TransactionBuilder.fromXDR(signedXdr, Networks.TESTNET);
@@ -130,8 +139,33 @@ const activity = createActivityLog($('activity'), {
     };
   },
 });
+// A browser network error says only "Failed to fetch". Name the cause for testnet requests.
+// Activity keeps the original error. Other failures, aborts, and timeouts keep their own messages.
+function testnetFetch(fetcher: Fetch): Fetch {
+  return async (input, init) => {
+    try {
+      return await fetcher(input, init);
+    } catch (errorValue) {
+      let origin = '';
+      try {
+        origin = new URL(typeof input === 'object' && 'url' in input ? input.url : String(input)).origin;
+      } catch {
+        /* Not a testnet URL. */
+      }
+      if (
+        requestError(errorValue).name === 'TypeError' &&
+        [HORIZON, FRIENDBOT, CONTRACT_RPC].includes(origin)
+      )
+        throw Object.assign(Error(OFFLINE), { name: 'NetworkError', cause: errorValue });
+      throw errorValue;
+    }
+  };
+}
 if (globalThis.fetch)
-  globalThis.fetch = Object.assign(activity.wrapFetch(globalThis.fetch.bind(globalThis)), globalThis.fetch);
+  globalThis.fetch = Object.assign(
+    testnetFetch(activity.wrapFetch(globalThis.fetch.bind(globalThis))),
+    globalThis.fetch,
+  );
 let wallet: Walleterm | null = null;
 let account: WalletAccount | null = null;
 let pending: Journal | null = null;
@@ -169,7 +203,14 @@ const connection = new WalletermConnect($('wallet-connection'), {
         : 'Wallet disconnected',
       { previous_address: previousAddress, account },
     );
-    status(account ? 'Wallet connected. Choose a testnet action.' : 'The website is disconnected.');
+    // An unreadable saved record still blocks actions, so its message stays.
+    status(
+      journalBlocked
+        ? BLOCKED
+        : account
+          ? 'Wallet connected. Choose a testnet action.'
+          : 'The website is disconnected.',
+    );
     if (account?.address !== previousAddress) {
       chosenSet = 0;
       ledger = null;
@@ -192,13 +233,14 @@ function status(text: string) {
   if ($('review').open || busy) $('review-status').textContent = text;
 }
 // A notice also goes to the activity log, because no other event records its fact.
-function notice(text: string) {
-  activity.record('status', text);
+function notice(text: string, data?: Record<string, unknown>) {
+  activity.record('status', text, data);
   status(text);
 }
 const actionNames = {
   note: 'Write a note',
   payment: 'Pay 0.01 test XLM',
+  trustline: 'Add USDC trustline',
   offer: 'Offer 0.1 test XLM',
   cancel_offer: 'Cancel newest offer',
   contract_setup: 'Walkthrough step',
@@ -229,6 +271,10 @@ const verifiedTitles = {
 const short = (value = '') => (value.length > 14 ? `${value.slice(0, 6)}…${value.slice(-6)}` : value);
 // The Stellar RPC client rejects a JSON-RPC error as a plain object. Keep its message.
 function demoError(value: unknown): RequestError {
+  // The RPC client reports an HTTP failure as "Request failed with status code N".
+  const status = (value as { response?: { status?: unknown } } | null)?.response?.status;
+  if (value instanceof Error && typeof status === 'number')
+    return Error(`Testnet returned an error (HTTP ${status}). Try again later.`);
   const plain =
     value && typeof value === 'object' && !(value instanceof Error) ? (value as { message?: unknown }) : null;
   return requestError(
@@ -259,6 +305,7 @@ function closeReview() {
 $('open-review').onclick = openReview;
 $('close-review').onclick = closeReview;
 $('done').onclick = closeReview;
+// showModal() makes the page inert, so Tab stays out of it. Escape and backdrop clicks return focus here.
 $('review').addEventListener('cancel', (event) => {
   event.preventDefault();
   closeReview();
@@ -274,29 +321,28 @@ $('review').addEventListener('click', (event) => {
   )
     closeReview();
 });
-$('review').addEventListener('keydown', (event) => {
-  if (event.key !== 'Tab') return;
-  const controls = [
-    ...$('review').querySelectorAll<HTMLElement>('button:not(:disabled), summary, [tabindex="0"]'),
-  ].filter((node) => node.getClientRects().length);
-  const first = controls[0],
-    last = controls.at(-1);
-  if (
-    (event.shiftKey && document.activeElement === first) ||
-    (!event.shiftKey && document.activeElement === last)
-  ) {
-    event.preventDefault();
-    (event.shiftKey ? last : first)?.focus();
-  }
-});
 async function horizon<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${HORIZON}${path}`, {
     ...options,
     signal: deadline(15000, 'Testnet did not answer in 15 seconds.'),
   });
-  const result = await response.json();
+  // A proxy can answer with an HTML error page. Only a JSON answer from Horizon carries a status meaning.
+  let result;
+  try {
+    result = await response.json();
+  } catch {
+    throw Error(
+      response.ok
+        ? 'Testnet returned an unreadable answer. Try again.'
+        : `Testnet returned an error (HTTP ${response.status}). Try again later.`,
+    );
+  }
   if (!response.ok)
-    throw new HorizonError(result.detail || `Horizon returned ${response.status}.`, response.status, result);
+    throw new HorizonError(
+      result?.detail || `Testnet returned an error (HTTP ${response.status}).`,
+      response.status,
+      result ?? {},
+    );
   return result;
 }
 async function paymentRecipient() {
@@ -345,17 +391,22 @@ async function sourceAccount() {
   }
 }
 // The offer needs an authorized testnet USDC trustline with room for 1 USDC.
-function usdcReady(source: HorizonAccount) {
+function usdcTrustline(source: HorizonAccount): 'none' | 'ready' | 'unauthorized' | 'full' {
   const trustline = (source.balances ?? []).find(
     (b) => 'asset_code' in b && b.asset_code === 'USDC' && b.asset_issuer === ISSUER,
   );
-  return (
-    !!trustline &&
-    'asset_code' in trustline &&
-    trustline.is_authorized !== false &&
-    Number(trustline.limit) - Number(trustline.balance) - Number(trustline.buying_liabilities || '0') >= 1
-  );
+  if (!trustline || !('asset_code' in trustline)) return 'none';
+  if (trustline.is_authorized === false) return 'unauthorized';
+  const room =
+    Number(trustline.limit) - Number(trustline.balance) - Number(trustline.buying_liabilities || '0');
+  return room >= 1 ? 'ready' : 'full';
 }
+const trustlineText = {
+  none: 'It needs a USDC trustline. Add it first.',
+  ready: 'The USDC trustline is ready.',
+  unauthorized: 'The issuer has not authorized this USDC trustline. The offer cannot run.',
+  full: 'The USDC trustline has no room for 1 more USDC. The offer cannot run.',
+};
 // Read the live account for the classic workspace. Contract transactions also spend fees from it.
 async function refreshAccount() {
   const signer = account?.address;
@@ -413,7 +464,9 @@ async function refreshWalkthrough() {
     if (generation !== ledgerGeneration || account?.address !== signer) return;
     const message = demoError(errorValue).message;
     // A failed request already has its own event. Record only a failure of the checks themselves.
-    const request = errorValue instanceof TypeError || !(errorValue instanceof Error);
+    // The RPC client wraps a network failure in its own error, so match the message.
+    const request =
+      message === OFFLINE || requestError(errorValue).name === 'TypeError' || !(errorValue instanceof Error);
     if (message !== ledgerError && !request)
       activity.record('error', 'Walkthrough check failed', { message });
     ledgerError = message;
@@ -423,6 +476,23 @@ async function refreshWalkthrough() {
       render();
     }
   }
+}
+// An unreadable saved record blocks new transactions. Activity keeps its raw text, so a discard loses nothing.
+let blockedRecord: string | null = null;
+function blockJournal(errorValue: unknown) {
+  journalBlocked = true;
+  let raw: string | null = null;
+  try {
+    raw = localStorage.getItem(STORAGE);
+  } catch {
+    /* The error below names the failure. */
+  }
+  if (raw !== null && raw === blockedRecord) return;
+  blockedRecord = raw;
+  activity.record('error', 'Saved transaction record unreadable', {
+    ...(raw === null ? {} : { record: raw }),
+    message: requestError(errorValue).message,
+  });
 }
 function save() {
   if (pending) localStorage.setItem(STORAGE, JSON.stringify(pending));
@@ -449,9 +519,7 @@ function readJournal(): Journal | null {
       'expired',
       'failed',
     ].includes(value.state) ||
-    !['note', 'payment', 'offer', 'cancel_offer', 'contract_setup', 'contract_counter'].includes(
-      value.kind,
-    ) ||
+    !Object.hasOwn(actionNames, value.kind) ||
     typeof value.address !== 'string' ||
     !value.address ||
     typeof value.hash !== 'string' ||
@@ -473,7 +541,9 @@ function classicTransaction(
   text: string,
 ): Transaction & { timeBounds: NonNullable<Transaction['timeBounds']> } {
   const tx = TransactionBuilder.fromXDR(text, Networks.TESTNET);
-  if ('innerTransaction' in tx || !tx.timeBounds) throw Error('Use a transaction with time bounds.');
+  // Expiry checks and the signing deadline need an upper time bound.
+  if ('innerTransaction' in tx || !tx.timeBounds || !Number(tx.timeBounds.maxTime))
+    throw Error('Use a transaction with time bounds.');
   return tx as Transaction & { timeBounds: NonNullable<Transaction['timeBounds']> };
 }
 function verifySignedRecord(record: Journal) {
@@ -561,6 +631,11 @@ function summaryRows(record: Journal): [label: string, value: string, full?: str
     ['Wallet', short(record.address), record.address],
   ];
   if (record.recipient) rows.push(['Recipient', short(record.recipient), record.recipient]);
+  if (record.kind === 'trustline')
+    rows.push(
+      ['USDC issuer', short(ISSUER), ISSUER, 'Circle testnet USDC'],
+      ['Trust limit', `${USDC_LIMIT} USDC`],
+    );
   if (review?.stage === 'upload-account') rows.push(['Contract code', 'Smart account program']);
   if (review?.stage === 'upload-target') rows.push(['Contract code', 'Counter program']);
   if (review && !review.stage.startsWith('upload'))
@@ -593,8 +668,10 @@ function confirmedText(record: Journal) {
     : `${verifiedTitles[review.stage]}.`;
 }
 function renderClassic() {
-  const funded = testnetAccount && testnetAccount !== 'missing' ? testnetAccount : null;
-  const native = funded?.balances?.find((b) => b.asset_type === 'native');
+  const native =
+    testnetAccount && testnetAccount !== 'missing'
+      ? testnetAccount.balances?.find((b) => b.asset_type === 'native')
+      : undefined;
   $('account-status').hidden = !testnetAccount;
   $('account-status').textContent =
     testnetAccount === 'missing'
@@ -602,10 +679,19 @@ function renderClassic() {
       : native
         ? `Testnet account funded · ${Number(native.balance).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} XLM`
         : '';
-  $('offer-requirement').textContent =
-    funded && usdcReady(funded)
-      ? 'The USDC trustline is ready.'
-      : 'It needs an authorized USDC trustline to GBBD…LFLA5 with room for 1 USDC. Create it with direct signing.';
+  // The offer card shows one next step: add the trustline, then place the offer.
+  const usdc = usdcState();
+  $('offer-requirement').textContent = usdc
+    ? trustlineText[usdc]
+    : 'It needs a USDC trustline with room for 1 USDC.';
+  $('trustline').hidden = usdc !== 'none';
+  $('offer').hidden = usdc === 'none';
+  $('usdc-faucet').hidden = usdc !== 'ready';
+}
+// Unknown until the demo reads the account. A missing account has no trustline yet.
+function usdcState() {
+  if (testnetAccount === 'missing') return 'none';
+  return testnetAccount ? usdcTrustline(testnetAccount) : null;
 }
 function renderWalkthrough() {
   const connected = !!account?.address && !!wallet?.address;
@@ -635,9 +721,10 @@ function renderWalkthrough() {
         : '';
   $('walkthrough-refresh').disabled = !connected || ledgerReading;
   $('walkthrough-error').hidden = !ledgerError;
-  $('walkthrough-error').textContent = ledgerError
-    ? `The demo could not read the ledger. ${ledgerError}`
-    : '';
+  $('walkthrough-error').textContent =
+    !ledgerError || ledgerError === OFFLINE
+      ? ledgerError
+      : `The demo could not read the ledger. ${/[.!?]$/.test(ledgerError) ? ledgerError : `${ledgerError}.`}`;
   // Each row: its state, its mark, a status, and at most one button. Only the next step's button is primary.
   const row = (
     id: string,
@@ -771,7 +858,8 @@ function render() {
   connection.sync();
   connection.setBusy(busy && !signingController);
   $('connection-hint').hidden = !!account;
-  for (const name of ['note', 'payment', 'offer', 'cancel-offer'] as const)
+  const usdc = usdcState();
+  for (const name of ['note', 'payment', 'trustline', 'offer', 'cancel-offer'] as const)
     $(name).disabled =
       !account ||
       !wallet?.address ||
@@ -779,7 +867,11 @@ function render() {
       busy ||
       connection.working ||
       (!!pending && !hasFinishedTransaction()) ||
-      journalBlocked;
+      journalBlocked ||
+      (name === 'trustline' && usdc !== 'none') ||
+      (name === 'offer' && usdc !== 'ready');
+  $('record-error').hidden = !journalBlocked;
+  $('discard-record').disabled = busy;
   renderClassic();
   renderWalkthrough();
   // A saved journal names the window. The selected action names it only during preparation without one.
@@ -956,9 +1048,9 @@ async function action(fn: () => Promise<void>, phase = 'preparing') {
       let latest;
       try {
         latest = readJournal();
-      } catch {
-        journalBlocked = true;
-        throw Error('The local demo journal could not be read. Preserve it before continuing.');
+      } catch (errorValue) {
+        blockJournal(errorValue);
+        throw Error(BLOCKED);
       }
       if (JSON.stringify(latest) !== JSON.stringify(pending)) {
         pending = latest;
@@ -976,11 +1068,13 @@ async function action(fn: () => Promise<void>, phase = 'preparing') {
       status(`${error.message} The walkthrough shows the current state.`);
       void refreshWalkthrough();
     } else {
+      const detail = (errorValue as { detail?: unknown })?.detail;
       activity.record('error', 'Action failed', {
         action: pending
           ? actionTitle(pending.kind, pending.contract?.stage)
           : selectedAction && actionTitle(selectedAction, selectedStage),
         message: error.message,
+        ...(typeof detail === 'string' ? { detail } : {}),
       });
       if (error.status === 401) account = null;
       status(error.message);
@@ -1031,10 +1125,17 @@ async function build(kind: Action, stage: ContractStage | null, set: number) {
     recipient = await paymentRecipient();
     operation = Operation.payment({ destination: recipient, amount: '0.0100000', asset: Asset.native() });
   }
+  // The card updates from the account read above. An action that cannot succeed stops before review.
+  const usdc = usdcTrustline(source);
+  if (kind === 'trustline') {
+    if (usdc !== 'none')
+      throw Error('This account already has a USDC trustline. The offer card shows its state.');
+    operation = Operation.changeTrust({ asset: new Asset('USDC', ISSUER), limit: USDC_LIMIT });
+  }
   if (kind === 'offer') {
-    if (!usdcReady(source))
+    if (usdc !== 'ready')
       throw Error(
-        `This account needs an authorized USDC trustline to ${ISSUER} with free capacity. Create it with direct signing; this demo cannot.`,
+        usdc === 'none' ? 'This account has no USDC trustline. Add it first.' : trustlineText[usdc],
       );
     operation = Operation.manageSellOffer({
       selling: Asset.native(),
@@ -1088,7 +1189,11 @@ async function build(kind: Action, stage: ContractStage | null, set: number) {
     throw Error('The browser could not store this request. Enable site storage, then try again.');
   }
   render();
-  status('Review this transaction. Select Sign to approve it, or Discard.');
+  status(
+    kind === 'trustline'
+      ? `Review the trustline. It lets this account hold up to ${USDC_LIMIT} testnet USDC. Select Sign to approve it, or Discard.`
+      : 'Review this transaction. Select Sign to approve it, or Discard.',
+  );
 }
 // Selecting Sign is the approval. The bridge signs every valid request from this connection.
 $('sign').onclick = () =>
@@ -1113,23 +1218,19 @@ async function requestSignature() {
     controller = new AbortController();
   if (record.contract) validateContractReview(record.xdr, record.address, record.contract);
   signingController = controller;
+  // The bridge ends each request at its expiry. The demo stops at the same time if the bridge cannot answer:
+  // the transaction max_time, or the bridge expiry if earlier. The wall-clock check still holds after sleep.
   const timer = setInterval(() => {
     if (signingController !== controller) return;
     if (signingDeadline && Date.now() >= signingDeadline && !controller.signal.aborted)
-      controller.abort(Error('The signing request timed out.'));
+      controller.abort(Object.assign(Error('The signing request expired.'), { name: 'TimeoutError' }));
     render();
   }, 1000);
   try {
-    signingDeadline = Math.min(
-      Date.now() + 300000,
-      Number(classicTransaction(record.xdr).timeBounds.maxTime) * 1000,
-    );
+    signingDeadline = Number(classicTransaction(record.xdr).timeBounds.maxTime) * 1000;
     render();
     const options = {
-      signal: AbortSignal.any([
-        controller.signal,
-        deadline(Math.max(1, signingDeadline - Date.now()), 'The signing request timed out.'),
-      ]),
+      signal: controller.signal,
       onProgress({ state, expiresAt }: { state: string; expiresAt?: string }) {
         if (pending !== record || signingController !== controller) return;
         const expires = Date.parse(expiresAt || '');
@@ -1194,18 +1295,27 @@ async function requestSignature() {
   } catch (errorValue) {
     const error: RequestError & { sep43?: number } = requestError(errorValue);
     if (pending !== record || signingController !== controller) throw error;
+    // The demo stops a request at its deadline or on Cancel. A confirmed stop means that nothing was signed.
+    const stopped = controller.signal.aborted,
+      expired = stopped && requestError(controller.signal.reason).name === 'TimeoutError';
     pending.state =
       error.requestState === 'unknown'
         ? 'signing_unknown'
-        : controller.signal.aborted && error.sep43 === -4
-          ? 'canceled'
+        : stopped && error.sep43 === -4
+          ? expired
+            ? 'expired'
+            : 'canceled'
           : error.requestState === 'denied' || error.requestState === 'expired'
             ? error.requestState
             : 'failed';
     save();
-    if (error.requestState === 'unknown' && controller.signal.aborted)
-      error.message +=
-        ' The bridge did not confirm the cancellation. Decline the 1Password prompt if it appears.';
+    if (stopped)
+      error.message =
+        error.requestState === 'unknown'
+          ? `${expired ? 'The signing request expired' : 'The signing request was canceled'}. The result is unknown. If a 1Password prompt is still open, decline it.`
+          : pending.state === 'expired'
+            ? 'The signing request expired. Nothing was signed.'
+            : error.message;
     throw error;
   } finally {
     clearInterval(timer);
@@ -1241,7 +1351,8 @@ function startAction(kind: Action, stage: ContractStage | null = null) {
 }
 const startStep = (stage: ContractStage) =>
   startAction(stage === 'increment' ? 'contract_counter' : 'contract_setup', stage);
-for (const kind of ['note', 'payment', 'offer'] as const) $(kind).onclick = () => startAction(kind);
+for (const kind of ['note', 'payment', 'trustline', 'offer'] as const)
+  $(kind).onclick = () => startAction(kind);
 $('cancel-offer').onclick = () => startAction('cancel_offer');
 $('continue').onclick = () => {
   const next = continueStage();
@@ -1343,9 +1454,11 @@ async function confirmed(result: TransactionResult) {
   pending.state = result.successful ? 'submitted' : 'failed';
   save();
   status(
-    result.successful
-      ? 'The original transaction succeeded on testnet.'
-      : 'The original transaction failed on testnet.',
+    !result.successful
+      ? 'The original transaction failed on testnet.'
+      : pending.kind === 'trustline'
+        ? 'The USDC trustline is on testnet. You can place the offer now.'
+        : 'The original transaction succeeded on testnet.',
   );
   if (result.successful && pending.kind === 'offer') {
     try {
@@ -1435,7 +1548,10 @@ $('submit').onclick = () =>
       } else {
         pending.state = 'unknown';
         save();
-        notice(`Submission is uncertain. Check the original hash. ${error.message}`);
+        notice(
+          'Testnet did not confirm the submission. Select Check transaction status. Do not sign a replacement.',
+          { hash: pending.hash, message: error.message },
+        );
       }
     }
   }, 'submitting');
@@ -1526,19 +1642,70 @@ $('clear').onclick = () =>
         ? 'The transaction was discarded. Choose another action.'
         : cleared.state === 'signed'
           ? 'The signed transaction was cleared without submission. Choose another action.'
-          : 'The stopped request was cleared. Decline any 1Password prompt that appears.',
+          : 'The stopped request was cleared. If a 1Password prompt is still open, decline it.',
     );
   }, 'clearing');
+// Discard an unreadable saved record. Its raw text stays in Activity.
+$('discard-record').onclick = async () => {
+  if (!journalBlocked || busy) return;
+  busy = true;
+  render();
+  try {
+    if (!navigator.locks?.request)
+      throw Error('This browser cannot coordinate transaction tabs. Use a browser with Web Locks.');
+    await navigator.locks.request(STORAGE, () => {
+      const raw = localStorage.getItem(STORAGE);
+      // Another tab can replace the record first. Keep a readable record.
+      try {
+        pending = readJournal();
+        journalBlocked = false;
+        blockedRecord = null;
+        activity.transaction(
+          pending,
+          pending ? actionTitle(pending.kind, pending.contract?.stage) : undefined,
+        );
+        void refreshWalkthrough();
+        status(
+          pending
+            ? 'Another tab replaced the saved record. Review it before you continue.'
+            : 'Another tab removed the saved record. Choose an action.',
+        );
+        return;
+      } catch {
+        /* Still unreadable. Discard it. */
+      }
+      pending = null;
+      try {
+        save();
+      } catch {
+        throw Error('The browser could not change the saved record. Check site storage, then try again.');
+      }
+      activity.record(
+        'transaction',
+        'Unreadable saved record discarded',
+        raw === blockedRecord ? {} : { record: raw },
+      );
+      journalBlocked = false;
+      blockedRecord = null;
+      status('The saved record was discarded. Activity keeps its copy. Choose an action.');
+    });
+  } catch (errorValue) {
+    status(requestError(errorValue).message);
+  } finally {
+    busy = false;
+    render();
+  }
+};
 try {
   pending = readJournal();
   activity.transaction(pending, pending ? actionTitle(pending.kind, pending.contract?.stage) : undefined);
   if (pending && ['waiting', 'signing_unknown'].includes(pending.state))
     notice(
-      'A signing request was open when the page closed. Decline the 1Password prompt if it appears, then clear this record.',
+      'A signing request was open when the page closed. If a 1Password prompt is still open, decline it. Then clear this record.',
     );
-} catch {
-  journalBlocked = true;
-  notice('The local demo journal could not be read. Preserve it before continuing.');
+} catch (errorValue) {
+  blockJournal(errorValue);
+  status(BLOCKED);
 }
 render();
 if (pending && !hasFinishedTransaction()) {

@@ -265,6 +265,34 @@ test('explicit authorization signing precedes enforcing simulation and outer tra
   });
 });
 
+test('a rejected authorization simulation gives a short message and keeps the full log as detail', async () => {
+  const f = fixture();
+  const { review, transaction } = await prepareContract(f.server, f.signer, 'increment', 1, loadWasm);
+  review.authorizations[0].signed = true;
+  const log =
+    'HostError: Error(Auth, InvalidAction)\n\nEvent log (newest first):\n   0: [Diagnostic Event] topics:[error, Error(Auth, InvalidAction)], data:"signature failed"';
+  f.server.simulateTransaction = async () => ({
+    id: '1',
+    latestLedger: 100,
+    events: [],
+    _parsed: true,
+    error: log,
+  });
+  const error: Error & { detail?: string } = await assembleAuthorizedContract(
+    f.server,
+    transaction.toXDR(),
+    review,
+  ).then(
+    () => assert.fail('The simulation must fail.'),
+    (value) => value,
+  );
+  assert.equal(
+    error.message,
+    'Simulation rejected the signed authorization: Error(Auth, InvalidAction). Activity has the full log.',
+  );
+  assert.equal(error.detail, log);
+});
+
 test('contract setup constructs fresh AddressV2 deployment authorization instead of signing the source optimization', async () => {
   const f = fixture({ accountExists: false, targetExists: false });
   const first = await prepareContract(f.server, f.signer, 'deploy-account', 1, loadWasm);

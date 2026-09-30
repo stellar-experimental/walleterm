@@ -778,7 +778,7 @@ test('the connection UI publishes the recovered account after a lost selection r
   assert.match(f.node('menu-status').textContent ?? '', /Response lost/);
 });
 
-test('Continue requires an allowed origin and exactly eight digits', async () => {
+test('Continue requires the exact tunnel URL and exactly eight digits', async () => {
   let connects = 0;
   const f = fixture(
     () => {},
@@ -807,6 +807,55 @@ test('Continue requires an allowed origin and exactly eight digits', async () =>
     if (!valid) await f.ui.connect();
   }
   assert.equal(connects, 0);
+});
+
+test('the details help says where the values come from and names only a wrong URL', () => {
+  const f = fixture(() => {});
+  const source =
+    'The walleterm tunnel command prints the Tunnel URL and the Connection code. The code works once and expires after 5 minutes.';
+  const wrong =
+    'Use the Tunnel URL exactly as walleterm tunnel prints it. It starts with https:// and has no path.';
+  for (const [url, code, help] of [
+    ['', '', source],
+    ['https://bridge.example/', '123', source],
+    ['https://bridge.example', '12345678', source],
+    ['https://bridge.example/path', '12345678', wrong],
+    ['http://bridge.example', '', wrong],
+    ['bridge.example', '', wrong],
+  ] as const) {
+    f.node('url').value = url;
+    f.node('code').value = code;
+    f.ui.update();
+    // Continue shows valid details. The help never claims readiness, so it cannot contradict an error.
+    assert.equal(f.node('details-help').textContent, help, url);
+  }
+});
+
+test('a failed connection shows its error without a ready hint, and a changed detail clears it', async () => {
+  const f = fixture(
+    () => {},
+    class {
+      async connect() {
+        throw vm.runInContext("Error('The connection code is incorrect.')", f.context);
+      }
+      async disconnect() {}
+    },
+  );
+  const wallet: Walleterm = vm.runInContext("new Walleterm({ walletScope: 'available' })", f.context);
+  const { ui } = constructed(f, { wallet, header: false });
+  ui.open();
+  f.node('url').value = 'https://bridge.example';
+  f.node('code').value = '12345678';
+  ui.update();
+  await ui.connect();
+  assert.equal(f.node('status').textContent, 'The connection code is incorrect.');
+  assert.doesNotMatch(f.node('details-help').textContent ?? '', /ready/i);
+  assert.equal(f.focused(), 'code');
+  f.node('code').value = '8765';
+  Reflect.get(f.node('code'), 'oninput')();
+  assert.equal(f.node('status').textContent, '');
+  assert.equal(f.node('continue').disabled, true);
+  ui.destroy();
 });
 
 test('a connection disables its inputs and prevents duplicate requests until failure settles', async () => {
@@ -857,9 +906,12 @@ test('a timed-out connection returns to the connect step with a plain message', 
   const f = fixture(
     () => {},
     class {
+      // Like the real client, a failure after pairing reports that the code is spent.
       async connect({ signal }: { signal: AbortSignal }) {
         await new Promise((_resolve, reject) =>
-          signal.addEventListener('abort', () => reject(signal.reason), { once: true }),
+          signal.addEventListener('abort', () => reject(Object.assign(signal.reason, { codeUsed: true })), {
+            once: true,
+          }),
         );
       }
       async disconnect() {}
@@ -878,8 +930,10 @@ test('a timed-out connection returns to the connect step with a plain message', 
   await pending;
   assert.equal(
     f.node('status').textContent,
-    'The connection timed out after 5 minutes. Use the current code from your tunnel terminal.',
+    'The connection timed out after 5 minutes. Use the new code from your tunnel terminal.',
   );
+  // The spent code does not stay in the field.
+  assert.equal(f.node('code').value, '');
   assert.equal(f.node('#wt-title').textContent, 'Connect Walleterm');
   assert.equal(f.node('form').hidden, false);
   assert.equal(f.node('picker').hidden, true);
@@ -1518,14 +1572,35 @@ test('a new session from another tab replaces the wallet list, and the menu load
   );
 });
 
-test('the dialog explains the grant for each wallet scope', () => {
+test('the dialog explains the grant, the approval, and the time limit for each wallet scope', async () => {
   const f = fixture(() => {});
-  f.ui.open();
-  assert.match(f.node('description').textContent ?? '', /switch between the wallets/);
-  f.ui.close();
-  f.ui.wallet = vm.runInContext('new Walleterm()', f.context);
-  f.ui.open();
-  assert.match(f.node('description').textContent ?? '', /one wallet you choose/);
+  f.ui.rows = () => {};
+  for (const [scope, description, grant] of [
+    [
+      'available',
+      'Next, you choose one active wallet. This website can then switch among all listed wallets.',
+      'This website can switch among all listed wallets.',
+    ],
+    [
+      'selected',
+      'Next, you choose one wallet. This website can then use only that wallet.',
+      'This website can use only the wallet that you select.',
+    ],
+  ] as const) {
+    f.ui.wallet = vm.runInContext(`new Walleterm({ walletScope: '${scope}' })`, f.context);
+    f.ui.open();
+    assert.equal(f.node('description').textContent, description);
+    const controller = new AbortController();
+    const choosing = f.ui.chooseWallet({}, [{ public_key: 'GFIRST' }], controller.signal);
+    // The website's request is the approval. Only 1Password can still ask.
+    assert.equal(
+      f.node('status').textContent,
+      `${grant} Walleterm signs each request from this website. 1Password can ask you to approve. The connection lasts one hour.`,
+    );
+    controller.abort();
+    await assert.rejects(choosing);
+    f.ui.close();
+  }
 });
 
 // Runs the real constructor with a mock element. The other tests assign component state directly.
@@ -1533,7 +1608,11 @@ function constructed(f: ReturnType<typeof fixture>, options: Record<string, unkn
   const intervals: unknown[] = [];
   const dialog = {
     open: false,
-    addEventListener() {},
+    listeners: {} as Record<string, (event: object) => void>,
+    addEventListener(type: string, listener: (event: object) => void) {
+      this.listeners[type] = listener;
+    },
+    getBoundingClientRect: () => ({ left: 10, right: 110, top: 10, bottom: 110 }),
     showModal() {
       this.open = true;
     },
@@ -1560,8 +1639,33 @@ function constructed(f: ReturnType<typeof fixture>, options: Record<string, unkn
     mountOptions: options,
   });
   const ui: ConnectUI = vm.runInContext('new WalletermConnect(mountElement, mountOptions)', f.context);
-  return { ui, intervals };
+  return { ui, intervals, dialog };
 }
+
+test('Escape and a backdrop click close the dialog and return focus to the trigger', () => {
+  const f = fixture(() => {});
+  const wallet: Walleterm = vm.runInContext("new Walleterm({ walletScope: 'available' })", f.context);
+  const { ui, dialog } = constructed(f, { wallet });
+  // showModal() keeps focus in the dialog. The component adds no Tab handler of its own.
+  assert.deepEqual(Object.keys(dialog.listeners).sort(), ['cancel', 'click']);
+  ui.open();
+  assert.equal(f.focused(), 'scan');
+  let prevented = 0;
+  // The browser sends Escape as a cancel event.
+  dialog.listeners.cancel({ preventDefault: () => prevented++ });
+  assert.equal(prevented, 1);
+  assert.equal(dialog.open, false);
+  assert.equal(f.focused(), 'trigger');
+  ui.open();
+  dialog.listeners.click({ target: dialog, clientX: 50, clientY: 50 });
+  assert.equal(dialog.open, true);
+  dialog.listeners.click({ target: f.node('scan'), clientX: 5, clientY: 5 });
+  assert.equal(dialog.open, true);
+  dialog.listeners.click({ target: dialog, clientX: 5, clientY: 50 });
+  assert.equal(dialog.open, false);
+  assert.equal(f.focused(), 'trigger');
+  ui.destroy();
+});
 
 test('a header mounted for an already connected wallet shows that connection', async () => {
   const f = fixture(() => {});

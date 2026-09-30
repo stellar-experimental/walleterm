@@ -114,9 +114,11 @@ test('auth lifecycle signs once, binds adapters on retries, and verifies complet
   await expect(
     f.client.request('/v1/requests', { ...body, adapter: { ...input.adapter, verifier: contract(4) } }),
   ).rejects.toThrow('different');
-  await expect(f.client.request('/v1/requests', { ...body, latest_ledger: 100 })).rejects.toThrow('fields');
+  await expect(f.client.request('/v1/requests', { ...body, latest_ledger: 100 })).rejects.toThrow(
+    'Remove the field "latest_ledger" from the signing request.',
+  );
   await expect(f.client.request('/v1/requests', { ...body, digest: '00'.repeat(32) })).rejects.toThrow(
-    'fields',
+    'Remove the field "digest" from the signing request.',
   );
   expect(f.calls()).toBe(1);
 });

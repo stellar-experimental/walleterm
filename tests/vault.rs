@@ -22,6 +22,10 @@ echo "$*" >> "$D/calls"
 mode=$(cat "$D/mode")
 case "$mode" in
   fail) echo DIAGNOSTIC_CANARY; echo DIAGNOSTIC_CANARY >&2; exit 1 ;;
+  dismissed) echo "[ERROR] 2026/09/29 17:02:11 authorization prompt dismissed, please try again" >&2; exit 1 ;;
+  unanswered) echo "[ERROR] 2026/09/29 17:02:11 authorization timeout" >&2; exit 1 ;;
+  app) echo "[ERROR] 2026/09/29 17:02:11 connecting to desktop app timed out, make sure it is installed, running and CLI integration is enabled" >&2; exit 1 ;;
+  novault) echo "[ERROR] 2026/09/29 17:02:11 \"$4\" isn't a vault in this account. Specify the vault with its ID or name." >&2; exit 1 ;;
   oversize) head -c 1048577 /dev/zero | tr '\0' x; exit 0 ;;
   stall) trap '' TERM; echo $$ >> "$D/pids"; while :; do sleep 1; done ;;
 esac
@@ -36,6 +40,7 @@ echo "start $start" >> "$D/timeline"
 if [ -f "$D/stall-$item" ]; then trap '' TERM; echo $$ >> "$D/pids"; while :; do sleep 1; done; fi
 end=$(perl -MTime::HiRes=time -e 'printf "%.3f", time')
 echo "end $end" >> "$D/timeline"
+if [ -f "$D/read-error" ]; then cat "$D/read-error" >&2; exit 1; fi
 if [ -f "$D/key-$item" ]; then printf '%s' "$(cat "$D/key-$item")"; else exit 1; fi
 "#;
 
@@ -153,16 +158,22 @@ async fn uuids_and_names_select_public_fields_only() {
     assert!(fake.calls().iter().all(|c| !c.contains("item get")), "never an unfiltered item read");
 }
 
+const CHECK_FAILED: &str = "The 1Password vault check failed. Unlock 1Password and approve its prompt. \
+                            If it fails again, check --vault and the 1Password CLI.";
+const NOT_ALLOWED: &str =
+    "1Password did not allow the vault check. Unlock 1Password and approve its prompt, then try again.";
+
 #[tokio::test]
 async fn cli_failures_never_return_keys_or_diagnostics() {
     let fake = Fake::new();
-    for mode in ["fail", "invalid", "oversize"] {
+    for (mode, message) in [
+        ("fail", CHECK_FAILED),
+        ("oversize", CHECK_FAILED),
+        ("invalid", "The selected vault returned an invalid key list."),
+    ] {
         fake.mode(mode);
         let e = keys(&fake, VAULT).await.unwrap_err();
-        assert_eq!(
-            e.message, "The selected 1Password vault is unavailable. Check --vault and the 1Password CLI.",
-            "{mode}"
-        );
+        assert_eq!((e.code, e.message.as_str()), ("bridge_unavailable", message), "{mode}");
         assert!(!e.message.contains("CANARY"));
     }
     fake.mode("ok");
@@ -170,6 +181,37 @@ async fn cli_failures_never_return_keys_or_diagnostics() {
     let missing =
         allowed_keys_with(OsStr::new("/nonexistent/walleterm/op"), VAULT, &Cancel::new()).await.unwrap_err();
     assert_eq!(missing.code, "bridge_unavailable");
+}
+
+/// The 1Password CLI 2.39.0 error text names the cause. The message follows it and never repeats the CLI text.
+/// A locked 1Password asks through the authorization prompt, so a dismissed or unanswered prompt blames no setting.
+#[tokio::test]
+async fn each_cli_failure_cause_gets_a_true_message() {
+    let fake = Fake::new();
+    for (mode, message) in [
+        ("dismissed", NOT_ALLOWED.to_owned()),
+        ("unanswered", NOT_ALLOWED.to_owned()),
+        (
+            "app",
+            "The 1Password CLI could not reach 1Password. Unlock the 1Password app and turn on its CLI integration."
+                .to_owned(),
+        ),
+        ("novault", "1Password has no vault \"Wallace\". Check --vault.".to_owned()),
+    ] {
+        fake.mode(mode);
+        let e = keys(&fake, "Wallace").await.unwrap_err();
+        assert_eq!((e.code, e.message), ("bridge_unavailable", message), "{mode}");
+    }
+    // A public key read can also meet a dismissed prompt.
+    fake.mode("ok");
+    std::fs::write(fake.0.join("read-error"), "[ERROR] authorization prompt dismissed, please try again\n")
+        .unwrap();
+    assert_eq!(keys(&fake, VAULT).await.unwrap_err().message, NOT_ALLOWED);
+    std::fs::write(fake.0.join("read-error"), "[ERROR] something else\n").unwrap();
+    assert_eq!(
+        keys(&fake, VAULT).await.unwrap_err().message,
+        "A public key in the selected vault is unavailable."
+    );
 }
 
 #[tokio::test]
@@ -251,10 +293,12 @@ async fn cancellation_stops_a_cli_that_ignores_sigterm() {
     let stopper = cancel.clone();
     tokio::spawn(async move {
         tokio::time::sleep(Duration::from_millis(300)).await;
-        stopper.abort();
+        stopper.cancel(walleterm::error::Error::new("rejected", "The website canceled this request."));
     });
     let start = Instant::now();
-    assert!(allowed_keys_with(fake.program().as_os_str(), VAULT, &cancel).await.is_err());
+    // The listing reports the cause of the stop, not a vault failure.
+    let e = allowed_keys_with(fake.program().as_os_str(), VAULT, &cancel).await.unwrap_err();
+    assert_eq!(e.message, "The website canceled this request.");
     assert!(start.elapsed() < Duration::from_secs(5));
     tokio::time::sleep(Duration::from_millis(200)).await;
     assert!(fake.pids().iter().all(|&p| !alive(p)));

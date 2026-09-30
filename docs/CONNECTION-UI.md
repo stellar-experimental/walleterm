@@ -64,13 +64,24 @@ A component mounted for a wallet that is already connected shows that connection
 Opening the dialog focuses Scan tunnel QR code. The camera starts only when the user selects that button.
 The manual form stays available. The dialog never selects an input automatically.
 Manual inputs use at least 16-pixel text, so phones do not zoom. The page keeps browser pinch zoom.
-Continue stays disabled until the tunnel origin and the eight-digit code are valid.
+Continue stays disabled until the Tunnel URL and the eight-digit Connection code are valid.
+The help text says that `walleterm tunnel` prints both values. The code works once and expires after 5 minutes.
+The Tunnel URL must be an exact HTTPS origin, or a loopback HTTP origin for development. A trailing slash is accepted.
+A path, a query, or credentials fail, so the visible host is the host that the SDK calls.
+The help text then asks for the URL exactly as the tunnel prints it. The help text never reports readiness.
+A change to a detail clears the previous status message, such as an error.
+A failure after pairing spent the code. The dialog then clears the code field and says to use the new code from the tunnel terminal.
+`WalletermClient.connect()` marks such a failure with `codeUsed: true`.
+`WalletermConnect`, the QR code parser, and `WalletermClient` use the same check, `isTunnelUrl()` in `sdk/errors.ts`.
 Camera denial leaves manual entry available.
 
 While the dialog connects and finds wallets, the inputs, Scan, and Continue are disabled. Close cancels.
 The wallet picker receives an empty list when discovery returns no keys. It can refresh or cancel.
-Discovery and selection requests permit 135 seconds. Other requests permit 15 seconds.
+Discovery and selection requests permit 115 seconds. Other requests permit 15 seconds.
 The caller can cancel each request before its deadline.
+The bridge always answers JSON. Another answer comes from the tunnel host, such as a Cloudflare error page.
+HTTP 524 shows "The tunnel connection timed out. Check for a 1Password prompt on your Mac, then try again."
+Another such 5xx answer says that the tunnel is unavailable. Both return SEP-43 code `-2` with `walleterm:bridge_unavailable`.
 `Walleterm.listWallets({ signal })` refreshes public wallet metadata without a change to the selected account.
 
 ## Browser sessions
@@ -117,7 +128,11 @@ With a `wallet` option, it uses the scope of that wallet.
 The SDK default is the `selected` scope: one wallet for each connection. It is the least-privilege scope.
 Use `new Walleterm({ walletScope: 'available' })` only with an interface that shows the broader permission.
 
-With the `available` scope, the dialog explains before selection that the website can switch among the listed wallets.
+With the `available` scope, the dialog explains before selection that the website can switch among all listed wallets.
+The person selects one active wallet, but the grant covers every listed wallet.
+With the `selected` scope, the dialog says that the website can use only the selected wallet.
+Before selection, the picker also says that Walleterm signs each request from the website.
+The website's request is the approval. 1Password can still ask for its own approval. The connection lasts one hour.
 The first selection fixes the granted wallet list. A new key requires a new connection.
 Selecting a wallet in the dropdown uses the current session. It needs no new code or scan.
 The selected row shows progress. Other wallet choices stay disabled until the bridge accepts the selection.
@@ -140,4 +155,7 @@ Refresh and Disconnect show progress on their buttons. Other connection changes 
 The active wallet row is not selectable again.
 Copy address keeps its label and size. It shows a status message after it completes.
 Escape closes the menu or dialog and returns focus to the button that opened it.
+The dialog uses `showModal()`, so the page behind it is inert and keyboard focus cannot reach that page.
+The browser sends Escape as a `cancel` event. A click on the backdrop also closes the dialog.
+The component does this itself, because Safari does not support the `closedby` attribute.
 The dropdown stays within the viewport on small screens and scrolls when needed.

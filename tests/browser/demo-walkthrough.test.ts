@@ -178,3 +178,20 @@ test('every stopped or uncertain state names the phase it stopped in', () => {
     'Testnet rejected it: tx_bad_auth.',
   );
 });
+
+test('a stopped signature says whether anything was signed, and asks to decline only an open prompt', () => {
+  const detail = (record: PhaseRecord) =>
+    transactionPhases(record).find((phase) => phase.state === 'failed' || phase.state === 'unknown')?.detail;
+  // A declined prompt, a canceled request, and an expired request signed nothing. None asks for another decline.
+  assert.equal(detail({ state: 'denied' }), 'The signing request was declined. Nothing was signed.');
+  assert.equal(detail({ state: 'canceled' }), 'The signing request was canceled. Nothing was signed.');
+  assert.equal(detail({ state: 'expired' }), 'The signing request expired. Nothing was signed.');
+  assert.equal(
+    detail({ state: 'signing_unknown' }),
+    'The signing result is unknown. If a 1Password prompt is still open, decline it.',
+  );
+  assert.equal(
+    detail({ state: 'unknown', signed_xdr: 'signed' }),
+    'The result is unknown. Select Check transaction status. Do not sign a replacement.',
+  );
+});

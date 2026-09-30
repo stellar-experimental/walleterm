@@ -17,9 +17,13 @@ use crate::stellar::account_address;
 use crate::util::js_blank;
 
 const MAX_OUTPUT: usize = 1 << 20;
+/// The CLI error text that the bridge keeps to choose a message. It never shows this text.
+const MAX_ERROR: usize = 4096;
 const MAX_ITEMS: usize = 1024;
-/// Vault lookup permits 120 seconds after agent discovery.
-pub const LOOKUP: Duration = Duration::from_secs(120);
+/// Vault lookup permits 100 seconds after agent discovery. With the 10-second agent listing, a website's wallet
+/// discovery ends within 110 seconds. That keeps it under the SDK deadline of 115 seconds and the 125-second
+/// Cloudflare response limit. A Cloudflare timeout page has no CORS header, so a website could not read it.
+pub const LOOKUP: Duration = Duration::from_secs(100);
 /// Escalate from SIGTERM to SIGKILL after this grace period.
 const GRACE: Duration = Duration::from_millis(1500);
 
@@ -27,39 +31,102 @@ fn unavailable(message: &str) -> Error {
     Error::new("bridge_unavailable", message)
 }
 
-/// Run the 1Password CLI with bounded output. A failure returns no CLI diagnostics.
-async fn op(program: &OsStr, args: &[&str], cancel: &Cancel) -> std::result::Result<String, ()> {
+/// Why an `op` command failed. The bridge reads the CLI error text only to choose one of these.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Failure {
+    /// The person dismissed the 1Password prompt, or it timed out. A locked 1Password asks through this prompt.
+    Authorization,
+    /// The CLI could not reach the 1Password app, or it has no signed-in account.
+    App,
+    /// The account has no vault with the `--vault` name or ID.
+    NoVault,
+    Other,
+}
+
+/// The cause in the error text of 1Password CLI 2.39.0. Unknown text is `Other`.
+fn classify(stderr: &str) -> Failure {
+    let text = stderr.to_lowercase();
+    let any = |phrases: &[&str]| phrases.iter().any(|p| text.contains(p));
+    if any(&["authorization prompt dismissed", "authorization timeout", "authorization denied"]) {
+        Failure::Authorization
+    } else if any(&["isn't a vault in this account"]) {
+        Failure::NoVault
+    } else if any(&["connecting to desktop app", "not signed in", "no accounts configured", "op signin"]) {
+        Failure::App
+    } else {
+        Failure::Other
+    }
+}
+
+/// The message for a failed CLI step. `other` names the step for a cause that the text does not show.
+fn failed(failure: Failure, vault: &str, other: &str) -> Error {
+    match failure {
+        Failure::Authorization => unavailable(
+            "1Password did not allow the vault check. Unlock 1Password and approve its prompt, then try again.",
+        ),
+        Failure::App => unavailable(
+            "The 1Password CLI could not reach 1Password. Unlock the 1Password app and turn on its CLI integration.",
+        ),
+        Failure::NoVault => unavailable(&format!(
+            "1Password has no vault {}. Check --vault.",
+            serde_json::to_string(vault).unwrap_or_default()
+        )),
+        Failure::Other => unavailable(other),
+    }
+}
+
+/// Read a pipe to its end. More than `cap` bytes fails when `strict`, and are dropped otherwise.
+/// Reading on after the cap keeps the CLI from blocking on a full pipe.
+async fn drain(
+    pipe: &mut (impl AsyncReadExt + Unpin),
+    cap: usize,
+    strict: bool,
+) -> std::result::Result<Vec<u8>, ()> {
+    let mut output = Vec::new();
+    let mut buffer = [0u8; 8192];
+    loop {
+        let n = pipe.read(&mut buffer).await.map_err(|_| ())?;
+        if n == 0 {
+            return Ok(output);
+        }
+        if output.len() + n > cap {
+            if strict {
+                return Err(());
+            }
+            let keep = cap - output.len();
+            output.extend_from_slice(&buffer[..keep]);
+        } else {
+            output.extend_from_slice(&buffer[..n]);
+        }
+    }
+}
+
+/// Run the 1Password CLI with bounded output. A failure returns only its cause, never the CLI text.
+async fn op(program: &OsStr, args: &[&str], cancel: &Cancel) -> std::result::Result<String, Failure> {
     let mut child = Command::new(program)
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
-        .map_err(|_| ())?;
-    let mut stdout = child.stdout.take().ok_or(())?;
+        .map_err(|_| Failure::Other)?;
+    let mut stdout = child.stdout.take().ok_or(Failure::Other)?;
+    let mut stderr = child.stderr.take().ok_or(Failure::Other)?;
     let read = async {
-        let mut output = Vec::new();
-        let mut buffer = [0u8; 8192];
-        loop {
-            let n = stdout.read(&mut buffer).await.map_err(|_| ())?;
-            if n == 0 {
-                break;
-            }
-            if output.len() + n > MAX_OUTPUT {
-                return Err(());
-            }
-            output.extend_from_slice(&buffer[..n]);
-        }
-        let status = child.wait().await.map_err(|_| ())?;
+        // Too much output stops at once. The error text is only a bounded hint.
+        let output = drain(&mut stdout, MAX_OUTPUT, true);
+        let errors = async { Ok(drain(&mut stderr, MAX_ERROR, false).await.unwrap_or_default()) };
+        let (output, errors) = tokio::try_join!(output, errors).map_err(|()| Failure::Other)?;
+        let status = child.wait().await.map_err(|_| Failure::Other)?;
         if !status.success() {
-            return Err(());
+            return Err(classify(&String::from_utf8_lossy(&errors)));
         }
-        String::from_utf8(output).map_err(|_| ())
+        String::from_utf8(output).map_err(|_| Failure::Other)
     };
     let result = tokio::select! {
         result = read => result,
-        () = cancel.cancelled() => Err(()),
+        () = cancel.cancelled() => Err(Failure::Other),
     };
     if result.is_err() {
         crate::process::stop_child(&mut child, GRACE).await;
@@ -110,16 +177,29 @@ pub async fn allowed_keys_with(program: &OsStr, vault: &str, cancel: &Cancel) ->
     if js_blank(vault) {
         return Err(unavailable("Set --vault to a 1Password vault name or ID."));
     }
-    let lookup = Cancel::any(&[cancel], LOOKUP);
+    let late = || {
+        let message = format!(
+            "The 1Password vault lookup took longer than {} seconds. Check for a 1Password prompt on the Mac.",
+            LOOKUP.as_secs()
+        );
+        Error::new("bridge_unavailable", message)
+    };
+    let lookup = Cancel::any(&[cancel], LOOKUP, late());
     let listed = op(
         program,
         &["item", "list", "--vault", vault, "--categories", "SSH Key", "--format", "json"],
         &lookup,
     )
     .await;
-    let items: Value = listed.ok().and_then(|text| serde_json::from_str(&text).ok()).ok_or_else(|| {
-        unavailable("The selected 1Password vault is unavailable. Check --vault and the 1Password CLI.")
-    })?;
+    if lookup.is_cancelled() {
+        return Err(lookup.reason());
+    }
+    // A locked 1Password or a dismissed prompt is the usual cause, so the unknown case names it before --vault.
+    let other = "The 1Password vault check failed. Unlock 1Password and approve its prompt. \
+                 If it fails again, check --vault and the 1Password CLI.";
+    let text = listed.map_err(|failure| failed(failure, vault, other))?;
+    let items: Value = serde_json::from_str(&text)
+        .map_err(|_| unavailable("The selected vault returned an invalid key list."))?;
     let Some(items) = items.as_array().filter(|items| items.len() <= MAX_ITEMS) else {
         return Err(unavailable("The selected vault returned an invalid key list."));
     };
@@ -131,14 +211,14 @@ pub async fn allowed_keys_with(program: &OsStr, vault: &str, cancel: &Cancel) ->
         if lookup.is_cancelled() {
             return Err(lookup.reason());
         }
-        let batch_cancel = Cancel::any(&[&lookup], LOOKUP);
+        let batch_cancel = Cancel::any(&[&lookup], LOOKUP, late());
         let reads = batch.iter().map(|reference| {
-            let (reference, batch_cancel, program) =
-                (reference.clone(), batch_cancel.clone(), program.to_owned());
+            let (reference, batch_cancel, program, vault) =
+                (reference.clone(), batch_cancel.clone(), program.to_owned(), vault.to_owned());
             async move {
-                let line = op(&program, &["read", "--no-newline", &reference], &batch_cancel)
-                    .await
-                    .map_err(|()| unavailable("A public key in the selected vault is unavailable."))?;
+                let line = op(&program, &["read", "--no-newline", &reference], &batch_cancel).await.map_err(
+                    |failure| failed(failure, &vault, "A public key in the selected vault is unavailable."),
+                )?;
                 ed25519_address(&line)
                     .map_err(|()| unavailable("An Ed25519 public key in the selected vault is invalid."))
             }
@@ -158,6 +238,10 @@ pub async fn allowed_keys_with(program: &OsStr, vault: &str, cancel: &Cancel) ->
                     failure.get_or_insert(e);
                 }
             }
+        }
+        // A read that the lookup deadline stopped reports the deadline, not its own failure.
+        if lookup.is_cancelled() {
+            return Err(lookup.reason());
         }
         if let Some(e) = failure {
             return Err(e);

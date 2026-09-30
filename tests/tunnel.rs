@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use serde_json::{Value, json};
 use tokio::sync::{mpsc, watch};
-use walleterm::bridge::BoxFuture;
+use walleterm::bridge::{BoxFuture, Rotation};
 use walleterm::cancel::Cancel;
 use walleterm::dns::Resolver;
 use walleterm::error::{Error, Result};
@@ -24,7 +24,7 @@ struct MockService {
     closed: AtomicBool,
     origin: Mutex<String>,
     pairing: Mutex<Value>,
-    changed: Mutex<Option<Box<dyn Fn() + Send + Sync>>>,
+    changed: Mutex<Option<Box<walleterm::bridge::PairingFn>>>,
     listen_gate: Mutex<Option<tokio::sync::oneshot::Receiver<()>>>,
 }
 
@@ -41,9 +41,9 @@ impl MockService {
             listen_gate: Mutex::default(),
         })
     }
-    fn rotate(&self, code: &str) {
+    fn rotate(&self, code: &str, rotation: Rotation) {
         self.pairing.lock().unwrap()["code"] = json!(code);
-        (self.changed.lock().unwrap().as_ref().expect("the launcher watches pairing changes"))();
+        (self.changed.lock().unwrap().as_ref().expect("the launcher watches pairing changes"))(rotation);
     }
 }
 
@@ -75,7 +75,7 @@ impl Service for MockService {
     fn pairing(&self) -> Option<Value> {
         Some(self.pairing.lock().unwrap().clone())
     }
-    fn on_pairing_changed(&self, callback: Box<dyn Fn() + Send + Sync>) {
+    fn on_pairing_changed(&self, callback: Box<walleterm::bridge::PairingFn>) {
         *self.changed.lock().unwrap() = Some(callback);
     }
 }
@@ -266,6 +266,11 @@ async fn public_failures_recover_without_replacing_a_healthy_tunnel() {
     assert_eq!(h.spawns.load(Ordering::SeqCst), 1);
     assert!(!h.service.closed.load(Ordering::SeqCst));
     assert!(h.output.text().contains("public connection is unavailable"));
+    // A status line starts with the local time only, as the bridge event lines do.
+    let status = h.output.lines.lock().unwrap().iter().find(|l| l.contains("recovered")).unwrap().clone();
+    let (time, rest) = status.split_once("M  ").unwrap();
+    assert!(time.matches(':').count() == 2 && !time.contains('['), "{status}");
+    assert_eq!(rest, "The public connection recovered.\n");
     running.stop(0).await;
 }
 
@@ -312,7 +317,7 @@ async fn recovery_pauses_after_three_replacements_and_preserves_the_service() {
     });
     let running = launch("Walleterm tunnel", 8791, h.service.clone(), deps).await.map_err(|e| e.0).unwrap();
     h.tunnels.lock().unwrap()[0].exit();
-    until(|| h.output.text().contains("recovery is paused")).await;
+    until(|| h.output.text().contains("recovery paused")).await;
     assert_eq!(h.spawns.load(Ordering::SeqCst), 4);
     assert!(!h.service.closed.load(Ordering::SeqCst));
     tokio::time::sleep(Duration::from_millis(20)).await;
@@ -334,7 +339,7 @@ async fn a_paused_replacement_prints_its_url_once_when_a_later_probe_succeeds() 
     });
     let running = launch("Walleterm tunnel", 8791, h.service.clone(), deps).await.map_err(|e| e.0).unwrap();
     h.tunnels.lock().unwrap()[0].exit();
-    until(|| h.output.text().contains("recovery is paused")).await;
+    until(|| h.output.text().contains("recovery paused")).await;
     let url = running.origin();
     let shown = |h: &Harness| h.output.text().matches(&format!("Tunnel URL: {url}")).count();
     assert_eq!(shown(&h), 0);
@@ -361,7 +366,7 @@ async fn paused_recovery_resumes_after_the_oldest_restart_leaves_the_window() {
     let running = launch("Walleterm tunnel", 8791, h.service.clone(), deps).await.map_err(|e| e.0).unwrap();
     h.tunnels.lock().unwrap()[0].exit();
     // Paused time: health checks every 15 s and delays of 2, 4, and 8 s pass virtually.
-    until_for(|| h.output.text().contains("recovery is paused"), 50_000).await;
+    until_for(|| h.output.text().contains("recovery paused"), 50_000).await;
     assert_eq!(h.spawns.load(Ordering::SeqCst), 4);
     tokio::time::sleep(Duration::from_secs(300)).await;
     assert_eq!(h.spawns.load(Ordering::SeqCst), 4, "the ten-minute window has not cleared");
@@ -422,14 +427,53 @@ async fn the_service_owns_its_listener_and_an_isolated_tunnel_and_prints_the_cod
     let text = h.output.text();
     assert!(text.contains("Walleterm tunnel is ready on Stellar testnet"));
     assert!(text.contains("Connection code: 01234567"));
+    assert!(text.contains("Enter the URL and code in the website. Or scan this QR code"));
     assert!(text.contains("Press Ctrl+C"));
     assert!(text.contains("\x1b[47m"), "the QR code prints with an explicit background");
-    h.service.rotate("76543210");
+    h.service.rotate("76543210", Rotation::Used);
     until(|| h.output.text().contains("Connection code: 76543210")).await;
+    assert!(h.output.text().contains(
+        "\nThe code was used. Use this new code for the next website.\nTunnel URL: https://bridge-name.trycloudflare.com\nConnection code: 76543210\n"
+    ));
     running.stop(0).await;
     assert!(h.tunnels.lock().unwrap()[0].killed.load(Ordering::SeqCst));
     assert!(h.service.closed.load(Ordering::SeqCst));
     assert!(!cwd.exists(), "the private tunnel directory is removed");
+}
+
+/// An unused code that expires prints one line with the new code, not another QR block.
+/// A lockout prints a full block with the time when connections resume.
+#[tokio::test]
+async fn code_changes_print_their_reason_and_an_idle_expiry_prints_one_line() {
+    let (h, deps) = harness(Plan::default());
+    let running = launch("Walleterm tunnel", 8791, h.service.clone(), deps).await.map_err(|e| e.0).unwrap();
+    let expires = walleterm::util::now_ms() + 300_000;
+    h.service.pairing.lock().unwrap()["expires_at"] = json!(walleterm::util::iso_millis(expires as i64));
+    let before = h.output.count();
+    h.service.rotate("11112222", Rotation::Expired);
+    until(|| h.output.count() > before).await;
+    let line = h.output.lines.lock().unwrap().last().unwrap().clone();
+    let at = walleterm::util::local_clock(expires as i64);
+    let (time, rest) = line.split_once("M  ").unwrap();
+    assert!(time.len() <= 10 && time.matches(':').count() == 2, "{line}");
+    assert_eq!(
+        rest,
+        format!(
+            "The previous code expired, so the QR code above no longer works. Enter code 11112222 with https://bridge-name.trycloudflare.com. It expires at {at} (in 5 minutes).\n"
+        )
+    );
+    let until_ms = walleterm::util::now_ms() + 60_000;
+    h.service.rotate("33334444", Rotation::Locked(until_ms));
+    until(|| h.output.text().contains("Connection code: 33334444")).await;
+    let resume = walleterm::util::local_clock(until_ms as i64);
+    assert!(h.output.text().contains(&format!(
+        "\nToo many incorrect codes. New connections pause until {resume} (in 1 minute). Then use this new code.\nTunnel URL: "
+    )));
+    assert!(h.output.text().contains(&format!("The code expires at {at} (in 5 minutes). It works once.\n")));
+    running.stop(0).await;
+    // A normal stop prints one final line with the local time.
+    let last = h.output.lines.lock().unwrap().last().unwrap().clone();
+    assert!(last.ends_with("M  Walleterm tunnel stopped.\n"), "{last}");
 }
 
 #[tokio::test]
@@ -459,6 +503,13 @@ async fn a_readiness_failure_closes_the_listener_and_tunnel() {
     assert_eq!(h.output.count(), 0);
 }
 
+/// A stop during startup prints only the stop line: a local time, then the label.
+fn assert_only_stopped(h: &Harness) {
+    let lines = h.output.lines.lock().unwrap().clone();
+    assert_eq!(lines.len(), 1, "{lines:?}");
+    assert!(lines[0].ends_with("M  Walleterm tunnel stopped.\n"), "{lines:?}");
+}
+
 #[tokio::test]
 async fn cancellation_during_listener_startup_starts_no_tunnel() {
     let (h, deps) = harness(Plan::default());
@@ -473,7 +524,7 @@ async fn cancellation_during_listener_startup_starts_no_tunnel() {
     let (e, code) = pending.await.unwrap().expect("launch must stop");
     assert_eq!((e.code, code), ("service_stopped", 0));
     assert_eq!(h.spawns.load(Ordering::SeqCst), 0);
-    assert_eq!(h.output.count(), 0);
+    assert_only_stopped(&h);
     assert!(!h.service.listening.load(Ordering::SeqCst));
 }
 
@@ -492,7 +543,7 @@ async fn cancellation_during_readiness_reports_no_readiness() {
     stop.abort();
     let (e, _) = pending.await.unwrap().expect("launch must stop");
     assert_eq!(e.code, "service_stopped");
-    assert_eq!(h.output.count(), 0);
+    assert_only_stopped(&h);
     assert!(!h.service.listening.load(Ordering::SeqCst));
 }
 
@@ -1135,7 +1186,10 @@ async fn closed_output_keeps_the_url_deadline_and_the_stop_request() {
         .await
         .expect("the URL deadline holds")
         .unwrap_err();
-    assert_eq!(e.message, "The tunnel did not return a URL within 30 seconds.");
+    assert_eq!(
+        e.message,
+        "cloudflared did not report a tunnel URL within 30 seconds. Check the Internet connection and run the command again."
+    );
     assert!(started.elapsed() < Duration::from_secs(2));
     let (mock, mut tunnel) = MockTunnel::new();
     drop(mock.output);
@@ -1193,13 +1247,12 @@ async fn shutdown_during_retirement_cancels_bridge_signing_first() {
     });
     let cwds = real_supervisor(&mut deps, &dir);
     // The fixture gives the mock signer and HTTP client. The launcher serves a new bridge on a free port.
-    let options = support::Options { review: false, ..support::Options::default() };
-    let mut f = support::Fixture::new(options).await;
+    let mut f = support::Fixture::new(support::Options::default()).await;
     f.close().await;
     let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     f.port = listener.local_addr().unwrap().port();
     drop(listener);
-    let options = support::Options { review: false, key: f.key.clone() };
+    let options = support::Options { key: f.key.clone() };
     f.bridge = walleterm::bridge::Bridge::new(support::deps(&f.controls, &options), f.port);
     let service = Arc::new(walleterm::service::BridgeService::new(f.bridge.clone(), f.port));
     let running = launch("Walleterm tunnel", f.port, service, deps).await.map_err(|e| e.0).unwrap();

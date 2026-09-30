@@ -15,13 +15,22 @@ The tunnel flag `--vault` limits this list to one vault. See [the vault filter](
 `walleterm tunnel` prints the public URL, an eight-digit connection code, and a QR code.
 The QR code contains `{"walleterm":3,"url":"...","code":"...","expires_at":"..."}`.
 `GET /api/session` returns `{"service":"walleterm","protocol":3}`. The SDK accepts only version 3.
-A code works once and expires after five minutes. The bridge prints a new code after each use or expiry.
-Five incorrect codes replace the code and pause connection for one minute.
+A code works once and expires after five minutes. The terminal shows each expiry in local time, such as "3:04 PM (in 5 minutes)".
+After a use or a lockout, the tunnel prints a new code block with its reason, the URL, and a QR code.
+When an unused code expires, the tunnel prints one line with the new code and no QR code. So idle rotation stays short.
+That line says that the QR code above it no longer works.
+A website that sends the last expired code gets "The connection code expired." This attempt does not count as incorrect.
+Five incorrect codes replace the code and pause connection for one minute. The new block says when connections resume.
+The bridge checks the code, session, and request deadlines against the wall clock once each second.
+A deadline that passed while the Mac slept applies within one second after wake.
 
 ## Website routes
 
 Requests require an exact HTTPS Origin, or a loopback HTTP Origin for development.
 The Origin must differ from the bridge origin. These routes use narrow CORS and no cookies.
+A rejected Origin gets status 403 and a message that names the cause: plain HTTP, `null`, a malformed value, or the bridge origin.
+The preflight and the 403 answer carry CORS headers for that Origin, so the website can read the message.
+No route runs for a rejected Origin, and the answer holds only that message. A request without an Origin gets no CORS headers.
 
 - `POST /v1/connect`, body `{code, wallet_scope}`: returns `token`, `connection_id`, `expires_at`, `wallet_scope`, `selection_revision`.
 - `GET /v1/signers`: returns eligible public keys as `signers`. Before an `available` selection, it also returns `grant_id`.
@@ -62,14 +71,14 @@ This rejects delayed requests after a wallet changes away and back.
 Wallet changes cancel pending and approved requests. Their state becomes `denied`.
 They withhold in-progress and completed bridge results. Their state becomes `unknown`.
 A result that the bridge already sent also becomes `unknown`. The terminal does not report it as withheld.
-Each request keeps its original public key, signer metadata, artifact, and hash.
+Each request keeps its original public key, artifact, and hash.
 A signature already delivered can remain in the website's recovery journal.
 A wallet change cannot undo that signature or submit a transaction.
 
 ## Request kinds
 
 Every request has `id`, `kind`, `network_passphrase`, and `address`. `address` is the selected G-address that signs.
-An `available` session also sends `selection_revision`. Unknown fields fail.
+An `available` session also sends `selection_revision`. Unknown fields fail. The error names the first bad field.
 
 | `kind` | Artifact fields | Signed result field |
 | --- | --- | --- |
@@ -97,13 +106,19 @@ A connection permits 1000 requests. The bridge permits 32 active requests and 64
 | `-3` | `walleterm:conflict` | A stale selection, grant, or revision, or a reused request ID. |
 | `-3` | `walleterm:rate_limited` | A code, connection, or request limit. |
 | `-3` | `walleterm:expired` | The request expired before signing. |
-| `-4` | `walleterm:rejected` | The website canceled, the session ended, the wallet changed, or the review denied the request. |
+| `-4` | `walleterm:rejected` | The website canceled, the session ended, the wallet changed, the selected key left 1Password, or 1Password did not sign. |
 | `-2` | `walleterm:bridge_unavailable` | The bridge is stopping, or 1Password discovery failed or timed out. |
 | `-1` | `walleterm:result_unknown` | Signing started and the bridge withheld or lost the result. |
 | `-1` | `walleterm:internal` | Any other failure. |
 
 A failed request stores its error object and `requestState`. The SDK returns it unchanged.
-No path reports `denied` or `-4` after signing started. Those requests become `unknown`.
+`denied` means that the request ended and nothing was signed. It has `-4`, or `-2` when wallet discovery failed.
+A removed key is `-4`, as a wallet change is. The bridge cannot sign for it, and no signature exists.
+After signing starts, a request that ends without a delivered signature becomes `unknown`, with one exception.
+1Password can answer the signing call with an SSH agent failure and no signature.
+A declined prompt gives this answer. Then the request becomes `denied` with `-4`, because no signature exists.
+Its message is "1Password did not sign. You declined the prompt, or 1Password refused the request."
+An unanswered prompt that times out closes the agent connection instead. That request stays `unknown`.
 
 ## Approval
 
@@ -113,8 +128,7 @@ The bridge signs every structurally valid request, one at a time.
 A 1Password setting can require approval of each request. See [the README](../README.md#ask-for-approval-of-each-signature).
 The connection code is the only gate. A website with a valid session can request any valid signature.
 This fits testnet use only. A message signature is valid on every network. See [Messages](#messages).
-The bridge has an optional `review` hook that can deny a request with `-4`. No release sets it.
-The selected key must still exist before signing.
+A declined 1Password prompt ends the request as `denied`. The selected key must still exist before signing.
 The bridge independently verifies every returned signature.
 
 ## Transaction envelopes
@@ -193,8 +207,12 @@ A request expires after five minutes, independent of the authorization expiry.
 The bridge keeps sessions and requests in memory. A restart ends all of them.
 The browser SDK shares one session token among the tabs of a website. The bridge treats them as one client.
 A wallet change, a disconnection, or an expiry applies to every tab. Each tab generates random request IDs.
-The bridge never retries a signing request. The terminal prints a line for each produced or withheld signature.
+The bridge never retries a signing request. The terminal prints one line for each request that ends.
+The line says that the request was signed, not signed, signed but not sent, or stopped during signing, and why.
+It names the kind, the full hash, and the short signer address. Each terminal line starts with the local time.
 It also prints one line for each message request before signing.
+Each connection event prints one line: a connected website with its wallet scope, a changed wallet, a disconnection,
+an expired connection, an incorrect code, and a failed wallet list. These lines hold no code, token, or grant ID.
 A signature is withheld only when the bridge never sent it to the website.
 A signed transaction applies at most once, because its sequence number limits it.
 An authorization applies at most once, because its nonce limits it. Both stay usable until the network refuses them.

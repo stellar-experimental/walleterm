@@ -9,8 +9,17 @@ See [the connection component](CONNECTION-UI.md) for browser sessions and health
 The demo transaction expires 180 seconds after construction. Review time reduces the remaining signing time.
 The demo shows a countdown and stops waiting at the transaction deadline.
 The default SDK signing deadline is five minutes. A caller can supply an earlier cancellation signal.
-Each ordinary bridge HTTP request permits 15 seconds. Wallet discovery and selection permit 135 seconds.
-The bridge permits 125 seconds for each 1Password signing call. Vault lookup can also take up to 120 seconds.
+Each ordinary bridge HTTP request permits 15 seconds. Wallet discovery and selection permit 115 seconds.
+The bridge permits 125 seconds for each 1Password signing call. Signing runs outside an HTTP request.
+Wallet discovery permits 10 seconds for the agent list and 100 seconds for a `--vault` lookup.
+
+Cloudflare ends a proxied response that takes too long with HTTP 524.
+Its [documented default](https://developers.cloudflare.com/support/troubleshooting/http-status-codes/cloudflare-5xx-errors/error-524/) is 125 seconds.
+On 2026-09-29, a Quick Tunnel test with cloudflared 2026.9.3 used a local server that answered after a set delay.
+Delays of 95, 110, 118, and 122 seconds returned 200. Delays of 125, 140, and 150 seconds returned 524 after 125.2–125.4 seconds.
+The 524 page is HTML with `retry-after: 120` and no `Access-Control-Allow-Origin` header, also for a request with an Origin.
+A browser then reports a network error, and the SDK cannot see the status.
+So discovery ends within 110 seconds, and the SDK stops waiting at 115 seconds, before Cloudflare ends the response.
 The bridge signs requests one at a time. Queue time counts against transaction expiration.
 
 The SDK polls a request every second. Network failures and server errors retry the same request ID.
@@ -67,6 +76,8 @@ Export its activity before you change to a new demo origin.
 
 Sleep makes the local public services unavailable. After wake, the existing cloudflared process can recover its connection.
 Walleterm resumes public health checks and uses bounded replacement when recovery fails.
+The bridge checks code, session, and request deadlines against the wall clock once each second.
+So a code that expired during sleep is replaced within one second after wake, and the terminal prints the new code.
 The demo checks its signing deadline against wall-clock time after wake. Sleep never renews transaction validity.
 
 ## Quick Tunnels and named tunnels

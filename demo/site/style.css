@@ -89,7 +89,9 @@ body:has(.review[open]) #record-state.demo-loading::before{display:none}
 .action-card:nth-child(-n+2){border-bottom:1px solid var(--line)}
 .action-symbol{grid-row:1/4;display:grid;place-items:center;width:32px;height:32px;border-radius:var(--radius-control);background:var(--neutral);color:var(--ink-3);font-size:22px}
 .action-card h3{margin:4px 0 7px;font-size:15px;font-weight:600}
-.action-card p{max-width:300px;min-height:39px;margin:0 0 18px;color:var(--ink-3);font-size:12px}
+.action-card>:not(.action-symbol){grid-column:2}
+.action-card p{max-width:300px;min-height:39px;margin:0 0 18px;color:var(--ink-3);font-size:12px;text-wrap:pretty}
+.action-card .card-note{min-height:0;margin-top:-8px}
 .action-card .button{justify-self:start}
 
 /* Smart account walkthrough */

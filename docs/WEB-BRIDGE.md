@@ -12,18 +12,45 @@ walleterm tunnel --vault Private
 ```
 
 The terminal shows the public bridge URL and an eight-digit connection code.
-It shows a QR code with both when the terminal is wide enough. A narrow terminal shows the required width instead.
+Enter both in the website. Or scan the QR code with the website's Scan tunnel button.
+The QR code appears when the terminal is wide enough. A narrow terminal shows the required width instead.
 The terminal needs no input. Ctrl+C stops the bridge.
 
-The terminal prints one line for each produced or withheld signature.
+The terminal prints one line for each connection event and for each request that ends.
+Each line starts with the local time. A line names the request kind, its full hash, and the short signer address:
+
+```text
+5:24:07 PM  Connected https://example.com. It can use one wallet.
+5:24:15 PM  Selected wallet GABCDEF…UVWXYZ for https://example.com.
+5:25:02 PM  Signed transaction <hash> (account GABCDEF…UVWXYZ, sequence 11) for https://example.com.
+5:26:40 PM  1Password did not sign transaction <hash> (account GABCDEF…UVWXYZ, sequence 12) for https://example.com. You declined the prompt, or 1Password refused the request.
+5:27:03 PM  Did not sign transaction <hash> (account GABCDEF…UVWXYZ, sequence 13) for https://example.com. The website canceled this request.
+5:27:30 PM  Could not list the wallets for https://example.com. 1Password did not allow the vault check. Unlock 1Password and approve its prompt, then try again.
+5:28:11 PM  Disconnected https://example.com.
+6:25:15 PM  The connection with https://example.com expired.
+6:30:00 PM  Incorrect connection code from https://example.com (attempt 1 of 5).
+```
+
+The kinds are `transaction`, `authorization entry`, and `SEP-53 message`.
+Two more lines report a request that signing started but did not complete:
+
+- "Did not send the signature for … to …" means that 1Password signed, but the website never received the signature.
+- "Signing did not finish for … for …" means that the signing call stopped. Decline the 1Password prompt if it is still open.
+
+These lines hold no code, token, or grant ID. The Origin in each line is a claim that the browser sends.
 Before it signs a message, it prints one line with the origin, key, byte count, digest, and escaped text:
 
 ```text
-Message request from https://example.com for G... (43 bytes, digest <hex>, no network, site, or expiry binding): "example.com asks..."
+5:24:30 PM  Message request from https://example.com for GABCDEF…UVWXYZ (43 bytes, digest <hex>, no network, site, or expiry binding): "example.com asks..."
 ```
 
-Each code works once and expires after five minutes. The bridge then prints a new code.
-Five incorrect codes replace the code and pause connection for one minute.
+Each code works once and expires after five minutes. The terminal shows the expiry in local time.
+After a website uses the code, the terminal prints a new code block with a QR code:
+"The code was used. Use this new code for the next website."
+An unused code that expires prints one line, so that idle rotation does not bury the signing lines:
+"The previous code expired, so the QR code above no longer works. Enter code 12345678 with https://…. It expires at 3:09 PM (in 5 minutes)."
+Five incorrect codes replace the code and pause connection for one minute. The new block says when connections resume.
+Ctrl+C prints a last line, such as "5:40:12 PM  Walleterm tunnel stopped."
 A website session lasts one hour after the first key selection. Wallet changes do not renew it.
 Restart the bridge to revoke all website sessions.
 
@@ -44,10 +71,15 @@ Restart the tunnel to change the vault. Then reconnect the website with the new 
 - The bridge reads only item metadata and public keys. It matches the full public key against the SSH agent list.
   Comments never establish vault membership.
 - A lookup failure stops wallet discovery. It never returns an unfiltered list. An empty vault returns no wallets.
+- The error names the cause from the 1Password CLI text. A dismissed or unanswered prompt, or a locked 1Password, gives
+  "1Password did not allow the vault check. Unlock 1Password and approve its prompt, then try again."
+  A missing vault and an unreachable 1Password app each get their own message.
 - Selection and signing check vault membership again.
-- Agent discovery permits 10 seconds. The vault lookup then permits 120 seconds, including the public key reads.
+- Agent discovery permits 10 seconds. The vault lookup then permits 100 seconds, including the public key reads.
   Public key reads run in batches of four. A failed read cancels the batch and waits for cleanup.
-- The SDK permits 135 seconds for discovery and selection. Caller cancellation still stops the website request.
+- The SDK permits 115 seconds for discovery and selection. Caller cancellation still stops the website request.
+  Both limits stay under the Cloudflare response limit. A Cloudflare timeout page has no CORS header,
+  so a website could not read it. See [signing deadlines](CONNECTION-LIFECYCLE.md#signing).
 - The bridge stops a slow `op` process with SIGTERM, then SIGKILL after 1.5 seconds.
 
 See the 1Password [item commands](https://www.1password.dev/cli/reference/management-commands/item) and [SSH key guide](https://www.1password.dev/cli/ssh-keys).
@@ -71,11 +103,9 @@ The demo listens on `127.0.0.1` port 8788 by default and prints its own public U
 6. Approve the 1Password prompt on the Mac if it appears.
 7. Submit the signed transaction from the demo.
 
-The offer action needs an authorized trustline to `USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`.
-This is the testnet USDC issuer in the Stellar documentation. A new Friendbot account has no trustline.
-The demo has no trustline action. Create the trustline with direct signing:
-build it with `stellar tx new change-trust --source-account G... --line USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5 --network testnet --build-only`.
-Then follow the [direct V1 envelope steps](../.agents/skills/walleterm/references/classic-native.md#v1-transaction-envelope).
+The offer needs an authorized trustline to `USDC:GBBD47IF6LWK7P7MDEVSCWR7DPUWV3NY3DTQEVFL4NAT4AQH3ZLLFLA5`.
+This is the testnet USDC issuer in the Stellar documentation. A new Friendbot account has none.
+The offer card then shows Add USDC trustline, which adds the trustline with a 100 USDC limit.
 See [the demo guide](DEMO.md) for each action and the activity log.
 
 The connection code lets a website list your 1Password Ed25519 public keys and request signatures.
@@ -151,6 +181,7 @@ Canceling or disconnecting during signing suppresses delivery. It cannot undo a 
 A website can already have received a completed signature before a disconnection.
 `requestState: 'unknown'` means that signing started and no verified result arrived.
 Preserve an unknown signing outcome. Decline the 1Password prompt if it appears. Then build a new transaction.
+When you decline the prompt, an active request ends as `denied` with `-4`. Nothing was signed.
 See [the demo guide](DEMO.md) for how the demo keeps its transaction records.
 
 ## Tunnel lifetime

@@ -8,7 +8,7 @@ import { requestError } from '../../sdk/errors.ts';
 import { requestUrl } from './support.ts';
 import { createHost } from './host.ts';
 import type { Falsy } from './support.ts';
-import type { HostOptions, ReviewRequest } from './host.ts';
+import type { HostOptions } from './host.ts';
 import type { Fetch, RequestState, Signer, SignalOptions } from '../../sdk/types.ts';
 
 const key = Keypair.random(),
@@ -54,10 +54,9 @@ interface Site {
   site?: string;
   token?: string;
 }
-interface Decision {
-  request: ReviewRequest;
+interface Wait {
   signal: AbortSignal;
-  decide(value: boolean): void;
+  release(): void;
 }
 const originFetch =
   (site: string): Fetch =>
@@ -72,27 +71,24 @@ const both = [
   { public_key: other.publicKey(), comment: 'Second' },
 ];
 async function fixture(options: HostOptions = {}) {
-  const decisions: Decision[] = [],
+  const waits: Wait[] = [],
     logs: string[] = [];
   let calls = 0,
-    reviews = 0;
+    holding = false;
   const bridge = await createHost({
     log: (line) => logs.push(line),
-    listSigners: async () => [{ public_key: publicKey, comment: 'Mock key' }],
-    review: (request, { signal }) =>
-      new Promise((resolve, reject) => {
-        reviews++;
-        const aborted = () => reject(signal.reason);
-        signal.addEventListener('abort', aborted, { once: true });
-        decisions.push({
-          request,
-          signal,
-          decide(value) {
-            signal.removeEventListener('abort', aborted);
-            resolve(value);
-          },
+    // After hold(), the next wallet check waits until the test releases it or the bridge aborts it.
+    // A signing job makes that check before it calls the signer, so the request stays queued.
+    listSigners: async ({ signal }) => {
+      if (holding) {
+        holding = false;
+        await new Promise<void>((resolve, reject) => {
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+          waits.push({ signal, release: resolve });
         });
-      }),
+      }
+      return [{ public_key: publicKey, comment: 'Mock key' }];
+    },
     sign: async (_key, hash) => {
       calls++;
       return Buffer.from(key.sign(Buffer.from(hash, 'hex'))).toString('hex');
@@ -118,24 +114,20 @@ async function fixture(options: HostOptions = {}) {
     const body: ReplyData = await response.json();
     return { status: response.status, headers: response.headers, data: body };
   }
-  async function decide(value = true) {
-    const decision = await until(() => decisions.shift());
-    decision.decide(value);
-    return decision.request;
-  }
   const client = (site: string, clientOptions: ConstructorParameters<typeof WalletermClient>[1] = {}) =>
     new WalletermClient(origin, { pollInterval: 1, fetch: originFetch(site), ...clientOptions });
   return {
     bridge,
     origin,
     request,
-    decide,
     client,
-    decisions,
+    waits,
     logs,
+    hold: () => {
+      holding = true;
+    },
     code: () => bridge.code(),
     calls: () => calls,
-    reviews: () => reviews,
   };
 }
 function buildTx(source: string) {
@@ -212,7 +204,7 @@ test('a delayed account response cannot overwrite a newer SDK wallet', async () 
 });
 
 test('SDK withholds a delayed successful signature after a same-session wallet change', async () => {
-  const f = await fixture({ listSigners: async () => both, review: undefined });
+  const f = await fixture({ listSigners: async () => both });
   let release: (() => void) | undefined;
   const client = f.client('https://adapter.example', {
     fetch: async (url, options) => {
@@ -243,7 +235,7 @@ test('SDK withholds a delayed successful signature after a same-session wallet c
 
 for (const change of ['unchanged', 'A-B', 'A-B-A'] as const) {
   test(`SDK checks an observed remote wallet revision before delayed success: ${change}`, async () => {
-    const f = await fixture({ listSigners: async () => both, review: undefined });
+    const f = await fixture({ listSigners: async () => both });
     const sent: { path: string; body?: string; token: string | null }[] = [];
     const release = Promise.withResolvers<void>();
     onTestFinished(() => release.resolve());
@@ -422,7 +414,6 @@ test('SDK preserves signing uncertainty when session expiry prevents cancellatio
     release: (() => void) | undefined;
   const waiting = Promise.withResolvers<void>();
   const f = await fixture({
-    review: undefined,
     sign: async (_key, hash) => {
       waiting.resolve();
       await new Promise<void>((resolve) => {
@@ -455,9 +446,7 @@ test('SDK uses the code and wallet picker, signs, and reconnects after revocatio
   assert.equal((await connect()).address, publicKey);
   const old = client.token;
   // The address and network default to the connected account.
-  const signing = client.signTransaction(input('sdk').xdr);
-  await f.decide();
-  const result = await signing;
+  const result = await client.signTransaction(input('sdk').xdr);
   assert.ok(result.signedTxXdr);
   assert.equal(result.signerAddress, publicKey);
   await f.request('/v1/disconnect', {}, { site, token: client.token ?? undefined });
@@ -469,7 +458,12 @@ test('SDK uses the code and wallet picker, signs, and reconnects after revocatio
 });
 
 test('SDK preserves denied state and clears a canceled wallet selection', async () => {
-  const f = await fixture(),
+  // A declined 1Password prompt returns no signature, so the bridge reports denied, not unknown.
+  const f = await fixture({
+      sign: async () => {
+        throw Object.assign(Error('SSH agent failure'), { ext: ['walleterm:signing_refused'] });
+      },
+    }),
     client = f.client('https://adapter.example');
   await assert.rejects(
     client.connect({
@@ -482,21 +476,30 @@ test('SDK preserves denied state and clears a canceled wallet selection', async 
   );
   assert.equal(client.token, null);
   await client.connect({ code: await f.code(), selectWallet: async (keys) => keys[0].public_key });
-  const denied = client.signTransaction(input('denied-sdk').xdr);
-  await f.decide(false);
-  await assert.rejects(denied, (error) => requestError(error).requestState === 'denied');
+  await assert.rejects(client.signTransaction(input('denied-sdk').xdr), (value) => {
+    const error = requestError(value) as ReturnType<typeof requestError> & { code?: number; ext?: string[] };
+    assert.equal(error.requestState, 'denied');
+    assert.equal(error.code, -4);
+    assert.deepEqual(error.ext, ['walleterm:rejected']);
+    assert.equal(
+      error.message,
+      '1Password did not sign. You declined the prompt, or 1Password refused the request.',
+    );
+    return true;
+  });
 });
 
-test('aborting an SDK request cancels its review and never signs', async () => {
+test('aborting an SDK request cancels its queued job and never signs', async () => {
   const f = await fixture(),
     client = f.client('https://adapter.example'),
     controller = new AbortController();
   await client.connect({ code: await f.code(), selectWallet: async (keys) => keys[0].public_key });
+  f.hold();
   const signing = client.signTransaction(input('aborted').xdr, { signal: controller.signal });
-  await until(() => f.reviews() === 1);
+  await until(() => f.waits.length === 1);
   controller.abort();
   await assert.rejects(signing);
-  await until(() => f.decisions[0]?.signal.aborted);
+  await until(() => f.waits[0]?.signal.aborted);
   assert.equal(f.calls(), 0);
 });
 
@@ -513,11 +516,8 @@ test('SDK retries a failed poll and a lost first response', async () => {
   };
   const client = f.client('https://adapter.example', { fetch: flaky });
   await client.connect({ code: await f.code(), selectWallet: async (keys) => keys[0].public_key });
-  const signing = client.signTransaction(input('flaky').xdr);
-  await f.decide();
-  assert.ok((await signing).signedTxXdr);
+  assert.ok((await client.signTransaction(input('flaky').xdr)).signedTxXdr);
   assert.equal(f.calls(), 1);
-  assert.equal(f.reviews(), 1);
 });
 
 test('leaving the page cancels an open SDK request', async () => {
@@ -532,12 +532,13 @@ test('leaving the page cancels an open SDK request', async () => {
     },
   });
   await client.connect({ code: await f.code(), selectWallet: async (keys) => keys[0].public_key });
+  f.hold();
   const signing = client
     .signTransaction(input('leave').xdr)
     .then(() => requestError(Error('The signature was delivered.')), requestError);
-  await until(() => f.reviews() === 1);
+  await until(() => f.waits.length === 1);
   page.dispatchEvent(new Event('pagehide'));
-  await until(() => f.decisions[0]?.signal.aborted);
+  await until(() => f.waits[0]?.signal.aborted);
   const error = await signing;
   assert.match(error.message, /page closed/);
   assert.equal(error.canceled, true);
@@ -561,7 +562,7 @@ test('SDK retries stop when the connection changes', async () => {
   const client = f.client('https://adapter.example', { fetch: flaky });
   await client.connect({ code: await f.code(), selectWallet: async (keys) => keys[0].public_key });
   await assert.rejects(client.signTransaction(input('changed').xdr), /connection changed/);
-  assert.equal(f.reviews(), 0);
+  assert.equal(f.calls(), 0);
 });
 
 test('SDK reports an unconfirmed cancel and accepts a primitive abort reason', async () => {
@@ -575,10 +576,11 @@ test('SDK reports an unconfirmed cancel and accepts a primitive abort reason', a
   });
   await client.connect({ code: await f.code(), selectWallet: async (keys) => keys[0].public_key });
   const controller = new AbortController();
+  f.hold();
   const signing = client
     .signTransaction(input('offline').xdr, { signal: controller.signal })
     .catch((error: unknown) => error);
-  await until(() => f.reviews() === 1);
+  await until(() => f.waits.length === 1);
   down = true;
   controller.abort('stop');
   const error = await signing;

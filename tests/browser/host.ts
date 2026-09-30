@@ -14,9 +14,8 @@ const binary =
 type Options = { signal: AbortSignal };
 export interface HostOptions {
   listSigners?: (options: Options) => Promise<Signer[]>;
+  /** Throw `{ ext: ['walleterm:signing_refused'] }` to act as a declined 1Password prompt: no signature. */
   sign?: (publicKey: string, digest: string, options: Options) => Promise<string>;
-  /** Present: every request waits for this review. Absent: the bridge approves valid requests. */
-  review?: (request: ReviewRequest, options: Options) => Promise<boolean>;
   log?: (line: string) => unknown;
   /** Called when the bridge calls its signer, before the signer answers. */
   onSign?: () => unknown;
@@ -29,11 +28,6 @@ export interface HostOptions {
   production?: boolean;
   /** Explicit vault filter for production dependencies. */
   vault?: string;
-}
-export interface ReviewRequest {
-  origin: string;
-  signer: Signer;
-  details: Record<string, unknown>;
 }
 export interface Pairing {
   walleterm: number;
@@ -51,8 +45,10 @@ export interface Host {
   advance(ms: number): Promise<void>;
   setPublicOrigin(origin: string): Promise<boolean>;
   close(): Promise<void>;
-  onPairingChanged(callback: () => void): void;
+  /** Called after each code change, with its reason. */
+  onPairingChanged(callback: (reason: Rotation) => void): void;
 }
+export type Rotation = 'used' | 'expired' | 'locked';
 
 // A thrown mock error becomes a bridge error code. Status 5xx and discovery failures are external errors.
 function errorCode(error: unknown): { code: string; message: string } {
@@ -71,7 +67,6 @@ export async function createHost(options: HostOptions = {}): Promise<Host> {
       ? { ...process.env, WALLETERM_TEST_HOST_PRODUCTION: '1' }
       : {
           PATH: process.env.PATH ?? '',
-          ...(options.review ? { WALLETERM_TEST_HOST_REVIEW: '1' } : {}),
           ...(options.demo ? { WALLETERM_TEST_HOST_DEMO: '1' } : {}),
         },
   });
@@ -79,7 +74,7 @@ export async function createHost(options: HostOptions = {}): Promise<Host> {
   const replies = new Map<number, (value: unknown) => void>();
   const aborts = new Map<number, AbortController>();
   let nextRequest = 1;
-  let pairingChanged = () => {};
+  let pairingChanged = (_reason: Rotation) => {};
   const write = (value: unknown) => child.stdin.write(JSON.stringify(value) + '\n');
   const ready = Promise.withResolvers<{ marker: string; port: number; demo_port: number | null }>();
   child.once('exit', (code) =>
@@ -92,7 +87,7 @@ export async function createHost(options: HostOptions = {}): Promise<Host> {
     if (message.reply !== undefined) return replies.get(message.reply)?.(message.value);
     if (message.log !== undefined) return options.log?.(message.log);
     if (message.sign_called) return options.onSign?.();
-    if (message.pairing_changed) return pairingChanged();
+    if (message.pairing_changed) return pairingChanged(message.reason);
     if (message.abort !== undefined) {
       const reason = Object.assign(Error(message.reason?.message ?? 'Aborted'), {
         code: message.reason?.code,
@@ -110,7 +105,6 @@ export async function createHost(options: HostOptions = {}): Promise<Host> {
           if (!options.sign) throw Error('This test host has no signer.');
           return options.sign(args.public_key, args.digest, { signal });
         }
-        if (message.dep === 'review') return options.review!(args, { signal });
         throw Error(`Unknown dependency ${message.dep}`);
       };
       run().then(

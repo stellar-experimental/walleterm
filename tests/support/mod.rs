@@ -2,7 +2,6 @@
 //! Nothing here reads a real key, opens the 1Password socket, or reaches a network.
 #![allow(dead_code)]
 
-use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -17,7 +16,7 @@ use stellar_xdr::{
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::oneshot;
-use walleterm::bridge::{BoxFuture, Bridge, Deps, ReviewRequest, SignerInfo};
+use walleterm::bridge::{BoxFuture, Bridge, Deps, SignerInfo};
 use walleterm::cancel::Cancel;
 use walleterm::error::Error;
 use walleterm::stellar::{account_address, encode};
@@ -33,19 +32,6 @@ pub fn address(key: &SigningKey) -> String {
     account_address(&key.verifying_key().to_bytes())
 }
 
-pub struct Decision {
-    pub request: ReviewRequest,
-    pub cancel: Cancel,
-    answer: oneshot::Sender<bool>,
-}
-
-impl Decision {
-    pub fn decide(self, value: bool) -> ReviewRequest {
-        let _ = self.answer.send(value);
-        self.request
-    }
-}
-
 /// Shared controls for one bridge under test.
 #[derive(Clone)]
 pub struct Controls {
@@ -57,9 +43,9 @@ pub struct Controls {
     pub signs: Arc<AtomicUsize>,
     pub sign_gate: Arc<Mutex<Option<oneshot::Receiver<()>>>>,
     pub sign_result: Arc<Mutex<Option<String>>>,
+    /// The next signing calls fail with this error and return no signature.
+    pub sign_error: Arc<Mutex<Option<Error>>>,
     pub sign_cancels: Arc<Mutex<Vec<Cancel>>>,
-    pub decisions: Arc<Mutex<VecDeque<Decision>>>,
-    pub reviews: Arc<AtomicUsize>,
     pub logs: Arc<Mutex<Vec<String>>>,
     pub clock: Arc<AtomicU64>,
 }
@@ -71,8 +57,13 @@ impl Controls {
     pub fn advance(&self, ms: u64) {
         self.clock.fetch_add(ms, Ordering::SeqCst);
     }
+    /// Terminal lines about signing requests. `events` returns the connection lines.
     pub fn logs(&self) -> Vec<String> {
-        self.logs.lock().unwrap().clone()
+        self.logs.lock().unwrap().iter().filter(|l| !is_event(l)).cloned().collect()
+    }
+    /// Terminal lines about connections: connect, select, disconnect, expiry, and incorrect codes.
+    pub fn events(&self) -> Vec<String> {
+        self.logs.lock().unwrap().iter().filter(|l| is_event(l)).cloned().collect()
     }
     /// Hold the next signer listing until the returned sender fires.
     pub fn hold_listing(&self) -> oneshot::Sender<()> {
@@ -86,28 +77,28 @@ impl Controls {
         *self.sign_gate.lock().unwrap() = Some(rx);
         tx
     }
-    pub async fn next_decision(&self) -> Decision {
-        for _ in 0..400 {
-            if let Some(d) = self.decisions.lock().unwrap().pop_front() {
-                return d;
-            }
-            tokio::time::sleep(Duration::from_millis(5)).await;
-        }
-        panic!("no review arrived");
-    }
-    pub async fn decide(&self, value: bool) -> ReviewRequest {
-        self.next_decision().await.decide(value)
-    }
+}
+
+fn is_event(line: &str) -> bool {
+    [
+        "Connected ",
+        "Selected wallet ",
+        "Disconnected ",
+        "The connection with ",
+        "Incorrect connection code ",
+        "Could not list the wallets ",
+    ]
+    .iter()
+    .any(|prefix| line.starts_with(prefix))
 }
 
 pub struct Options {
-    pub review: bool,
     pub key: SigningKey,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Self { review: true, key: mock_key(7) }
+        Self { key: mock_key(7) }
     }
 }
 
@@ -147,6 +138,9 @@ pub fn deps(controls: &Controls, options: &Options) -> Deps {
                 if let Some(gate) = gate {
                     let _ = gate.await;
                 }
+                if let Some(error) = c.sign_error.lock().unwrap().clone() {
+                    return Err(error);
+                }
                 if let Some(forced) = c.sign_result.lock().unwrap().clone() {
                     return Ok(forced);
                 }
@@ -155,26 +149,10 @@ pub fn deps(controls: &Controls, options: &Options) -> Deps {
         },
     );
     let c = controls.clone();
-    let review = options.review.then(|| {
-        Box::new(move |request: ReviewRequest, cancel: Cancel| -> BoxFuture<walleterm::error::Result<bool>> {
-            let c = c.clone();
-            Box::pin(async move {
-                c.reviews.fetch_add(1, Ordering::SeqCst);
-                let (answer, wait) = oneshot::channel();
-                c.decisions.lock().unwrap().push_back(Decision { request, cancel: cancel.clone(), answer });
-                tokio::select! {
-                    value = wait => Ok(value.unwrap_or(false)),
-                    () = cancel.cancelled() => Err(cancel.reason()),
-                }
-            })
-        })
-            as Box<dyn Fn(ReviewRequest, Cancel) -> BoxFuture<walleterm::error::Result<bool>> + Send + Sync>
-    });
-    let c = controls.clone();
     let log = Box::new(move |line: &str| c.logs.lock().unwrap().push(line.to_owned()));
     let c = controls.clone();
     let now = Box::new(move || c.now());
-    Deps { list_signers, sign, review, log, now }
+    Deps { list_signers, sign, log, now }
 }
 
 pub struct Response {
@@ -240,9 +218,8 @@ impl Fixture {
             signs: Arc::default(),
             sign_gate: Arc::default(),
             sign_result: Arc::default(),
+            sign_error: Arc::default(),
             sign_cancels: Arc::default(),
-            decisions: Arc::default(),
-            reviews: Arc::default(),
             logs: Arc::default(),
             clock: Arc::new(AtomicU64::new(now_ms())),
         };
