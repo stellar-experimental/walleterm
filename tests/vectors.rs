@@ -1,6 +1,6 @@
 //! Frozen JS SDK 17.1.0 vectors from `fixtures/parity/vectors.json`, run through the shared core
 //! (`artifact.rs`) and the bridge admission rules. The Rust core must reproduce every digest, signed artifact,
-//! detail field, and error exactly, except the reviewed changes in `CHANGED`.
+//! detail field, and error exactly.
 //! Mock seeds only; nothing here reaches a network.
 
 use base64::Engine as _;
@@ -12,38 +12,6 @@ use walleterm::error::Error;
 use walleterm::network::DEFAULT;
 use walleterm::stellar::verify;
 use walleterm::util::{hex, lower_hex, sha256};
-
-/// The signing rules in `docs/INTERFACE.md` define these expectations. `"ok"` means the case signs.
-/// No request reads a ledger, so every `latest_ledger` window and value check is gone. Expiration ledger 0 still fails.
-/// A transaction needs no time bounds. Only a nonzero `max_time` at or before now fails.
-/// A request for another key runs `bridge::admit`, which refuses it with `address_mismatch`.
-/// A preimage bound to another G-address passes the shared core. The bridge still refuses it (`tests/bridge.rs`).
-const CHANGED: &[(&str, &str)] = &[
-    ("auth-window-61", "ok"),
-    ("auth-window-now", "ok"),
-    ("auth-ledger-zero", "ok"),
-    ("auth-ledger-fraction", "ok"),
-    ("auth-ledger-string", "ok"),
-    ("auth-ledger-near-integer", "ok"),
-    (
-        "auth-other-key",
-        r#"{"code":"address_mismatch","message":"The requested account differs from the selected account."}"#,
-    ),
-    (
-        "auth-public-key-number",
-        r#"{"code":"address_mismatch","message":"The requested account differs from the selected account."}"#,
-    ),
-    ("preimage-window-121", "ok"),
-    ("preimage-expired", "ok"),
-    ("preimage-other-account", "ok"),
-    ("tx-no-time-bounds", "ok"),
-    ("tx-lifetime-301s", "ok"),
-    ("tx-starts-later", "ok"),
-    (
-        "tx-ended",
-        r#"{"code":"invalid_request","message":"The transaction expired. Its max_time is at or before the current time."}"#,
-    ),
-];
 
 fn vectors() -> Value {
     let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/fixtures/parity/vectors.json"))
@@ -167,26 +135,11 @@ fn every_frozen_vector_matches() {
     for case in cases.iter().filter(|case| case.get("rust_accepts").is_none()) {
         let id = case["id"].as_str().unwrap();
         let actual = run(case, &key, public_key);
-        let expected = match CHANGED.iter().find(|(changed, _)| *changed == id) {
-            Some((_, "ok")) => {
-                if actual.get("error").is_some() {
-                    failures.push(format!("{id} must now sign: {actual}"));
-                }
-                continue;
-            }
-            Some((_, error)) => json!({ "error": serde_json::from_str::<Value>(error).unwrap() }),
-            None => {
-                let mut expected = case["expect"].clone();
-                // The bridge request expiry no longer follows the transaction's max_time.
-                expected.as_object_mut().unwrap().remove("expires_ms");
-                expected
-            }
-        };
-        if actual != expected {
+        let expected = &case["expect"];
+        if actual != *expected {
             failures.push(format!("{id}\n  expected: {expected}\n  actual:   {actual}"));
         }
     }
-    assert_eq!(CHANGED.iter().filter(|(id, _)| cases.iter().any(|c| c["id"] == *id)).count(), CHANGED.len());
     assert!(
         failures.is_empty(),
         "{} of {} vectors differ:\n{}",
@@ -196,7 +149,7 @@ fn every_frozen_vector_matches() {
     );
 }
 
-/// Recorded difference (fixtures/parity/README.md): v3 structural admission accepts a valid envelope whose
+/// Recorded difference (fixtures/parity/README.md): the bridge's structural admission accepts a valid envelope whose
 /// content the JS SDK refuses to model. The body and existing signatures stay exact; one signature is appended.
 #[test]
 fn structural_admission_accepts_what_the_sdk_cannot_model() {

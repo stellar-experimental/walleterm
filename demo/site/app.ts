@@ -193,7 +193,7 @@ const connection = new WalletermConnect($('wallet-connection'), {
   onChange(value) {
     const previousAddress = account?.address;
     wallet = value.wallet;
-    // The demo builds, funds, and submits on testnet only. A tunnel on another network gets no actions.
+    // The demo builds, funds, and submits on testnet only. It sends no request to a tunnel on another network.
     const otherNetwork =
       value.account && value.account.networkPassphrase !== Networks.TESTNET ? value.account : null;
     account = otherNetwork ? null : value.account;

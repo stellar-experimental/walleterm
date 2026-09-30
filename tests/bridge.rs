@@ -684,7 +684,7 @@ async fn first_selection_rejects_a_replaced_grant_and_an_unknown_scope() {
         )
         .await;
     assert_eq!(r.body["error"]["message"], "Remove the field \"pin\" from the connection request.");
-    // An older SDK sends no protocol, and it would report testnet for any tunnel. Its attempt does not count.
+    // A client without protocol 4 fails before the code check. Its attempt does not count.
     for protocol in [None, Some(json!(3)), Some(json!("4"))] {
         let mut body = json!({"code": f.code(), "wallet_scope": "selected"});
         if let Some(protocol) = protocol {
@@ -1582,7 +1582,7 @@ async fn a_selection_completes_after_its_client_disconnects() {
     f.close().await;
 }
 
-/// Review P3-S3. The legacy bridge answered 401 and kept serving other requests.
+/// A selection body that outlasts its session gets 401, and the bridge keeps serving other requests.
 #[tokio::test]
 async fn a_selection_body_that_outlasts_its_session_fails_without_stopping_the_bridge() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -1612,7 +1612,7 @@ async fn a_selection_body_that_outlasts_its_session_fails_without_stopping_the_b
     f.close().await;
 }
 
-/// Review P3-S2, first schedule. The legacy bridge made no signing call.
+/// Shutdown before the approved listing resumes ends the request with no signing call.
 #[tokio::test]
 async fn shutdown_before_the_approved_listing_resumes_starts_no_signing() {
     let f = Fixture::new(Options::default()).await;

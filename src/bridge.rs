@@ -1232,8 +1232,8 @@ impl Bridge {
                 ));
             }
         };
-        // Protocol 4 replies can name a network other than testnet. An older SDK would still report testnet.
-        // So the bridge refuses it before it checks the code, and the attempt does not count.
+        // Only a protocol 4 client reads the tunnel network from each reply. The check comes before the code check,
+        // so a client of another version uses no attempt.
         if data.get("protocol") != Some(&json!(PROTOCOL)) {
             let message = format!(
                 "Update the Walleterm SDK on this website. The tunnel uses bridge protocol {PROTOCOL}."
