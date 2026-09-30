@@ -161,9 +161,9 @@ Alternatively, build a custom `mppx` client method with `Method.toClient` in the
 - Spending policy. Cached 1Password approval can permit signatures without a prompt.
   See [ask for approval of each signature](../README.md#ask-for-approval-of-each-signature).
   The signer's invocation check is the main safeguard. A per-payment amount cap needs a decision.
-  For websites, the planned approval step in the tunnel can apply the same policy. See `docs/NETWORKS.md`.
+  For websites, the approver can apply the same policy through `walleterm approve`.
 - Runtime support. Decide whether a payment signer becomes an SDK export after the fixture passes.
-- Mainnet. Real services settle USDC on mainnet. The tunnel does not sign for mainnet yet. A mainnet run needs the user's approval.
+- Mainnet. Real services settle USDC on mainnet. A mainnet tunnel asks for `walleterm approve` before each signature. A mainnet run needs the user's approval.
   The CLI accepts any network passphrase, so the signer must check it.
 
 ## Upstream watch list

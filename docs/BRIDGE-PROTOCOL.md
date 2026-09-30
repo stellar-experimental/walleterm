@@ -1,7 +1,7 @@
 # Walleterm bridge protocol version 4
 
 The bridge signs transaction envelopes, authorization payloads, and SEP-53 messages for one network.
-That network is testnet, or the network of `walleterm tunnel --network`: futurenet or a local network.
+That network is testnet, or the network of `walleterm tunnel --network` or `--network-passphrase`.
 It never builds or submits transactions.
 The bridge and `walleterm sign` share one Rust core for each artifact. The bridge adds only its website rules.
 The browser SDK exposes this protocol through a SEP-43 wallet. See [the SEP-43 design](SEP-43.md).
@@ -109,7 +109,7 @@ A connection permits 1000 requests. The bridge permits 32 active requests and 64
 | `-3` | `walleterm:conflict` | A stale selection, grant, or revision, or a reused request ID. |
 | `-3` | `walleterm:rate_limited` | A code, connection, or request limit. |
 | `-3` | `walleterm:expired` | The request expired before signing. |
-| `-4` | `walleterm:rejected` | The website canceled, the session ended, the wallet changed, the selected key left 1Password, or 1Password did not sign. |
+| `-4` | `walleterm:rejected` | The website canceled, the session ended, the wallet changed, the approver denied it, the selected key left 1Password, or 1Password did not sign. |
 | `-2` | `walleterm:bridge_unavailable` | The bridge is stopping, or 1Password discovery failed or timed out. |
 | `-1` | `walleterm:result_unknown` | Signing started and the bridge withheld or lost the result. |
 | `-1` | `walleterm:internal` | Any other failure. |
@@ -125,12 +125,18 @@ An unanswered prompt that times out closes the agent connection instead. That re
 
 ## Approval
 
-A connected website approves a request by sending it. The bridge asks for no approval in its terminal.
-The bridge signs every structurally valid request, one at a time.
+On testnet, futurenet, and a local network, a connected website approves a request by sending it.
+There, the connection code is the only gate. A website with a valid session can request any valid signature.
+On mainnet and on a custom passphrase, each request also waits for `walleterm approve`. `--approve` adds that step on a test network.
+The request stays `pending` while it waits. `walleterm approve` shows it with the `stellar-xdr` decode of its artifact.
+An approval lets the bridge continue. A denial ends the request as `denied` with `-4` and "The approval was declined."
+No answer before the request expires ends it as `expired` with `-3`.
+A cancel, a wallet change, a disconnection, or shutdown ends the wait. A late answer then fails.
+The bridge signs one request at a time. A request that waits for approval holds every later request, so answer or deny it promptly.
 1Password can still require its own approval on the Mac. Cached 1Password approval can skip that prompt.
 A 1Password setting can require approval of each request. See [the README](../README.md#ask-for-approval-of-each-signature).
-The connection code is the only gate. A website with a valid session can request any valid signature.
-This fits test networks only. The tunnel does not sign for mainnet yet. A message signature is valid on every network. See [Messages](#messages).
+A message signature is valid on every network. See [Messages](#messages).
+See [the approve command](INTERFACE.md#approve) for the local approval channel.
 A declined 1Password prompt ends the request as `denied`. The selected key must still exist before signing.
 The bridge independently verifies every returned signature.
 

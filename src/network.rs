@@ -50,9 +50,25 @@ pub fn of(passphrase: &str) -> Option<Network> {
     BUILT_IN.into_iter().find(|n| n.passphrase == passphrase)
 }
 
-/// The networks that `walleterm tunnel` serves. Mainnet waits for approval in the tunnel terminal.
-pub fn tunnel(name: &str) -> Option<Network> {
-    named(name).filter(|n| n.name != "mainnet")
+/// The network of any other passphrase. A built-in passphrase resolves to its built-in network.
+/// One process serves one network, so the one leaked passphrase and label stay bounded.
+pub fn custom(passphrase: &str) -> Option<Network> {
+    if !crate::util::valid_passphrase(passphrase) {
+        return None;
+    }
+    of(passphrase).or_else(|| {
+        let passphrase: &'static str = Box::leak(passphrase.to_owned().into_boxed_str());
+        let label = Box::leak(format!("network {}", crate::cli::go_quote(passphrase)).into_boxed_str());
+        Some(Network { name: "custom", sep43: "CUSTOM", label, passphrase })
+    })
+}
+
+impl Network {
+    /// Testnet, futurenet, and local networks hold no real value. Every other passphrase can.
+    /// The tunnel asks for approval before each signature on every network that is not a test network.
+    pub fn is_test(&self) -> bool {
+        [TESTNET, BUILT_IN[1].passphrase, BUILT_IN[2].passphrase].contains(&self.passphrase)
+    }
 }
 
 #[cfg(test)]
@@ -77,12 +93,32 @@ mod tests {
     }
 
     #[test]
-    fn the_tunnel_serves_the_test_networks_only() {
+    fn only_the_three_test_passphrases_are_test_networks() {
         for name in ["testnet", "futurenet", "local"] {
-            assert_eq!(tunnel(name).map(|n| n.name), Some(name));
+            assert!(named(name).unwrap().is_test(), "{name}");
         }
-        for name in ["mainnet", "pubnet", "public", "TESTNET", "", "custom"] {
-            assert_eq!(tunnel(name), None, "{name}");
+        assert!(!named("mainnet").unwrap().is_test());
+        for name in ["pubnet", "public", "TESTNET", "", "custom"] {
+            assert_eq!(named(name), None, "{name}");
+        }
+    }
+
+    #[test]
+    fn a_custom_passphrase_is_a_production_network_and_a_built_in_one_keeps_its_name() {
+        let custom = custom("Walleterm ; offline").unwrap();
+        assert_eq!(
+            (custom.name, custom.sep43, custom.passphrase),
+            ("custom", "CUSTOM", "Walleterm ; offline")
+        );
+        assert_eq!(custom.label, "network \"Walleterm ; offline\"");
+        assert!(!custom.is_test());
+        // The rule follows the passphrase, not the flag that named it.
+        assert_eq!(super::custom(TESTNET), Some(DEFAULT));
+        assert_eq!(super::custom(BUILT_IN[3].passphrase), named("mainnet"));
+        // A near match is another network: no trimming, no case folding.
+        assert!(!super::custom(" Test SDF Network ; September 2015").unwrap().is_test());
+        for invalid in ["", " \t", &"x".repeat(257)] {
+            assert_eq!(super::custom(invalid), None);
         }
     }
 }

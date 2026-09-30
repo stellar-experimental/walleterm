@@ -10,7 +10,7 @@ A small macOS signing companion for agents that use Stellar and 1Password.
 `walleterm` lists public Ed25519 keys and signs Stellar artifacts through the 1Password desktop SSH agent.
 It accepts a transaction, an authorization preimage or entry, or a SEP-53 message. It computes the digest itself.
 It verifies each signature before it returns the signature. The private key stays in 1Password.
-`walleterm tunnel` also lets a connected website request signatures on testnet, futurenet, or a local network.
+`walleterm tunnel` also lets a connected website request signatures on one Stellar network.
 `walleterm` is one Rust binary. It embeds the demo website and needs no JavaScript runtime.
 
 ## Status and safety
@@ -23,8 +23,9 @@ Walleterm is experimental and before version 1.0. Interfaces can change without 
 - Walleterm checks each artifact before it asks 1Password to sign. Other programs can use the 1Password SSH agent directly.
   1Password approval applies to them too. See [the security model](SECURITY.md#security-model).
 - Use dedicated wallet keys. A shared SSH key can also authorize other systems.
-- The website bridge signs for one test network: testnet, futurenet, or a local network. It does not sign for mainnet yet.
-  A connected website approves its own requests.
+- The website bridge signs for one network. On testnet, futurenet, and a local network, a connected website approves its own requests,
+  unless the tunnel runs with `--approve`.
+  On mainnet and custom networks, you or your agent approve each request with `walleterm approve`.
 - Walleterm supports Ed25519 keys only. A contract account needs its exact authorization adapter.
 
 ## Install

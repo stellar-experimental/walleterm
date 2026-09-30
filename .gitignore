@@ -37,6 +37,7 @@ __pycache__/
 !/evidence/protocol-acceptance.json
 !/evidence/demo-walkthrough-live-2026-09-29.json
 !/evidence/ux-review-live-2026-09-29.json
+!/evidence/approve-live-2026-09-30.json
 
 /dist/
 /fixtures/kit/node_modules/

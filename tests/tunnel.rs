@@ -1253,7 +1253,8 @@ async fn shutdown_during_retirement_cancels_bridge_signing_first() {
     f.port = listener.local_addr().unwrap().port();
     drop(listener);
     let options = support::Options { key: f.key.clone(), ..Default::default() };
-    f.bridge = walleterm::bridge::Bridge::new(support::deps(&f.controls, &options), f.port, options.network);
+    f.bridge =
+        walleterm::bridge::Bridge::new(support::deps(&f.controls, &options), f.port, options.network, false);
     let service = Arc::new(walleterm::service::BridgeService::new(f.bridge.clone(), f.port));
     let running = launch("Walleterm tunnel", f.port, service, deps).await.map_err(|e| e.0).unwrap();
     let site = f.connect("https://review.example").await;

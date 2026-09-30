@@ -16,9 +16,26 @@ Enter both in the website. Or scan the QR code with the website's Scan tunnel bu
 The QR code appears when the terminal is wide enough. A narrow terminal shows the required width instead.
 The terminal needs no input. Ctrl+C stops the bridge.
 
-The bridge signs for testnet. To sign for futurenet or a local network, name it: `walleterm tunnel --network futurenet`.
-The names are the Stellar CLI names `testnet`, `futurenet`, and `local`. The ready line names the network.
-Each tunnel serves one network. Run a second tunnel on another `--port` for a second network. The tunnel does not sign for mainnet yet.
+The bridge signs for testnet. To sign for another network, name it: `walleterm tunnel --network mainnet`.
+The names are the Stellar CLI names `testnet`, `futurenet`, `local`, and `mainnet`. The ready line names the network.
+For any other network, give its passphrase: `walleterm tunnel --network-passphrase "<passphrase>"`.
+Each tunnel serves one network. Run a second tunnel on another `--port` for a second network.
+
+## Approve requests
+
+On mainnet and on a custom passphrase, each request waits for approval before 1Password signs it.
+`walleterm tunnel --approve` adds the same step on a test network. The startup text then says "Approval: each signature waits for walleterm approve."
+The tunnel prints one line for each waiting request, with the command to review it:
+
+```text
+5:30:12 PM  Waiting for approval: transaction <hash> (account GABCDEF…UVWXYZ, sequence 13) from https://example.com on Stellar mainnet, until 5:35 PM. Review it with: walleterm approve
+```
+
+In another terminal, run `walleterm approve`. It prints the request as JSON, with its ID and the decoded artifact.
+Review it, then run `walleterm approve <id>` to approve it, or `walleterm approve <id> --deny` to deny it.
+Add `--port` when the tunnel does not use port 8787. An agent can run the same commands. See [the interface](INTERFACE.md#approve).
+The tunnel signs one request at a time. A waiting request holds every later request, so answer promptly.
+An approval late in the request lifetime can end as `unknown`, because 1Password and the website need time too.
 
 The terminal prints one line for each connection event and for each request that ends.
 Each line starts with the local time. A line names the request kind, its full hash, and the short signer address:
@@ -218,6 +235,6 @@ The Mac must stay awake and connected. Neither command installs a login service.
 
 ## Limits
 
-- Cloudflare terminates TLS and can read tokens and XDR. Add end-to-end encryption before any mainnet use.
+- Cloudflare terminates TLS and can read tokens, XDR, and signed results. Approval in the tunnel stops a forged request from getting a signature on mainnet.
 - The bridge shows the website Origin as a claim. It does not verify the website identity.
 - A stable named tunnel and longer sessions are not supported.

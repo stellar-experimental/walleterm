@@ -24,7 +24,8 @@ pub const DEADLINE: Duration = Duration::from_secs(120);
 
 pub const HELP: &str = r#"walleterm list [--human]
 walleterm sign < request.json
-walleterm tunnel [--port 8787] [--vault <name-or-id>] [--network testnet|futurenet|local]
+walleterm tunnel [--port 8787] [--vault <name-or-id>] [--network <name> | --network-passphrase <passphrase>] [--approve]
+walleterm approve [<id> [--deny]] [--port 8787]
 walleterm demo [--port 8788]
 walleterm --help
 walleterm --version
@@ -43,10 +44,14 @@ Adapters: account, contract-ed25519, and openzeppelin-ed25519 with verifier and 
 
 Use 1Password desktop to create, manage, and approve signers.
 Tunnel starts the signing bridge for websites on testnet, or on the --network that you name.
-It prints a connection code and QR code.
+It prints a connection code and QR code. Network names: testnet, futurenet, local, and mainnet.
+On mainnet or another network that is not a test network, each signature waits for approval.
+--approve requires approval on a test network too.
+Approve prints the request that waits, with its decoded artifact, as JSON. Review it, then approve or deny its id.
 --vault limits website wallets to a 1Password vault name or ID. Filtering requires the 1Password CLI.
 --vault does not filter the local list or sign commands.
-A connected website approves its own requests. 1Password can still ask for approval on the Mac.
+On a test network without --approve, a connected website approves its own requests.
+1Password can still ask for approval on the Mac.
 Demo starts an independent example website with its own temporary public URL and QR code.
 Walleterm computes the digest from the artifact. 1Password signs only those 32 bytes.
 1Password does not display the network, amount, destination, or contract policy. Review the artifact first.
@@ -141,7 +146,7 @@ pub fn go_quote(text: &str) -> String {
 
 /// Go's `unicode.IsPrint` for non-ASCII characters, without the unassigned code point table.
 /// Control (Cc), format (Cf), separator (Zs, Zl, Zp), private-use (Co), and noncharacters are not printable.
-fn printable(c: char) -> bool {
+pub(crate) fn printable(c: char) -> bool {
     let n = c as u32;
     let format = matches!(
         n,
@@ -422,6 +427,7 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
         ["list"] | ["list", "--human"] => list(human, io),
         ["sign"] => sign(io),
         [command @ ("tunnel" | "demo"), rest @ ..] => crate::service::run(command, rest, io.out),
+        ["approve", rest @ ..] => crate::approve::command(rest, io.out),
         // The private supervisor mode of `walleterm tunnel`. It is not part of the public interface.
         ["tunnel-child", rest @ ..] => {
             let args = rest.iter().map(|s| s.to_string()).collect();

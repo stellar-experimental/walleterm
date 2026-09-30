@@ -16,6 +16,11 @@ pub fn agent_socket() -> Option<PathBuf> {
     Some(home.join("Library/Group Containers/2BUA8C4S2C.com.1password/t/agent.sock"))
 }
 
+/// The home directory of the real user, from the account database. `HOME` does not change it.
+pub fn account_home() -> Option<PathBuf> {
+    home_dir(current_uid())
+}
+
 pub fn current_uid() -> u32 {
     // SAFETY: getuid has no preconditions and cannot fail.
     unsafe { libc::getuid() }

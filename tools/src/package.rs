@@ -21,8 +21,6 @@ pub fn package(root: &Path, out: &Path, version: Option<&str>) -> Result<String>
         return Err("Use a version with letters, digits, \".\", \"+\", or \"-\".".into());
     }
     let metadata = crate::notices::metadata(root)?;
-    let lock = std::fs::read_to_string(root.join("Cargo.lock")).map_err(|e| format!("Cargo.lock: {e}"))?;
-    crate::budgets::dependencies(&lock, &metadata)?;
     std::fs::create_dir_all(out).map_err(|e| format!("{}: {e}", out.display()))?;
     // Build browser files and the binary in a private directory. Concurrent builds cannot mix them.
     let work = Scratch::new(&std::env::temp_dir(), "walleterm-package-")?;

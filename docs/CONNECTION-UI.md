@@ -51,7 +51,7 @@ The component registers itself as the wallet's pairing interface.
 Closing the dialog resolves `getAddress()` with error `-4`.
 Without a mounted component, `getAddress()` loads a dialog-only component. Load `connect.css` on that page too.
 The component also follows changes made through the wallet, such as `wallet.disconnect()` or session expiry.
-The menu badge names the tunnel network: Testnet, Futurenet, or Local.
+The menu badge names the tunnel network: Testnet, Futurenet, Local, Mainnet, or Custom network. Mainnet and custom networks get a warm color.
 The optional `onBusyChange` callback reports when connection work starts or finishes.
 `setBusy(true)` blocks connection changes while the website works.
 

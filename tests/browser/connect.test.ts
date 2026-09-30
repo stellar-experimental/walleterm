@@ -1598,7 +1598,7 @@ test('the dialog explains the grant, the approval, and the time limit for each w
     // The website's request is the approval. Only 1Password can still ask.
     assert.equal(
       f.node('status').textContent,
-      `${grant} Walleterm signs each request from this website. 1Password can ask you to approve. The connection lasts one hour.`,
+      `${grant} Walleterm signs each request from this website. The tunnel can also ask for your approval first. 1Password can ask too. The connection lasts one hour.`,
     );
     controller.abort();
     await assert.rejects(choosing);

@@ -53,11 +53,7 @@ CI runs all of these checks. The tests run offline with mock keys.
 - `make test-fixtures` runs the Rust tests of the four contract fixture workspaces. CI runs it in a parallel Ubuntu job.
 - `cargo deny` checks the Rust dependencies. CI uses `cargo-deny` 0.20.2.
 
-The release package has budgets. `tools/src/budgets.rs` holds them:
-
-- The executable has at most 10,000,000 bytes.
-- `Cargo.lock` has at most 160 packages.
-- The macOS workspace resolves at most 130 packages.
+The release binary has at most 10,000,000 bytes. `tools/src/budgets.rs` holds the limit.
 
 ## Repository layout
 

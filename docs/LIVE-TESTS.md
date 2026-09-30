@@ -69,6 +69,7 @@ Read the relevant fixture README before you select individual rows.
 | Command | Purpose |
 | --- | --- |
 | `bun tests/cli-pipeline.ts` | Builds, signs, and submits one transaction through the Stellar CLI pipeline with the submission guard |
+| `WALLETERM_BINARY=bin/walleterm bun --no-env-file tests/approve-live.ts --port 18787 --code <code> --key G...` | `walleterm approve` against a running `walleterm tunnel --approve` on testnet. It denies one request, approves one, and submits it. Then stop the tunnel and run it again with `--after` |
 | `bun tests/1password-failure.ts <label> [delay-ms]` | Signs one SEP-53 message with key A through `~/.local/bin/walleterm`. It records the observed approval, denial, or interruption. It asserts no outcome |
 | `WALLETERM_BINARY=<prefix>/bin/walleterm bun --no-env-file tests/openzeppelin-auth-live.ts <keys.json> [--vault Private]` | The OpenZeppelin adapter through the CLI and the SDK. See [OPENZEPPELIN.md](OPENZEPPELIN.md) |
 | `WALLETERM_BINARY=<prefix>/bin/walleterm bun --no-env-file tests/contract-auth-demo-live.ts <keys.json> [--vault Private]` | The demo contract authorization flow. See [CONTRACT-AUTHORIZATION.md](CONTRACT-AUTHORIZATION.md) |
@@ -178,3 +179,8 @@ CAP-71 also requires an explicit review of its local `inflight` checkpoint after
 CAP-85 reconciles both journals on startup and rechecks saved counter conditions.
 See the fixture README for suite-specific recovery.
 Do not run `git clean -X` in this checkout. Ignored files can contain unresolved submission evidence.
+
+## Not covered
+
+- A connection to the approval socket from another macOS user. The tunnel refuses it through `peer_cred`, but no test proves this.
+  The test needs a second macOS account. It is skipped for now.

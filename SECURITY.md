@@ -12,6 +12,8 @@ Report security problems privately.
 - 1Password approval applies to every request, from walleterm or from another program.
   See [ask for approval of each signature](README.md#ask-for-approval-of-each-signature).
 - The 1Password prompt shows the process and the key. It does not show the Stellar artifact.
+- `walleterm approve` answers the tunnel through a socket in a private directory of the same user.
+  Any process of that user can use it, as it can use the 1Password SSH agent socket.
 
 ## Report a vulnerability
 

@@ -111,6 +111,46 @@ fn parse(artifact: &Artifact, scope: &Scope) -> Result<(Checked, Parsed)> {
     })
 }
 
+/// The deepest JSON that `walleterm approve` shows. `serde_json` parses at most 128 levels by default,
+/// and valid XDR can nest deeper. An approver must see the whole artifact, so a deeper one can only be denied.
+const MAX_REVIEW_DEPTH: usize = 100;
+
+fn depth(value: &Value) -> usize {
+    match value {
+        Value::Array(items) => 1 + items.iter().map(depth).max().unwrap_or(0),
+        Value::Object(fields) => 1 + fields.values().map(depth).max().unwrap_or(0),
+        _ => 0,
+    }
+}
+
+/// The artifact as `stellar-xdr` JSON, the output of `stellar tx decode`, for review before approval.
+/// An authorization entry adds its address and adapter. A message is its text.
+pub fn decode(artifact: &Artifact) -> Result<Value> {
+    let decoded = decode_json(artifact)?;
+    if depth(&decoded) > MAX_REVIEW_DEPTH {
+        return fail("not_reviewable", "The artifact nests too deeply to show for review. Deny it.");
+    }
+    Ok(decoded)
+}
+
+fn decode_json(artifact: &Artifact) -> Result<Value> {
+    fn json<T: stellar_xdr::ReadXdr + stellar_xdr::WriteXdr + serde::Serialize>(xdr: &str) -> Result<Value> {
+        let value: T =
+            stellar::decode(xdr).or_else(|_| fail("invalid_request", "The artifact does not decode."))?;
+        serde_json::to_value(value).or_else(|_| fail("internal", "The artifact does not convert to JSON."))
+    }
+    Ok(match artifact {
+        Artifact::Transaction(xdr) => json::<stellar_xdr::TransactionEnvelope>(xdr)?,
+        Artifact::Preimage(xdr) => json::<stellar_xdr::HashIdPreimage>(xdr)?,
+        Artifact::Authorization { entry_xdr, address, adapter } => json!({
+            "entry": json::<stellar_xdr::SorobanAuthorizationEntry>(entry_xdr)?,
+            "address": address,
+            "adapter": adapter,
+        }),
+        Artifact::Message(text) => json!(text),
+    })
+}
+
 /// Parse the artifact, apply the shared rules, and compute the digest.
 pub fn inspect(artifact: &Artifact, scope: &Scope) -> Result<Checked> {
     parse(artifact, scope).map(|(checked, _)| checked)
