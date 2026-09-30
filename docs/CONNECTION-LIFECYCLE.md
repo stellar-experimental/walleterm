@@ -20,7 +20,7 @@ Delays of 95, 110, 118, and 122 seconds returned 200. Delays of 125, 140, and 15
 The 524 page is HTML with `retry-after: 120` and no `Access-Control-Allow-Origin` header, also for a request with an Origin.
 A browser then reports a network error, and the SDK cannot see the status.
 So discovery ends within 110 seconds, and the SDK stops waiting at 115 seconds, before Cloudflare ends the response.
-The bridge signs requests one at a time. Queue time counts against transaction expiration.
+The bridge signs requests one at a time. Queue time and the approval wait count against transaction expiration.
 
 The SDK polls a request every second. Network failures and server errors retry the same request ID.
 Retry delays increase from one second to five seconds. Client errors stop retries.

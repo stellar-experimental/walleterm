@@ -658,11 +658,7 @@ fn approve_prints_one_json_line_for_a_usage_error_or_a_missing_tunnel() {
         assert_eq!(got.stdout.lines().count(), 1);
         assert_eq!(serde_json::from_str::<Value>(&got.stdout).unwrap(), usage, "{args:?}");
     }
-    // No tunnel listens on port 1. The command only reads the socket path; it creates nothing.
-    let got = invoke(&["approve", "--port", "1"], b"", None, None);
-    let out: Value = serde_json::from_str(&got.stdout).unwrap();
-    assert_eq!((got.exit, out["error"]["code"].as_str()), (1, Some("tunnel_unavailable")), "{}", got.stdout);
-    assert!(out["error"]["message"].as_str().unwrap().contains("port 1."));
+    // tests/approve.rs checks a missing tunnel in a private directory, never the user's real one.
 }
 
 #[test]

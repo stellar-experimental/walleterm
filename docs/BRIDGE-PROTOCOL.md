@@ -109,7 +109,7 @@ A connection permits 1000 requests. The bridge permits 32 active requests and 64
 | `-3` | `walleterm:conflict` | A stale selection, grant, or revision, or a reused request ID. |
 | `-3` | `walleterm:rate_limited` | A code, connection, or request limit. |
 | `-3` | `walleterm:expired` | The request expired before signing. |
-| `-4` | `walleterm:rejected` | The website canceled, the session ended, the wallet changed, the selected key left 1Password, or 1Password did not sign. |
+| `-4` | `walleterm:rejected` | The website canceled, the session ended, the wallet changed, the approver denied it, the selected key left 1Password, or 1Password did not sign. |
 | `-2` | `walleterm:bridge_unavailable` | The bridge is stopping, or 1Password discovery failed or timed out. |
 | `-1` | `walleterm:result_unknown` | Signing started and the bridge withheld or lost the result. |
 | `-1` | `walleterm:internal` | Any other failure. |

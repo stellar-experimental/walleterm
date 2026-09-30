@@ -267,8 +267,8 @@ struct State {
     origin: String,
     closing: bool,
     next_seq: u64,
-    /// The record key of the one request that waits for `walleterm approve`, and its answer.
-    waiting: Option<(String, oneshot::Sender<bool>)>,
+    /// The record key of the one request that waits for `walleterm approve`, its answer, and its job signal.
+    waiting: Option<(String, oneshot::Sender<bool>, Cancel)>,
 }
 
 pub struct Bridge {
@@ -905,7 +905,7 @@ impl Bridge {
                 return Err(self.ended(&state, key, session_id, signal));
             }
             let (sender, answer) = oneshot::channel();
-            state.waiting = Some((key.to_owned(), sender));
+            state.waiting = Some((key.to_owned(), sender, signal.clone()));
             let r = &state.records[key];
             let port = if self.port == 8787 { String::new() } else { format!(" --port {}", self.port) };
             self.log(&format!(
@@ -923,7 +923,7 @@ impl Bridge {
             })
             .await;
         let mut state = self.state.lock().unwrap();
-        if state.waiting.as_ref().is_some_and(|(waiting, _)| waiting == key) {
+        if state.waiting.as_ref().is_some_and(|(waiting, _, _)| waiting == key) {
             state.waiting = None;
         }
         match approved? {
@@ -936,7 +936,7 @@ impl Bridge {
     /// `decoded` is the `stellar-xdr` JSON of the exact artifact. The ID answers only this request.
     pub fn waiting(&self) -> Value {
         let state = self.state.lock().unwrap();
-        let Some(r) = state.waiting.as_ref().and_then(|(key, _)| state.records.get(key)) else {
+        let Some(r) = state.waiting.as_ref().and_then(|(key, _, _)| state.records.get(key)) else {
             return Value::Null;
         };
         let decoded = artifact::decode(&r.artifact);
@@ -955,30 +955,33 @@ impl Bridge {
     }
 
     /// Answer the request that waits for approval. The ID must name that request while it is still pending.
-    /// An artifact that does not decode can be denied but not approved.
+    /// An artifact that cannot be shown for review can be denied but not approved.
     pub fn answer(&self, id: &str, approved: bool) -> Result<()> {
+        let not_found = || {
+            Error::new(
+                "not_found",
+                "No request with this ID waits for approval. Run walleterm approve to see the current one.",
+            )
+        };
         let mut state = self.state.lock().unwrap();
         let now = self.now();
-        let current = state.waiting.as_ref().and_then(|(key, _)| state.records.get(key)).filter(|r| {
-            r.record_id == id
+        // A timer can end the wait before the sweep ends the record. The job signal shows it at once.
+        let live = state.waiting.as_ref().is_some_and(|(_, _, signal)| !signal.is_cancelled());
+        let current = state.waiting.as_ref().and_then(|(key, _, _)| state.records.get(key)).filter(|r| {
+            live && r.record_id == id
                 && r.state == RequestState::Pending
                 && now < r.expires
                 && !state.closing
                 && self.session_live(&state, &r.session_id)
                 && state.jobs.get(&r.record_id).is_some_and(|job| !job.is_cancelled())
         });
-        let Some(r) = current else {
-            return Err(Error::new(
-                "not_found",
-                "No request with this ID waits for approval. Run walleterm approve to see the current one.",
-            ));
-        };
+        let Some(r) = current else { return Err(not_found()) };
         if approved && artifact::decode(&r.artifact).is_err() {
-            return Err(Error::new("invalid_input", "The request does not decode. Deny it instead."));
+            return Err(Error::new("not_reviewable", "The request cannot be shown for review. Deny it."));
         }
-        let (_, sender) = state.waiting.take().expect("a waiting request has a sender");
-        let _ = sender.send(approved);
-        Ok(())
+        let (_, sender, _) = state.waiting.take().expect("a waiting request has a sender");
+        // A waiter that already stopped drops its receiver. Then nothing was approved.
+        sender.send(approved).map_err(|_| not_found())
     }
 
     /// Each signature waits for `walleterm approve`.

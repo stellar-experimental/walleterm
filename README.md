@@ -23,7 +23,8 @@ Walleterm is experimental and before version 1.0. Interfaces can change without 
 - Walleterm checks each artifact before it asks 1Password to sign. Other programs can use the 1Password SSH agent directly.
   1Password approval applies to them too. See [the security model](SECURITY.md#security-model).
 - Use dedicated wallet keys. A shared SSH key can also authorize other systems.
-- The website bridge signs for one network. On testnet, futurenet, and a local network, a connected website approves its own requests.
+- The website bridge signs for one network. On testnet, futurenet, and a local network, a connected website approves its own requests,
+  unless the tunnel runs with `--approve`.
   On mainnet and custom networks, you or your agent approve each request with `walleterm approve`.
 - Walleterm supports Ed25519 keys only. A contract account needs its exact authorization adapter.
 

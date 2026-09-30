@@ -234,3 +234,218 @@ async fn the_socket_needs_a_private_directory_and_replaces_only_a_stale_socket()
     }
     std::fs::remove_file(&link).unwrap();
 }
+
+/// `walleterm approve --port <port>` against `dir`. The command runs its own runtime, so it runs on another thread.
+async fn command(dir: &std::path::Path, port: u16) -> String {
+    let dir = dir.to_path_buf();
+    tokio::task::spawn_blocking(move || {
+        let mut out = Vec::new();
+        walleterm::approve::command_in(Some(dir), &["--port", &port.to_string()], &mut out);
+        String::from_utf8(out).unwrap()
+    })
+    .await
+    .unwrap()
+}
+
+fn signer(key: &str, comment: &str) -> walleterm::bridge::SignerInfo {
+    walleterm::bridge::SignerInfo {
+        public_key: key.to_owned(),
+        fingerprint: None,
+        comment: Some(comment.to_owned()),
+    }
+}
+
+#[tokio::test]
+async fn a_wallet_change_or_shutdown_during_the_wait_ends_it_unsigned() {
+    // A wallet change in the `available` scope denies the waiting request.
+    let f = Fixture::new(Options { network: mainnet(), ..Default::default() }).await;
+    let second = address(&mock_key(9));
+    *f.controls.signers.lock().unwrap() = Ok(vec![signer(&f.public_key, "First"), signer(&second, "Second")]);
+    let site = f.open(SITE, "available").await;
+    let grant = f.get("/v1/signers", &site).await.body["grant_id"].clone();
+    let body = json!({"public_key": f.public_key, "expected_revision": 0, "grant_id": grant});
+    assert_eq!(f.post("/v1/select", body, &site).await.status, 200);
+    let mut first = request(&f, "request-1", mainnet());
+    first["selection_revision"] = json!(1);
+    assert_eq!(f.post("/v1/requests", first, &site).await.status, 201);
+    until(|| !f.bridge.waiting().is_null()).await;
+    let id = f.bridge.waiting()["id"].as_str().unwrap().to_owned();
+    let switch = json!({"public_key": second, "expected_revision": 1});
+    assert_eq!(f.post("/v1/select", switch, &site).await.status, 200);
+    assert_eq!(f.result(&site, "request-1").await.body["state"], "denied");
+    until(|| f.bridge.waiting().is_null()).await;
+    assert_eq!(f.bridge.answer(&id, true).unwrap_err().code, "not_found");
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+    f.close().await;
+    // Shutdown ends the wait too.
+    let (f, _site, shown) = waiting(mainnet(), false).await;
+    f.bridge.close().await;
+    until(|| f.bridge.waiting().is_null()).await;
+    assert_eq!(f.bridge.answer(shown["id"].as_str().unwrap(), true).unwrap_err().code, "not_found");
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+    f.close().await;
+}
+
+#[tokio::test]
+async fn an_old_id_never_answers_the_next_waiting_request() {
+    let (f, site, first) = waiting(mainnet(), false).await;
+    assert_eq!(f.post("/v1/requests/request-1/cancel", json!({}), &site).await.status, 200);
+    assert_eq!(f.post("/v1/requests", request(&f, "request-2", mainnet()), &site).await.status, 201);
+    until(|| f.bridge.waiting()["id"] != first["id"] && !f.bridge.waiting().is_null()).await;
+    let second = f.bridge.waiting();
+    // Both requests have the same body, so the same hash. Only the ID tells them apart.
+    assert_eq!(second["hash"], first["hash"]);
+    assert_eq!(f.bridge.answer(first["id"].as_str().unwrap(), true).unwrap_err().code, "not_found");
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+    f.bridge.answer(second["id"].as_str().unwrap(), true).unwrap();
+    assert_eq!(f.result(&site, "request-2").await.body["state"], "signed");
+    f.close().await;
+}
+
+#[tokio::test]
+async fn preimages_and_adapter_entries_show_their_decode() {
+    // A test network with --approve takes the testnet fixtures.
+    let f = Fixture::new(Options { approve: true, ..Default::default() }).await;
+    let site = f.connect(SITE).await;
+    let preimage = json!({
+        "id": "preimage-1",
+        "kind": "auth_entry",
+        "preimage_xdr": support::auth::preimage(&f.public_key, 100),
+        "network_passphrase": network::TESTNET,
+        "address": f.public_key,
+    });
+    let contract = support::auth::contract(1);
+    let entry = json!({
+        "id": "entry-1",
+        "kind": "authorization",
+        "auth_entry_xdr": support::auth::entry(&contract, 100),
+        "auth_address": contract,
+        "adapter": {"type": "contract-ed25519"},
+        "network_passphrase": network::TESTNET,
+        "address": f.public_key,
+    });
+    for (body, kind) in [(preimage, "auth_entry"), (entry, "authorization")] {
+        let id = body["id"].as_str().unwrap().to_owned();
+        assert_eq!(f.post("/v1/requests", body, &site).await.status, 201);
+        until(|| f.bridge.waiting()["kind"] == kind).await;
+        let shown = f.bridge.waiting();
+        let decoded = &shown["decoded"];
+        match kind {
+            "auth_entry" => {
+                assert!(decoded["soroban_authorization_with_address"]["invocation"].is_object(), "{decoded}")
+            }
+            _ => {
+                assert_eq!(decoded["address"], json!(contract));
+                assert_eq!(decoded["adapter"], json!({"type": "contract-ed25519"}));
+                assert!(decoded["entry"]["root_invocation"].is_object(), "{decoded}");
+            }
+        }
+        f.bridge.answer(shown["id"].as_str().unwrap(), true).unwrap();
+        assert_eq!(f.result(&site, &id).await.body["state"], "signed");
+    }
+    f.close().await;
+}
+
+/// A transaction whose one contract argument nests `levels` vectors deep. Valid XDR, far below the XDR depth limit.
+fn nested_call(f: &Fixture, levels: usize) -> String {
+    use stellar_xdr::*;
+    let mut value = ScVal::Void;
+    for _ in 0..levels {
+        value = ScVal::Vec(Some(ScVec(vec![value].try_into().unwrap())));
+    }
+    let call = InvokeContractArgs {
+        contract_address: ScAddress::Contract(ContractId(Hash([2; 32]))),
+        function_name: ScSymbol("deep".try_into().unwrap()),
+        args: vec![value].try_into().unwrap(),
+    };
+    let tx = Transaction {
+        source_account: MuxedAccount::Ed25519(Uint256(f.key.verifying_key().to_bytes())),
+        fee: 100,
+        seq_num: SequenceNumber(11),
+        cond: Preconditions::None,
+        memo: Memo::None,
+        operations: vec![Operation {
+            source_account: None,
+            body: OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+                host_function: HostFunction::InvokeContract(call),
+                auth: VecM::default(),
+            }),
+        }]
+        .try_into()
+        .unwrap(),
+        ext: TransactionExt::V0,
+    };
+    walleterm::stellar::encode(&TransactionEnvelope::Tx(TransactionV1Envelope {
+        tx,
+        signatures: VecM::default(),
+    }))
+}
+
+#[tokio::test]
+async fn an_artifact_too_deep_to_show_can_only_be_denied() {
+    let f = Fixture::new(Options { network: mainnet(), ..Default::default() }).await;
+    let site = f.connect(SITE).await;
+    let mut body = request(&f, "deep", mainnet());
+    body["xdr"] = json!(nested_call(&f, 60));
+    assert_eq!(f.post("/v1/requests", body, &site).await.status, 201);
+    until(|| !f.bridge.waiting().is_null()).await;
+    let shown = f.bridge.waiting();
+    assert!(shown["decoded"].is_null());
+    assert!(shown["decode_error"].as_str().unwrap().contains("too deeply"));
+    let id = shown["id"].as_str().unwrap();
+    assert_eq!(f.bridge.answer(id, true).unwrap_err().code, "not_reviewable");
+    f.bridge.answer(id, false).unwrap();
+    assert_eq!(f.result(&site, "deep").await.body["state"], "denied");
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+    // A shallow call still shows.
+    let mut body = request(&f, "shallow", mainnet());
+    body["xdr"] = json!(nested_call(&f, 10));
+    assert_eq!(f.post("/v1/requests", body, &site).await.status, 201);
+    until(|| !f.bridge.waiting().is_null()).await;
+    assert!(f.bridge.waiting()["decoded"].is_object());
+    f.close().await;
+}
+
+#[tokio::test]
+async fn the_command_escapes_display_characters_and_refuses_long_lines_and_links() {
+    let f = Fixture::new(Options { network: mainnet(), ..Default::default() }).await;
+    let site = f.connect(SITE).await;
+    let message = json!({
+        "id": "message-rtl",
+        "kind": "message",
+        "message": "pay \u{202e}0001 xlm",
+        "network_passphrase": mainnet().passphrase,
+        "address": f.public_key,
+    });
+    assert_eq!(f.post("/v1/requests", message, &site).await.status, 201);
+    until(|| !f.bridge.waiting().is_null()).await;
+    let dir = private_dir("escape");
+    let server = walleterm::approve::Server::start(&dir, f.port, f.bridge.clone()).unwrap();
+    let text = command(&dir, f.port).await;
+    assert!(!text.contains('\u{202e}'), "the raw override character never reaches the terminal");
+    assert!(text.contains("\\u202e"), "{text}");
+    let parsed: Value = serde_json::from_str(&text).unwrap();
+    assert_eq!(parsed["request"]["decoded"], "pay \u{202e}0001 xlm");
+    // A request line over 4096 bytes gets an error, not a hang.
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let path = walleterm::approve::socket_path(&dir, f.port);
+    let mut stream = tokio::net::UnixStream::connect(&path).await.unwrap();
+    stream.write_all(format!("{}\n", "a".repeat(5000)).as_bytes()).await.unwrap();
+    let mut reply = String::new();
+    stream.read_to_string(&mut reply).await.unwrap();
+    assert_eq!(serde_json::from_str::<Value>(&reply).unwrap()["error"]["code"], "invalid_input");
+    // A symbolic link at the socket path is refused before any connection.
+    let other = private_dir("linked");
+    std::os::unix::fs::symlink(&path, walleterm::approve::socket_path(&other, f.port)).unwrap();
+    let refused = walleterm::approve::call_in(&other, f.port, &json!({ "op": "show" })).await.unwrap_err();
+    assert_eq!(refused.code, "tunnel_unavailable");
+    // No socket at all names the port.
+    let missing: Value = serde_json::from_str(&command(&other, 1).await).unwrap();
+    assert_eq!(missing["error"]["code"], "tunnel_unavailable");
+    assert!(missing["error"]["message"].as_str().unwrap().contains("port 1."));
+    drop(server);
+    f.close().await;
+    for dir in [&dir, &other] {
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}

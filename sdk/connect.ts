@@ -706,7 +706,7 @@ export class WalletermConnect {
         // On a test network, the website's request is the approval. Other networks wait for walleterm approve.
         this.message(
           values.length
-            ? `${grant} Walleterm signs each request from this website. On mainnet and custom networks, each request first waits for approval in the tunnel. 1Password can ask you to approve. The connection lasts one hour.`
+            ? `${grant} Walleterm signs each request from this website. The tunnel can also ask for your approval first. 1Password can ask too. The connection lasts one hour.`
             : 'No wallets are available. Check the 1Password SSH agent on your Mac.',
         );
         this.$('retry-wallets').hidden = !!values.length;

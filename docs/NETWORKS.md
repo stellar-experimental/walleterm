@@ -43,7 +43,7 @@ The bridge and the SDK use the Stellar SDK `Networks` keys: `TESTNET`, `FUTURENE
 | `src/cli.rs` `HELP` | Names the tunnel networks, `--network-passphrase`, `--approve`, and `walleterm approve`. | Text | None. |
 | `src/tunnel.rs` `Service::network` and `launch` | Prints "Walleterm tunnel is ready on Stellar testnet." with the tunnel network. The demo line stays on testnet. | Text | None. |
 | `src/service.rs` `parse_options` | `walleterm tunnel` takes `--network` with a Stellar CLI name, or `--network-passphrase`, and `--approve`. The default is testnet. `walleterm demo` takes no network. | Any network | None. |
-| `src/bridge.rs` `Bridge::new`, `wait_for_approval`, `waiting`, and `answer` | A bridge on a network that is not a test network, or with `--approve`, waits for `walleterm approve` before each signature. A denial is `denied` with `-4`. No answer is `expired`. | Every network that is not a test network | None. |
+| `src/bridge.rs` `Bridge::new`, `wait_for_approval`, `waiting`, and `answer` | Each signature waits for `walleterm approve` on every network that is not a test network, and with `--approve`. A denial is `denied` with `-4`. No answer is `expired`. | Every network that is not a test network | None. |
 | `src/approve.rs` `directory`, `Server`, and `command` | The approval socket `~/Library/Application Support/walleterm/approve-<port>.sock` and the `walleterm approve` command. | Any network | None. |
 | `src/preimage.rs` `inspect` | Refuses a preimage whose network ID differs from SHA-256 of the passphrase: `network_unsupported`. | Any network | None. It checks consistency, not testnet. |
 | `src/util.rs` `valid_passphrase` | A passphrase is not blank and has at most 256 UTF-16 code units. `transaction.rs`, `authorization.rs`, and `cli.rs` use it. | Any network | None. |
@@ -226,6 +226,7 @@ Update those statements in the same change.
 | `MAX_REPLY` | 8 MiB | One reply, with the decoded artifact | No |
 | `EXCHANGE` | 5 seconds | One socket exchange, from connection to the last reply byte | No |
 | `DEFAULT_PORT` | 8787 | The tunnel port that `walleterm approve` uses without `--port` | No |
+| `src/artifact.rs` `MAX_REVIEW_DEPTH` | 100 JSON levels | The deepest decode that `walleterm approve` shows. A deeper request can only be denied. | No |
 
 ### Maintainer tools (`tools/`)
 
@@ -292,7 +293,7 @@ The user approved these decisions on 2026-09-30.
   A denial ends the request as `denied` with `-4`. No answer before the request expires ends it as `expired` with `-3`.
 - The approver answers the bridge's random record ID, not the hash. A hash does not bind the signer or the origin,
   so two waiting requests in turn can share one hash.
-- The tunnel line names the request and the command `walleterm approve`, but not the ID. So nobody approves a request that they did not see.
+- The tunnel line names the request and the command `walleterm approve`, but not the ID. The ID comes only with the full decode.
 - `walleterm approve` polls. It prints the waiting request, or approves or denies one ID. It has no wait mode and no typed answer in the tunnel.
 - The socket lives in `~/Library/Application Support/walleterm`, from the account database. The directory has mode 0700.
   The tunnel binds its TCP port first, then replaces a stale socket for that port. It checks the peer user ID with tokio `peer_cred`.

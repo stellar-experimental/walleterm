@@ -104,7 +104,11 @@ async fn serve(listener: UnixListener, bridge: Arc<Bridge>, stop: Cancel) {
             () = stop.cancelled() => return,
             accepted = listener.accept() => match accepted {
                 Ok((stream, _)) => stream,
-                Err(_) => continue,
+                // A lasting failure, such as no free file descriptor, must not spin.
+                Err(_) => {
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                    continue;
+                }
             },
         };
         let bridge = bridge.clone();
@@ -198,6 +202,12 @@ async fn call(path: &Path, request: &Value) -> Result<Value> {
             ),
         )
     };
+    // A symbolic link could point at another program. Connect only to this user's socket.
+    let ours = std::fs::symlink_metadata(path)
+        .is_ok_and(|info| info.file_type().is_socket() && info.uid() == current_uid());
+    if !ours {
+        return Err(unavailable("The socket path is not a walleterm socket."));
+    }
     let exchange = async {
         let mut stream = UnixStream::connect(path).await.map_err(|_| unavailable("No tunnel answered."))?;
         stream
@@ -220,10 +230,33 @@ async fn call(path: &Path, request: &Value) -> Result<Value> {
         .unwrap_or_else(|_| Err(unavailable("The tunnel did not answer.")))
 }
 
+/// JSON for a terminal: bidirectional, format, separator, and private-use characters become `\uXXXX` escapes.
+/// A JSON parser still reads the original text. Only JSON strings can hold such characters.
+fn for_terminal(json: &str) -> String {
+    let mut out = String::with_capacity(json.len());
+    for c in json.chars() {
+        if c.is_ascii() || crate::cli::printable(c) {
+            out.push(c);
+        } else {
+            let mut units = [0u16; 2];
+            for unit in c.encode_utf16(&mut units) {
+                out.push_str(&format!("\\u{unit:04x}"));
+            }
+        }
+    }
+    out
+}
+
 /// Run `walleterm approve`. Prints one JSON line. Exit code 2 is a usage error, 1 any other failure.
 pub fn command(args: &[&str], out: &mut dyn Write) -> i32 {
+    command_in(directory().filter(|_| cfg!(target_os = "macos")), args, out)
+}
+
+/// `command` with the socket directory as an input, so tests never touch the user's real directory.
+pub fn command_in(dir: Option<PathBuf>, args: &[&str], out: &mut dyn Write) -> i32 {
     let print = |out: &mut dyn Write, value: &Value| {
-        let written = out.write_all(crate::cli::json_line(value).as_bytes()).and_then(|()| out.flush());
+        let text = for_terminal(&crate::cli::json_line(value));
+        let written = out.write_all(text.as_bytes()).and_then(|()| out.flush());
         let ok = value["ok"].as_bool() == Some(true);
         match (written, ok) {
             (Err(_), _) => 1,
@@ -235,7 +268,7 @@ pub fn command(args: &[&str], out: &mut dyn Write) -> i32 {
     let Some((port, answer)) = parse(args) else {
         return print(out, &failure("invalid_input", &format!("Use {USAGE}.")));
     };
-    let Some(dir) = directory().filter(|_| cfg!(target_os = "macos")) else {
+    let Some(dir) = dir else {
         return print(out, &failure("unsupported_platform", "walleterm approve requires macOS."));
     };
     let path = socket_path(&dir, port);

@@ -147,7 +147,7 @@ A preimage does not show the credential variant, the final signature format, acc
 These gaps add no authority. The signature approves one tree for one address, network, nonce, and expiry.
 
 A connected website can relay a SEP-45 challenge. The network ID limits this risk to services on the tunnel network.
-On mainnet and custom networks, the approver sees each challenge in `walleterm approve` before it is signed.
+On mainnet and custom networks, the approver sees each challenge in `walleterm approve` before the tunnel signs it.
 
 ### Adapter signing extension
 

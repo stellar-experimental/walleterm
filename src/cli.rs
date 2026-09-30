@@ -50,7 +50,8 @@ On mainnet or another network that is not a test network, each signature waits f
 Approve prints the request that waits, with its decoded artifact, as JSON. Review it, then approve or deny its id.
 --vault limits website wallets to a 1Password vault name or ID. Filtering requires the 1Password CLI.
 --vault does not filter the local list or sign commands.
-A connected website approves its own requests. 1Password can still ask for approval on the Mac.
+On a test network without --approve, a connected website approves its own requests.
+1Password can still ask for approval on the Mac.
 Demo starts an independent example website with its own temporary public URL and QR code.
 Walleterm computes the digest from the artifact. 1Password signs only those 32 bytes.
 1Password does not display the network, amount, destination, or contract policy. Review the artifact first.
@@ -145,7 +146,7 @@ pub fn go_quote(text: &str) -> String {
 
 /// Go's `unicode.IsPrint` for non-ASCII characters, without the unassigned code point table.
 /// Control (Cc), format (Cf), separator (Zs, Zl, Zp), private-use (Co), and noncharacters are not printable.
-fn printable(c: char) -> bool {
+pub(crate) fn printable(c: char) -> bool {
     let n = c as u32;
     let format = matches!(
         n,
