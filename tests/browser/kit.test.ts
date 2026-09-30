@@ -80,7 +80,7 @@ test('onChange confirms a restored session once, so a Kit restored on load match
     const stored = new Map([
       [
         'walleterm:session',
-        JSON.stringify({ version: 3, url: 'https://bridge.example', token: 's'.repeat(43), revision: 2 }),
+        JSON.stringify({ version: 4, url: 'https://bridge.example', token: 's'.repeat(43), revision: 2 }),
       ],
     ]);
     Object.assign(globalThis, {
@@ -140,7 +140,7 @@ test('a hook connected after the restored session ended still reports one discon
   const stored = new Map([
     [
       'walleterm:session',
-      JSON.stringify({ version: 3, url: 'https://bridge.example', token: 's'.repeat(43), revision: 2 }),
+      JSON.stringify({ version: 4, url: 'https://bridge.example', token: 's'.repeat(43), revision: 2 }),
     ],
   ]);
   Object.assign(globalThis, {

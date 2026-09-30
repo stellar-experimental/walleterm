@@ -1,4 +1,4 @@
-//! Bridge protocol version 3 against mock dependencies over real loopback HTTP.
+//! Bridge protocol version 4 against mock dependencies over real loopback HTTP.
 //! Isolated mock keys only.
 
 mod support;
@@ -41,7 +41,9 @@ async fn short_codes_expire_rotate_once_and_pause_after_five_incorrect_attempts(
     assert_ne!(f.code(), original);
     let site = Site::new(SITE);
     let status = |r: Response| r.status;
-    let used = f.post("/v1/connect", json!({"code": original, "wallet_scope": "selected"}), &site).await;
+    let used = f
+        .post("/v1/connect", json!({"code": original, "wallet_scope": "selected", "protocol": 4}), &site)
+        .await;
     assert_eq!(
         (used.status, used.body["error"]["message"].clone()),
         (403, json!("The connection code is incorrect."))
@@ -49,7 +51,8 @@ async fn short_codes_expire_rotate_once_and_pause_after_five_incorrect_attempts(
     // An expired code gets its own answer. It counts as no incorrect attempt.
     let stale = f.code();
     f.controls.advance(300_001);
-    let expired = f.post("/v1/connect", json!({"code": stale, "wallet_scope": "selected"}), &site).await;
+    let expired =
+        f.post("/v1/connect", json!({"code": stale, "wallet_scope": "selected", "protocol": 4}), &site).await;
     assert_eq!(
         (expired.status, expired.body["error"]["message"].clone()),
         (403, json!("The connection code expired. Use the new code in the tunnel terminal."))
@@ -59,18 +62,39 @@ async fn short_codes_expire_rotate_once_and_pause_after_five_incorrect_attempts(
     let before = f.code();
     for _ in 0..5 {
         assert_eq!(
-            status(f.post("/v1/connect", json!({"code": "wrong", "wallet_scope": "selected"}), &site).await),
+            status(
+                f.post(
+                    "/v1/connect",
+                    json!({"code": "wrong", "wallet_scope": "selected", "protocol": 4}),
+                    &site
+                )
+                .await
+            ),
             403
         );
     }
     assert_ne!(f.code(), before);
     assert_eq!(
-        status(f.post("/v1/connect", json!({"code": f.code(), "wallet_scope": "selected"}), &site).await),
+        status(
+            f.post(
+                "/v1/connect",
+                json!({"code": f.code(), "wallet_scope": "selected", "protocol": 4}),
+                &site
+            )
+            .await
+        ),
         429
     );
     f.controls.advance(60_000);
     assert_eq!(
-        status(f.post("/v1/connect", json!({"code": f.code(), "wallet_scope": "selected"}), &site).await),
+        status(
+            f.post(
+                "/v1/connect",
+                json!({"code": f.code(), "wallet_scope": "selected", "protocol": 4}),
+                &site
+            )
+            .await
+        ),
         201
     );
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
@@ -190,7 +214,7 @@ async fn responses_carry_cors_json_and_sep43_errors() {
     let f = Fixture::new(Options::default()).await;
     let site = Site::new(SITE);
     let r = f.get("/api/session", &site).await;
-    assert_eq!((r.status, r.body.clone()), (200, json!({"service": "walleterm", "protocol": 3})));
+    assert_eq!((r.status, r.body.clone()), (200, json!({"service": "walleterm", "protocol": 4})));
     let r = f.get("/v1/account", &site).await;
     assert_eq!(r.status, 401);
     assert_eq!(r.header("access-control-allow-origin"), Some(SITE));
@@ -221,7 +245,11 @@ async fn responses_carry_cors_json_and_sep43_errors() {
         (own.as_str(), "Use a separate website. The tunnel URL cannot call its own routes."),
     ] {
         let r = f
-            .post("/v1/connect", json!({"code": f.code(), "wallet_scope": "selected"}), &Site::new(origin))
+            .post(
+                "/v1/connect",
+                json!({"code": f.code(), "wallet_scope": "selected", "protocol": 4}),
+                &Site::new(origin),
+            )
             .await;
         assert_eq!(r.status, 403, "{origin}");
         assert_eq!(
@@ -313,42 +341,54 @@ async fn a_request_signs_with_no_terminal_step() {
 
 /// A bridge serves one network. Its replies report it. A request for another network never reaches the signer.
 #[tokio::test]
-async fn a_futurenet_bridge_signs_only_futurenet_requests() {
-    let futurenet = walleterm::network::named("futurenet").unwrap();
-    let f = Fixture::new(Options { network: futurenet, ..Default::default() }).await;
-    let a = f.open(SITE, "selected").await;
-    let selected = f.post("/v1/select", json!({ "public_key": f.public_key }), &a).await;
-    let account = f.get("/v1/account", &a).await;
-    for reply in [&selected.body, &account.body] {
-        assert_eq!(reply["network"], "FUTURENET", "{reply}");
-        assert_eq!(reply["network_passphrase"], futurenet.passphrase, "{reply}");
+async fn a_futurenet_or_local_bridge_signs_only_its_own_network() {
+    for (name, sep43, label) in
+        [("futurenet", "FUTURENET", "Stellar futurenet"), ("local", "STANDALONE", "a local Stellar network")]
+    {
+        let network = walleterm::network::named(name).unwrap();
+        let f = Fixture::new(Options { network, ..Default::default() }).await;
+        let a = f.open(SITE, "selected").await;
+        let selected = f.post("/v1/select", json!({ "public_key": f.public_key }), &a).await;
+        let account = f.get("/v1/account", &a).await;
+        for reply in [&selected.body, &account.body] {
+            assert_eq!(reply["network"], sep43, "{reply}");
+            assert_eq!(reply["network_passphrase"], network.passphrase, "{reply}");
+        }
+        // A testnet transaction and a testnet message both fail before the signer.
+        let mut message = message_request(&f, "testnet-message", "Sign in to example.com");
+        message["network_passphrase"] = json!(TESTNET);
+        for request in [transaction_request("testnet-1", &f), message.clone()] {
+            let refused = f.post("/v1/requests", request, &a).await;
+            assert_eq!(refused.status, 400, "{name}");
+            assert_eq!(refused.body["error"]["ext"][0], "walleterm:network_unsupported");
+            assert_eq!(refused.body["error"]["message"], json!(format!("Walleterm signs only on {label}.")));
+        }
+        assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+        let mut request = transaction_request("own-1", &f);
+        request["network_passphrase"] = json!(network.passphrase);
+        message["id"] = json!("own-message");
+        message["network_passphrase"] = json!(network.passphrase);
+        for r in [&request, &message] {
+            assert_eq!(f.post("/v1/requests", r.clone(), &a).await.status, 201, "{name}");
+        }
+        let done = f.result(&a, "own-1").await;
+        assert_eq!(done.body["state"], "signed", "{}", done.body);
+        assert_eq!(f.result(&a, "own-message").await.body["state"], "signed");
+        assert_eq!(f.controls.signs.load(Ordering::SeqCst), 2);
+        // The signature covers the hash of the unchanged body on this network.
+        let unsigned = walleterm::transaction::inspect(
+            request["xdr"].as_str().unwrap(),
+            &f.key.verifying_key().to_bytes(),
+            network.passphrase,
+            f.controls.now(),
+        )
+        .unwrap();
+        assert_eq!(done.body["hash"], json!(walleterm::util::hex(&unsigned.hash)));
+        // The tunnel prints "Walleterm tunnel is ready on Stellar futurenet."
+        use walleterm::tunnel::Service as _;
+        assert_eq!(walleterm::service::BridgeService::new(f.bridge.clone(), f.port).network(), label);
+        f.close().await;
     }
-    let refused = f.post("/v1/requests", transaction_request("testnet-1", &f), &a).await;
-    assert_eq!(refused.status, 400);
-    assert_eq!(refused.body["error"]["ext"][0], "walleterm:network_unsupported");
-    assert_eq!(refused.body["error"]["message"], "Walleterm signs only on Stellar futurenet.");
-    let mut request = transaction_request("futurenet-1", &f);
-    request["network_passphrase"] = json!(futurenet.passphrase);
-    assert_eq!(f.post("/v1/requests", request.clone(), &a).await.status, 201);
-    let done = f.result(&a, "futurenet-1").await;
-    assert_eq!(done.body["state"], "signed", "{}", done.body);
-    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 1);
-    // The signature covers the futurenet hash of the unchanged body.
-    let unsigned = walleterm::transaction::inspect(
-        request["xdr"].as_str().unwrap(),
-        &f.key.verifying_key().to_bytes(),
-        futurenet.passphrase,
-        f.controls.now(),
-    )
-    .unwrap();
-    assert_eq!(done.body["hash"], json!(walleterm::util::hex(&unsigned.hash)));
-    // The tunnel prints "Walleterm tunnel is ready on Stellar futurenet."
-    use walleterm::tunnel::Service as _;
-    assert_eq!(
-        walleterm::service::BridgeService::new(f.bridge.clone(), f.port).network(),
-        "Stellar futurenet"
-    );
-    f.close().await;
 }
 
 /// Each connection event prints one line. No line holds a code, a token, or a grant ID.
@@ -358,7 +398,11 @@ async fn the_terminal_names_each_connection_event_without_secrets() {
     *f.controls.signers.lock().unwrap() = Ok(both(&f));
     let (code, other) = (f.code(), address(&mock_key(9)));
     let wrong = f
-        .post("/v1/connect", json!({"code": "00000000", "wallet_scope": "selected"}), &Site::new(SITE))
+        .post(
+            "/v1/connect",
+            json!({"code": "00000000", "wallet_scope": "selected", "protocol": 4}),
+            &Site::new(SITE),
+        )
         .await;
     assert_eq!(wrong.status, 403);
     let a = f.connect(SITE).await;
@@ -632,9 +676,27 @@ async fn first_selection_rejects_a_replaced_grant_and_an_unknown_scope() {
         (r.status, r.body["error"]["message"].clone()),
         (400, json!("Set wallet_scope to \"selected\" or \"available\"."))
     );
-    let r =
-        f.post("/v1/connect", json!({"code": f.code(), "wallet_scope": "selected", "pin": 1}), &site).await;
+    let r = f
+        .post(
+            "/v1/connect",
+            json!({"code": f.code(), "wallet_scope": "selected", "protocol": 4, "pin": 1}),
+            &site,
+        )
+        .await;
     assert_eq!(r.body["error"]["message"], "Remove the field \"pin\" from the connection request.");
+    // An older SDK sends no protocol, and it would report testnet for any tunnel. Its attempt does not count.
+    for protocol in [None, Some(json!(3)), Some(json!("4"))] {
+        let mut body = json!({"code": f.code(), "wallet_scope": "selected"});
+        if let Some(protocol) = protocol {
+            body["protocol"] = protocol;
+        }
+        let r = f.post("/v1/connect", body, &site).await;
+        assert_eq!(r.status, 400);
+        assert_eq!(
+            r.body["error"]["message"],
+            "Update the Walleterm SDK on this website. The tunnel uses bridge protocol 4."
+        );
+    }
     let a = f.open(SITE, "available").await;
     let old = f.get("/v1/signers", &a).await.body["grant_id"].clone();
     f.get("/v1/signers", &a).await;

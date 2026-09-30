@@ -35,7 +35,7 @@ impl MockService {
             closed: AtomicBool::new(false),
             origin: Mutex::default(),
             pairing: Mutex::new(
-                json!({"walleterm": 3, "url": "https://bridge-name.trycloudflare.com", "code": "01234567", "expires_at": "2026-09-25T00:00:00.000Z"}),
+                json!({"walleterm": 4, "url": "https://bridge-name.trycloudflare.com", "code": "01234567", "expires_at": "2026-09-25T00:00:00.000Z"}),
             ),
             changed: Mutex::default(),
             listen_gate: Mutex::default(),

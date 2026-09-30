@@ -1,4 +1,4 @@
-//! Bridge protocol version 3 (`docs/BRIDGE-PROTOCOL.md`): sessions, wallet grants, selection revisions,
+//! Bridge protocol version 4 (`docs/BRIDGE-PROTOCOL.md`): sessions, wallet grants, selection revisions,
 //! and one signing queue for one network. State stays in memory under one mutex that no await ever holds.
 //! The shared core (`artifact.rs`) checks and finishes each artifact. This module adds only the website rules.
 
@@ -25,7 +25,7 @@ use crate::util::{hex, iso_millis, lower_hex, random_below, token, uuid};
 
 pub type BoxFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
-pub const PROTOCOL: u32 = 3;
+pub const PROTOCOL: u32 = 4;
 const CODE_LIFETIME_MS: u64 = 300_000;
 const MAX_ATTEMPTS: u32 = 5;
 const CODE_LOCKOUT_MS: u64 = 60_000;
@@ -493,7 +493,7 @@ impl Bridge {
         Ok(())
     }
 
-    /// The QR payload: `{"walleterm":3,"url":...,"code":...,"expires_at":...}`.
+    /// The QR payload: `{"walleterm":4,"url":...,"code":...,"expires_at":...}`.
     pub fn pairing(&self) -> Value {
         let state = self.state.lock().unwrap();
         json!({
@@ -1128,7 +1128,16 @@ impl Bridge {
                 ));
             }
         };
-        if let Some(extra) = data.keys().find(|k| *k != "code" && *k != "wallet_scope") {
+        // Protocol 4 replies can name a network other than testnet. An older SDK would still report testnet.
+        // So the bridge refuses it before it checks the code, and the attempt does not count.
+        if data.get("protocol") != Some(&json!(PROTOCOL)) {
+            let message = format!(
+                "Update the Walleterm SDK on this website. The tunnel uses bridge protocol {PROTOCOL}."
+            );
+            return Err(fail("invalid_request", &message, None));
+        }
+        if let Some(extra) = data.keys().find(|k| !["code", "wallet_scope", "protocol"].contains(&k.as_str()))
+        {
             let message = format!("Remove the field {} from the connection request.", field_name(extra));
             return Err(fail("invalid_request", &message, None));
         }

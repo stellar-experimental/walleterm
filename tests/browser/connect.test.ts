@@ -191,7 +191,7 @@ function savedConnection() {
   const storage = new Map<string, string>();
   const key = 'walleterm:session';
   const token = 's'.repeat(43);
-  storage.set(key, JSON.stringify({ version: 3, url: 'https://bridge.example', token }));
+  storage.set(key, JSON.stringify({ version: 4, url: 'https://bridge.example', token }));
   Object.assign(f.context, {
     localStorage: {
       getItem: (name: string) => storage.get(name) ?? null,
@@ -240,7 +240,7 @@ test('reload checks the saved session before publishing the wallet and uses the 
   assert.equal(f.node('code').value, '');
   // The confirmed revision tells other tabs about a later wallet change. Nothing else joins the credentials.
   assert.deepEqual(JSON.parse(f.storage.get(f.key)!), {
-    version: 3,
+    version: 4,
     url: 'https://bridge.example',
     token: f.token,
     revision: 7,
@@ -297,9 +297,9 @@ test('invalid saved details never send credentials, and unavailable storage does
     '{',
     'null',
     JSON.stringify({ version: 2, url: 'https://bridge.example', token }),
-    JSON.stringify({ version: 3, url: 'https://bridge.example', token: 'invalid' }),
-    JSON.stringify({ version: 3, url: 'https://bridge.example/path', token }),
-    JSON.stringify({ version: 3, url: 'http://bridge.example', token }),
+    JSON.stringify({ version: 4, url: 'https://bridge.example', token: 'invalid' }),
+    JSON.stringify({ version: 4, url: 'https://bridge.example/path', token }),
+    JSON.stringify({ version: 4, url: 'http://bridge.example', token }),
   ]) {
     const f = savedConnection();
     let calls = 0;

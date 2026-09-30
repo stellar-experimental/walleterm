@@ -1,6 +1,6 @@
 ---
 name: walleterm-site-bridge
-description: Connect or test Stellar test-network websites (testnet, futurenet, or local) through walleterm tunnel or walleterm demo, the Walleterm browser SDK, or interception of a website's own wallet requests. Use walleterm for direct signing.
+description: Connect or test Stellar test-network sites through walleterm tunnel, walleterm demo, the browser SDK, or a website's intercepted wallet requests. Use walleterm for direct signing.
 ---
 
 # Walleterm website signing

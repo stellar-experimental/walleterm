@@ -58,7 +58,9 @@ async function scenario(ending: 'delivered' | 'undelivered' | 'canceled' | 'fail
     });
     return { status: response.status, data: await response.json() };
   };
-  const { token } = (await call('/v1/connect', { code: await host.code(), wallet_scope: 'selected' })).data;
+  const { token } = (
+    await call('/v1/connect', { code: await host.code(), wallet_scope: 'selected', protocol: 4 })
+  ).data;
   assert.equal((await call('/v1/select', { public_key: key.publicKey() }, token)).status, 200);
   assert.equal((await call('/v1/requests', transaction('counted'), token)).status, 201);
   await until(() => logs.length > 0);

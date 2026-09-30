@@ -536,6 +536,25 @@ test('onChange reports pairing, switching, and disconnection once each', async (
   ]);
 });
 
+test('the same key on a tunnel with another network is a change', async () => {
+  const testnet = await fixture();
+  const futurenet = await fixture({ network: 'futurenet' });
+  const changes: [string | null, string][] = [];
+  testnet.wallet.onChange(({ address, network }) => changes.push([address, network]));
+  await testnet.wallet.getAddress();
+  await testnet.wallet.connect({
+    url: futurenet.origin,
+    code: await futurenet.bridge.code(),
+    selectWallet: async () => key.publicKey(),
+  });
+  expect(changes[0]).toEqual([key.publicKey(), 'TESTNET']);
+  expect(changes.at(-1)).toEqual([key.publicKey(), 'FUTURENET']);
+  expect(await testnet.wallet.getNetwork()).toEqual({
+    network: 'FUTURENET',
+    networkPassphrase: Networks.FUTURENET,
+  });
+});
+
 test('a change listener can read the new address at once, as a Kit fetchAddress does', async () => {
   const f = await fixture({}, 'available');
   await f.wallet.getAddress();
@@ -565,7 +584,7 @@ test('sessions survive a reload and expire with the bridge session', async () =>
   const f = await fixture();
   await f.wallet.getAddress();
   expect(JSON.parse(saved.get('walleterm:session')!)).toEqual({
-    version: 3,
+    version: 4,
     url: f.origin,
     token: f.wallet.client!.token,
     revision: 1,

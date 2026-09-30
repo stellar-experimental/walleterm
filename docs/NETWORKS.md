@@ -15,7 +15,7 @@ This file has no line numbers, because line numbers drift.
   The rule applies to all four request kinds. Mainnet and custom networks wait for [PR 2](#pr-2-mainnet-and-custom-networks).
 - A message binds no network. For a message, the tunnel network is only a session check.
 - The browser SDK follows the tunnel network. Each account reply names it. Without a session, the SDK knows no network.
-- The demo website in `walleterm demo` builds, funds, and submits transactions only on testnet. It gives no actions to a tunnel on another network.
+- The demo website in `walleterm demo` builds, funds, and submits transactions only on testnet. It sends no request to a tunnel on another network.
 - The docs and the skills tell users to use dedicated test keys. The site tells users to use testnet accounts.
 - No signing path contacts a Stellar network. Only the demo website and the test harnesses call RPC, Horizon, or Friendbot.
 
@@ -76,7 +76,7 @@ The bridge and the SDK use the Stellar SDK `Networks` keys: `TESTNET`, `FUTURENE
 | `demo/site/activity.ts` `ActivityHistory.wrapFetch` and `categories` | Logs only the testnet Horizon, Friendbot, and Soroban RPC origins. Names RPC calls by method. Labels: "Fund testnet account", "Read testnet account", "Read testnet data", and "Testnet". | Testnet hosts | Match the chosen hosts and names. |
 | `demo/site/index.html` and `demo/site/app.ts` status text | "Stellar testnet", "Submit to testnet", and testnet account notes. | Text | Change the copy. |
 | `demo/site/walkthrough.ts` step labels | "Submit to testnet", "Waiting for the testnet result.", and "Testnet rejected it". | Text | Change the copy. |
-| `demo/site/app.ts` `connection` `onChange` | Gives no actions to a tunnel on another network. The status says to restart the tunnel without `--network`. | Testnet only | None while the demo stays on testnet. |
+| `demo/site/app.ts` `connection` `onChange` | Treats a tunnel on another network as no connection, so the page sends it no request. The status says to restart the tunnel without `--network`. | Testnet only | None while the demo stays on testnet. |
 | `demo/site/app.ts` `Journal` | The saved request records store no network. Recovery reads the current endpoints. | None | Store the passphrase. Refuse to recover a record from another network. |
 | `src/demo.rs` `CSP` | `connect-src` permits any HTTPS host and loopback HTTP. | Any HTTPS host | An RPC on `localhost` fits. A plain HTTP RPC on another host fails. The RPC must also send CORS headers. |
 
@@ -102,7 +102,7 @@ The bridge and the SDK use the Stellar SDK `Networks` keys: `TESTNET`, `FUTURENE
 | `docs/WEB-BRIDGE.md` | `--network` for the bridge. The demo setup uses testnet, Friendbot, and the testnet USDC issuer. "Add end-to-end encryption before any mainnet use." | PR 2: approval replaces the encryption precondition. |
 | `docs/DEMO.md`, `docs/CONNECTION-UI.md` | The demo uses testnet and refuses another tunnel network. The connection component shows the session network. | None. |
 | `docs/CONTRACT-AUTHORIZATION.md` | The demo steps say "Submit to testnet". The code examples use `Networks.TESTNET`. | Change with the demo. |
-| `docs/AGENTIC-PAYMENTS.md` | The website x402 flow goes through the bridge, so it works on testnet only. "The project rules permit testnet only." | Change with the bridge. |
+| `docs/AGENTIC-PAYMENTS.md` | The website x402 flow goes through the bridge, so it works on the tunnel network. "The tunnel does not sign for mainnet yet." | PR 2: mainnet. |
 | `docs/STELLAR-CLI.md` | The digest section gives the testnet network ID as an example. | None. The CLI path accepts any network. |
 | `SECURITY.md` | "Use testnet accounts and dedicated test keys to show the problem." | None. Reports stay on testnet. |
 | `docs/LIVE-TESTS.md` | The live suites run on testnet with Friendbot funding. | None. |
@@ -251,8 +251,9 @@ The user approved these decisions on 2026-09-30.
 1. Input. `walleterm tunnel --network <name>` takes a Stellar CLI built-in name. PR 2 adds `--network-passphrase <passphrase>` for a custom network.
    The bridge needs only a passphrase. So Walleterm reads no Stellar CLI configuration, no `STELLAR_NETWORK`, and no stored default.
    A Stellar CLI plugin inherits the stored default as `STELLAR_NETWORK`, so `stellar walleterm tunnel` ignores that default too.
-2. One network for each tunnel. The replies already carry `network` and `network_passphrase`, so protocol version 3 stays.
-   An older SDK refuses a network other than testnet, so it fails safely.
+2. One network for each tunnel. The replies already carried `network` and `network_passphrase`.
+   But a version 3 SDK checks the network only in `readAccount`. After a fresh pairing, it reports testnet and signs for the tunnel network.
+   So the protocol moves to version 4. `/v1/connect` refuses a client that does not send `"protocol": 4`.
 3. Names. The terminal uses the Stellar CLI names. SEP-43 replies use the Stellar SDK `Networks` keys. PR 2 names any other passphrase `CUSTOM`.
 4. `getNetwork` before a session returns `-3` with `walleterm:not_connected`. The wallet knows no network until the tunnel names it.
 5. Approval. On mainnet and on a custom network, the tunnel asks before each signature. On a test network, a tunnel option turns on the same step.
@@ -265,9 +266,9 @@ The user approved these decisions on 2026-09-30.
 ### PR 1: futurenet and local
 
 - `src/network.rs` holds the built-in networks. `walleterm tunnel --network testnet|futurenet|local` selects one. Testnet is the default.
-- The bridge admits requests for its network only. Its replies and its ready line name that network.
+- The bridge admits requests for its network only. Its replies and its ready line name that network. The protocol is version 4.
 - The SDK takes the network from the account reply. Requests default to it. `getNetwork` reports it.
-- The connection component shows the network. The demo gives no actions to a tunnel on another network.
+- The connection component shows the network. The demo sends no request to a tunnel on another network.
 - The CLI notice uses the Stellar CLI names `mainnet` and `local` in place of `pubnet` and a quoted passphrase.
 
 ### PR 2: mainnet and custom networks
@@ -294,7 +295,8 @@ The user approved these decisions on 2026-09-30.
 PR #72 recorded a larger first plan. GPT-6 Astra and GPT-6.1 Sol reviewed it independently.
 The user then chose these two pull requests. The approval step covers the risks that the larger plan handled separately:
 a forged request through the tunnel, a relayed login challenge, and a message signature from a funded key.
-The cut items were stored Stellar CLI networks, a protocol change, an encrypted transport, demo network support, and login-challenge rules.
+The cut items were stored Stellar CLI networks, an encrypted transport, demo network support, and login-challenge rules.
+The independent review of PR 1 showed that a protocol change was still necessary. See decision 2.
 
 ### Sources
 

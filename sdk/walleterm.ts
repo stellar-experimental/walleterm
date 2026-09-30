@@ -8,7 +8,7 @@ export * from './preimage.js';
 import { deadline, isTunnelUrl, requestError, sep43Error, walletermError, WalletermError } from './errors.js';
 export { WalletermError };
 export type { Sep43Code, Sep43Error, Sep43Reason } from './errors.js';
-// Browser adapter for Walleterm bridge protocol version 3.
+// Browser adapter for Walleterm bridge protocol version 4.
 import type {
   Account,
   AccountResult,
@@ -243,7 +243,11 @@ export class WalletermClient {
     if (!this.token) {
       if (typeof code !== 'string' || !/^\d{8}$/.test(code))
         throw walletermError('invalid_request', 'Enter the eight-digit code from the tunnel terminal.');
-      const result = await this.request('/v1/connect', { code, wallet_scope: walletScope }, signal);
+      const result = await this.request(
+        '/v1/connect',
+        { code, wallet_scope: walletScope, protocol: 4 },
+        signal,
+      );
       this.token = result.token;
       this.selecting = false;
       this.selectionUncertain = null;
@@ -764,7 +768,7 @@ export class Walleterm {
       if (client?.token && client.account?.address) {
         storage.setItem(
           this.storageKey!,
-          JSON.stringify({ version: 3, url: client.url, token: client.token, revision: client.revision }),
+          JSON.stringify({ version: 4, url: client.url, token: client.token, revision: client.revision }),
         );
         this.#token = client.token;
       } else if (!client?.token) {
@@ -785,7 +789,7 @@ export class Walleterm {
     }
     try {
       const value = JSON.parse(saved ?? 'null');
-      return value?.version === 3 && /^[A-Za-z0-9_-]{43}$/.test(value.token) ? (value.token as string) : null;
+      return value?.version === 4 && /^[A-Za-z0-9_-]{43}$/.test(value.token) ? (value.token as string) : null;
     } catch {
       return null;
     }
@@ -797,7 +801,7 @@ export class Walleterm {
       if (!saved) return null;
       const value = JSON.parse(saved);
       if (
-        value?.version !== 3 ||
+        value?.version !== 4 ||
         typeof value.url !== 'string' ||
         typeof value.token !== 'string' ||
         !/^[A-Za-z0-9_-]{43}$/.test(value.token)

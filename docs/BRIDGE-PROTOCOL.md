@@ -1,4 +1,4 @@
-# Walleterm bridge protocol version 3
+# Walleterm bridge protocol version 4
 
 The bridge signs transaction envelopes, authorization payloads, and SEP-53 messages for one network.
 That network is testnet, or the network of `walleterm tunnel --network`: futurenet or a local network.
@@ -14,8 +14,10 @@ The tunnel flag `--vault` limits this list to one vault. See [the vault filter](
 ## Connection code
 
 `walleterm tunnel` prints the public URL, an eight-digit connection code, and a QR code.
-The QR code contains `{"walleterm":3,"url":"...","code":"...","expires_at":"..."}`.
-`GET /api/session` returns `{"service":"walleterm","protocol":3}`. The SDK accepts only version 3.
+The QR code contains `{"walleterm":4,"url":"...","code":"...","expires_at":"..."}`.
+`GET /api/session` returns `{"service":"walleterm","protocol":4}`. The SDK accepts only version 4.
+Version 4 replies can name a network other than testnet. An older SDK would still report testnet.
+So `/v1/connect` refuses a request without `"protocol": 4` before it checks the code. That attempt does not count.
 A code works once and expires after five minutes. The terminal shows each expiry in local time, such as "3:04 PM (in 5 minutes)".
 After a use or a lockout, the tunnel prints a new code block with its reason, the URL, and a QR code.
 When an unused code expires, the tunnel prints one line with the new code and no QR code. So idle rotation stays short.
@@ -33,7 +35,7 @@ A rejected Origin gets status 403 and a message that names the cause: plain HTTP
 The preflight and the 403 answer carry CORS headers for that Origin, so the website can read the message.
 No route runs for a rejected Origin, and the answer holds only that message. A request without an Origin gets no CORS headers.
 
-- `POST /v1/connect`, body `{code, wallet_scope}`: returns `token`, `connection_id`, `expires_at`, `wallet_scope`, `selection_revision`.
+- `POST /v1/connect`, body `{code, wallet_scope, protocol}`: returns `token`, `connection_id`, `expires_at`, `wallet_scope`, `selection_revision`.
 - `GET /v1/signers`: returns eligible public keys as `signers`. Before an `available` selection, it also returns `grant_id`.
 - `POST /v1/select`: selects an eligible key. It returns `address`, `network`, `network_passphrase`, `selection_revision`, and `expires_at`.
 - `GET /v1/account`: returns `connection_id`, `address`, `network`, `network_passphrase`, `expires_at`, `wallet_scope`, `selection_revision`.

@@ -58,7 +58,7 @@ mod tests {
     #[test]
     fn qr_codes_render_with_a_quiet_zone_and_explicit_colors() {
         let text =
-            terminal(r#"{"walleterm":3,"url":"https://bridge-name.trycloudflare.com","code":"01234567"}"#);
+            terminal(r#"{"walleterm":4,"url":"https://bridge-name.trycloudflare.com","code":"01234567"}"#);
         let lines: Vec<&str> = text.lines().collect();
         assert!(lines.iter().all(|l| l.starts_with(START) && l.ends_with(END)));
         let w = width(&text);
@@ -78,7 +78,7 @@ mod tests {
     #[test]
     fn the_browser_scanner_fixture_is_the_terminal_code() {
         let pairing = serde_json::json!({
-            "walleterm": 3,
+            "walleterm": 4,
             "url": "https://bridge.example",
             "code": "00123456",
             "expires_at": "2099-01-01T00:00:00.000Z",

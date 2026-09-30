@@ -1,6 +1,6 @@
 # SEP-43 wallet interface
 
-This file describes the Walleterm browser SDK. It uses bridge protocol version 3.
+This file describes the Walleterm browser SDK. It uses bridge protocol version 4.
 Walleterm is SEP-43 compatible and Stellar Wallets Kit compatible.
 After a connection, the Walleterm SDK and its header component drive the interface.
 
@@ -289,7 +289,7 @@ Change events run after the switch settles, so a `fetchAddress()` call in the ho
 
 ### Sessions
 
-The SDK saves `{ version: 3, url, token, revision }` in `localStorage` under `walleterm:session`.
+The SDK saves `{ version: 4, url, token, revision }` in `localStorage` under `walleterm:session`.
 All tabs of one website share this session. A new tab uses it without a new code.
 `revision` only tells other tabs that the wallet changed. Each tab reads the account from the bridge.
 After pairing, the wallet owns the session. Destroying `WalletermConnect` does not revoke it.
@@ -349,13 +349,13 @@ The bridge keeps only these structural invariants:
 | Fees | No cap. | A fee cap blocks nothing that a payment cannot do. |
 | Embedded authorization entries | Not inspected. | The envelope signature covers them. The network enforces them. |
 
-## 6. Protocol version 3
+## 6. Protocol version 4
 
-The QR payload is `{"walleterm":3,"url":"...","code":"...","expires_at":"..."}`. `/api/session` reports `protocol: 3`.
+The QR payload is `{"walleterm":4,"url":"...","code":"...","expires_at":"..."}`. `/api/session` reports `protocol: 4`.
 
 | Route | Contract |
 | --- | --- |
-| `POST /v1/connect` | `{ code, wallet_scope }`. Returns `token`, `connection_id`, `expires_at`, `wallet_scope`, `selection_revision`. |
+| `POST /v1/connect` | `{ code, wallet_scope, protocol: 4 }`. Returns `token`, `connection_id`, `expires_at`, `wallet_scope`, `selection_revision`. |
 | `GET /v1/signers` | `signers`, and `grant_id` before an `available` selection. |
 | `POST /v1/select` | `{ public_key }`, plus `expected_revision` and the first `grant_id` for `available`. Returns `address`, `network`, `network_passphrase`, `selection_revision`, `expires_at`. |
 | `GET /v1/account` | `connection_id`, `address`, `network`, `network_passphrase`, `expires_at`, `wallet_scope`, `selection_revision`. |

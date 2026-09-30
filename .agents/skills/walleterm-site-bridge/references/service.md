@@ -1,6 +1,6 @@
 # Tunnel service and browser SDK
 
-This reference matches bridge protocol version 3. The browser SDK uses `@stellar/stellar-sdk` 17.2.0.
+This reference matches bridge protocol version 4. The browser SDK uses `@stellar/stellar-sdk` 17.2.0.
 Check `walleterm --help` for the installed command interface.
 The full guide is [WEB-BRIDGE.md](https://github.com/stellar-experimental/walleterm/blob/main/docs/WEB-BRIDGE.md).
 The SDK contract is [SEP-43.md](https://github.com/stellar-experimental/walleterm/blob/main/docs/SEP-43.md).

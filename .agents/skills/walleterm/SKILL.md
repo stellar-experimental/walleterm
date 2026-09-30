@@ -53,7 +53,7 @@ One call has a 120-second deadline for input, approval, and signing. After it, t
 Ask for a new decision only when the action exceeds the grant's network, signer, amount, fee, contract trust, or time window.
 After a submission timeout, query the original transaction hash before any new submission.
 Use dedicated keys. On testnet, futurenet, or a local network, dedicated test keys can sign without a separate approval.
-On mainnet or another network, sign only inside an explicit grant from the user or the parent agent.
+On mainnet or another network, sign only inside an explicit grant from the user. A parent agent can relay that grant.
 One grant can cover a batch when it names the network, keys, amounts, actions, and time window.
 
 ## Authorization rules
