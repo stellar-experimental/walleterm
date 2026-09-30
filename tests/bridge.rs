@@ -351,8 +351,8 @@ async fn a_futurenet_or_local_bridge_signs_only_its_own_network() {
         let selected = f.post("/v1/select", json!({ "public_key": f.public_key }), &a).await;
         let account = f.get("/v1/account", &a).await;
         for reply in [&selected.body, &account.body] {
-            assert_eq!(reply["network"], sep43, "{reply}");
-            assert_eq!(reply["network_passphrase"], network.passphrase, "{reply}");
+            assert_eq!(reply["network"], sep43, "{name}");
+            assert_eq!(reply["network_passphrase"], network.passphrase, "{name}");
         }
         // A testnet transaction and a testnet message both fail before the signer.
         let mut message = message_request(&f, "testnet-message", "Sign in to example.com");
