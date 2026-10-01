@@ -232,6 +232,8 @@ Not verified: Proton Pass `pass-cli ssh-agent` shows no approval step, and Stron
 - Windows CNG and TPM providers document no Ed25519. A Windows store needs a native adapter.
 - Linux `ssh-tpm-agent` supports ECDSA and RSA only.
 - Google Password Manager has no signing API.
+- Privy server wallets sign any 32 bytes through `raw_sign` in a remote TEE. A bearer app secret controls a wallet without an owner.
+  It fails requirement 2 in that setup. See [PRIVY-WALLET.md](PRIVY-WALLET.md).
 
 ## Architecture notes
 
