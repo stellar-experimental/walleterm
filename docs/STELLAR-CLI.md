@@ -2,6 +2,7 @@
 
 This file shows how `walleterm` works with the official Stellar CLI.
 See [INTERFACE.md](INTERFACE.md) for the exact input, output, and error contract of `walleterm sign`.
+[STELLAR-CLI-AGENTS.md](STELLAR-CLI-AGENTS.md) compares walleterm with the Stellar CLI for Agents docs.
 `sign` accepts one artifact and computes its digest: a transaction envelope, an authorization preimage or entry, or a SEP-53 message.
 It returns a signed envelope or entry where one exists. It never builds, simulates, or submits transactions.
 The Stellar CLI does those steps. Contract formats outside the three entry adapters stay in scripts or an SDK.

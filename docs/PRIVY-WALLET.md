@@ -83,6 +83,7 @@ The user waived the OK for each transaction during that session. It covered the 
 
 - The allowance pattern needs no walleterm code. A main account runs `stellar token approve` for a walleterm key.
   The token contract then enforces the limit. A skill recipe can describe it.
+  [STELLAR-CLI-AGENTS.md](STELLAR-CLI-AGENTS.md) maps the other Stellar CLI spending patterns to walleterm.
 - `privySigner` shows the `signAuthEntry` form that the x402 plan needs.
   The blocker in [AGENTIC-PAYMENTS.md](AGENTIC-PAYMENTS.md) does not change: the stock client requests V1 credentials.
 - A raw XDR output mode would let `walleterm sign` pipe into `stellar tx send`.
