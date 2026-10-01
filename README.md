@@ -124,6 +124,7 @@ See [the website bridge guide](docs/WEB-BRIDGE.md) for setup, recovery, and webs
 | [AGENTIC-PAYMENTS.md](docs/AGENTIC-PAYMENTS.md) | x402 and MPP compatibility |
 | [KEY-STORES.md](docs/KEY-STORES.md) | Research on key stores beside 1Password: Apple, hardware keys, and password managers |
 | [SECURE-ENCLAVE.md](docs/SECURE-ENCLAVE.md) | Design notes for a Secure Enclave P-256 signer for smart accounts |
+| [PRIVY-WALLET.md](docs/PRIVY-WALLET.md) | Research that compares walleterm with a Privy-backed Stellar wallet for agents |
 | [NETWORKS.md](docs/NETWORKS.md) | Network restrictions, hard-coded limits, and the plan for mainnet and custom networks |
 | [LIVE-TESTS.md](docs/LIVE-TESTS.md) | Live 1Password and testnet tests |
 | [MAINTAINING.md](docs/MAINTAINING.md) | Releases, the Homebrew cask, and the website |
