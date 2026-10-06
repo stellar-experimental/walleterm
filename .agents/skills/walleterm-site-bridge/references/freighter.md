@@ -23,8 +23,8 @@ It returns the selected key and testnet. It captures these signing requests with
 | `SUBMIT_BLOB` | `blob`, supplied account and `apiVersion` | For API 4 or later, `signedBlob` holds the Base64 signature and `signerAddress` names the signer |
 | `SUBMIT_AUTH_ENTRY` | `entryXdr` (a `HashIdPreimage`), supplied account and network fields | For API 4.2.0 or later, `signedAuthEntry` holds the Base64 signature over `SHA-256(entryXdr bytes)` |
 
-The helper's `reply` command returns `SUBMIT_TRANSACTION` results only.
-For `SUBMIT_BLOB`, use [message signing](message-signing.md).
+The helper's `reply` command returns `SUBMIT_TRANSACTION` results. `reply-message` returns `SUBMIT_BLOB` results.
+Review each `SUBMIT_BLOB` with [message signing](message-signing.md) first.
 For `SUBMIT_AUTH_ENTRY`, decode the preimage and review its network, bound address, expiry, and invocation tree.
 Then send it to `walleterm sign` with `preimage_xdr`. Walleterm refuses a V1 `soroban_authorization` preimage.
 Other request types stay in `window.__walletermBridge.unsupported` with no answer.
@@ -45,7 +45,9 @@ bun scripts/freighter-page.ts inject \
 ```
 
 Use the website's wallet controls after injection.
-If the page cached an absent-wallet state, change the route to render it again. A full reload removes the helper.
+The Stellar Wallets Kit picker renders in a shadow root, and a snapshot can omit it. Take a screenshot and click by coordinates.
+If the page cached an absent-wallet state, change the route to render it again.
+A full reload or a browser relaunch removes the helper. Check that `window.__walletermBridge` exists before each wallet action.
 
 ```sh
 agent-browser wait --fn 'window.__walletermBridge.requests.some(r => !r.responded)'
@@ -86,3 +88,25 @@ bun scripts/freighter-page.ts reply \
 The `reply` command verifies the new Ed25519 signature, the transaction body, the digest, and earlier signatures.
 The page code checks the original XDR against the pending request, then answers it once.
 The helper does not sign, submit, or check ledger results. Check RPC or Horizon after each return.
+
+## Return one reviewed message
+
+Save the captured text as the JSON string that `agent-browser eval` prints. JSON keeps every byte exact.
+
+```sh
+agent-browser eval "window.__walletermBridge.requests[$REQUEST_INDEX].blob" > message.json
+```
+
+Complete the [message review](message-signing.md). Send `{"public_key":"G...","message":"<that text>"}` to `walleterm sign`, and save `result.json`.
+
+```sh
+bun scripts/freighter-page.ts reply-message \
+  --index "$REQUEST_INDEX" \
+  --public-key "$SELECTED_G_ADDRESS" \
+  --message-json message.json \
+  --result result.json | agent-browser eval --stdin
+```
+
+The `reply-message` command checks the SEP-53 digest of the text, the result key, and the Ed25519 signature.
+It returns the signature as Base64 `signedBlob`.
+The page code checks the original text against the pending request and requires Freighter API 4 or later. Then it answers once.

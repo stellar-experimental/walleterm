@@ -2,7 +2,7 @@
 // Generate page code that answers Freighter's window.postMessage transport and captures signing requests.
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
-import { createPublicKey, verify } from 'node:crypto';
+import { createHash, createPublicKey, verify } from 'node:crypto';
 
 const TESTNET = 'Test SDF Network ; September 2015';
 const args = process.argv.slice(2);
@@ -42,6 +42,38 @@ function stellarXdr(operation: string, xdr: string, options: string[] = []) {
     maxBuffer: 3_000_000,
   }).trim();
 }
+function selectedKey() {
+  const publicKey = required('--public-key');
+  if (!/^G[A-Z2-7]{55}$/.test(publicKey)) throw Error('Use the full Ed25519 G-address given to inject.');
+  return publicKey;
+}
+function requestIndex() {
+  const index = Number(required('--index'));
+  if (!Number.isSafeInteger(index) || index < 0) throw Error('The request index is invalid.');
+  return index;
+}
+function rawPublicKey(publicKey: string) {
+  const decodedKey: { public_key_ed25519?: string } = JSON.parse(
+    execFileSync('stellar', ['strkey', 'decode', publicKey], { encoding: 'utf8', timeout: 30000 }),
+  );
+  return decodedKey.public_key_ed25519 || '';
+}
+// True when signatureHex is the raw key's Ed25519 signature over the 32 digest bytes.
+function signatureVerifies(rawKey: string, digestHex: string, signatureHex: string) {
+  return (
+    /^[0-9a-f]{64}$/.test(rawKey) &&
+    /^[0-9a-f]{128}$/.test(signatureHex) &&
+    verify(
+      null,
+      Buffer.from(digestHex, 'hex'),
+      createPublicKey({
+        key: { kty: 'OKP', crv: 'Ed25519', x: Buffer.from(rawKey, 'hex').toString('base64url') },
+        format: 'jwk',
+      }),
+      Buffer.from(signatureHex, 'hex'),
+    )
+  );
+}
 
 if (command === 'inject') {
   exactOptions(['--public-key', '--origin', '--window-flag']);
@@ -77,6 +109,17 @@ if (command === 'inject') {
       if (typeof signedXdr !== 'string' || !/^[A-Za-z0-9+/]+={0,2}$/.test(signedXdr)) throw Error('The signed XDR is invalid.');
       window.postMessage({ source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
         messagedId: entry.messageId, signedTransaction: signedXdr }, origin);
+      entry.responded = true;
+      return { returned: true, index, messageId: entry.messageId };
+    },
+    respondMessage(index, originalBlob, signedBlob) {
+      const entry = this.requests[index];
+      if (!entry || entry.responded || entry.type !== 'SUBMIT_BLOB') throw Error('No pending message request at that index.');
+      if (entry.blob !== originalBlob) throw Error('The pending message changed.');
+      if (!(Number.parseInt(String(entry.apiVersion), 10) >= 4)) throw Error('Freighter API before 4 expects another message result.');
+      if (typeof signedBlob !== 'string' || !/^[A-Za-z0-9+/]{86}==$/.test(signedBlob)) throw Error('The signature is invalid.');
+      window.postMessage({ source: 'FREIGHTER_EXTERNAL_MSG_RESPONSE',
+        messagedId: entry.messageId, signedBlob, signerAddress: publicKey }, origin);
       entry.responded = true;
       return { returned: true, index, messageId: entry.messageId };
     }
@@ -124,10 +167,8 @@ if (command === 'inject') {
 })()\n`);
 } else if (command === 'reply') {
   exactOptions(['--index', '--public-key', '--unsigned-xdr', '--signed-xdr', '--expected-hash']);
-  const publicKey = required('--public-key');
-  if (!/^G[A-Z2-7]{55}$/.test(publicKey)) throw Error('Use the full Ed25519 G-address given to inject.');
-  const index = Number(required('--index'));
-  if (!Number.isSafeInteger(index) || index < 0) throw Error('The request index is invalid.');
+  const publicKey = selectedKey();
+  const index = requestIndex();
   const hash = required('--expected-hash');
   if (!/^[0-9a-f]{64}$/.test(hash)) throw Error('The expected hash is invalid.');
   const unsigned = readXdr(required('--unsigned-xdr'));
@@ -157,30 +198,54 @@ if (command === 'inject') {
   ) {
     throw Error('The signed envelope changed the transaction body or existing signatures.');
   }
-  const decodedKey: { public_key_ed25519?: string } = JSON.parse(
-    execFileSync('stellar', ['strkey', 'decode', publicKey], { encoding: 'utf8', timeout: 30000 }),
-  );
-  const rawKey = decodedKey.public_key_ed25519 || '';
+  const rawKey = rawPublicKey(publicKey);
   const added = after.tx.signatures.at(-1);
-  if (
-    !/^[0-9a-f]{64}$/.test(rawKey) ||
-    added?.hint !== rawKey.slice(-8) ||
-    !/^[0-9a-f]{128}$/.test(added?.signature || '') ||
-    !verify(
-      null,
-      Buffer.from(hash, 'hex'),
-      createPublicKey({
-        key: { kty: 'OKP', crv: 'Ed25519', x: Buffer.from(rawKey, 'hex').toString('base64url') },
-        format: 'jwk',
-      }),
-      Buffer.from(added?.signature ?? '', 'hex'),
-    )
-  ) {
+  if (added?.hint !== rawKey.slice(-8) || !signatureVerifies(rawKey, hash, added?.signature ?? '')) {
     throw Error('The new signature does not verify for the selected key and reviewed hash.');
   }
   process.stdout.write(
     `window.__walletermBridge.respond(${index}, ${JSON.stringify(unsigned)}, ${JSON.stringify(signed)})\n`,
   );
+} else if (command === 'reply-message') {
+  exactOptions(['--index', '--public-key', '--message-json', '--result']);
+  const publicKey = selectedKey();
+  const index = requestIndex();
+  // The captured blob, saved as the JSON string that `agent-browser eval` prints. JSON keeps every byte exact.
+  const message: unknown = JSON.parse(readFileSync(required('--message-json'), 'utf8'));
+  const bytes = typeof message === 'string' ? Buffer.byteLength(message, 'utf8') : 0;
+  if (typeof message !== 'string' || bytes < 1 || bytes > 1024) {
+    throw Error('The message file must hold one JSON string of 1 to 1024 UTF-8 bytes.');
+  }
+  // The `walleterm sign` result for that exact message.
+  const result: {
+    ok?: unknown;
+    verified?: unknown;
+    public_key?: unknown;
+    digest?: unknown;
+    signature?: unknown;
+  } = JSON.parse(readFileSync(required('--result'), 'utf8'));
+  const digest = createHash('sha256')
+    .update('Stellar Signed Message:\n')
+    .update(message, 'utf8')
+    .digest('hex');
+  if (
+    result.ok !== true ||
+    result.verified !== true ||
+    result.public_key !== publicKey ||
+    result.digest !== digest
+  ) {
+    throw Error(
+      'The result must be a verified walleterm signature by the selected key over the SEP-53 digest of this message.',
+    );
+  }
+  const signature = typeof result.signature === 'string' ? result.signature : '';
+  if (!signatureVerifies(rawPublicKey(publicKey), digest, signature)) {
+    throw Error('The signature does not verify for the selected key and message.');
+  }
+  const signedBlob = Buffer.from(signature, 'hex').toString('base64');
+  process.stdout.write(
+    `window.__walletermBridge.respondMessage(${index}, ${JSON.stringify(message)}, ${JSON.stringify(signedBlob)})\n`,
+  );
 } else {
-  throw Error('Use inject or reply.');
+  throw Error('Use inject, reply, or reply-message.');
 }

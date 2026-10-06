@@ -26,6 +26,16 @@ An application can derive a separate private key from the returned signature.
 Treat such a signature as secret material. Keep it out of public reports and terminal output.
 If the application stores such a key, inspect entry names or counts without reading private-key values.
 
+## Hash-committed text
+
+Some text commits to a hash of an application payload, for example `<prefix> <hex digest>`. The text does not show the action.
+Find the payload encoder and hash rule in the deployed client. Rebuild the hash from the action that the grant covers.
+Sign only after an exact match. A match proves every encoded field, and a mismatch means the payload is unknown.
+The page can fill fields from the clock or from a key it just created. Observe those inputs in the page, such as clock reads or new public keys.
+Then test the small set of candidates. Read no secret values.
+Some payloads expire within seconds. Script capture, rebuild, signing, verification, and return as one command.
+Ask the user to stand ready for the 1Password prompt before the action starts.
+
 ## Bridge `signMessage`
 
 `wallet.signMessage(text)` sends the text to the tunnel. The connected website approves it by sending it.
@@ -45,5 +55,5 @@ The SDK verifies the signature with `Keypair.verifyMessage` before it returns it
 6. Return it once, bound to the unchanged payload, the original request ID, the selected key, and the exact origin.
 
 Record delivery separately from login or application acceptance.
-For [Freighter](freighter.md), use its `SUBMIT_BLOB` response fields. The helper's `reply` command returns transactions only.
+For [Freighter](freighter.md), the helper's `reply-message` command performs steps 3 to 6.
 Capture any later transaction or authorization request for a separate review.

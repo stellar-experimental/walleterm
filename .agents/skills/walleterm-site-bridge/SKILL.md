@@ -26,6 +26,7 @@ Use Stellar Raven, when available, and current primary sources for protocol or w
 
 Use dedicated keys. Keep private keys inside 1Password. Never read, export, print, log, or cache private-key fields.
 Check the user's grant before connecting a website or returning a signature. Mainnet needs an explicit grant from the user.
+A deployment can serve other users. Run an action that changes shared state, such as a contract freeze, only when the grant names it.
 A connection code lets the website request supported signatures after wallet selection.
 On a test network, the bridge signs valid requests without an approval step, unless the tunnel runs with `--approve`.
 This includes SEP-53 messages.
@@ -79,6 +80,8 @@ After an uncertain submission, query the original hash before signing or submitt
 Keep unresolved records and signed XDR until the outcome is known.
 Cancellation can withhold a result. It cannot undo a signature already produced or delivered.
 Disconnect the website when finished. Stop only the tunnel processes that this task started.
+A signature can authorize a website key, such as a trading session key, that outlives the connection.
+Revoke it when finished. If the website cannot revoke it, report its public key, permissions, and expiry.
 
 Report connection, capture, signing, submission, and ledger acceptance as separate stages.
 Name skipped or blocked stages. Keep local tests, live 1Password checks, and network acceptance separate.
