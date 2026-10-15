@@ -5,6 +5,8 @@
 Each command owns its own server and tunnel. Stopping one command does not stop the other.
 Both commands need cloudflared. The bridge also needs macOS and the 1Password SSH agent.
 
+Connected websites can see your 1Password key names. Use generic names that don't include personal information.
+
 ## Run the bridge
 
 ```sh
