@@ -15,7 +15,15 @@ It verifies each signature before it returns the signature. The private key stay
 
 ## Status and safety
 
-Walleterm is experimental and before version 1.0. Interfaces can change without notice.
+walleterm is experimental, open-source software from the Stellar Development Foundation (SDF) and is not production-ready.
+It is not a wallet: it does not store keys or assets. SDF does not control the Stellar network and never holds your keys or assets.
+walleterm asks your 1Password app to sign with a key stored there. 1Password does not show the transaction details.
+An AI agent you connect can request and approve signatures that move real assets.
+Website connections run through Cloudflare, which can see request data.
+Use a dedicated key, review each transaction before you approve it, and use walleterm at your own risk.
+Provided as-is under the Apache 2.0 license.
+
+Walleterm is before version 1.0. Interfaces can change without notice.
 
 - 1Password shows the application and the key. It does not show the network, amount, destination, or contract policy.
   Review each artifact before you sign it. Cached 1Password approval can permit later signatures without a prompt.
@@ -58,6 +66,7 @@ Install these tools too:
 
 Generate an Ed25519 SSH key inside the 1Password desktop app. Enable that item in the 1Password SSH agent.
 Then run `walleterm list --human` to see its public G-address.
+Connected websites can see your 1Password key names. Use generic names that don't include personal information.
 
 ### Ask for approval of each signature
 
