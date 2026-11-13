@@ -1493,7 +1493,8 @@ fn an_escalation_signs_adds_risk_and_posts_an_approved_label() {
     // A message goes as Base64 of its exact bytes. The CLI sends no origin and no passphrase for a message.
     let mut keys: Vec<&str> = hits[0].body.as_object().unwrap().keys().map(String::as_str).collect();
     keys.sort();
-    assert_eq!(keys, ["kind", "request_id", "signer", "xdr"]);
+    assert_eq!(keys, ["hash", "kind", "request_id", "signer", "xdr"]);
+    assert_eq!(hits[0].body["hash"], output["digest"], "the hash is the signed digest");
     assert_eq!(hits[0].body["kind"], "message");
     assert_eq!(hits[0].body["xdr"], "d2FsbGV0ZXJtIG9mZmxpbmUgdGVzdA==");
     assert_eq!(hits[0].authorization.as_deref(), Some(format!("Bearer {}", scorer::TOKEN).as_str()));
@@ -1506,7 +1507,7 @@ fn an_escalation_signs_adds_risk_and_posts_an_approved_label() {
 fn a_scorer_failure_signs_as_before_with_risk_error() {
     for (mode, code) in [
         (scorer::Mode::Status(500), "http_500"),
-        (scorer::Mode::Raw("{\"decision\":\"deny\"}"), "bad_response"),
+        (scorer::Mode::Raw("{\"decision\":\"escalate\"}"), "bad_response"),
         (scorer::Mode::Decision("approve"), "unexpected_decision"),
     ] {
         let scorer = scorer::Scorer::start(mode);
@@ -1525,4 +1526,23 @@ fn a_scorer_failure_signs_as_before_with_risk_error() {
         assert_eq!(scorer.paths(), ["/v1/score"], "no label without a score");
         no_token(&got);
     }
+}
+
+#[test]
+fn a_malformed_deny_still_stops_sign() {
+    let scorer = scorer::Scorer::start(scorer::Mode::Raw("{\"decision\":\"deny\",\"score_id\":\"bad id\"}"));
+    let scratch = Scratch::new();
+    let agent = mock_agent(&scratch.socket(), vec![]);
+    let risk = || Ok(Some(scorer.gate()));
+    let got =
+        invoke_with_risk(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(agent), &risk);
+    assert_eq!(got.exit, 1, "{}", got.stdout);
+    assert!(got.requests.is_empty(), "no agent request");
+    let output: Value = serde_json::from_str(&got.stdout).unwrap();
+    assert_eq!(output["error"]["code"], "risk_denied");
+    assert_eq!(output["risk"]["score_id"], "");
+    assert_eq!(
+        output["risk"]["reasons"],
+        serde_json::json!([{ "code": "RISK_RESPONSE_MALFORMED", "source": "walleterm" }])
+    );
 }

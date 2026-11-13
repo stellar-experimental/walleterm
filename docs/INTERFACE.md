@@ -228,13 +228,17 @@ Walleterm checks the artifact as usual first. Then it sends the artifact to `POS
 Only then does it request the 1Password signature or wait for `walleterm approve`.
 
 The score request holds only these fields:
-`kind` (`transaction`, `preimage`, `auth_entry`, or `message`), `network_passphrase`, `xdr`, `signer`, and a new random `request_id`.
+`kind` (`transaction`, `preimage`, `auth_entry`, or `message`), `network_passphrase`, `xdr`, `signer`, `hash`, and a new random `request_id`.
+`hash` is the lowercase hexadecimal digest that 1Password signs. It binds the score to the exact signed bytes.
+For the OpenZeppelin adapter, the digest also covers the context rule IDs.
 A message goes in `xdr` as Base64 of its exact bytes. A `sign` message has no `network_passphrase`.
-An entry or a preimage adds its `address`. A tunnel request adds the website `origin`.
+An entry or a preimage adds its `address`. An entry adds its `adapter` type, such as `openzeppelin-ed25519`.
+A tunnel request adds the website `origin`.
 
 | Scorer answer | Result |
 | --- | --- |
 | `deny` | A hard stop. No 1Password request and no approval wait. |
+| `deny` with malformed fields | Still a hard stop. Walleterm keeps the valid codes and adds the reason `RISK_RESPONSE_MALFORMED`. |
 | `escalate` | Walleterm continues as before. Mainnet tunnel requests still wait for `walleterm approve`. |
 | Any other decision, including `approve` | Walleterm continues as before. `risk` holds `{"error":"unexpected_decision"}`. |
 | No answer, a timeout, a non-2xx status, or a bad body | Walleterm continues as before. `risk` holds the error code. |
@@ -251,7 +255,11 @@ With the gate on, the `sign` result and the `walleterm approve` request have a `
 
 The error codes are `unreachable`, `timeout`, `http_<status>`, `bad_response`, and `unexpected_decision`.
 Each response string must have 1–128 characters from `A-Z`, `a-z`, `0-9`, `_`, `-`, `.`, and `:`.
-Otherwise the whole response is `bad_response`. The response `request_id` must equal the sent ID.
+The response `request_id` must equal the sent ID. Each list has at most 64 codes.
+An escalation that breaks one of these rules is `bad_response`.
+A denial that breaks one of them still denies. Walleterm drops each invalid code and keeps at most 64 of each list.
+An invalid `score_id` becomes empty. A missing or different `request_id` becomes the sent ID.
+The reasons then end with `{"code":"RISK_RESPONSE_MALFORMED","source":"walleterm"}`.
 
 A denial from `sign` exits 1 with the `risk_denied` code. The message names the vetoes and the score ID:
 
@@ -260,6 +268,7 @@ A denial from `sign` exits 1 with the `risk_denied` code. The message names the 
 ```
 
 The tunnel ends a denied request as `denied` with `walleterm:risk_denied`. See [the bridge protocol](BRIDGE-PROTOCOL.md#errors).
+The website gets only "The risk scorer denied this request." The tunnel line names the vetoes and the score ID.
 
 Walleterm also posts answer labels to `POST <URL>/v1/answer` as `{"request_id","approved"}`:
 
@@ -271,6 +280,8 @@ A label needs a scored request. It is best effort. It never delays the answer or
 Walleterm sends the token only in the `Authorization: Bearer` header. No output, error, or terminal line holds it.
 The client uses only HTTPS and follows no redirect. It reads no proxy setting.
 A score has one 5-second limit. A label has one 2-second limit. A response body has at most 64 KiB.
+The score can delay `sign` by at most 5 seconds. The label can delay its exit by at most 2 seconds more.
+`sign` does not wait for a stalled DNS lookup when it exits. The tunnel waits at most 2 seconds for one when it stops.
 
 ## Errors and output
 

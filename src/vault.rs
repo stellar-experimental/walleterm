@@ -101,10 +101,16 @@ async fn drain(
     }
 }
 
+/// The 1Password CLI command. It keeps the environment, except the risk scorer URL and token.
+fn op_command(program: &OsStr, args: &[&str]) -> Command {
+    let mut command = Command::new(program);
+    command.args(args).env_remove(crate::risk::URL_VARIABLE).env_remove(crate::risk::TOKEN_VARIABLE);
+    command
+}
+
 /// Run the 1Password CLI with bounded output. A failure returns only its cause, never the CLI text.
 async fn op(program: &OsStr, args: &[&str], cancel: &Cancel) -> std::result::Result<String, Failure> {
-    let mut child = Command::new(program)
-        .args(args)
+    let mut child = op_command(program, args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -285,6 +291,16 @@ pub async fn discover(
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn the_op_child_never_gets_the_risk_scorer_url_or_token() {
+        let command = op_command(OsStr::new("op"), &["whoami"]);
+        let removed: Vec<_> =
+            command.as_std().get_envs().filter(|(_, v)| v.is_none()).map(|(k, _)| k).collect();
+        assert_eq!(removed.len(), 2);
+        assert!(removed.contains(&OsStr::new("WALLETERM_RISK_URL")));
+        assert!(removed.contains(&OsStr::new("WALLETERM_RISK_TOKEN")));
+    }
 
     #[test]
     fn references_use_ids_and_the_selected_vault_only() {

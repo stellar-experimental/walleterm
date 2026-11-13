@@ -206,7 +206,7 @@ fn run_tunnel(
         Ok(runtime) => runtime,
         Err(_) => return 1,
     };
-    runtime.block_on(async {
+    let code = runtime.block_on(async {
         let banner = match vault.as_deref() {
             Some(vault) => format!(
                 "Website wallets: 1Password vault {}.\n",
@@ -249,7 +249,10 @@ fn run_tunnel(
         }
         let service = std::sync::Arc::new(BridgeService::new(bridge, port));
         run_launch("Walleterm tunnel", port, service, output, probe_client).await
-    })
+    });
+    // A stalled DNS lookup of the risk scorer runs on a blocking thread. Exit waits for it at most this long.
+    runtime.shutdown_timeout(crate::risk::ANSWER_TIMEOUT);
+    code
 }
 
 /// A public health probe through the shared HTTPS client.

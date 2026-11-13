@@ -38,7 +38,7 @@ const MAX_CODES: usize = 64;
 
 type ScorerClient = Client<HttpsConnector<HttpConnector>, Full<Bytes>>;
 
-/// A configured scorer. `Debug` never shows the token.
+/// A configured scorer. `Debug` shows neither the URL nor the token.
 pub struct Gate {
     base: String,
     authorization: HeaderValue,
@@ -47,7 +47,7 @@ pub struct Gate {
 
 impl fmt::Debug for Gate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Gate").field("base", &self.base).finish_non_exhaustive()
+        f.debug_struct("Gate").finish_non_exhaustive()
     }
 }
 
@@ -109,6 +109,8 @@ impl Gate {
     }
 
     /// A gate for a plain HTTP scorer on loopback. Only tests call it. No environment variable selects it.
+    /// It stays public: the integration tests link the library without `cfg(test)`, and `make test` does not
+    /// enable the `test-host` feature for them.
     #[doc(hidden)]
     pub fn loopback(port: u16, token: &str) -> Result<Self> {
         Self::new(&format!("http://127.0.0.1:{port}"), token, false)
@@ -164,22 +166,30 @@ impl Request {
 }
 
 /// Build the score request for a checked artifact. `details` is the inspection detail of the artifact.
+/// `hash` is the lowercase hexadecimal digest that 1Password signs. It binds the request to the exact signed bytes.
 /// A message travels as Base64 of its exact bytes. An entry and a preimage add their address.
+/// An entry adds its adapter type. The OpenZeppelin digest also binds the context rule IDs, so `hash` covers them.
 pub fn request(
     artifact: &Artifact,
     passphrase: Option<&str>,
     signer: &str,
     details: &Value,
+    hash: &str,
     origin: Option<&str>,
 ) -> Request {
     let request_id = crate::util::uuid();
-    let (kind, xdr, address) = match artifact {
-        Artifact::Transaction(xdr) => ("transaction", xdr.clone(), None),
-        Artifact::Preimage(xdr) => ("preimage", xdr.clone(), details["address"].as_str().map(str::to_owned)),
-        Artifact::Authorization { entry_xdr, address, .. } => {
-            ("auth_entry", entry_xdr.clone(), Some(address.clone()))
+    let (kind, xdr, address, adapter) = match artifact {
+        Artifact::Transaction(xdr) => ("transaction", xdr.clone(), None, None),
+        Artifact::Preimage(xdr) => {
+            ("preimage", xdr.clone(), details["address"].as_str().map(str::to_owned), None)
         }
-        Artifact::Message(text) => ("message", STANDARD.encode(text.as_bytes()), None),
+        Artifact::Authorization { entry_xdr, address, adapter } => (
+            "auth_entry",
+            entry_xdr.clone(),
+            Some(address.clone()),
+            adapter["type"].as_str().map(str::to_owned),
+        ),
+        Artifact::Message(text) => ("message", STANDARD.encode(text.as_bytes()), None, None),
     };
     let mut body = Map::new();
     body.insert("kind".into(), json!(kind));
@@ -191,6 +201,10 @@ pub fn request(
     if let Some(address) = address {
         body.insert("address".into(), json!(address));
     }
+    if let Some(adapter) = adapter {
+        body.insert("adapter".into(), json!(adapter));
+    }
+    body.insert("hash".into(), json!(hash));
     if let Some(origin) = origin {
         body.insert("origin".into(), json!(origin));
     }
@@ -250,17 +264,21 @@ impl Outcome {
         }
     }
 
-    /// The `risk_denied` error of a denial.
+    /// The `risk_denied` error of a denial, with the vetoes and the score ID. Only local output shows it.
     pub fn denial(&self) -> Option<Error> {
         let Outcome::Deny(v) = self else { return None };
         let vetoes: Vec<&str> = v.vetoes.iter().map(|c| c.code.as_str()).collect();
         let vetoes = if vetoes.is_empty() { "none".to_owned() } else { vetoes.join(", ") };
-        Some(Error::new(
-            "risk_denied",
-            format!("The risk scorer denied this request. Vetoes: {vetoes}. Score ID: {}.", v.score_id),
-        ))
+        let score_id = if v.score_id.is_empty() { "none" } else { &v.score_id };
+        Some(Error::new("risk_denied", format!("{DENIED} Vetoes: {vetoes}. Score ID: {score_id}.")))
     }
 }
+
+/// The denial message for a website. It names no veto and no score ID.
+pub const DENIED: &str = "The risk scorer denied this request.";
+
+/// The reason that marks a denial with malformed fields.
+pub const MALFORMED: &str = "RISK_RESPONSE_MALFORMED";
 
 /// A response string that is safe to print without escapes.
 fn safe(text: &str) -> bool {
@@ -268,7 +286,9 @@ fn safe(text: &str) -> bool {
         && text.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b':'))
 }
 
-/// Read a score response. Every field is untrusted. A malformed field makes the whole response `bad_response`.
+/// Read a score response. Every field is untrusted.
+/// A malformed field makes an escalation `bad_response`. A denial always stays a denial: the gate keeps the valid
+/// codes, at most 64 of each, and adds the reason `RISK_RESPONSE_MALFORMED` from `walleterm`.
 fn parse(bytes: &[u8], sent: &str) -> Outcome {
     let bad = || Outcome::Error("bad_response".into());
     let Some(object) = std::str::from_utf8(bytes).ok().and_then(crate::json::strict_object) else {
@@ -294,16 +314,38 @@ fn parse(bytes: &[u8], sent: &str) -> Outcome {
             })
             .collect()
     };
-    let (Some(score_id), Some(request_id), Some(vetoes), Some(reasons)) =
-        (text("score_id"), text("request_id"), codes("vetoes"), codes("reasons"))
-    else {
-        return bad();
-    };
-    if request_id != sent {
+    let request_id = text("request_id").filter(|id| id == sent);
+    if let (Some(score_id), Some(request_id), Some(vetoes), Some(reasons)) =
+        (text("score_id"), request_id.clone(), codes("vetoes"), codes("reasons"))
+    {
+        let verdict = Verdict { score_id, request_id, vetoes, reasons };
+        return if deny { Outcome::Deny(verdict) } else { Outcome::Escalate(verdict) };
+    }
+    if !deny {
         return bad();
     }
-    let verdict = Verdict { score_id, request_id, vetoes, reasons };
-    if deny { Outcome::Deny(verdict) } else { Outcome::Escalate(verdict) }
+    // A malformed denial still stops. Keep what is valid and say that the rest was not.
+    let valid = |name: &str| -> Vec<Code> {
+        let items = object.get(name).and_then(Value::as_array).map(Vec::as_slice).unwrap_or_default();
+        items
+            .iter()
+            .filter_map(|item| {
+                let field =
+                    |n: &str| item.get(n).and_then(Value::as_str).filter(|t| safe(t)).map(str::to_owned);
+                Some(Code { code: field("code")?, source: field("source")? })
+            })
+            .take(MAX_CODES)
+            .collect()
+    };
+    let mut reasons = valid("reasons");
+    reasons.truncate(MAX_CODES - 1);
+    reasons.push(Code { code: MALFORMED.into(), source: "walleterm".into() });
+    Outcome::Deny(Verdict {
+        score_id: text("score_id").unwrap_or_default(),
+        request_id: request_id.unwrap_or_else(|| sent.to_owned()),
+        vetoes: valid("vetoes"),
+        reasons,
+    })
 }
 
 #[cfg(test)]
@@ -321,7 +363,8 @@ mod tests {
         assert!(configured(None, None).unwrap().is_none());
         let gate = configured(Some("https://scorer.example/"), Some(TOKEN)).unwrap().unwrap();
         assert_eq!(gate.base, "https://scorer.example");
-        assert!(!format!("{gate:?}").contains(TOKEN));
+        let shown = format!("{gate:?}");
+        assert!(!shown.contains(TOKEN) && !shown.contains("scorer.example"), "{shown}");
         let short = &TOKEN[1..];
         for (url, token) in [
             (Some("https://scorer.example"), None),
@@ -365,10 +408,10 @@ mod tests {
         for decision in ["approve", "ESCALATE", ""] {
             assert_eq!(parse(&response(decision, "r1"), "r1"), Outcome::Error("unexpected_decision".into()));
         }
-        assert_eq!(parse(&response("deny", "r2"), "r1"), Outcome::Error("bad_response".into()));
+        assert_eq!(parse(&response("escalate", "r2"), "r1"), Outcome::Error("bad_response".into()));
         assert_eq!(parse(b"not json", "r1"), Outcome::Error("bad_response".into()));
-        let mut odd: Value = serde_json::from_slice(&response("deny", "r1")).unwrap();
-        odd["vetoes"][0]["code"] = json!("\u{202e}EVIL");
+        let mut odd: Value = serde_json::from_slice(&response("escalate", "r1")).unwrap();
+        odd["vetoes"] = json!([{ "code": "\u{202e}EVIL", "source": "T0" }]);
         assert_eq!(parse(odd.to_string().as_bytes(), "r1"), Outcome::Error("bad_response".into()));
         let duplicate = br#"{"decision":"escalate","decision":"deny"}"#;
         assert_eq!(parse(duplicate, "r1"), Outcome::Error("bad_response".into()));
@@ -376,11 +419,50 @@ mod tests {
     }
 
     #[test]
+    fn a_malformed_deny_still_denies() {
+        let malformed = |change: &dyn Fn(&mut Value)| {
+            let mut value: Value = serde_json::from_slice(&response("deny", "r1")).unwrap();
+            change(&mut value);
+            parse(value.to_string().as_bytes(), "r1")
+        };
+        let flagged = |o: &Outcome| {
+            let Outcome::Deny(v) = o else { panic!("{o:?}") };
+            assert_eq!(
+                v.reasons.last().unwrap(),
+                &Code { code: MALFORMED.into(), source: "walleterm".into() }
+            );
+            v.clone()
+        };
+        let v = flagged(&malformed(&|v| v["request_id"] = json!("r2")));
+        assert_eq!(v.request_id, "r1");
+        let v = flagged(&malformed(&|v| v["score_id"] = json!("bad id")));
+        assert_eq!(v.score_id, "");
+        assert!(
+            malformed(&|v| v["score_id"] = json!(null)).denial().unwrap().message.contains("Score ID: none.")
+        );
+        let v = flagged(&malformed(&|v| {
+            v["vetoes"] =
+                json!([{ "code": "\u{202e}EVIL", "source": "T0" }, { "code": "OK_CODE", "source": "T0" }])
+        }));
+        assert_eq!(v.vetoes, [Code { code: "OK_CODE".into(), source: "T0".into() }]);
+        let many: Vec<Value> = (0..100).map(|i| json!({ "code": format!("C{i}"), "source": "T0" })).collect();
+        let v = flagged(&malformed(&|v| {
+            v["vetoes"] = json!(many);
+            v["reasons"] = json!(many);
+        }));
+        assert_eq!((v.vetoes.len(), v.reasons.len()), (64, 64));
+        flagged(&malformed(&|v| {
+            v.as_object_mut().unwrap().remove("vetoes");
+        }));
+    }
+
+    #[test]
     fn the_request_holds_only_the_listed_fields() {
-        let message = request(&Artifact::Message("hi".into()), None, "GKEY", &Value::Null, None);
+        let message = request(&Artifact::Message("hi".into()), None, "GKEY", &Value::Null, "ab", None);
         let body = message.body().as_object().unwrap();
         let keys: Vec<&str> = body.keys().map(String::as_str).collect();
-        assert_eq!(keys.len(), 4);
+        assert_eq!(keys.len(), 5);
+        assert_eq!(body["hash"], "ab");
         assert_eq!(body["xdr"], "aGk=");
         assert_eq!(body["request_id"], json!(message.request_id));
         let preimage = request(
@@ -388,11 +470,28 @@ mod tests {
             Some("Test SDF Network ; September 2015"),
             "GKEY",
             &json!({ "address": "CADDR", "digest": "x" }),
+            "cd",
             Some("https://site.example"),
         );
         let mut keys: Vec<&str> = preimage.body().as_object().unwrap().keys().map(String::as_str).collect();
         keys.sort();
-        assert_eq!(keys, ["address", "kind", "network_passphrase", "origin", "request_id", "signer", "xdr"]);
+        assert_eq!(
+            keys,
+            ["address", "hash", "kind", "network_passphrase", "origin", "request_id", "signer", "xdr"]
+        );
+        let adapter = json!({ "type": "openzeppelin-ed25519", "verifier": "CVER", "context_rule_ids": [0] });
+        let entry = request(
+            &Artifact::Authorization { entry_xdr: "AAAA".into(), address: "CACC".into(), adapter },
+            Some("Test SDF Network ; September 2015"),
+            "GKEY",
+            &Value::Null,
+            "ef",
+            None,
+        );
+        assert_eq!(entry.body()["kind"], "auth_entry");
+        assert_eq!(entry.body()["adapter"], "openzeppelin-ed25519");
+        assert_eq!(entry.body()["address"], "CACC");
+        assert_eq!(entry.body()["hash"], "ef");
         assert_eq!(preimage.body()["kind"], "preimage");
         assert_ne!(preimage.request_id, message.request_id);
     }

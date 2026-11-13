@@ -109,7 +109,7 @@ A connection permits 1000 requests. The bridge permits 32 active requests and 64
 | `-3` | `walleterm:rate_limited` | A code, connection, or request limit. |
 | `-3` | `walleterm:expired` | The request expired before signing. |
 | `-4` | `walleterm:rejected` | The website canceled, the session ended, the wallet changed, the approver denied it, the selected key left 1Password, or 1Password did not sign. |
-| `-4` | `walleterm:risk_denied` | The [risk gate](INTERFACE.md#risk-gate) scorer denied the request. The message names the vetoes and the score ID. |
+| `-4` | `walleterm:risk_denied` | The [risk gate](INTERFACE.md#risk-gate) scorer denied the request. The message is "The risk scorer denied this request." It names no veto. |
 | `-2` | `walleterm:bridge_unavailable` | The bridge is stopping, or 1Password discovery failed or timed out. |
 | `-1` | `walleterm:result_unknown` | Signing started and the bridge withheld or lost the result. |
 | `-1` | `walleterm:internal` | Any other failure. |
@@ -140,6 +140,7 @@ See [the approve command](INTERFACE.md#approve) for the local approval channel.
 
 With the [risk gate](INTERFACE.md#risk-gate) on, the bridge scores each request before the approval wait and before signing.
 A `deny` ends the request as `denied` with `-4` and `walleterm:risk_denied`. Nothing waits and nothing is signed.
+The website gets a generic message. The tunnel line names the vetoes and the score ID.
 `-4` fits, because the wallet declined the request, as an approver does.
 Every other answer continues as before. The approval wait still applies on mainnet and custom networks.
 A declined 1Password prompt ends the request as `denied`. The selected key must still exist before signing.

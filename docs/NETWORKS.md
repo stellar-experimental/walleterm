@@ -151,7 +151,7 @@ Update those statements in the same change.
 | `configure` | `https` only, no user name, password, query, or fragment | Scorer URL | No |
 | `MIN_TOKEN`, `MAX_TOKEN` | 32 to 4096 visible ASCII characters | Bearer token | No |
 | `SCORE_TIMEOUT` | 5 seconds | One hard limit for a score, also the connection limit | No |
-| `ANSWER_TIMEOUT` | 2 seconds | One hard limit for a best-effort answer label | No |
+| `ANSWER_TIMEOUT` | 2 seconds | One hard limit for a best-effort answer label. `src/service.rs` `run_tunnel` also waits at most this long for blocking work when the tunnel stops. | No |
 | `MAX_RESPONSE` | 64 KiB | Scorer response body | No |
 | `MAX_TEXT`, `MAX_CODES` | 128 characters, 64 vetoes and 64 reasons | Response strings and lists | No |
 

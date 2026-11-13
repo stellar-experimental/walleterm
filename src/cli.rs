@@ -346,10 +346,30 @@ fn list(human: bool, io: &mut Io) -> i32 {
     0
 }
 
-fn agent_runtime() -> Result<tokio::runtime::Runtime> {
+/// A runtime that stops without waiting for blocking tasks, such as a stalled DNS lookup of the risk scorer.
+/// The command then exits when its own work ends.
+pub(crate) struct Background(Option<tokio::runtime::Runtime>);
+
+impl std::ops::Deref for Background {
+    type Target = tokio::runtime::Runtime;
+    fn deref(&self) -> &Self::Target {
+        self.0.as_ref().expect("the runtime lives until drop")
+    }
+}
+
+impl Drop for Background {
+    fn drop(&mut self) {
+        if let Some(runtime) = self.0.take() {
+            runtime.shutdown_background();
+        }
+    }
+}
+
+fn agent_runtime() -> Result<Background> {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
+        .map(|runtime| Background(Some(runtime)))
         .map_err(|_| crate::agent::unavailable())
 }
 
@@ -397,6 +417,7 @@ fn sign(io: &mut Io) -> i32 {
             request.passphrase.as_deref(),
             &request.public_key,
             &checked.details,
+            &hex(&checked.digest),
             None,
         );
         runtime.block_on(gate.score(&scored))
@@ -479,5 +500,20 @@ pub fn run(args: &[String], io: &mut Io) -> i32 {
             human,
             &invalid("Use walleterm list [--human] or walleterm sign < request.json."),
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn the_cli_runtime_never_waits_for_a_stalled_blocking_task() {
+        let runtime = agent_runtime().unwrap();
+        // A stalled getaddrinfo call looks like this to the runtime.
+        let _stalled = runtime.spawn_blocking(|| std::thread::sleep(Duration::from_secs(30)));
+        let start = Instant::now();
+        drop(runtime);
+        assert!(start.elapsed() < Duration::from_secs(1), "{:?}", start.elapsed());
     }
 }

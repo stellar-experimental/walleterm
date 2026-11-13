@@ -1019,15 +1019,24 @@ impl Bridge {
                 Some(&r.network_passphrase),
                 &r.public_key,
                 &r.details,
+                &r.hash,
                 Some(&r.origin),
             )
         };
         let outcome = signal.run(async { Ok(gate.score(&request).await) }).await?;
         let denial = outcome.denial();
-        if let Some(r) = self.state.lock().unwrap().records.get_mut(key) {
+        let mut state = self.state.lock().unwrap();
+        if let Some(r) = state.records.get_mut(key) {
+            // The terminal gets the vetoes and the score ID. The website gets only the generic message.
+            if let Some(denial) = &denial {
+                self.log(&format!("Risk gate: {} for {}. {}\n", about(r), r.origin, denial.message));
+            }
             r.risk = Some(outcome);
         }
-        denial.map_or(Ok(()), Err)
+        match denial {
+            Some(_) => Err(Error::new("risk_denied", crate::risk::DENIED)),
+            None => Ok(()),
+        }
     }
 
     async fn sign_steps(&self, key: &str, session_id: &str, signal: &Cancel) -> Result<()> {

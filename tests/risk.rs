@@ -75,14 +75,19 @@ async fn a_deny_stops_the_request_before_the_approval_wait_and_1password() {
     assert_eq!(done.body["state"], "denied", "{}", done.body);
     assert_eq!(done.body["error"]["code"], -4);
     assert_eq!(done.body["error"]["ext"], json!(["walleterm:risk_denied"]));
-    let message = done.body["error"]["message"].as_str().unwrap();
-    assert!(message.contains("SIGNER_AUTHORITY_CHANGE") && message.contains("score-1"), "{message}");
+    // The website learns only that the scorer denied it. The terminal names the vetoes and the score ID.
+    assert_eq!(done.body["error"]["message"], "The risk scorer denied this request.");
+    assert!(
+        !done.body.to_string().contains("SIGNER_AUTHORITY_CHANGE")
+            && !done.body.to_string().contains("score-1")
+    );
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
     assert_eq!(f.controls.listings.load(Ordering::SeqCst), 1, "only the connection listed signers");
     assert!(f.bridge.waiting().is_null());
     let lines = f.controls.logs().join("");
     assert!(!lines.contains("Waiting for approval"), "{lines}");
-    assert!(lines.contains("The risk scorer denied this request."), "{lines}");
+    assert!(lines.contains("Risk gate: transaction "), "{lines}");
+    assert!(lines.contains("Vetoes: SIGNER_AUTHORITY_CHANGE. Score ID: score-1."), "{lines}");
     // One score and no label: nobody answered.
     tokio::time::sleep(Duration::from_millis(100)).await;
     let hits = scorer.hits();
@@ -91,8 +96,9 @@ async fn a_deny_stops_the_request_before_the_approval_wait_and_1password() {
     assert_eq!(hit.authorization.as_deref(), Some(format!("Bearer {TOKEN}").as_str()));
     let mut keys: Vec<&str> = hit.body.as_object().unwrap().keys().map(String::as_str).collect();
     keys.sort();
-    assert_eq!(keys, ["kind", "network_passphrase", "origin", "request_id", "signer", "xdr"]);
+    assert_eq!(keys, ["hash", "kind", "network_passphrase", "origin", "request_id", "signer", "xdr"]);
     assert_eq!(hit.body["kind"], "transaction");
+    assert_eq!(hit.body["hash"], done.body["hash"], "the hash is the digest that 1Password would sign");
     assert_eq!(hit.body["origin"], SITE);
     assert_eq!(hit.body["signer"], json!(f.public_key));
     assert_eq!(hit.body["network_passphrase"], mainnet().passphrase);
@@ -176,6 +182,7 @@ async fn an_unreachable_or_slow_scorer_is_an_error_within_the_hard_limit() {
         None,
         "GKEY",
         &Value::Null,
+        "00",
         None,
     );
     let gate = walleterm::risk::Gate::loopback(port, TOKEN).unwrap();
@@ -225,4 +232,43 @@ fn a_partial_or_invalid_configuration_stops_sign_and_tunnel_with_exit_2() {
     let (code, out) = walleterm(&["sign"], &[], b"{}");
     assert_eq!(code, 2);
     assert!(out.contains("\"invalid_input\""), "{out}");
+}
+
+#[tokio::test]
+async fn a_malformed_deny_still_stops_the_request() {
+    let scorer = Scorer::start(Mode::Raw(r#"{"decision":"deny","vetoes":"not a list"}"#));
+    let (f, site) = fixture(mainnet(), Some(&scorer)).await;
+    send(&f, &site, mainnet()).await;
+    let done = f.result(&site, "request-1").await;
+    assert_eq!(done.body["state"], "denied", "{}", done.body);
+    assert_eq!(done.body["error"]["ext"], json!(["walleterm:risk_denied"]));
+    assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+    let lines = f.controls.logs().join("");
+    assert!(lines.contains("Vetoes: none. Score ID: none."), "{lines}");
+    f.close().await;
+}
+
+#[tokio::test]
+async fn an_entry_sends_its_adapter_type_and_the_signed_hash() {
+    let scorer = Scorer::start(Mode::Decision("escalate"));
+    let (f, site) = fixture(network::DEFAULT, Some(&scorer)).await;
+    let contract = support::auth::contract(1);
+    let entry = json!({
+        "id": "entry-1",
+        "kind": "authorization",
+        "auth_entry_xdr": support::auth::entry(&contract, 100),
+        "auth_address": contract,
+        "adapter": {"type": "contract-ed25519"},
+        "network_passphrase": network::TESTNET,
+        "address": f.public_key,
+    });
+    assert_eq!(f.post("/v1/requests", entry, &site).await.status, 201);
+    let done = f.result(&site, "entry-1").await;
+    assert_eq!(done.body["state"], "signed", "{}", done.body);
+    let body = &scorer.hits()[0].body;
+    assert_eq!(body["kind"], "auth_entry");
+    assert_eq!(body["adapter"], "contract-ed25519");
+    assert_eq!(body["address"], json!(contract));
+    assert_eq!(body["hash"], done.body["hash"]);
+    f.close().await;
 }
