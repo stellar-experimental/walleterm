@@ -229,7 +229,7 @@ Only then does it request the 1Password signature or wait for `walleterm approve
 
 The score request holds only these fields:
 `kind` (`transaction`, `preimage`, `auth_entry`, or `message`), `network_passphrase`, `xdr`, `signer`, `hash`, and a new random `request_id`.
-`hash` is the lowercase hexadecimal digest that 1Password signs. It binds the score to the exact signed bytes.
+`hash` is the lowercase hexadecimal digest that 1Password signs. The scorer recomputes it for a transaction, a fee bump, and a preimage. It stores it for an entry and a message.
 For the OpenZeppelin adapter, the digest also covers the context rule IDs.
 A message goes in `xdr` as Base64 of its exact bytes. A `sign` message has no `network_passphrase`.
 An entry or a preimage adds its `address`. An entry adds its `adapter` type, such as `openzeppelin-ed25519`.

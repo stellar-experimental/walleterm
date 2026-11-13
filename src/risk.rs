@@ -166,9 +166,9 @@ impl Request {
 }
 
 /// Build the score request for a checked artifact. `details` is the inspection detail of the artifact.
-/// `hash` is the lowercase hexadecimal digest that 1Password signs. It binds the request to the exact signed bytes.
+/// `hash` is the lowercase hexadecimal digest that 1Password signs. The scorer recomputes it for a transaction, a fee bump, and a preimage. It only stores it for an entry and a message.
 /// A message travels as Base64 of its exact bytes. An entry and a preimage add their address.
-/// An entry adds its adapter type. The OpenZeppelin digest also binds the context rule IDs, so `hash` covers them.
+/// An entry adds its adapter type. The OpenZeppelin digest also binds the context rule IDs, so `hash` covers them, but the scorer cannot check them yet.
 pub fn request(
     artifact: &Artifact,
     passphrase: Option<&str>,
