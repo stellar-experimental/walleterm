@@ -85,7 +85,7 @@ fn on_path(program: &str) -> bool {
 
 fn fail(out: &mut dyn Write, code: &'static str, message: &str) -> i32 {
     let _ = writeln!(out, "{code}: {message}");
-    if code == "invalid_input" { 2 } else { 1 }
+    if matches!(code, "invalid_input" | "invalid_config") { 2 } else { 1 }
 }
 
 /// The bridge as a tunnel service: a loopback listener that serves the protocol,
@@ -195,7 +195,13 @@ fn signals() -> crate::cancel::Cancel {
 }
 
 /// `walleterm tunnel`: the signing bridge for one network behind a Quick Tunnel.
-fn run_tunnel(port: u16, vault: Option<String>, network: crate::network::Network, approve: bool) -> i32 {
+fn run_tunnel(
+    port: u16,
+    vault: Option<String>,
+    network: crate::network::Network,
+    approve: bool,
+    risk: Option<crate::risk::Gate>,
+) -> i32 {
     let runtime = match tokio::runtime::Builder::new_current_thread().enable_all().build() {
         Ok(runtime) => runtime,
         Err(_) => return 1,
@@ -226,8 +232,14 @@ fn run_tunnel(port: u16, vault: Option<String>, network: crate::network::Network
                 return 1;
             }
         };
-        let bridge =
-            crate::bridge::Bridge::new(crate::bridge::production(socket, vault), port, network, approve);
+        if risk.is_some()
+            && !output
+                .write("Risk gate: the risk scorer checks each request before signing. A deny stops it.\n")
+        {
+            return 1;
+        }
+        let deps = crate::bridge::production(socket, vault, risk.map(std::sync::Arc::new));
+        let bridge = crate::bridge::Bridge::new(deps, port, network, approve);
         if bridge.approval() {
             let flag =
                 if port == crate::approve::DEFAULT_PORT { String::new() } else { format!(" --port {port}") };
@@ -299,6 +311,15 @@ pub fn run(command: &str, args: &[&str], out: &mut dyn Write) -> i32 {
     let Some(options) = parse_options(command, args) else {
         return fail(out, "invalid_input", &format!("Use {}.", usage(command)));
     };
+    // A partial or invalid risk gate configuration stops the tunnel before startup.
+    let risk = if command == "tunnel" {
+        match crate::risk::from_env() {
+            Ok(risk) => risk,
+            Err(e) => return fail(out, e.code, &e.message),
+        }
+    } else {
+        None
+    };
     if command == "tunnel" && !cfg!(target_os = "macos") {
         return fail(out, "unsupported_platform", "The signing bridge requires macOS.");
     }
@@ -306,7 +327,7 @@ pub fn run(command: &str, args: &[&str], out: &mut dyn Write) -> i32 {
         return fail(out, "start_failed", "Install cloudflared. On macOS, run: brew install cloudflared");
     }
     if command == "tunnel" {
-        return run_tunnel(options.port, options.vault, options.network, options.approve);
+        return run_tunnel(options.port, options.vault, options.network, options.approve, risk);
     }
     run_demo(options.port)
 }

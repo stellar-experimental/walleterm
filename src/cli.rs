@@ -55,6 +55,8 @@ On a test network without --approve, a connected website approves its own reques
 Demo starts an independent example website with its own temporary public URL and QR code.
 Walleterm computes the digest from the artifact. 1Password signs only those 32 bytes.
 1Password does not display the network, amount, destination, or contract policy. Review the artifact first.
+Set WALLETERM_RISK_URL and WALLETERM_RISK_TOKEN to send each artifact to a risk scorer before signing.
+A deny stops the request. Sign output and approve output then add a risk object.
 Use Stellar CLI to construct, inspect, and submit transactions.
 Use Stellar Raven for protocol research and contract discovery.
 Agent skills: npx skills add stellar-experimental/walleterm -g
@@ -67,6 +69,8 @@ pub struct Io<'a> {
     pub diagnostic: &'a mut dyn Write,
     pub socket: Option<&'a Path>,
     pub deadline: Instant,
+    /// The risk gate configuration. `main` reads the environment. Tests inject a mock scorer.
+    pub risk: &'a dyn Fn() -> Result<Option<crate::risk::Gate>>,
 }
 
 /// Write the whole text once. A failed write must not report success or trigger a retry.
@@ -108,7 +112,7 @@ struct ErrorBody<'a> {
     message: &'a str,
 }
 
-/// Report an error in the requested format. `invalid_input` exits 2; every other error exits 1.
+/// Report an error in the requested format. `invalid_input` and `invalid_config` exit 2; every other error exits 1.
 fn output_error(out: &mut dyn Write, human: bool, e: &Error) -> i32 {
     let text = if human {
         format!("{}: {}\n", e.code, e.message)
@@ -116,7 +120,7 @@ fn output_error(out: &mut dyn Write, human: bool, e: &Error) -> i32 {
         json_line(&Failure { ok: false, error: ErrorBody { code: e.code, message: &e.message } })
     };
     let _ = write_output(out, &text);
-    if e.code == "invalid_input" { 2 } else { 1 }
+    if matches!(e.code, "invalid_input" | "invalid_config") { 2 } else { 1 }
 }
 
 /// Go's `strconv.Quote` for a valid UTF-8 comment. Control and format characters never reach the terminal.
@@ -316,6 +320,9 @@ struct SignOutput<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     signed_auth_entry_xdr: Option<String>,
     verified: bool,
+    /// Present only when the risk gate is on.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    risk: Option<Value>,
 }
 
 fn list(human: bool, io: &mut Io) -> i32 {
@@ -356,6 +363,11 @@ async fn connect(io: &Io<'_>) -> Result<Agent> {
 /// Inspect one artifact, sign its digest once, then verify and attach the signature.
 fn sign(io: &mut Io) -> i32 {
     let fail = |out: &mut dyn Write, e: &Error| output_error(out, false, e);
+    // A partial or invalid gate configuration fails before input and before any agent connection.
+    let gate = match (io.risk)() {
+        Ok(gate) => gate,
+        Err(e) => return fail(io.out, &e),
+    };
     let bytes = match read_limited(io.input, MAX_INPUT) {
         Ok(bytes) => bytes,
         Err(e) if e.kind() == io::ErrorKind::TimedOut => {
@@ -378,6 +390,26 @@ fn sign(io: &mut Io) -> i32 {
         Ok(runtime) => runtime,
         Err(e) => return fail(io.out, &e),
     };
+    // The gate scores the checked artifact before the agent connection. Only a denial stops here.
+    let risk = gate.as_ref().map(|gate| {
+        let scored = crate::risk::request(
+            &request.artifact,
+            request.passphrase.as_deref(),
+            &request.public_key,
+            &checked.details,
+            None,
+        );
+        runtime.block_on(gate.score(&scored))
+    });
+    if let Some(denial) = risk.as_ref().and_then(crate::risk::Outcome::denial) {
+        let output = serde_json::json!({
+            "ok": false,
+            "error": { "code": denial.code, "message": denial.message },
+            "risk": risk.as_ref().map(crate::risk::Outcome::json),
+        });
+        let _ = write_output(io.out, &json_line(&output));
+        return 1;
+    }
     let signature = match runtime.block_on(async {
         let mut agent = connect(io).await?;
         let signers = agent.list().await?;
@@ -413,8 +445,14 @@ fn sign(io: &mut Io) -> i32 {
         signed_transaction_xdr,
         signed_auth_entry_xdr,
         verified: true,
+        risk: risk.as_ref().map(crate::risk::Outcome::json),
     };
-    write_output(io.out, &json_line(&output))
+    let written = write_output(io.out, &json_line(&output));
+    // A best-effort label after the result: a failure or a timeout changes nothing.
+    if let (Some(gate), Some(id)) = (&gate, risk.as_ref().and_then(crate::risk::Outcome::request_id)) {
+        runtime.block_on(gate.answer(id, true));
+    }
+    written
 }
 
 /// Run one command. Returns the process exit code.

@@ -13,6 +13,7 @@ fn main() {
         out: &mut stdout,
         diagnostic: &mut stderr,
         socket: socket.as_deref(),
+        risk: &walleterm::risk::from_env,
         deadline,
     };
     std::process::exit(run(&args, &mut io));

@@ -18,6 +18,7 @@ pub mod platform;
 pub mod preimage;
 pub mod process;
 pub mod qr;
+pub mod risk;
 pub mod service;
 pub mod stellar;
 pub mod transaction;

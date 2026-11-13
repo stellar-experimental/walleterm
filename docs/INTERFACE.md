@@ -41,6 +41,7 @@ Only `tunnel` accepts `--vault`, `--network`, `--network-passphrase`, and `--app
 
 - `walleterm approve` prints the waiting request, or `null`:
   `{"ok":true,"request":{"id","kind","origin","public_key","network","network_passphrase","hash","expires_at","decoded","decode_error"}}`.
+  With the [risk gate](#risk-gate) on, the request also has `risk`.
 - `walleterm approve <id>` approves that request: `{"ok":true,"approved":true}`.
 - `walleterm approve <id> --deny` denies it: `{"ok":true,"approved":false}`.
 - `--port` names the tunnel port. The default is 8787.
@@ -208,6 +209,69 @@ Sign SEP-53 message <digest> with G... (43 bytes, no network, site, or expiry bi
 The notice uses the Stellar CLI names `testnet`, `futurenet`, `local`, and `mainnet` for their exact passphrases. It quotes any other passphrase.
 The notice quotes the message text. Quotes, backslashes, and control, format, bidirectional, separator, and private-use characters appear as escapes.
 
+## Risk gate
+
+The risk gate is off by default. It is an advisory check before each signature.
+Set both of these environment variables to turn it on:
+
+| Variable | Value |
+| --- | --- |
+| `WALLETERM_RISK_URL` | The base `https` URL of the risk scorer. No user name, password, query, or fragment. |
+| `WALLETERM_RISK_TOKEN` | The bearer token of the scorer: 32 to 4096 visible ASCII characters. |
+
+With neither variable set, Walleterm makes no scorer call and adds no `risk` field.
+With only one set, or with an invalid value, `sign` returns `invalid_config` with exit code 2 before it reads input.
+`walleterm tunnel` prints `invalid_config: <message>` and exits 2 before startup. The message never repeats a value.
+
+The gate covers `walleterm sign` and all four request kinds of `walleterm tunnel`.
+Walleterm checks the artifact as usual first. Then it sends the artifact to `POST <URL>/v1/score`.
+Only then does it request the 1Password signature or wait for `walleterm approve`.
+
+The score request holds only these fields:
+`kind` (`transaction`, `preimage`, `auth_entry`, or `message`), `network_passphrase`, `xdr`, `signer`, and a new random `request_id`.
+A message goes in `xdr` as Base64 of its exact bytes. A `sign` message has no `network_passphrase`.
+An entry or a preimage adds its `address`. A tunnel request adds the website `origin`.
+
+| Scorer answer | Result |
+| --- | --- |
+| `deny` | A hard stop. No 1Password request and no approval wait. |
+| `escalate` | Walleterm continues as before. Mainnet tunnel requests still wait for `walleterm approve`. |
+| Any other decision, including `approve` | Walleterm continues as before. `risk` holds `{"error":"unexpected_decision"}`. |
+| No answer, a timeout, a non-2xx status, or a bad body | Walleterm continues as before. `risk` holds the error code. |
+
+The gate can only add a stop. It never removes the approval wait, the 1Password prompt, or another check.
+Phase 0 has no automatic approval.
+
+With the gate on, the `sign` result and the `walleterm approve` request have a `risk` object:
+
+```json
+{"decision":"escalate","score_id":"...","request_id":"...","vetoes":[{"code":"...","source":"T0"}],"reasons":[{"code":"PHASE0_ADVISORY_ONLY","source":"service"}]}
+{"error":"timeout"}
+```
+
+The error codes are `unreachable`, `timeout`, `http_<status>`, `bad_response`, and `unexpected_decision`.
+Each response string must have 1–128 characters from `A-Z`, `a-z`, `0-9`, `_`, `-`, `.`, and `:`.
+Otherwise the whole response is `bad_response`. The response `request_id` must equal the sent ID.
+
+A denial from `sign` exits 1 with the `risk_denied` code. The message names the vetoes and the score ID:
+
+```json
+{"ok":false,"error":{"code":"risk_denied","message":"The risk scorer denied this request. Vetoes: .... Score ID: ...."},"risk":{"decision":"deny",...}}
+```
+
+The tunnel ends a denied request as `denied` with `walleterm:risk_denied`. See [the bridge protocol](BRIDGE-PROTOCOL.md#errors).
+
+Walleterm also posts answer labels to `POST <URL>/v1/answer` as `{"request_id","approved"}`:
+
+- After `walleterm approve <id>` or `--deny`, the tunnel posts the answer for that request.
+- After `sign` writes a signature, it posts `approved: true`.
+
+A label needs a scored request. It is best effort. It never delays the answer or changes a result.
+
+Walleterm sends the token only in the `Authorization: Bearer` header. No output, error, or terminal line holds it.
+The client uses only HTTPS and follows no redirect. It reads no proxy setting.
+A score has one 5-second limit. A label has one 2-second limit. A response body has at most 64 KiB.
+
 ## Errors and output
 
 Return one JSON object on standard output and exit nonzero on failure.
@@ -216,9 +280,9 @@ Return one JSON object on standard output and exit nonzero on failure.
 {"ok":false,"error":{"code":"invalid_input","message":"Provide exactly one of transaction_xdr, preimage_xdr, auth_entry_xdr, or message."}}
 ```
 
-Use stable codes: `invalid_input`, `unsupported_platform`, `agent_unavailable`, `agent_protocol`, `key_not_found`, `signing_refused`, `timeout`, `invalid_signature`, `output_error`.
+Use stable codes: `invalid_input`, `invalid_config`, `risk_denied`, `unsupported_platform`, `agent_unavailable`, `agent_protocol`, `key_not_found`, `signing_refused`, `timeout`, `invalid_signature`, `output_error`.
 `approve` adds `tunnel_unavailable`, `not_found`, and `not_reviewable`.
-Use exit code 2 for invalid input and exit code 1 for other failures.
+Use exit code 2 for invalid input and invalid configuration, and exit code 1 for other failures.
 Use exit code 0 for success, help, and version.
 Help, version, tunnel, and demo use readable text. List, sign, and approve return JSON.
 `list --human` prints one readable line for each signer. `sign` has no readable format.

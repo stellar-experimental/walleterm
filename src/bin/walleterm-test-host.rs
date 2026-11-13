@@ -110,6 +110,7 @@ fn deps(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
         now: Box::new(move || {
             (walleterm::util::now_ms() as i64 + offset.load(Ordering::SeqCst)).max(0) as u64
         }),
+        risk: None,
     }
 }
 
@@ -127,7 +128,7 @@ fn dependencies(rpc: &Rpc, offset: Arc<AtomicI64>) -> Deps {
         ["--vault", value] if !walleterm::util::js_blank(value) => Some((*value).to_owned()),
         _ => panic!("Use walleterm-test-host [--vault <name-or-id>]."),
     };
-    let mut production = walleterm::bridge::production(socket, vault);
+    let mut production = walleterm::bridge::production(socket, vault, None);
     production.log = Box::new(|line| send(&json!({ "log": line })));
     production
 }

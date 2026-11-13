@@ -71,6 +71,8 @@ pub struct Deps {
     pub log: Box<dyn Fn(&str) + Send + Sync>,
     /// Unix milliseconds.
     pub now: Box<dyn Fn() -> u64 + Send + Sync>,
+    /// The advisory risk scorer, when `WALLETERM_RISK_URL` and `WALLETERM_RISK_TOKEN` are set.
+    pub risk: Option<Arc<crate::risk::Gate>>,
 }
 
 /// Why the connection code changed. The tunnel prints the reason with the new code.
@@ -98,7 +100,7 @@ fn reason_info(reason: &str) -> Option<(i32, u16)> {
         "network_unsupported" | "address_mismatch" | "invalid_request" | "unsupported" => (-3, 400),
         "conflict" | "expired" => (-3, 409),
         "rate_limited" => (-3, 429),
-        "rejected" => (-4, 409),
+        "rejected" | "risk_denied" => (-4, 409),
         "bridge_unavailable" => (-2, 503),
         "result_unknown" => (-1, 502),
         "internal" => (-1, 500),
@@ -244,6 +246,8 @@ struct Record {
     delivered: bool,
     result: Option<(&'static str, String)>,
     error: Option<Value>,
+    /// The risk gate result, when the gate is on.
+    risk: Option<crate::risk::Outcome>,
 }
 
 struct Pairing {
@@ -940,7 +944,7 @@ impl Bridge {
             return Value::Null;
         };
         let decoded = artifact::decode(&r.artifact);
-        json!({
+        let mut value = json!({
             "id": r.record_id,
             "kind": kind(&r.artifact),
             "origin": r.origin,
@@ -951,7 +955,11 @@ impl Bridge {
             "expires_at": iso_millis(r.expires as i64),
             "decoded": decoded.as_ref().ok(),
             "decode_error": decoded.as_ref().err().map(|e| e.message.clone()),
-        })
+        });
+        if let Some(risk) = &r.risk {
+            value["risk"] = risk.json();
+        }
+        value
     }
 
     /// Answer the request that waits for approval. The ID must name that request while it is still pending.
@@ -979,9 +987,16 @@ impl Bridge {
         if approved && artifact::decode(&r.artifact).is_err() {
             return Err(Error::new("not_reviewable", "The request cannot be shown for review. Deny it."));
         }
+        let label =
+            self.deps.risk.clone().zip(r.risk.as_ref().and_then(|o| o.request_id()).map(str::to_owned));
         let (_, sender, _) = state.waiting.take().expect("a waiting request has a sender");
         // A waiter that already stopped drops its receiver. Then nothing was approved.
-        sender.send(approved).map_err(|_| not_found())
+        sender.send(approved).map_err(|_| not_found())?;
+        // A best-effort label for the scorer. It never delays or changes the answer.
+        if let (Some((gate, id)), Ok(runtime)) = (label, tokio::runtime::Handle::try_current()) {
+            runtime.spawn(async move { gate.answer(&id, approved).await });
+        }
+        Ok(())
     }
 
     /// Each signature waits for `walleterm approve`.
@@ -989,7 +1004,35 @@ impl Bridge {
         self.approval
     }
 
+    /// Send the checked request to the risk scorer. Only `deny` stops it. Escalation and every failure continue.
+    /// The result stays on the record, so `walleterm approve` shows it.
+    async fn score(&self, key: &str, session_id: &str, signal: &Cancel) -> Result<()> {
+        let Some(gate) = self.deps.risk.clone() else { return Ok(()) };
+        let request = {
+            let state = self.state.lock().unwrap();
+            if !self.eligible(&state, key, session_id, signal, RequestState::Pending) {
+                return Err(self.ended(&state, key, session_id, signal));
+            }
+            let r = &state.records[key];
+            crate::risk::request(
+                &r.artifact,
+                Some(&r.network_passphrase),
+                &r.public_key,
+                &r.details,
+                Some(&r.origin),
+            )
+        };
+        let outcome = signal.run(async { Ok(gate.score(&request).await) }).await?;
+        let denial = outcome.denial();
+        if let Some(r) = self.state.lock().unwrap().records.get_mut(key) {
+            r.risk = Some(outcome);
+        }
+        denial.map_or(Ok(()), Err)
+    }
+
     async fn sign_steps(&self, key: &str, session_id: &str, signal: &Cancel) -> Result<()> {
+        // The gate can only add a stop. The approval wait and every check below still run.
+        self.score(key, session_id, signal).await?;
         if self.approval {
             self.wait_for_approval(key, session_id, signal).await?;
         }
@@ -1576,6 +1619,7 @@ impl Bridge {
             delivered: false,
             result: None,
             error: None,
+            risk: None,
         };
         self.log_result(&mut record);
         let summary = Self::summary(&mut record);
@@ -1721,7 +1765,11 @@ fn listing_failure(e: Error) -> Fail {
 }
 
 /// The production dependencies: the 1Password agent and `--vault` discovery.
-pub fn production(socket: std::path::PathBuf, vault: Option<String>) -> Deps {
+pub fn production(
+    socket: std::path::PathBuf,
+    vault: Option<String>,
+    risk: Option<Arc<crate::risk::Gate>>,
+) -> Deps {
     let socket = Arc::new(socket);
     let (list_socket, sign_socket) = (socket.clone(), socket);
     let vault = Arc::new(vault);
@@ -1748,5 +1796,6 @@ pub fn production(socket: std::path::PathBuf, vault: Option<String>) -> Deps {
             let _ = out.write_all(text.as_bytes()).and_then(|()| out.flush());
         }),
         now: Box::new(crate::util::now_ms),
+        risk,
     }
 }
