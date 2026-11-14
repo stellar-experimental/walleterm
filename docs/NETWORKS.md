@@ -18,6 +18,9 @@ This file has no line numbers, because line numbers drift.
 - The demo website in `walleterm demo` builds, funds, and submits transactions only on testnet. It sends no request to a tunnel on another network.
 - The docs and the skills tell users to use dedicated test keys. The site tells users to use testnet accounts.
 - No signing path contacts a Stellar network. Only the demo website and the test harnesses call RPC, Horizon, or Friendbot.
+  With `WALLETERM_RISK_URL` and `WALLETERM_RISK_TOKEN` set, `sign` and the tunnel send each artifact to that risk scorer before signing.
+  The scorer can read Stellar networks. Walleterm sends it the passphrase and does not limit its networks.
+  Without both variables, no signing path makes a network call.
 
 ## Known networks
 
@@ -47,7 +50,8 @@ The bridge and the SDK use the Stellar SDK `Networks` keys: `TESTNET`, `FUTURENE
 | `src/approve.rs` `directory`, `Server`, and `command` | The approval socket `~/Library/Application Support/walleterm/approve-<port>.sock` and the `walleterm approve` command. | Any network | None. |
 | `src/preimage.rs` `inspect` | Refuses a preimage whose network ID differs from SHA-256 of the passphrase: `network_unsupported`. | Any network | None. It checks consistency, not testnet. |
 | `src/util.rs` `valid_passphrase` | A passphrase is not blank and has at most 256 UTF-16 code units. `transaction.rs`, `authorization.rs`, and `cli.rs` use it. | Any network | None. |
-| `src/bridge.rs` `reason_info` | Maps `network_unsupported` to SEP-43 code `-3` and HTTP 400. | Any network | None. |
+| `src/bridge.rs` `reason_info` | Maps `network_unsupported` to SEP-43 code `-3` and HTTP 400. Maps `risk_denied` to `-4`. | Any network | None. |
+| `src/risk.rs` `request`, `src/cli.rs` `sign`, and `src/bridge.rs` `Bridge::score` | The risk gate sends the network passphrase of each scored request. A `sign` message has none. | Any network | None. The scorer decides what it reads. |
 
 ## Browser SDK (`sdk/`)
 
@@ -138,6 +142,18 @@ Update those statements in the same change.
 | `src/util.rs` `valid_passphrase` | Not blank, at most 256 UTF-16 code units | Passphrase | No. A custom passphrase must fit. |
 | `src/stellar.rs` `XDR_DEPTH` | 500 | XDR decoder depth, equal to the Soroban host limit | No |
 | `src/agent.rs` `MAX_FRAME`, `MAX_IDENTITIES` | 1 MiB, 1024 identities | SSH agent responses | No |
+
+### Risk gate (`src/risk.rs`)
+
+| Location | Value | Purpose | Network |
+| --- | --- | --- | --- |
+| `URL_VARIABLE`, `TOKEN_VARIABLE` | `WALLETERM_RISK_URL`, `WALLETERM_RISK_TOKEN` | The gate is on only when both are set | No |
+| `configure` | `https` only, no user name, password, query, or fragment | Scorer URL | No |
+| `MIN_TOKEN`, `MAX_TOKEN` | 32 to 4096 visible ASCII characters | Bearer token | No |
+| `SCORE_TIMEOUT` | 5 seconds | One hard limit for a score, also the connection limit | No |
+| `ANSWER_TIMEOUT` | 2 seconds | One hard limit for a best-effort answer label. `src/service.rs` `run_tunnel` also waits at most this long for blocking work when the tunnel stops. | No |
+| `MAX_RESPONSE` | 64 KiB | Scorer response body | No |
+| `MAX_TEXT`, `MAX_CODES` | 128 characters, 64 vetoes and 64 reasons | Response strings and lists | No |
 
 ### Bridge (`src/bridge.rs`)
 

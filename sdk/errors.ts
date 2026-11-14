@@ -61,6 +61,7 @@ const reasons = {
   rate_limited: [-3, 429],
   expired: [-3, 409],
   rejected: [-4, 409],
+  risk_denied: [-4, 409],
   bridge_unavailable: [-2, 503],
   result_unknown: [-1, 502],
   internal: [-1, 500],

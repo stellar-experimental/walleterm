@@ -22,6 +22,8 @@ use walleterm::error::Error;
 use walleterm::stellar::{account_address, encode};
 use walleterm::util::{hex, now_ms};
 
+pub mod scorer;
+
 pub const TESTNET: &str = "Test SDF Network ; September 2015";
 
 pub fn mock_key(seed: u8) -> SigningKey {
@@ -96,11 +98,12 @@ pub struct Options {
     pub key: SigningKey,
     pub network: walleterm::network::Network,
     pub approve: bool,
+    pub risk: Option<Arc<walleterm::risk::Gate>>,
 }
 
 impl Default for Options {
     fn default() -> Self {
-        Self { key: mock_key(7), network: walleterm::network::DEFAULT, approve: false }
+        Self { key: mock_key(7), network: walleterm::network::DEFAULT, approve: false, risk: None }
     }
 }
 
@@ -154,7 +157,7 @@ pub fn deps(controls: &Controls, options: &Options) -> Deps {
     let log = Box::new(move |line: &str| c.logs.lock().unwrap().push(line.to_owned()));
     let c = controls.clone();
     let now = Box::new(move || c.now());
-    Deps { list_signers, sign, log, now }
+    Deps { list_signers, sign, log, now, risk: options.risk.clone() }
 }
 
 pub struct Response {

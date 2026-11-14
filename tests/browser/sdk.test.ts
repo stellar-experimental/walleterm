@@ -3,7 +3,7 @@ import { jest, onTestFinished, spyOn, test } from 'bun:test';
 import assert from 'node:assert/strict';
 import { WalletermClient } from '../../sdk/walleterm.ts';
 import type { RequestError } from '../../sdk/errors.ts';
-import { isTunnelUrl, sep43Error } from '../../sdk/errors.ts';
+import { isTunnelUrl, sep43Error, walletermError } from '../../sdk/errors.ts';
 import { requestSignal, requestUrl } from './support.ts';
 
 const mockKey = Keypair.random(); // Offline mock key only.
@@ -401,4 +401,19 @@ test('caller cancellation still stops SDK vault discovery immediately', async ()
   controller.abort(Error('Caller canceled discovery.'));
   await assert.rejects(pending, /Caller canceled discovery/);
   assert.equal(client.token, null);
+});
+
+test('a risk gate denial is a rejection with its own reason', () => {
+  const error = walletermError('risk_denied', 'The risk scorer denied this request.', {
+    requestState: 'denied',
+  });
+  assert.equal(error.code, -4);
+  assert.equal(error.status, 409);
+  assert.deepEqual(error.ext, ['walleterm:risk_denied']);
+  assert.deepEqual(sep43Error(error), {
+    code: -4,
+    message: 'The risk scorer denied this request.',
+    ext: ['walleterm:risk_denied'],
+    requestState: 'denied',
+  });
 });
