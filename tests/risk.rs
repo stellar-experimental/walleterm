@@ -127,7 +127,9 @@ async fn an_escalation_still_waits_for_approval_and_each_answer_is_a_label() {
         f.bridge.answer(shown["id"].as_str().unwrap(), approved).unwrap();
         let done = f.result(&site, "request-1").await;
         assert_eq!(done.body["state"], if approved { "signed" } else { "denied" });
-        let hits = scorer.wait_for(2);
+        // The label is a spawned task on this runtime, so wait without blocking the thread.
+        until(|| scorer.hits().len() >= 2).await;
+        let hits = scorer.hits();
         assert_eq!(hits[1].path, "/v1/answer");
         assert_eq!(hits[1].body, json!({ "request_id": request_id, "approved": approved }));
         assert_eq!(hits[1].authorization.as_deref(), Some(format!("Bearer {TOKEN}").as_str()));

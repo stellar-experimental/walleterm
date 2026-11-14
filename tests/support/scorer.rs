@@ -5,7 +5,7 @@
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use serde_json::{Value, json};
 
@@ -61,15 +61,6 @@ impl Scorer {
 
     pub fn paths(&self) -> Vec<String> {
         self.hits().into_iter().map(|h| h.path).collect()
-    }
-
-    /// Wait until `count` requests arrived, for labels that the bridge posts in the background.
-    pub fn wait_for(&self, count: usize) -> Vec<Hit> {
-        let start = Instant::now();
-        while self.hits.lock().unwrap().len() < count && start.elapsed() < Duration::from_secs(5) {
-            std::thread::sleep(Duration::from_millis(10));
-        }
-        self.hits()
     }
 
     fn serve(&self, stream: TcpStream) {
