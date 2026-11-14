@@ -17,7 +17,7 @@ base64 = { version = "=0.22.1", default-features = false, features = ["std"] }
 serde = { version = "=1.0.229", default-features = false, features = ["std", "derive"] }
 serde_json = { version = "=1.0.151", default-features = false, features = ["std", "float_roundtrip"] }
 libc = { version = "=0.2.189", default-features = false, features = ["std"] }
-tokio = { version = "=1.53.1", default-features = false, features = ["rt", "net", "process", "signal", "time", "sync", "io-util", "macros"] }
+tokio = { version = "=1.53.3", default-features = false, features = ["rt", "net", "process", "signal", "time", "sync", "io-util", "macros"] }
 hyper = { version = "=1.11.1", default-features = false, features = ["http1", "server"] }
 hyper-util = { version = "=0.1.21", default-features = false, features = ["http1", "server", "client-legacy", "tokio"] }
 hyper-tls = { version = "=0.6.0", default-features = false }
@@ -48,7 +48,7 @@ path = "src/bin/walleterm-test-host.rs"
 required-features = ["test-host"]
 
 [dev-dependencies]
-tokio = { version = "=1.53.1", default-features = false, features = ["test-util"] }
+tokio = { version = "=1.53.3", default-features = false, features = ["test-util"] }
 
 [profile.release]
 opt-level = "s"
