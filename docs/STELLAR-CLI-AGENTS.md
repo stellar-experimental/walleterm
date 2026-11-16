@@ -4,7 +4,7 @@ Status: research only. No code changes follow from this record.
 The research date is 2026-10-01. It compares walleterm at `d785b15` with the
 [Stellar CLI for Agents](https://developers.stellar.org/docs/tools/cli/agent-cli) docs at
 [`stellar/stellar-docs` `b7f92e1`](https://github.com/stellar/stellar-docs/tree/b7f92e1/docs/tools/cli/agent-cli) (2026-09-30).
-Those docs say that they are verified against `stellar-cli` 28.1.0. Walleterm CI pins the same version.
+Those docs say that they are verified against `stellar-cli` 28.1.0. Walleterm CI pinned that version then. It now pins 30.0.1.
 [STELLAR-CLI.md](STELLAR-CLI.md) describes how walleterm uses the CLI. This file compares the two agent workflows.
 
 ## Summary

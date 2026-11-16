@@ -13,18 +13,18 @@ All source statements in this file refer to these exact revisions.
 
 | Source | Revision | Evidence |
 |---|---|---|
-| Stellar CLI | tag `v28.1.0`, commit [`c0f4d0d`](https://github.com/stellar/stellar-cli/tree/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd) | The version that CI installs |
-| Stellar XDR definitions | commit [`9c9c145`](https://github.com/stellar/stellar-xdr/blob/9c9c145953e80990d6ff1ae3a6a973a0ce6d0694/Stellar-transaction.x) | Reported as `xdr` by `stellar --version` |
-| Rust `stellar-xdr` crate | `28.0.0` | Reported by `stellar --version` |
+| Stellar CLI | tag `v30.0.1`, commit [`f2a7b74`](https://github.com/stellar/stellar-cli/tree/f2a7b74175c34585f3b30a1abf42a2d41cbcc390) | The version that CI installs |
+| Stellar XDR definitions | commit [`4f524bb`](https://github.com/stellar/stellar-xdr/blob/4f524bbac80c781c06e4fb5fc93a2d0d331d6705/Stellar-transaction.x) | Reported as `xdr` by `stellar --version` |
+| Rust `stellar-xdr` crate | `30.0.0` | Reported by `stellar --version` |
 | Stellar protocol CAPs | commit [`9cd7030`](https://github.com/stellar/stellar-protocol/tree/9cd703075d87a6ce293752b1532e7b68efe12ae1/core) | CAP-71 text |
 | Soroban examples | commit [`b46f4e0`](https://github.com/stellar/soroban-examples/tree/b46f4e0c9dccc9e51980b559915f52d8b94e9236/multisig_1_of_n_account) | The `multisig_1_of_n_account` example |
 
 Base URL for CLI source links below:
-`https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/`
+`https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/`
 
 ## Installed commands used
 
-All commands below exist in `stellar 28.1.0`.
+All commands below exist in `stellar 30.0.1`.
 
 | Command | Use |
 |---|---|
@@ -45,14 +45,14 @@ The CLI has no command to add an external signature or to sign one auth entry by
 
 ## Built-in CLI signing and why `walleterm` does not use it
 
-- `tx sign` accepts only `--sign-with-key`, `--sign-with-lab`, `--sign-with-ledger`, and `--auto-sign` ([`config/sign_with.rs#L39-L76`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/config/sign_with.rs#L39-L76)).
-- The signer set is a closed enum: `Local`, `Ledger`, `Lab`, `SecureStore` ([`signer/mod.rs#L324-L329`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/signer/mod.rs#L324-L329)). There is no external or plugin signer.
-- `tx sign` signs only the envelope digest. It supports V1 and fee-bump envelopes ([`signer/mod.rs#L345-L379`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/signer/mod.rs#L345-L379)).
-- The CLI signs auth entries only inside `contract invoke`, before it signs the envelope ([`tx.rs#L73-L80`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/tx.rs#L73-L80)).
-- CLI auth signing refuses C-address credentials ([`signer/mod.rs#L137-L146`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/signer/mod.rs#L137-L146)).
-- CLI auth signing leaves `address_with_delegates` entries unsigned, with a warning ([`signer/mod.rs#L101-L107`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/signer/mod.rs#L101-L107)).
-- `tx hash` calls `unwrap_envelope_v1`, which rejects fee-bump envelopes ([`commands/tx/hash.rs#L30-L31`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/commands/tx/hash.rs#L30-L31), [`commands/tx/xdr.rs#L79-L82`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/commands/tx/xdr.rs#L79-L82)).
-- Unknown subcommands dispatch to a `stellar-<name>` binary on `PATH`, with inherited stdio ([`commands/mod.rs#L95-L100`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/commands/mod.rs#L95-L100), [`commands/plugin/default.rs#L19-L31`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/commands/plugin/default.rs#L19-L31)). The `stellar-walleterm` alias makes `stellar walleterm list` work.
+- `tx sign` accepts only `--sign-with-key`, `--sign-with-lab`, `--sign-with-ledger`, and `--auto-sign` ([`config/sign_with.rs#L38-L71`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/config/sign_with.rs#L38-L71)).
+- The signer set is a closed enum: `Local`, `Ledger`, `Lab`, `SecureStore` ([`signer/mod.rs#L328-L333`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/signer/mod.rs#L328-L333)). There is no external or plugin signer.
+- `tx sign` signs only the envelope digest. It supports V1 and fee-bump envelopes ([`signer/mod.rs#L349-L383`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/signer/mod.rs#L349-L383)).
+- The CLI signs auth entries only inside `contract invoke`, before it signs the envelope ([`tx.rs#L73-L82`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/tx.rs#L73-L82)).
+- CLI auth signing refuses C-address and muxed W-address credentials ([`signer/mod.rs#L138-L142`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/signer/mod.rs#L138-L142)).
+- CLI auth signing leaves `address_with_delegates` entries unsigned, with a warning ([`signer/mod.rs#L103-L109`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/signer/mod.rs#L103-L109)).
+- `tx hash` calls `unwrap_envelope_v1`, which rejects fee-bump envelopes ([`commands/tx/hash.rs#L31`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/commands/tx/hash.rs#L31), [`commands/tx/xdr.rs#L79-L82`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/commands/tx/xdr.rs#L79-L82)).
+- Unknown subcommands dispatch to a `stellar-<name>` binary on `PATH`, with inherited stdio ([`commands/mod.rs#L95-L100`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/commands/mod.rs#L95-L100), [`commands/plugin/default.rs#L19-L32`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/commands/plugin/default.rs#L19-L32)). The `stellar-walleterm` alias makes `stellar walleterm list` work.
 
 The official auth-plugin pattern is `--build-only | tx simulate | <auth signer> | tx simulate | tx sign | tx send` ([soroban-examples README](https://github.com/stellar/soroban-examples/blob/b46f4e0c9dccc9e51980b559915f52d8b94e9236/multisig_1_of_n_account/README.md)).
 `walleterm` follows the same pipeline. `walleterm sign` replaces the auth signer and `tx sign` stages.
@@ -65,9 +65,9 @@ The Ed25519 envelope and native account signatures covered here sign a SHA-256 d
 
 | Target | Preimage | XDR source |
 |---|---|---|
-| V1 envelope | `TransactionSignaturePayload` with `tagged_transaction.tx` | [`Stellar-transaction.x#L1012`](https://github.com/stellar/stellar-xdr/blob/9c9c145953e80990d6ff1ae3a6a973a0ce6d0694/Stellar-transaction.x#L1012) |
-| Fee-bump envelope | `TransactionSignaturePayload` with `tagged_transaction.tx_fee_bump` | [`#L993`](https://github.com/stellar/stellar-xdr/blob/9c9c145953e80990d6ff1ae3a6a973a0ce6d0694/Stellar-transaction.x#L993), [`#L1012`](https://github.com/stellar/stellar-xdr/blob/9c9c145953e80990d6ff1ae3a6a973a0ce6d0694/Stellar-transaction.x#L1012) |
-| Auth, `address` credentials | `HashIdPreimage.soroban_authorization` | [`#L721-L762`](https://github.com/stellar/stellar-xdr/blob/9c9c145953e80990d6ff1ae3a6a973a0ce6d0694/Stellar-transaction.x#L721-L762) |
+| V1 envelope | `TransactionSignaturePayload` with `tagged_transaction.tx` | [`Stellar-transaction.x#L1012`](https://github.com/stellar/stellar-xdr/blob/4f524bbac80c781c06e4fb5fc93a2d0d331d6705/Stellar-transaction.x#L1012) |
+| Fee-bump envelope | `TransactionSignaturePayload` with `tagged_transaction.tx_fee_bump` | [`#L993`](https://github.com/stellar/stellar-xdr/blob/4f524bbac80c781c06e4fb5fc93a2d0d331d6705/Stellar-transaction.x#L993), [`#L1012`](https://github.com/stellar/stellar-xdr/blob/4f524bbac80c781c06e4fb5fc93a2d0d331d6705/Stellar-transaction.x#L1012) |
+| Auth, `address` credentials | `HashIdPreimage.soroban_authorization` | [`#L721-L762`](https://github.com/stellar/stellar-xdr/blob/4f524bbac80c781c06e4fb5fc93a2d0d331d6705/Stellar-transaction.x#L721-L762) |
 | Auth, `address_v2` credentials | `HashIdPreimage.soroban_authorization_with_address` | [CAP-71-02](https://github.com/stellar/stellar-protocol/blob/9cd703075d87a6ce293752b1532e7b68efe12ae1/core/cap-0071-02.md) |
 | Auth, `address_with_delegates` credentials | `HashIdPreimage.soroban_authorization_with_address`, using the top-level address | [CAP-71-01](https://github.com/stellar/stellar-protocol/blob/9cd703075d87a6ce293752b1532e7b68efe12ae1/core/cap-0071-01.md) |
 
@@ -101,7 +101,7 @@ For a V1 envelope, `stellar tx hash` and SHA-256 of the encoded `TransactionSign
 For a fee bump, the top-level key is `tx_fee_bump`, and outer signatures go in `tx_fee_bump.signatures`.
 `hint` is the last 4 bytes of the raw public key. Get the raw key with `stellar strkey decode G...`.
 Signatures do not change the digest, so every multisig signer signs the same digest.
-Append one `DecoratedSignature` for each signer. An envelope holds at most 20 signatures ([`#L967-L973`](https://github.com/stellar/stellar-xdr/blob/9c9c145953e80990d6ff1ae3a6a973a0ce6d0694/Stellar-transaction.x#L967-L973)).
+Append one `DecoratedSignature` for each signer. An envelope holds at most 20 signatures ([`#L967-L973`](https://github.com/stellar/stellar-xdr/blob/4f524bbac80c781c06e4fb5fc93a2d0d331d6705/Stellar-transaction.x#L967-L973)).
 
 ### Fee-bump envelope
 
@@ -119,7 +119,7 @@ Sign the inner envelope first. Changing inner signatures changes the fee-bump di
 
 ### G-account auth credentials
 
-The built-in account check expects a vector of maps. The CLI uses the same format ([`signer/mod.rs#L292-L313`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/signer/mod.rs#L292-L313)):
+The built-in account check expects a vector of maps. The CLI uses the same format ([`signer/mod.rs#L298-L317`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/signer/mod.rs#L298-L317)):
 
 ```json
 {"credentials":{"address":{"address":"G...","nonce":"<i64 string>","signature_expiration_ledger":<u32>,
@@ -133,8 +133,8 @@ Use `address_v2` in place of `address` when the simulated entry uses it. Keep th
 For G-account multisig auth, add one map for each signer, in strictly increasing `public_key` order.
 The host rejects other orders with "public keys are not ordered" (`soroban-env-host` `27.0.0`, `src/builtin_contracts/account_contract.rs` lines 203-243).
 Match the CLI's safety rules:
-- Reject an entry whose address is the transaction source ([`signer/mod.rs#L149-L155`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/signer/mod.rs#L149-L155)).
-- Ask for approval of non-strict entries. `--auto-sign` skips the prompt and logs the entry ([`signer/mod.rs#L116-L127`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/signer/mod.rs#L116-L127)).
+- Reject an entry whose address is the transaction source ([`signer/mod.rs#L153-L159`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/signer/mod.rs#L153-L159)).
+- Ask for approval of non-strict entries. `--auto-sign` skips the prompt and logs the entry ([`signer/mod.rs#L118-L130`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/signer/mod.rs#L118-L130), [`#L215-L227`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/signer/mod.rs#L215-L227)).
 
 ### C-account auth credentials
 
@@ -165,7 +165,7 @@ build --build-only
 
 The first `tx simulate` uses the RPC default. It records only entries rooted at the transaction's call.
 `--auth-mode non-root` also records other entries. A signature on such an entry works in any transaction that makes the same authorized call.
-The CLI asks before it signs such an entry ([`signer/validation.rs`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/signer/validation.rs)).
+The CLI asks before it signs such an entry ([`signer/validation.rs`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/signer/validation.rs)).
 Walleterm cannot see the transaction for an entry, so the caller makes this check.
 
 Before each `walleterm sign` call, the script must show or record:
@@ -185,7 +185,8 @@ After submission, record the transaction hash, the ledger, the result, and the a
   Other authorization formats need JSON edits and re-encoding.
 - `stellar tx hash` rejects fee-bump envelopes. Scripts use `TransactionSignaturePayload` for fee-bump digests.
 - `stellar tx sign` cannot use `walleterm`. Do not use `tx sign` in the `walleterm` pipeline.
-- Muxed (M), claimable-balance, and liquidity-pool auth addresses are not supported. The CLI has `todo!` panics for these ([`signer/mod.rs#L133-L135`](https://github.com/stellar/stellar-cli/blob/c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd/cmd/soroban-cli/src/signer/mod.rs#L133-L135)).
+- Muxed (M), claimable-balance, and liquidity-pool auth addresses are not supported.
+  The CLI rejects M addresses with an error. It has `todo!` panics for the other two ([`signer/mod.rs#L143-L150`](https://github.com/stellar/stellar-cli/blob/f2a7b74175c34585f3b30a1abf42a2d41cbcc390/cmd/soroban-cli/src/signer/mod.rs#L143-L150)).
 - See [the evidence index](../evidence/README.md) for live testnet records and their limits.
 
 ## Coverage limits

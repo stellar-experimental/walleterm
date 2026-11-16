@@ -52,7 +52,7 @@ The legacy `address` payload lacks that binding. CAP-71-02 permits `address_v2` 
 
 ## SDK helpers
 
-`@stellar/stellar-sdk` 17.2.0 exports these helpers. Treat their names as examples for that version only.
+`@stellar/stellar-sdk` 17.4.0 exports these helpers. Treat their names as examples for that version only.
 
 SDK byte values can be `Uint8Array`. Encode them explicitly, such as `Buffer.from(payload).toString('hex')`.
 Use `Buffer.from(bytes).toString('base64')` when recording raw XDR bytes.
@@ -62,6 +62,9 @@ Use `Buffer.from(bytes).toString('base64')` when recording raw XDR bytes.
 - `authorizeEntry(entry, signer, validUntilLedgerSeq, networkPassphrase, forAddress)` writes a signature to the node for `forAddress`.
   A callback receives `(preimage, payload)`. Send `preimage` to `walleterm sign` with the preimage shape.
   Check that the returned `digest` equals `payload`. Return `{ signature, publicKey }` or `{ signatureScVal, address }`.
+  Pass the same `validUntilLedgerSeq` for every node. Since 17.3.0, a value that differs from a non-zero stored expiration
+  replaces the other node signatures with `void`.
+  `checkAuthEntryReadiness` then lists those nodes in `unsignedBy`.
 - `inspectAuthEntry` lists every node. `checkAuthEntryReadiness` requires every node to be signed, which is stricter than some accounts.
 
 Compare the helper output with an independent XDR encoding of the preimage before the first live use.
