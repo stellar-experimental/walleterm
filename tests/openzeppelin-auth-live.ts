@@ -36,7 +36,7 @@ import {
   verifyAuthEntrySignature,
 } from '../sdk/authorization.ts';
 import { demoRpc, hex } from '../demo/site/contracts.ts';
-import { ERR, ozAuthDigest, ozAuthPayload, ozSigner, scMap } from './contracts.ts';
+import { ERR, errorText, matchRejection, ozAuthDigest, ozAuthPayload, ozSigner, scMap } from './contracts.ts';
 import { createSubmissionGuard } from './submission.ts';
 import type { AuthEntryInput } from '../sdk/authorization.ts';
 import type { ContractsState, Manifest } from './contracts.ts';
@@ -348,9 +348,15 @@ export async function rejectControl(server: OzRpc, d: OzDeployment, control: OzC
     Operation.invokeHostFunction({ func: control.func, auth: control.auth }),
   );
   const simulated = await server.simulateTransaction(transaction, undefined, 'enforce');
-  if (!rpc.Api.isSimulationError(simulated) || !simulated.error.includes(control.expect))
-    throw Error(`${control.id}: enforcing simulation did not reject with ${control.expect}.`);
-  return simulated.error;
+  const failed = () => Error(`${control.id}: enforcing simulation did not reject with ${control.expect}.`);
+  if (!rpc.Api.isSimulationError(simulated)) throw failed();
+  // stellar-rpc 30.0.1 keeps only the top-level error. The cause is in the diagnostic events.
+  try {
+    matchRejection(StellarSdk, simulated, [control.expect], control.id);
+  } catch {
+    throw failed();
+  }
+  return errorText(StellarSdk, simulated);
 }
 
 /** Signature requests and submissions, counted at the signer and RPC boundaries. */

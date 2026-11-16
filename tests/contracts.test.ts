@@ -7,10 +7,13 @@ import assert from 'node:assert/strict';
 import * as sdk from '@stellar/stellar-sdk';
 import type { FeeBumpTransaction, Transaction, xdr } from '@stellar/stellar-sdk';
 import {
+  ERR,
   contractFn,
+  errorText,
   gAuthorizer,
   hostOperation,
   invoke,
+  matchRejection,
   requireAddressCredentials,
   submitSourceOnly,
   type ExpectedAuth,
@@ -23,7 +26,7 @@ import {
   ozDelegatedAuthorizer,
   type KnownContextRule,
 } from './extended-contracts.ts';
-import { simulationError, simulationSuccess } from './simulations.ts';
+import { authFailureEvent, diagnosticEvent, simulationError, simulationSuccess } from './simulations.ts';
 import { inspectAuthEntry } from '../sdk/authorization.ts';
 import type { AnyTransaction, SigningContext, TestKey } from './types.ts';
 
@@ -590,4 +593,70 @@ test('the E03 rule check accepts only the known definition of a host rule', () =
       () => checkContextRule(sdk, rule, hostRule),
       /context rule 0 (differs|has invalid registry ids)/,
     );
+});
+
+// stellar-rpc 30.0.1 keeps only the top-level host error in `error`. These responses copy the host event shape.
+const crypto = sdk.xdr.ScError.sceCrypto(sdk.xdr.ScErrorCode.scecInvalidInput);
+const authRejection = (...events: xdr.DiagnosticEvent[]) =>
+  simulationError('HostError: Error(Auth, InvalidAction)', { events });
+
+test('a wrapped rejection matches only its recorded account authentication cause', () => {
+  const sim = authRejection(
+    diagnosticEvent(
+      [sdk.xdr.ScVal.scvSymbol('error'), sdk.xdr.ScVal.scvError(crypto)],
+      sdk.xdr.ScVal.scvString('failed ED25519 verification'),
+    ),
+    authFailureEvent(account, crypto),
+  );
+  assert.deepEqual(matchRejection(sdk, sim, [ERR.crypto], 'C02'), {
+    expected: ERR.crypto,
+    top_level_error: ERR.auth,
+    matched_as: 'account_authentication_cause',
+    failed_accounts: [account],
+  });
+  assert.throws(
+    () => matchRejection(sdk, sim, [ERR.notAllowed], 'C04'),
+    /C04: expected Error\(Contract, #3202\)/,
+  );
+  assert.match(errorText(sdk, sim), /Error\(Crypto, InvalidInput\)/);
+});
+
+test('a contract code in a wrapped rejection must be the authentication cause', () => {
+  const sim = authRejection(authFailureEvent(B, sdk.xdr.ScError.sceContract(5)));
+  assert.equal(matchRejection(sdk, sim, [ERR.accountSigs], 'C12').failed_accounts?.[0], B);
+  assert.throws(() => matchRejection(sdk, sim, [ERR.notAllowed], 'C04'));
+  // The same code outside the host auth failure event proves nothing.
+  const elsewhere = authRejection(
+    diagnosticEvent(
+      [sdk.xdr.ScVal.scvSymbol('error'), sdk.xdr.ScVal.scvError(sdk.xdr.ScError.sceContract(3202))],
+      sdk.xdr.ScVal.scvString('threshold not met'),
+    ),
+  );
+  assert.throws(
+    () => matchRejection(sdk, elsewhere, [ERR.notAllowed], 'C04'),
+    /account authentication cause/,
+  );
+  assert.throws(() => matchRejection(sdk, authRejection(), [ERR.crypto], 'C02'), /causes \[\]/);
+});
+
+test('a nested authentication failure matches its innermost cause', () => {
+  const auth = sdk.xdr.ScError.sceAuth(sdk.xdr.ScErrorCode.scecInvalidAction);
+  const sim = authRejection(
+    authFailureEvent(B, sdk.xdr.ScError.sceContract(3014)),
+    authFailureEvent(account, auth),
+  );
+  const match = matchRejection(sdk, sim, [ERR.ruleIdsMismatch], 'C08');
+  assert.deepEqual(match.failed_accounts, [B]);
+});
+
+test('an unwrapped rejection matches only its top-level error', () => {
+  const sim = simulationError('HostError: Error(Auth, ExistingValue)');
+  assert.equal(matchRejection(sdk, sim, [ERR.nonceConsumed], 'C11').matched_as, 'top_level_error');
+  assert.throws(() => matchRejection(sdk, sim, [ERR.auth], 'C11'));
+  // The cause of an auth failure counts only under a top-level Error(Auth, InvalidAction).
+  const other = simulationError('HostError: Error(WasmVm, InvalidAction)', {
+    events: [authFailureEvent(account, crypto)],
+  });
+  assert.throws(() => matchRejection(sdk, other, [ERR.crypto], 'C02'));
+  assert.equal(matchRejection(sdk, authRejection(), [ERR.auth], 'C08').matched_as, 'top_level_error');
 });

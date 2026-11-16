@@ -388,21 +388,97 @@ export function checkSourceAuth(
     throw new Error(`${label}: recorded authorization differs from the local operation`);
 }
 
-function simulationText(sdk: Sdk, sim: rpc.Api.SimulateTransactionErrorResponse) {
+// ---------- simulation errors ----------
+// Since stellar-rpc 30.0.1, the simulation `error` holds only the top-level host error.
+// The inner errors stay in the diagnostic events of the `events` field.
+const jsonText = (x: unknown) => JSON.stringify(x, (_, v) => (typeof v === 'bigint' ? String(v) : v));
+const TOP_LEVEL = /^(?:HostError: )?(Error\([^)]*\))/;
+/** The host form of an error value, such as Error(Contract, #5). Other values give undefined. */
+export function hostErrorText(value: xdr.ScVal | undefined) {
+  if (value?.type !== 'scvError') return undefined;
+  const error = value.value;
+  return error.type === 'sceContract'
+    ? `Error(Contract, #${error.value})`
+    : `Error(${error.type.slice(3)}, ${error.value.name.slice(4)})`;
+}
+const diagnosticBodies = (sdk: Sdk, sim: rpc.Api.SimulateTransactionErrorResponse) =>
+  (sim.events ?? []).map(
+    (raw) => (typeof raw === 'string' ? sdk.xdr.DiagnosticEvent.fromXdr(raw, 'base64') : raw).event.body.v0,
+  );
+/** The error string, then each diagnostic event. Each error value in an event also gets its own line. */
+export function errorText(sdk: Sdk, sim: rpc.Api.SimulateTransactionErrorResponse) {
   let text = String(sim.error ?? '');
-  for (const ev of sim.events ?? []) {
-    try {
-      const event = typeof ev === 'string' ? sdk.xdr.DiagnosticEvent.fromXdr(ev, 'base64') : ev;
-      text +=
-        '\n' +
-        JSON.stringify(sdk.scValToNative(event.event.body.v0.data), (_, v) =>
-          typeof v === 'bigint' ? String(v) : v,
-        );
-    } catch {
-      /* diagnostics are best effort */
-    }
+  const errors = (value: xdr.ScVal | undefined) => {
+    const error = hostErrorText(value);
+    if (error) text += `\n${error}`;
+    if (value?.type === 'scvVec') (value.vec ?? []).forEach(errors);
+    if (value?.type === 'scvMap')
+      (value.map ?? []).forEach((pair) => {
+        errors(pair.key);
+        errors(pair.val);
+      });
+  };
+  for (const body of diagnosticBodies(sdk, sim)) {
+    // Include topics: error codes occur there, not only in the data.
+    body.topics.forEach(errors);
+    errors(body.data);
+    text +=
+      '\n' +
+      jsonText({ topics: body.topics.map((x) => sdk.scValToNative(x)), data: sdk.scValToNative(body.data) });
   }
   return text;
+}
+/**
+ * The causes of failed account authentication. The host wraps each recoverable failure in
+ * Error(Auth, InvalidAction). It records the cause in one diagnostic event:
+ * topics [error, Error(Auth, InvalidAction)], data [message, address, cause] (soroban-env-host auth.rs).
+ */
+export function authFailures(sdk: Sdk, sim: rpc.Api.SimulateTransactionErrorResponse) {
+  const failures: { address: string; error: string }[] = [];
+  for (const { topics, data } of diagnosticBodies(sdk, sim)) {
+    if (topics.length !== 2 || hostErrorText(topics[1]) !== ERR.auth) continue;
+    if (sdk.scValToNative(topics[0]) !== 'error' || data.type !== 'scvVec') continue;
+    const [message, address, cause] = data.vec ?? [];
+    const error = hostErrorText(cause);
+    if (address?.type !== 'scvAddress' || !error) continue;
+    if (sdk.scValToNative(message) !== 'failed account authentication with error') continue;
+    failures.push({ address: sdk.Address.fromScVal(address).toString(), error });
+  }
+  return failures;
+}
+export interface RejectionMatch {
+  expected: string;
+  top_level_error: string | undefined;
+  matched_as: 'account_authentication_cause' | 'top_level_error';
+  failed_accounts?: string[];
+}
+/**
+ * Matches a rejected simulation to one expected error. The expected error must be the top-level error,
+ * or the recorded cause of a failed account authentication under a top-level Error(Auth, InvalidAction).
+ * A cause match comes first: it is more specific than a top-level Error(Auth, InvalidAction).
+ */
+export function matchRejection(
+  sdk: Sdk,
+  sim: rpc.Api.SimulateTransactionErrorResponse,
+  expected: readonly string[],
+  label: string,
+): RejectionMatch {
+  const top = String(sim.error).match(TOP_LEVEL)?.[1];
+  const failures = top === ERR.auth ? authFailures(sdk, sim) : [];
+  const cause = expected.find((e) => failures.some((f) => f.error === e));
+  if (cause)
+    return {
+      expected: cause,
+      top_level_error: top,
+      matched_as: 'account_authentication_cause',
+      failed_accounts: failures.filter((f) => f.error === cause).map((f) => f.address),
+    };
+  const direct = expected.find((e) => e === top);
+  if (direct) return { expected: direct, top_level_error: top, matched_as: 'top_level_error' };
+  throw new Error(
+    `${label}: expected ${expected.join(' or ')} as the top-level error or as an account authentication cause; ` +
+      `got ${top}, causes ${jsonText(failures)}: ${errorText(sdk, sim).slice(0, 800)}`,
+  );
 }
 
 // ---------- transactions ----------
@@ -476,7 +552,7 @@ async function expectSourceOnlyRejected(
   const sim = await ctx.rpc.simulateTransaction(await buildTx(ctx, operation), undefined, 'record');
   if (!ctx.sdk.rpc.Api.isSimulationError(sim))
     throw new Error(`${label}: expected ${expect}, but simulation succeeded`);
-  const text = simulationText(ctx.sdk, sim);
+  const text = errorText(ctx.sdk, sim);
   if (!text.includes(expect))
     throw new Error(`${label}: expected ${expect} in simulation error, got: ${text.slice(0, 800)}`);
   const top = String(sim.error).match(/^(?:HostError: )?(Error\([^)]*\))/)?.[1];
@@ -624,15 +700,7 @@ export async function invoke(
     const expected = Array.isArray(expect) ? [...expect] : [expect];
     if (!sdk.rpc.Api.isSimulationError(sim))
       throw new Error(`${label}: expected ${expected.join(' or ')}, but enforce simulation succeeded`);
-    const text = simulationText(sdk, sim);
-    const matched = expected.find((e) => text.includes(e));
-    if (!matched)
-      throw new Error(
-        `${label}: expected ${expected.join(' or ')} in simulation error, got: ${text.slice(0, 800)}`,
-      );
-    const top = String(sim.error).match(/^(?:HostError: )?(Error\([^)]*\))/)?.[1];
-    if (![matched, 'Error(Auth, InvalidAction)'].includes(String(top)))
-      throw new Error(`${label}: unexpected top-level error ${top}`);
+    const match = matchRejection(sdk, sim, expected, label);
     const after = await readCounts(ctx, checks);
     after.forEach((a, i) => {
       if (a.count !== before[i].count)
@@ -640,9 +708,8 @@ export async function invoke(
     });
     return {
       outcome: 'simulation_rejected',
-      expected: matched,
-      top_level_error: top,
-      error: text,
+      ...match,
+      error: errorText(sdk, sim),
       state_before: before,
       state_after: after,
       ...evidence,

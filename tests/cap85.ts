@@ -16,6 +16,8 @@ import {
   addressCredentials,
   requireAddressCredentials,
   ERR,
+  errorText,
+  matchRejection,
   gAuthorizer,
   simpleAuthorizer,
   ozAuthorizer,
@@ -318,32 +320,39 @@ function hostFunction(tx: Transaction) {
 }
 const isUnknown = (e: RequestError): e is RequestError & { hash?: unknown } =>
   e instanceof UnknownSubmission || e.code === 'unknown_submission';
-function simulationText(sdk: Sdk, sim: rpc.Api.SimulateTransactionErrorResponse) {
-  let text = String(sim.error ?? '');
-  for (const ev of sim.events ?? []) {
-    try {
-      const event = typeof ev === 'string' ? sdk.xdr.DiagnosticEvent.fromXdr(ev, 'base64') : ev;
-      text +=
-        '\n' +
-        JSON.stringify(sdk.scValToNative(event.event.body.v0.data), (_, v) =>
-          typeof v === 'bigint' ? String(v) : v,
-        );
-    } catch {
-      /* best effort */
-    }
-  }
-  return text;
-}
-function matchRejection(text: string, expect: Expectation | Expectation[], label: string) {
+// Record mode checks no authorization, so any diagnostic may carry the expected error. Enforce mode needs
+// the expected error as the top-level error or as an account authentication cause.
+function matchExpectation(
+  sdk: Sdk,
+  sim: rpc.Api.SimulateTransactionErrorResponse,
+  expect: Expectation | Expectation[],
+  label: string,
+  mode: 'record' | 'enforce',
+) {
   const list = Array.isArray(expect) ? expect : [expect];
-  const matched = list.find((e) => text.includes(e.error));
+  const text = errorText(sdk, sim);
+  const host =
+    mode === 'enforce'
+      ? matchRejection(
+          sdk,
+          sim,
+          list.map((e) => e.error),
+          label,
+        )
+      : undefined;
+  const matched = list.find((e) => (host ? e.error === host.expected : text.includes(e.error)));
   if (!matched)
     throw new Error(
       `${label}: expected ${list.map((e) => e.error).join(' or ')} in simulation error, got: ${text.slice(0, 800)}`,
     );
   if (matched.diagnostic && !text.includes(matched.diagnostic))
     throw new Error(`${label}: expected host diagnostic "${matched.diagnostic}", got: ${text.slice(0, 800)}`);
-  return { expected: matched.error, diagnostic_matched: matched.diagnostic };
+  return {
+    ...host,
+    expected: matched.error,
+    diagnostic_matched: matched.diagnostic,
+    error: text.slice(0, 2000),
+  };
 }
 const entryAddress = (sdk: Sdk, entry: xdr.SorobanAuthorizationEntry) =>
   sdk.Address.fromScAddress(requireAddressCredentials(entry).address).toString();
@@ -423,12 +432,10 @@ async function expectRecordRejected(
   const sim = await ctx.rpc.simulateTransaction(await buildTx(ctx, [operation]), undefined, 'record');
   if (!ctx.sdk.rpc.Api.isSimulationError(sim))
     throw new Error(`${label}: expected ${expect.error}, but record simulation succeeded`);
-  const text = simulationText(ctx.sdk, sim);
   return {
     outcome: 'simulation_rejected',
     mode: 'record',
-    ...matchRejection(text, expect, label),
-    error: text.slice(0, 2000),
+    ...matchExpectation(ctx.sdk, sim, expect, label, 'record'),
     ledger: sim.latestLedger,
   };
 }
@@ -524,7 +531,7 @@ async function invokeOperation(
       return {
         outcome: 'simulation_rejected',
         observed: 'rejected',
-        error: simulationText(sdk, sim).slice(0, 2000),
+        error: errorText(sdk, sim).slice(0, 2000),
         ...evidence,
       };
   } else if (expect) {
@@ -532,12 +539,10 @@ async function invokeOperation(
       throw new Error(
         `${label}: expected ${(Array.isArray(expect) ? expect : [expect]).map((e) => e.error).join(' or ')}, but enforce simulation succeeded`,
       );
-    const text = simulationText(sdk, sim);
     return {
       outcome: 'simulation_rejected',
       mode: 'enforce',
-      ...matchRejection(text, expect, label),
-      error: text.slice(0, 2000),
+      ...matchExpectation(sdk, sim, expect, label, 'enforce'),
       ...evidence,
     };
   } else if (rejected) {
@@ -1391,6 +1396,7 @@ async function selfTest() {
   const { mkdtempSync, writeFileSync: write } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
+  const { authFailureEvent, diagnosticEvent, simulationError } = await import('./simulations.ts');
   const assert = (cond: unknown, msg: string) => {
     if (!cond) throw new Error(`self-test: ${msg}`);
   };
@@ -1548,18 +1554,63 @@ async function selfTest() {
     'signature over the recorded payload',
   );
   // Rejection matching requires the error and, when given, the host diagnostic.
+  const record = (error: string, reason?: string) =>
+    simulationError(error, {
+      events: reason
+        ? [diagnosticEvent([sdk.xdr.ScVal.scvSymbol('error')], sdk.xdr.ScVal.scvString(reason))]
+        : [],
+    });
   assert(
-    matchRejection('HostError: Error(Storage, MissingValue)\n["Wasm does not exist"]', X.unknownWasm, 't')
-      .diagnostic_matched === 'Wasm does not exist',
+    matchExpectation(
+      sdk,
+      record('HostError: Error(Storage, MissingValue)', 'Wasm does not exist'),
+      X.unknownWasm,
+      't',
+      'record',
+    ).diagnostic_matched === 'Wasm does not exist',
     'diagnostic matched',
   );
   throws(
-    () => matchRejection('HostError: Error(Storage, MissingValue)', X.unknownWasm, 't'),
+    () =>
+      matchExpectation(sdk, record('HostError: Error(Storage, MissingValue)'), X.unknownWasm, 't', 'record'),
     /expected host diagnostic/,
     'missing diagnostic rejected',
   );
+  const wrongSigner = (cause: xdr.ScError) =>
+    simulationError('HostError: Error(Auth, InvalidAction)', {
+      events: [
+        diagnosticEvent(
+          [sdk.xdr.ScVal.scvSymbol('error'), sdk.xdr.ScVal.scvError(cause)],
+          sdk.xdr.ScVal.scvString('signer does not belong to account'),
+        ),
+        authFailureEvent(g.publicKey(), cause),
+      ],
+    });
+  const enforced = matchExpectation(
+    sdk,
+    wrongSigner(sdk.xdr.ScError.sceContract(5)),
+    X.wrongSigner,
+    't',
+    'enforce',
+  );
+  assert(
+    enforced.matched_as === 'account_authentication_cause' && enforced.failed_accounts?.[0] === g.publicKey(),
+    'account authentication cause matched',
+  );
   throws(
-    () => matchRejection('HostError: Error(Auth, InvalidAction)', X.wrongSigner, 't'),
+    () => matchExpectation(sdk, wrongSigner(sdk.xdr.ScError.sceContract(6)), X.wrongSigner, 't', 'enforce'),
+    /expected Error\(Contract, #5\)/,
+    'other cause rejected',
+  );
+  throws(
+    () =>
+      matchExpectation(
+        sdk,
+        simulationError('HostError: Error(Auth, InvalidAction)'),
+        X.wrongSigner,
+        't',
+        'enforce',
+      ),
     /expected Error\(Contract, #5\)/,
     'unrelated error rejected',
   );
