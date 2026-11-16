@@ -132,8 +132,9 @@ The offer card then shows Add USDC trustline, which adds the trustline with a 10
 See [the demo guide](DEMO.md) for each action and the activity log.
 
 The connection code lets a website list your 1Password Ed25519 public keys and request signatures.
-The website approves its own requests. The bridge signs every valid request from a connected website.
-Use only dedicated test keys. Enter codes only into websites that you trust.
+On testnet, futurenet, and a local network, the website approves its own requests. The bridge signs every valid request from a connected website.
+On mainnet and custom networks, each request waits for `walleterm approve`.
+Use only dedicated keys. Enter codes only into websites that you trust.
 
 ## Components
 

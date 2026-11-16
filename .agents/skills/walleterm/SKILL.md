@@ -50,6 +50,9 @@ Use a request file when practical: `walleterm sign < request.json > result.json`
 Check the exit status before reading the result. Failure returns `ok: false` with an error code.
 Invalid input exits with code 2 before any 1Password request.
 One call has a 120-second deadline for input, approval, and signing. After it, the call fails with `timeout`.
+With the risk gate on (`WALLETERM_RISK_URL` and `WALLETERM_RISK_TOKEN`), `sign` returns a `risk` object.
+`risk_denied` is final. Report the vetoes and the score ID to the user. Never retry the same artifact.
+Never unset or change `WALLETERM_RISK_*` to get a signature. The gate is not a control against you; honor it.
 Ask for a new decision only when the action exceeds the grant's network, signer, amount, fee, contract trust, or time window.
 After a submission timeout, query the original transaction hash before any new submission.
 Use dedicated keys. On testnet, futurenet, or a local network, dedicated test keys can sign without a separate approval.

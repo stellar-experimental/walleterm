@@ -244,6 +244,8 @@ A tunnel request adds the website `origin`.
 | No answer, a timeout, a non-2xx status, or a bad body | Walleterm continues as before. `risk` holds the error code. |
 
 The gate can only add a stop. It never removes the approval wait, the 1Password prompt, or another check.
+The gate on `sign` binds only a caller that keeps the variables. It is not a control against the agent itself.
+A process that unsets them, or that calls the 1Password SSH agent directly, skips the gate.
 Phase 0 has no automatic approval.
 
 With the gate on, the `sign` result and the `walleterm approve` request have a `risk` object:
@@ -291,7 +293,8 @@ Return one JSON object on standard output and exit nonzero on failure.
 {"ok":false,"error":{"code":"invalid_input","message":"Provide exactly one of transaction_xdr, preimage_xdr, auth_entry_xdr, or message."}}
 ```
 
-Use stable codes: `invalid_input`, `invalid_config`, `risk_denied`, `unsupported_platform`, `agent_unavailable`, `agent_protocol`, `key_not_found`, `signing_refused`, `timeout`, `invalid_signature`, `output_error`.
+Use stable codes: `invalid_input`, `invalid_config`, `risk_denied`, `unsupported_platform`, `agent_unavailable`, `agent_protocol`, `key_not_found`, `signing_refused`, `timeout`, `invalid_signature`, `output_error`, `internal`.
+`internal` means a local failure, such as no TLS for the risk scorer.
 `approve` adds `tunnel_unavailable`, `not_found`, and `not_reviewable`.
 Use exit code 2 for invalid input and invalid configuration, and exit code 1 for other failures.
 Use exit code 0 for success, help, and version.

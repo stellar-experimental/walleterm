@@ -136,6 +136,8 @@ The bridge signs one request at a time. A request that waits for approval holds 
 1Password can still require its own approval on the Mac. Cached 1Password approval can skip that prompt.
 A 1Password setting can require approval of each request. See [the README](../README.md#ask-for-approval-of-each-signature).
 A message signature is valid on every network. See [Messages](#messages).
+A declined 1Password prompt ends the request as `denied`. The selected key must still exist before signing.
+The bridge independently verifies every returned signature.
 See [the approve command](INTERFACE.md#approve) for the local approval channel.
 
 With the [risk gate](INTERFACE.md#risk-gate) on, the bridge scores each request before the approval wait and before signing.
@@ -143,8 +145,6 @@ A `deny` ends the request as `denied` with `-4` and `walleterm:risk_denied`. Not
 The website gets a generic message. The tunnel line names the vetoes and the score ID.
 `-4` fits, because the wallet declined the request, as an approver does.
 Every other answer continues as before. The approval wait still applies on mainnet and custom networks.
-A declined 1Password prompt ends the request as `denied`. The selected key must still exist before signing.
-The bridge independently verifies every returned signature.
 
 ## Transaction envelopes
 
@@ -207,7 +207,7 @@ A SEP-53 signature is a permanent, portable proof that the key approved the text
 It binds no network, origin, nonce, or expiry, unless the text contains them.
 So the network rule does not limit a message signature.
 The 1Password prompt shows no text. Cached 1Password approval can skip that prompt.
-Connect only dedicated test keys. Never use a Walleterm key as an identity or a key-derivation source for another service.
+Connect only dedicated keys. Never use a Walleterm key as an identity or a key-derivation source for another service.
 
 ## Expiry
 

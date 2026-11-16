@@ -16,7 +16,7 @@ This file has no line numbers, because line numbers drift.
 - A message binds no network. For a message, the tunnel network is only a session check.
 - The browser SDK follows the tunnel network. Each account reply names it. Without a session, the SDK knows no network.
 - The demo website in `walleterm demo` builds, funds, and submits transactions only on testnet. It sends no request to a tunnel on another network.
-- The docs and the skills tell users to use dedicated test keys. The site tells users to use testnet accounts.
+- The docs and the skills tell users to use dedicated test keys. The site has no network text.
 - No signing path contacts a Stellar network. Only the demo website and the test harnesses call RPC, Horizon, or Friendbot.
   With `WALLETERM_RISK_URL` and `WALLETERM_RISK_TOKEN` set, `sign` and the tunnel send each artifact to that risk scorer before signing.
   The scorer can read Stellar networks. Walleterm sends it the passphrase and does not limit its networks.
