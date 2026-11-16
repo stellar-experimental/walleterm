@@ -34,6 +34,8 @@ Walleterm is before version 1.0. Interfaces can change without notice.
 - The website bridge signs for one network. On testnet, futurenet, and a local network, a connected website approves its own requests,
   unless the tunnel runs with `--approve`.
   On mainnet and custom networks, you or your agent approve each request with `walleterm approve`.
+- An optional [risk gate](docs/INTERFACE.md#risk-gate) can stop a signature when a scorer denies it. It is off by default.
+  It works with any compatible scorer that you configure.
 - Walleterm supports Ed25519 keys only. A contract account needs its exact authorization adapter.
 
 ## Install
@@ -143,9 +145,10 @@ The [signing skill](.agents/skills/walleterm/SKILL.md) and the [site bridge skil
 
 ## Verified coverage
 
-Live testnet runs passed with dedicated 1Password keys. They covered classic multisig, fee bumps, contract accounts, and the OpenZeppelin adapter.
+Live testnet runs from 2026-09-25 to 2026-09-30 passed with dedicated 1Password keys. They covered classic multisig, fee bumps, contract accounts, and the OpenZeppelin adapter.
 They also covered SEP-53 messages and the SEP-43 wallet through the Stellar Wallets Kit.
 Fixture runs covered CAP-71 address-bound authorization and CAP-85.
+Some runs used earlier hosts and earlier bridge protocol versions. The current binary has not repeated every run.
 See [the evidence index](evidence/README.md) for each record, its revision, and its limits.
 
 ## Develop

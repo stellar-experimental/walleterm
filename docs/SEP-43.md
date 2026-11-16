@@ -100,7 +100,8 @@ These methods belong to the Walleterm SDK. Failures throw a `WalletermError` wit
 | `-3` | `walleterm:conflict` | A stale wallet selection or a reused request ID. |
 | `-3` | `walleterm:rate_limited` | A bridge connection or request limit. |
 | `-3` | `walleterm:expired` | The request expired before signing. |
-| `-4` | `walleterm:rejected` | The user closed the dialog, the website canceled, the session ended, the selected key left 1Password, or 1Password did not sign (for example, a declined prompt). |
+| `-4` | `walleterm:rejected` | The user closed the dialog, the approver denied the request, the website canceled, the session ended, the selected key left 1Password, or 1Password did not sign (for example, a declined prompt). |
+| `-4` | `walleterm:risk_denied` | The [risk gate](INTERFACE.md#risk-gate) scorer denied the request. The message is "The risk scorer denied this request." It names no veto. |
 | `-2` | `walleterm:bridge_unavailable` | The tunnel was unreachable for a call that does not sign. This includes a tunnel error page, such as a Cloudflare 524 timeout. Signing retries until its deadline. |
 | `-1` | `walleterm:result_unknown` | Signing started and no verified result arrived. `requestState` is `unknown`. |
 | `-1` | `walleterm:internal` | Any other failure. |

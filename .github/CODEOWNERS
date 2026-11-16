@@ -8,6 +8,7 @@
 
 # Release signing and packaging.
 /tools/ @kalepail
+/site/install.sh @kalepail
 /build.rs @kalepail
 /deny.toml @kalepail
 /rust-toolchain.toml @kalepail
