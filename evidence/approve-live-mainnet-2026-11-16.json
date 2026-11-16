@@ -1,0 +1,64 @@
+{
+  "started_at": "2026-11-16T18:58:11.812Z",
+  "port": "18787",
+  "public_key": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+  "network": "mainnet",
+  "source_before": {
+    "balance": "101.1002000",
+    "sequence": "281379095860740096"
+  },
+  "socket": {
+    "directory_mode": "700",
+    "is_socket": true
+  },
+  "unsigned_xdr": "AAAAAgAAAABlbzeWNNDj7ylhZEtxVOxwuj+4QraJNwWPPc5acrXMwwAAAGQD56jMAAAAAQAAAAAAAAAAAAAAAQAAAAAAAAABAAAAAPRgaSXzk0jTfhOzCyVvIn9xbMHXZhH+nALEZTja/r2oAAAAAAAAAAA7msoAAAAAAAAAAAA=",
+  "hash": "7ff688b00ba6044abb9b48f3d019f6ee28c59171e952ce0beb1f0be7d3d5b7f8",
+  "deny": {
+    "id": "8555f43f-aacd-483f-803f-3aa454aff2be",
+    "answer": {
+      "approved": false,
+      "ok": true
+    },
+    "result": {
+      "error": {
+        "code": -4,
+        "ext": [
+          "walleterm:rejected"
+        ],
+        "message": "The approval was declined.",
+        "requestState": "denied"
+      },
+      "expires_at": "2026-11-16T19:03:17.196Z",
+      "hash": "7ff688b00ba6044abb9b48f3d019f6ee28c59171e952ce0beb1f0be7d3d5b7f8",
+      "id": "deny-1",
+      "kind": "transaction",
+      "state": "denied"
+    }
+  },
+  "approve": {
+    "id": "e81ee04a-938f-475d-a796-a2b9fff2fd0a",
+    "answer": {
+      "approved": true,
+      "ok": true
+    },
+    "state": "signed"
+  },
+  "submission": {
+    "successful": true,
+    "ledger": 65513893,
+    "hash": "7ff688b00ba6044abb9b48f3d019f6ee28c59171e952ce0beb1f0be7d3d5b7f8",
+    "fee_charged_stroops": "100"
+  },
+  "source_after": {
+    "balance": "1.1001900"
+  },
+  "destination_after": {
+    "balance": "9106.1506345"
+  },
+  "payment": {
+    "destination": "GD2GA2JF6OJURU36COZQWJLPEJ7XC3GB25TBD7U4ALCGKOG27262RICH",
+    "amount_xlm": "100"
+  },
+  "signature_verified": true,
+  "finished_at": "2026-11-16T18:58:31.330Z"
+}

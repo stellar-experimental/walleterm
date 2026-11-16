@@ -148,7 +148,8 @@ The [signing skill](.agents/skills/walleterm/SKILL.md) and the [site bridge skil
 Live testnet runs from 2026-09-25 to 2026-09-30 passed with dedicated 1Password keys. They covered classic multisig, fee bumps, contract accounts, and the OpenZeppelin adapter.
 They also covered SEP-53 messages and the SEP-43 wallet through the Stellar Wallets Kit.
 Fixture runs covered CAP-71 address-bound authorization and CAP-85.
-Some runs used earlier hosts and earlier bridge protocol versions. The current binary has not repeated every run.
+On 2026-11-16, the protocol 30 build passed the classic, contract, CLI pipeline, demo, and SEP-43 runs on testnet protocol 30.
+One mainnet run passed with `walleterm approve`. The CAP-71 and CAP-85 runs and the OpenZeppelin adapter run are from September.
 See [the evidence index](evidence/README.md) for each record, its revision, and its limits.
 
 ## Develop

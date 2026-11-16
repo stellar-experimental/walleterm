@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-16",
+  "binary": "walleterm 0.3.0-8-g04a571b (make build from main after #83; before the Rust protocol 30 core #84)",
+  "tools": {
+    "stellar_cli": "30.0.1 (f2a7b74)",
+    "stellar_sdk_js": "17.4.0",
+    "testnet_protocol": 30
+  },
+  "risk_gate": "off for these processes (tested separately in risk-gate-live-2026-11-16.json)",
+  "classic": {
+    "rows": "G01-G10",
+    "result": "all passed on the second run; the first run stopped at G02 when a 1Password prompt timed out unanswered (no submission)"
+  },
+  "cli_pipeline": {
+    "CLI01": "passed",
+    "hash": "5d8c210d278773ec9025f630e6c9a946d4b16dbdaebbeae76530132f9c8b4f86",
+    "ledger": 5766794
+  },
+  "contracts": {
+    "passed": [
+      "C01",
+      "C06",
+      "C07",
+      "C11"
+    ],
+    "covered_by": [
+      "C09"
+    ],
+    "failed_expectation_only": [
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C08",
+      "C10",
+      "C12",
+      "C13"
+    ],
+    "note": "Each failed row is a negative test. Simulation still rejected it, but protocol 30 returns HostError Error(Auth, InvalidAction) instead of the expected inner error. Nothing was submitted for these rows. Investigation lane: branch live-auth-errors-p30."
+  },
+  "raw_records": "evidence/live/ (git-ignored)",
+  "contracts_rerun": {
+    "runner": "PR #86 branch live-auth-errors-p30 at acd8296 (matchRejection: outer Error(Auth, InvalidAction) only with the matching recorded auth-failure cause)",
+    "binary": "walleterm 0.3.0-9-g3a57beb",
+    "rows": "C01-C13 passed, C09 covered_by",
+    "cause_of_first_failures": "stellar-rpc v30.0.1 (testnet since 2026-11-12) no longer puts the event log in simulateTransaction error strings; the inner error is still in events"
+  }
+}
