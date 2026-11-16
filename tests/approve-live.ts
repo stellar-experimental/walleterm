@@ -1,8 +1,12 @@
-// Live check of `walleterm approve` against a running `walleterm tunnel --approve` on testnet.
+// Live check of `walleterm approve` against a running `walleterm tunnel --approve` on testnet or mainnet.
 // The operator starts the tunnel, passes its port and connection code, and answers the 1Password prompt.
-// This script acts as the website on loopback. It uses one dedicated test key and submits one testnet transaction.
+// This script acts as the website on loopback. It uses one dedicated test key and submits one transaction.
+// Testnet (default): a manage-data entry. Mainnet: one native payment. It needs `--destination` and `--amount`,
+// and the user's approval of that run. The tunnel must run with `--network mainnet`.
 //
 //   WALLETERM_BINARY=bin/walleterm bun --no-env-file tests/approve-live.ts --port 18787 --code 12345678 --key G...
+//   WALLETERM_BINARY=bin/walleterm bun --no-env-file tests/approve-live.ts --network mainnet --port 18787 --code 12345678 \
+//     --key G... --destination G... --amount 100
 //   (stop the tunnel with Ctrl+C)
 //   WALLETERM_BINARY=bin/walleterm bun --no-env-file tests/approve-live.ts --port 18787 --after
 import { spawnSync } from 'node:child_process';
@@ -18,7 +22,17 @@ const option = (name: string) => {
 const port = option('port') ?? '18787';
 const after = argv.includes('--after');
 const binary = process.env.WALLETERM_BINARY ?? 'walleterm';
-const out = option('out') ?? `evidence/approve-live-${new Date().toISOString().slice(0, 10)}.json`;
+const network = option('network') ?? 'testnet';
+if (network !== 'testnet' && network !== 'mainnet')
+  throw new Error('Pass --network testnet or --network mainnet.');
+const mainnet = network === 'mainnet';
+const passphrase = mainnet ? Networks.PUBLIC : Networks.TESTNET;
+const horizonUrl = mainnet ? 'https://horizon.stellar.org' : 'https://horizon-testnet.stellar.org';
+// The Stellar CLI has no built-in mainnet RPC. This is a public provider.
+const rpcUrl = option('rpc-url') ?? 'https://mainnet.sorobanrpc.com';
+const out =
+  option('out') ??
+  `evidence/approve-live-${mainnet ? 'mainnet-' : ''}${new Date().toISOString().slice(0, 10)}.json`;
 const dir = `${homedir()}/Library/Application Support/walleterm`;
 const socket = `${dir}/approve-${port}.sock`;
 const bridge = `http://127.0.0.1:${port}`;
@@ -61,6 +75,35 @@ const code = option('code');
 const key = option('key');
 check(code && /^\d{8}$/.test(code), 'Pass --code with the eight digits from the tunnel terminal.');
 check(key, 'Pass --key with the G-address of the dedicated test key.');
+const destination = option('destination');
+const amountXlm = option('amount');
+if (mainnet) {
+  check(destination && /^G[A-Z2-7]{55}$/.test(destination), 'Mainnet needs --destination G...');
+  check(destination !== key, 'The destination must differ from the source key.');
+  check(
+    amountXlm && /^\d{1,9}(\.\d{1,7})?$/.test(amountXlm) && Number(amountXlm) > 0,
+    'Mainnet needs --amount <XLM>.',
+  );
+}
+const stroops = (xlm: string) => {
+  const [whole, fraction = ''] = xlm.split('.');
+  return BigInt(whole) * 10_000_000n + BigInt(fraction.padEnd(7, '0'));
+};
+const lumens = (value: bigint) =>
+  `${value / 10_000_000n}.${(value % 10_000_000n).toString().padStart(7, '0')}`;
+
+/** The native balance, the spendable part of it, and the sequence of one account. Null if it does not exist. */
+async function account(address: string) {
+  const response = await fetch(`${horizonUrl}/accounts/${address}`);
+  if (response.status === 404) return null;
+  check(response.ok, `Horizon account read failed: ${response.status}`);
+  const a = (await response.json()) as any;
+  const native = a.balances.find((b: any) => b.asset_type === 'native');
+  const balance = stroops(native.balance);
+  const reserve = BigInt(2 + a.subentry_count + a.num_sponsoring - a.num_sponsored) * 5_000_000n;
+  const spendable = balance - reserve - stroops(native.selling_liabilities);
+  return { balance: lumens(balance), spendable, sequence: a.sequence as string };
+}
 
 async function call(path: string, body?: unknown, token?: string) {
   const response = await fetch(bridge + path, {
@@ -89,6 +132,20 @@ const record: Record<string, unknown> = { started_at: new Date().toISOString(), 
 const save = () => writeFileSync(out, JSON.stringify(record, null, 2) + '\n');
 
 // The private directory and the socket exist while the tunnel runs.
+// On mainnet, refuse before any request if the source cannot pay.
+let before: Awaited<ReturnType<typeof account>> = null;
+if (mainnet) {
+  before = await account(key!);
+  check(before, 'The source account does not exist on mainnet.');
+  check(await account(destination!), 'The destination account does not exist on mainnet.');
+  // The fee is at most 100 stroops at the default inclusion fee. Allow 10 000 for a surge.
+  check(
+    before.spendable >= stroops(amountXlm!) + 10_000n,
+    `The source cannot pay ${amountXlm} XLM. Balance ${before.balance}, spendable ${lumens(before.spendable)}.`,
+  );
+  record.network = network;
+  record.source_before = { balance: before.balance, sequence: before.sequence };
+}
 const folder = lstatSync(dir);
 const file = lstatSync(socket);
 record.socket = { directory_mode: (folder.mode & 0o777).toString(8), is_socket: file.isSocket() };
@@ -103,39 +160,47 @@ check(connected.body.token, `The connection failed: ${JSON.stringify(connected.b
 const token = connected.body.token as string;
 const selected = await call('/v1/select', { public_key: key }, token);
 check(selected.status === 200, `The selection failed: ${JSON.stringify(selected.body)}`);
-check(selected.body.network === 'TESTNET', 'The tunnel is not on testnet.');
+check(
+  selected.body.network === (mainnet ? 'PUBLIC' : 'TESTNET'),
+  `The tunnel is not on ${network}: ${selected.body.network}.`,
+);
 
 // The Stellar CLI builds the transaction. One manage-data entry on the test account.
+const target = mainnet ? ['--rpc-url', rpcUrl, '--network-passphrase', passphrase] : ['--network', 'testnet'];
+const operation = mainnet
+  ? [
+      'payment',
+      '--destination',
+      destination!,
+      '--asset',
+      'native',
+      '--amount',
+      stroops(amountXlm!).toString(),
+    ]
+  : [
+      'manage-data',
+      '--data-name',
+      'walleterm-approve-live',
+      '--data-value',
+      Buffer.from(record.started_at as string)
+        .toString('hex')
+        .slice(0, 128),
+    ];
 const build = spawnSync(
   'stellar',
-  [
-    'tx',
-    'new',
-    'manage-data',
-    '--source-account',
-    key!,
-    '--network',
-    'testnet',
-    '--build-only',
-    '--data-name',
-    'walleterm-approve-live',
-    '--data-value',
-    Buffer.from(record.started_at as string)
-      .toString('hex')
-      .slice(0, 128),
-  ],
+  ['tx', 'new', operation[0], '--source-account', key!, ...target, '--build-only', ...operation.slice(1)],
   { encoding: 'utf8' },
 );
 check(build.status === 0, `stellar tx new failed: ${build.stderr}`);
 const unsigned = build.stdout.trim();
-const hash = Buffer.from(TransactionBuilder.fromXDR(unsigned, Networks.TESTNET).hash()).toString('hex');
+const hash = Buffer.from(TransactionBuilder.fromXDR(unsigned, passphrase).hash()).toString('hex');
 record.unsigned_xdr = unsigned;
 record.hash = hash;
 const request = (id: string) => ({
   id,
   kind: 'transaction',
   xdr: unsigned,
-  network_passphrase: Networks.TESTNET,
+  network_passphrase: passphrase,
   address: key,
 });
 const shown = () =>
@@ -155,10 +220,12 @@ const result = (id: string) =>
 check((await call('/v1/requests', request('deny-1'), token)).status === 201, 'The first request failed.');
 const first = (await shown()).json.request;
 check(first.kind === 'transaction' && first.hash === hash, 'The shown request is not the sent transaction.');
-check(first.network === 'testnet' && first.public_key === key, 'The shown network or key is wrong.');
+check(first.network === network && first.public_key === key, 'The shown network or key is wrong.');
 check(
-  first.decoded.tx.tx.operations[0].body.manage_data,
-  'The decode does not show the manage-data operation.',
+  mainnet
+    ? first.decoded.tx.tx.operations[0].body.payment
+    : first.decoded.tx.tx.operations[0].body.manage_data,
+  'The decode does not show the expected operation.',
 );
 const denied = approve(first.id, '--deny');
 check(
@@ -194,7 +261,7 @@ check(
   signed.state === 'signed',
   `The approved request ended ${signed.state}: ${JSON.stringify(signed.error)}`,
 );
-const envelope = TransactionBuilder.fromXDR(signed.signed_tx_xdr, Networks.TESTNET);
+const envelope = TransactionBuilder.fromXDR(signed.signed_tx_xdr, passphrase);
 const verified = Keypair.fromPublicKey(key!).verify(
   envelope.hash(),
   envelope.signatures[0].signature.toBytes(),
@@ -202,20 +269,30 @@ const verified = Keypair.fromPublicKey(key!).verify(
 check(verified, 'The returned signature does not verify.');
 
 // Submit through the Stellar CLI and read the ledger result.
-const sent = spawnSync('stellar', ['tx', 'send', '--network', 'testnet', signed.signed_tx_xdr], {
-  encoding: 'utf8',
-});
+// This is the only submission of the run.
+const sent = spawnSync('stellar', ['tx', 'send', ...target, signed.signed_tx_xdr], { encoding: 'utf8' });
 check(sent.status === 0, `stellar tx send failed: ${sent.stderr}`);
 // Horizon can trail the RPC confirmation by a few seconds.
 const horizon = await until(
-  async () => (await fetch(`https://horizon-testnet.stellar.org/transactions/${hash}`)).json(),
+  async () => (await fetch(`${horizonUrl}/transactions/${hash}`)).json(),
   (h) => typeof h.successful === 'boolean',
   30,
 );
-record.submission = { successful: horizon.successful, ledger: horizon.ledger, hash: horizon.hash };
+record.submission = {
+  successful: horizon.successful,
+  ledger: horizon.ledger,
+  hash: horizon.hash,
+  fee_charged_stroops: horizon.fee_charged,
+};
+if (mainnet) {
+  const afterAccounts = { source: await account(key!), destination: await account(destination!) };
+  record.source_after = { balance: afterAccounts.source?.balance };
+  record.destination_after = { balance: afterAccounts.destination?.balance };
+  record.payment = { destination, amount_xlm: amountXlm };
+}
 record.signature_verified = verified;
 record.finished_at = new Date().toISOString();
 save();
-check(horizon.successful === true, 'The transaction did not succeed on testnet.');
+check(horizon.successful === true, `The transaction did not succeed on ${network}.`);
 await call('/v1/disconnect', {}, token);
 console.log(JSON.stringify({ ok: true, out, hash, ledger: horizon.ledger }));
