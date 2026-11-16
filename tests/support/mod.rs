@@ -522,7 +522,7 @@ pub mod auth {
     use walleterm::util::sha256;
 
     pub fn contract(n: u8) -> String {
-        stellar_strkey::Contract([n; 32]).to_string()
+        stellar_strkey::Contract([n; 32]).to_string().as_str().to_owned()
     }
 
     pub fn invocation() -> SorobanAuthorizedInvocation {
