@@ -1,0 +1,11 @@
+{
+  "purpose": "Fund walleterm-v2-test-a on mainnet for the first mainnet walleterm approve run. User approved 100 XLM on 2026-11-16 (fund 101, approved run pays 100 back to rich).",
+  "network": "Public Global Stellar Network ; September 2015 (protocol 29)",
+  "tool": "stellar 28.1.0 tx new create-account --source rich --starting-balance 1010000000",
+  "tx_hash": "8d28d1dc666b1e852bedc3302a7d47edeb84d6279d6fbaa8eb343512dd079f98",
+  "ledger": 65513676,
+  "fee_charged_stroops": 100,
+  "created_at": "2026-11-16T18:40:22Z",
+  "source": {"name": "rich", "address": "GD2GA2JF6OJURU36COZQWJLPEJ7XC3GB25TBD7U4ALCGKOG27262RICH", "xlm_before": "9107.2504545", "xlm_after": "9006.2504445"},
+  "destination": {"name": "walleterm-v2-test-a", "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA", "xlm_after": "101.0000000"}
+}

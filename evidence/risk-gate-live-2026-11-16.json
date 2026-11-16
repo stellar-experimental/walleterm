@@ -1,0 +1,132 @@
+{
+  "suite": "risk gate live check (T3), walleterm sign, testnet",
+  "date": "2026-11-16",
+  "binary": "walleterm 0.3.0-5-g632e821 (make install from main)",
+  "scorer": "private phase 0 scorer, gate on via WALLETERM_RISK_URL/TOKEN (values not recorded)",
+  "signer": "walleterm-v2-test-a GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA",
+  "deny": {
+    "artifact": "testnet payment 1 XLM to test-b with fee 4000000000 stroops",
+    "result": {
+      "error": {
+        "code": "risk_denied",
+        "message": "The risk scorer denied this request. Vetoes: FEE_CAP. Score ID: 08cccb7d-79e3-4f4d-8be0-afbda2a9e739."
+      },
+      "ok": false,
+      "risk": {
+        "decision": "deny",
+        "reasons": [
+          {
+            "code": "REPUTATION_CONTEXT_MISSING",
+            "source": "T0"
+          },
+          {
+            "code": "CONFIGURATION_CONTEXT_MISSING",
+            "source": "T0"
+          },
+          {
+            "code": "EXECUTION_CONTEXT_MISSING",
+            "source": "T0"
+          },
+          {
+            "code": "GRANT_UNESTABLISHED",
+            "source": "T0"
+          },
+          {
+            "code": "OPERATION_OUTSIDE_POLICY",
+            "source": "T0"
+          },
+          {
+            "code": "TIME_BOUNDS_REQUIRED",
+            "source": "T0"
+          },
+          {
+            "code": "ASSET_OUTSIDE_POLICY",
+            "source": "T0"
+          },
+          {
+            "code": "DESTINATION_OUTSIDE_POLICY",
+            "source": "T0"
+          },
+          {
+            "code": "MISSING_SPEND_CAP",
+            "source": "T0"
+          },
+          {
+            "code": "PHASE0_ADVISORY_ONLY",
+            "source": "service"
+          }
+        ],
+        "request_id": "9f43be05-7231-4d51-a7c8-7bafa0d2b692",
+        "score_id": "08cccb7d-79e3-4f4d-8be0-afbda2a9e739",
+        "vetoes": [
+          {
+            "code": "FEE_CAP",
+            "source": "T0"
+          }
+        ]
+      }
+    },
+    "1password_request": false,
+    "note": "refused before the notice and the agent request; never submitted"
+  },
+  "escalate": {
+    "artifact": "testnet payment 1 XLM to test-b, fee 100",
+    "risk": {
+      "decision": "escalate",
+      "reasons": [
+        {
+          "code": "REPUTATION_CONTEXT_MISSING",
+          "source": "T0"
+        },
+        {
+          "code": "CONFIGURATION_CONTEXT_MISSING",
+          "source": "T0"
+        },
+        {
+          "code": "EXECUTION_CONTEXT_MISSING",
+          "source": "T0"
+        },
+        {
+          "code": "GRANT_UNESTABLISHED",
+          "source": "T0"
+        },
+        {
+          "code": "OPERATION_OUTSIDE_POLICY",
+          "source": "T0"
+        },
+        {
+          "code": "TIME_BOUNDS_REQUIRED",
+          "source": "T0"
+        },
+        {
+          "code": "ASSET_OUTSIDE_POLICY",
+          "source": "T0"
+        },
+        {
+          "code": "DESTINATION_OUTSIDE_POLICY",
+          "source": "T0"
+        },
+        {
+          "code": "MISSING_SPEND_CAP",
+          "source": "T0"
+        },
+        {
+          "code": "PHASE0_ADVISORY_ONLY",
+          "source": "service"
+        }
+      ],
+      "request_id": "7d60c165-8172-471b-95a7-217f60d790eb",
+      "score_id": "64323707-d16f-456c-93ee-e36e3992c209",
+      "vetoes": []
+    },
+    "verified": true,
+    "digest": "80c2553222b20d6b0b8719cf0cbdf0266cd127667ee72a9ca8b58a655d25b15f",
+    "submitted": {
+      "tx_hash": "80c2553222b20d6b0b8719cf0cbdf0266cd127667ee72a9ca8b58a655d25b15f",
+      "ledger": 5766289,
+      "status": "SUCCESS",
+      "fee_charged": 100,
+      "tool": "stellar 28.1.0 tx send against testnet protocol 30"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "suite": "SEP-43 wallet steps 1-6 and the demo, bridge protocol 4, testnet protocol 30",
+  "date": "2026-11-16",
+  "binary": "walleterm 0.3.0-9-g3a57beb (make build from main: protocol 30 core #84, JS SDK 17.4.0 #83)",
+  "tools": {"stellar_cli": "30.0.1 (f2a7b74)", "stellar_sdk_js": "17.4.0", "testnet_protocol": 30},
+  "tunnel": "walleterm tunnel --vault Wallace --port 18787 (risk gate on)",
+  "demo": {
+    "payment": {"signer": "walleterm-v2-test-a", "hash": "1d315e588c262213eeb73b0d084344a7be1b34eda437710f613aa6beefef5c20", "ledger": 5766833, "result": "success"},
+    "smart_account_increase": {"auth_entry_digest": "d555b7b97125cdfb3e6b487874d650e07f93f16002cc0e192c508bf8309b04d6", "smart_account": "CCY6MX...DJAZRV", "tx_hash": "0dfe04e9fd13d660829d011b087505fb4b3f7e09e3111ef2715e58804e01e82b", "ledger": 5766847, "counter": "1 -> 2"},
+    "switch_and_note": {"signer": "walleterm-v2-test-b", "hash": "c048b41106b472eed590609bb41a4c4782af757c668a0f85e642891842a0b9af", "ledger": 5766854, "result": "success"},
+    "rpc_getLatestLedger_sdk_17_4_0": {"testnet": "ok (protocol 30)", "mainnet": "ok (protocol 29)", "note": "SDK 17.2.0 failed on testnet with XdrError LedgerHeader.scpValue.ext.v unknown enum value 3"}
+  },
+  "kit_page": {
+    "kitConnect": {"result": "ok", "address": "GBSW6N4WGTIOH3ZJMFSEW4KU5RYLUP5YIK3ISNYFR4644WTSWXGMGZAA"},
+    "signNote": {"hash": "c20116552d4b631b83584419d1aec46515afefb9c9a53931ab4cac8c6c3893c5", "ledger": 5766875, "successful": true},
+    "transferWithAuth": {"from": "test-a", "to": "test-b", "auth_entry_digest": "8c9a52c8ed075daebeefae85ca39435d0d8d6aefa2fb1400d9a4cd9997a13cda", "hash": "d149f930110337b0a1137ab1821bd45704172d9782c3c37bcee4766025d79f0e", "ledger": 5766877, "status": "SUCCESS"},
+    "guard": {"passed": true},
+    "negatives": {"passed": true, "public": "walleterm:network_unsupported, 0 bridge requests", "v1_preimage": "walleterm:unsupported, 0", "bad_message": "walleterm:invalid_request, 0", "submit": "walleterm:unsupported, 0"},
+    "changeTrust_add": {"hash": "fc3214d264264457b049e81baa17ce8f5924a33fdf8c59e086e1aa33f80b4459"},
+    "changeTrust_remove": {"hash": "5ad7ac7c48753ddca7e6070dfaa41d710f83941ef866e06f823c4f1340353298", "ledger": 5766882, "successful": true, "trustline_after": null},
+    "signMessage": {"message": "walleterm acceptance 2026-11-16T19:41:07.035Z b6eaf4d5-b3ab-4e25-9d13-c7afd155ce56", "digest": "2786ba7888b1a5de09f6348db35217453bcc3da8e04aeff1fee0b20effa0f773", "sdk_verified": true, "stellar_message_verify": "Signature valid"},
+    "kitDisconnect": {"walletermAddress": "", "old_token_status": 401}
+  }
+}

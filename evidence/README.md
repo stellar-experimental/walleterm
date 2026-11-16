@@ -1,9 +1,13 @@
 # Acceptance evidence
 
-These records hold live Stellar testnet results. Each record names the tested revision, the transaction hashes, and its limits.
+These records hold live Stellar testnet results and one mainnet approval run. Each record names the tested revision, the transaction hashes, and its limits.
 
 | Record | Date | Binary or host | Coverage |
 | --- | --- | --- | --- |
+| [`approve-live-mainnet-2026-11-16.json`](approve-live-mainnet-2026-11-16.json) | 2026-11-16 | Installed `walleterm` 0.3.0-5-g632e821 with the PR #82 runner | The first mainnet `walleterm tunnel --network mainnet` approval: one denied request, one approved 100 XLM payment from `walleterm-v2-test-a` back to its funding account, ledger 65513893. The funding is in [`mainnet-approve-funding-2026-11-16.json`](mainnet-approve-funding-2026-11-16.json). |
+| [`risk-gate-live-2026-11-16.json`](risk-gate-live-2026-11-16.json) | 2026-11-16 | Installed `walleterm` 0.3.0-5-g632e821 | `walleterm sign` with the risk gate on: a scorer deny with no 1Password request, and an escalation that signs and lands on testnet. The scorer URL and token are not recorded. |
+| [`live-suites-2026-11-16.json`](live-suites-2026-11-16.json) | 2026-11-16 | `make build` at `04a571b` and `3a57beb`, Stellar CLI 30.0.1, testnet protocol 30 | `classic` G01-G10, `cli-pipeline` CLI01, and `contracts` C01-C13 after the PR #86 runner fix. |
+| [`sep43-demo-live-2026-11-16.json`](sep43-demo-live-2026-11-16.json) | 2026-11-16 | `make build` at `3a57beb`, JS SDK 17.4.0, bridge protocol version 4 | The demo payment, smart account increase, and wallet switch. SEP-43 steps 3-6 on the Kit page: connect, a note, a transfer with an authorization entry, the guard, four negatives, `changeTrust`, `signMessage`, and disconnection. |
 | [`approve-live-2026-09-30.json`](approve-live-2026-09-30.json) | 2026-09-30 | Release `walleterm` build at `08ed836` (branch `networks-mainnet`) | `walleterm tunnel --approve` with the real approval socket: a private 0700 directory, a denied request with no 1Password prompt, an approved request on the same hash with a new ID, an old ID refused, one accepted transaction, and socket removal after Ctrl+C. |
 | [`ux-review-live-2026-09-29.json`](ux-review-live-2026-09-29.json) | 2026-09-29 | Release `walleterm` builds at `977fd19` and `84b9c67` (branch `ux-review-fixes`) | Tunnel terminal lines, the connect dialog text, Add USDC trustline, an offer and its cancellation, two declined 1Password prompts, a locked-1Password connect and sign, and the new terminal lines. Four accepted transactions. |
 | [`demo-walkthrough-live-2026-09-29.json`](demo-walkthrough-live-2026-09-29.json) | 2026-09-29 | The demo website in a `walleterm` debug build at `81a8fa1` | The smart account walkthrough: the live state of an existing set, a repeated counter increase, a new contract set with both deployments, and its first increase. Eight signatures in four transactions. |
@@ -11,7 +15,7 @@ These records hold live Stellar testnet results. Each record names the tested re
 | [`sep43-live-2026-09-28.json`](sep43-live-2026-09-28.json) | 2026-09-28 | Bridge protocol version 3 on the earlier Go and TypeScript host at `a945067` | The SEP-43 wallet API through the demo and the Stellar Wallets Kit: `getAddress`, `signTransaction`, `signAuthEntry`, refused requests, and Kit disconnection. |
 | [`protocol-acceptance.json`](protocol-acceptance.json) | 2026-09-25 | The CAP-71 and CAP-85 fixtures with the earlier signer | CAP71-01 through CAP71-12 passed. X01-X06 passed. X07 is an observation, not an asserted pass. |
 
-Each record uses dedicated testnet keys. It contains public addresses, transaction hashes, contract IDs, and source hashes.
+Each record uses dedicated test keys. Only the mainnet approval record uses mainnet. It contains public addresses, transaction hashes, contract IDs, and source hashes.
 It contains no private keys, signatures, connection codes, or vault identifiers.
 
 The runners use these event statuses:
