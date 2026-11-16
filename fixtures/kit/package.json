@@ -4,5 +4,8 @@
   "type": "module",
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "2.7.0"
+  },
+  "overrides": {
+    "@stellar/stellar-sdk": "17.4.0"
   }
 }

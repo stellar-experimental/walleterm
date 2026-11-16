@@ -154,7 +154,7 @@ The earlier TypeScript walleterm is `kalepail/walleterm` (commit `9290543`). It 
 - `security` created each item, so the item trusted `security`. Any process could run the same command without a prompt.
   Its own `docs/credential-providers.md` says "Silent reads are expected."
 
-Stellar CLI v28.1.0 is similar. `--secure-store` keeps a seed phrase in the Keychain through the `keyring` crate.
+Stellar CLI v30.0.1 is similar. `--secure-store` keeps a seed phrase in the Keychain through the `keyring` crate.
 The `stellar` process reads the phrase, signs in its own memory, then zeroizes it.
 
 ## Options that meet the requirement
@@ -336,7 +336,7 @@ The values were current on 2026-09-29.
 | [OpenSSH release notes](https://www.openssh.org/releasenotes.html) | 10.1, 2025-10-06 |
 | [LedgerHQ/app-stellar](https://github.com/LedgerHQ/app-stellar) | 6.0.3 and 6.1.0 |
 | [trezor-firmware Stellar messages](https://github.com/trezor/trezor-firmware/blob/main/common/protob/messages-stellar.proto) | Core 2.12.4 and 2.12.5 |
-| [stellar/stellar-cli](https://github.com/stellar/stellar-cli) | v28.1.0 |
+| [stellar/stellar-cli](https://github.com/stellar/stellar-cli) | v30.0.1 |
 | [kalepail/walleterm](https://github.com/kalepail/walleterm) | `9290543` |
 | [Stellar software versions](https://developers.stellar.org/docs/networks/software-versions) | Page dated 2026-09-24 |
 | [CAP index](https://github.com/stellar/stellar-protocol/blob/master/core/README.md), [CAP-71](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0071.md), [CAP-71-02](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0071-02.md), [CAP-72](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0072.md) | Read 2026-09-29. CAP-72 last changed in `7699c72c`. |
