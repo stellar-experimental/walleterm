@@ -232,11 +232,14 @@ fn run_tunnel(
                 return 1;
             }
         };
-        if risk.is_some()
-            && !output
-                .write("Risk gate: the risk scorer checks each request before signing. A deny stops it.\n")
-        {
-            return 1;
+        if let Some(gate) = &risk {
+            let line = format!(
+                "Risk gate: the risk scorer at {} checks each request before signing. A deny stops it.\n",
+                gate.host()
+            );
+            if !output.write(&line) {
+                return 1;
+            }
         }
         let deps = crate::bridge::production(socket, vault, risk.map(std::sync::Arc::new));
         let bridge = crate::bridge::Bridge::new(deps, port, network, approve);

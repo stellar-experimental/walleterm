@@ -56,7 +56,7 @@ Demo starts an independent example website with its own temporary public URL and
 Walleterm computes the digest from the artifact. 1Password signs only those 32 bytes.
 1Password does not display the network, amount, destination, or contract policy. Review the artifact first.
 Set WALLETERM_RISK_URL and WALLETERM_RISK_TOKEN to send each artifact to a risk scorer before signing.
-A deny stops the request. Sign output and approve output then add a risk object.
+A deny stops the request.
 Use Stellar CLI to construct, inspect, and submit transactions.
 Use Stellar Raven for protocol research and contract discovery.
 Agent skills: npx skills add stellar-experimental/walleterm -g
@@ -411,7 +411,9 @@ fn sign(io: &mut Io) -> i32 {
         Err(e) => return fail(io.out, &e),
     };
     // The gate scores the checked artifact before the agent connection. Only a denial stops here.
-    let risk = gate.as_ref().map(|gate| {
+    // The notice names the scorer host first, because the artifact leaves this machine.
+    let mut risk = None;
+    if let Some(gate) = &gate {
         let scored = crate::risk::request(
             &request.artifact,
             request.passphrase.as_deref(),
@@ -420,17 +422,31 @@ fn sign(io: &mut Io) -> i32 {
             &hex(&checked.digest),
             None,
         );
-        runtime.block_on(gate.score(&scored))
-    });
-    if let Some(denial) = risk.as_ref().and_then(crate::risk::Outcome::denial) {
+        let line = format!("Risk gate: send this request to {} for a score.\n", gate.host());
+        if write_output(io.diagnostic, &line) != 0 {
+            return fail(io.out, &Error::new("output_error", "The risk gate notice could not be written."));
+        }
+        let outcome = runtime.block_on(gate.score(&scored));
+        risk = Some((scored.request_id, outcome));
+    }
+    let risk_json = risk.as_ref().map(|(id, outcome)| outcome.json(id));
+    if let Some(denial) = risk.as_ref().and_then(|(_, outcome)| outcome.denial()) {
         let output = serde_json::json!({
             "ok": false,
             "error": { "code": denial.code, "message": denial.message },
-            "risk": risk.as_ref().map(crate::risk::Outcome::json),
+            "risk": risk_json,
         });
         let _ = write_output(io.out, &json_line(&output));
         return 1;
     }
+    // A best-effort label of the 1Password outcome. A failure or a timeout changes nothing.
+    let label = |signed: bool| {
+        if let (Some(gate), Some((id, outcome))) = (&gate, &risk)
+            && outcome.scored()
+        {
+            runtime.block_on(gate.answer(id, signed));
+        }
+    };
     let signature = match runtime.block_on(async {
         let mut agent = connect(io).await?;
         let signers = agent.list().await?;
@@ -446,7 +462,13 @@ fn sign(io: &mut Io) -> i32 {
         agent.sign(signer, &checked.digest).await
     }) {
         Ok(signature) => signature,
-        Err(e) => return fail(io.out, &e),
+        Err(e) => {
+            let written = fail(io.out, &e);
+            if e.code == "signing_refused" {
+                label(false);
+            }
+            return written;
+        }
     };
     // The same scope as inspection: the result depends only on the reviewed request.
     let signed = match artifact::finish(&request.artifact, &scope, &signature) {
@@ -466,13 +488,10 @@ fn sign(io: &mut Io) -> i32 {
         signed_transaction_xdr,
         signed_auth_entry_xdr,
         verified: true,
-        risk: risk.as_ref().map(crate::risk::Outcome::json),
+        risk: risk_json,
     };
     let written = write_output(io.out, &json_line(&output));
-    // A best-effort label after the result: a failure or a timeout changes nothing.
-    if let (Some(gate), Some(id)) = (&gate, risk.as_ref().and_then(crate::risk::Outcome::request_id)) {
-        runtime.block_on(gate.answer(id, true));
-    }
+    label(true);
     written
 }
 

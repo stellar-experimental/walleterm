@@ -1500,7 +1500,8 @@ fn a_deny_returns_risk_denied_without_an_agent_request() {
         invoke_with_risk(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(agent), &risk);
     assert_eq!(got.exit, 1, "{}", got.stdout);
     assert!(got.requests.is_empty(), "no agent request");
-    assert!(got.stderr.is_empty(), "no signing notice: {}", got.stderr);
+    // The scorer notice names the host before the artifact leaves. No signing notice follows.
+    assert_eq!(got.stderr, SCORER_NOTICE);
     let output: Value = serde_json::from_str(&got.stdout).unwrap();
     assert_eq!(output["ok"], false);
     assert_eq!(output["error"]["code"], "risk_denied");
@@ -1511,6 +1512,25 @@ fn a_deny_returns_risk_denied_without_an_agent_request() {
         serde_json::json!([{ "code": "SIGNER_AUTHORITY_CHANGE", "source": "T0" }])
     );
     assert_eq!(scorer.paths(), ["/v1/score"], "a denial posts no label");
+    no_token(&got);
+}
+
+const SCORER_NOTICE: &str = "Risk gate: send this request to 127.0.0.1 for a score.\n";
+
+#[test]
+fn a_declined_1password_prompt_posts_a_false_label() {
+    let scorer = scorer::Scorer::start(scorer::Mode::Decision("escalate"));
+    let scratch = Scratch::new();
+    let agent = mock_agent(&scratch.socket(), vec![Reply::Frame(identities_body()), Reply::Frame(vec![5])]);
+    let risk = || Ok(Some(scorer.gate()));
+    let got =
+        invoke_with_risk(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(agent), &risk);
+    let output: Value = serde_json::from_str(&got.stdout).unwrap();
+    assert_eq!(output["error"]["code"], "signing_refused", "{}", got.stdout);
+    let hits = scorer.hits();
+    assert_eq!(scorer.paths(), ["/v1/score", "/v1/answer"]);
+    let request_id = hits[0].body["request_id"].clone();
+    assert_eq!(hits[1].body, serde_json::json!({ "request_id": request_id, "approved": false }));
     no_token(&got);
 }
 
@@ -1528,6 +1548,7 @@ fn an_escalation_signs_adds_risk_and_posts_an_approved_label() {
     );
     assert_eq!(got.exit, 0, "{}", got.stdout);
     assert_eq!(kinds(&got.requests), [11, 13]);
+    assert!(got.stderr.starts_with(SCORER_NOTICE), "{}", got.stderr);
     let output: Value = serde_json::from_str(&got.stdout).unwrap();
     assert_eq!(output["verified"], true);
     let hits = scorer.hits();
