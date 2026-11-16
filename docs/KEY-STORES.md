@@ -262,6 +262,15 @@ These facts were checked on 2026-09-29 with Stellar Raven, the `stellar-raven-je
 
 ### Recent protocol upgrades
 
+The [Stellar software versions](https://developers.stellar.org/docs/networks/software-versions) page is the current source for protocol dates and CAPs.
+On 2026-11-16 it listed protocol 29 and not protocol 30. The protocol 30 rows are in `stellar-docs` pull request #3138.
+
+- CAP-87 adds ML-DSA verification host functions in protocol 30. It verifies full messages, not digests.
+
+#### Snapshot 2026-09-24
+
+This table copies the page dated 2026-09-24. It does not change.
+
 | Protocol | Testnet | Mainnet | CAPs |
 | --- | --- | --- | --- |
 | 28 "Adapter" | 2026-08-27 | 2026-09-16 | CAP-83 (validators can vote to drop the transaction set), CAP-85 (externally managed contract executables), CAP-86 (sparse map host functions) |
@@ -270,9 +279,6 @@ These facts were checked on 2026-09-29 with Stellar Raven, the `stellar-raven-je
 | 25 "X-Ray" | 2026-01-07 | 2026-01-22 | CAP-74 (BN254), CAP-75 (Poseidon and Poseidon2) |
 | 24 | 2025-10-21 | 2025-10-22 | None. A stability upgrade after Whisk. |
 | 23 "Whisk" | 2025-08-14 | 2025-09-03 | CAP-62 and CAP-66 (state archival), CAP-67 (unified events) |
-
-- The next signature CAP is CAP-87, ML-DSA verification. It is "Awaiting Decision" with protocol TBD. It verifies full messages, not digests.
-- The Stellar Raven docs index still said "Protocol 28 (Testnet, TBD)" on 2026-09-29. The live page gives the dates above.
 
 ### Legacy credentials after protocol 28
 
@@ -294,15 +300,17 @@ Walleterm signs only V2, so the answer does not change it. A testnet submission 
 
 ## Upstream watch list
 
-The values were current on 2026-09-29.
+The values were current on 2026-11-16.
 
 | Item | Value | Check |
 | --- | --- | --- |
 | Secure Enclave key types | P-256, ML-KEM, ML-DSA. No Curve25519. | CryptoKit `SecureEnclave` in the newest SDK |
 | Passwords app SSH keys | None | macOS release notes |
 | CAP-72 contract signers for G-accounts | Draft, no target protocol | [CAP index](https://github.com/stellar/stellar-protocol/tree/master/core) |
-| CAP-87 ML-DSA verification | Awaiting Decision, protocol TBD | [CAP index](https://github.com/stellar/stellar-protocol/tree/master/core) |
-| Newest protocol | 28 on mainnet since 2026-09-16. Testnet and futurenet reported 29 on 2026-09-29. | [Software versions](https://developers.stellar.org/docs/networks/software-versions) |
+| CAP-87 ML-DSA verification | Implemented in protocol 30 | [CAP index](https://github.com/stellar/stellar-protocol/tree/master/core) |
+| CAP-89 invoker-less authorization host functions | Draft, protocol 31. It can change the authorization entry and preimage shapes. | [CAP index](https://github.com/stellar/stellar-protocol/tree/master/core) |
+| CAP-90 custom signature payload for account contracts | Draft, protocol 31. It can change the digest that a contract signer signs. | [CAP index](https://github.com/stellar/stellar-protocol/tree/master/core) |
+| Newest protocol | 29 on mainnet since 2026-10-01. Testnet and futurenet reported 30 on 2026-11-16. The mainnet vote for 30 is planned for 2026-11-23. | [Software versions](https://developers.stellar.org/docs/networks/software-versions) |
 | V1 address credentials after protocol 28 | Sources disagree | A testnet submission with a V1 entry |
 | OpenZeppelin `stellar-contracts` | v0.7.2 audited. v0.8.0-rc.3 not audited. | [Releases](https://github.com/OpenZeppelin/stellar-contracts/releases) |
 | Bitwarden new SSH agent | Behind `SSHAgentV2` in v2026.9.0 | Bitwarden desktop release notes |
@@ -338,7 +346,7 @@ The values were current on 2026-09-29.
 | [trezor-firmware Stellar messages](https://github.com/trezor/trezor-firmware/blob/main/common/protob/messages-stellar.proto) | Core 2.12.4 and 2.12.5 |
 | [stellar/stellar-cli](https://github.com/stellar/stellar-cli) | v30.0.1 |
 | [kalepail/walleterm](https://github.com/kalepail/walleterm) | `9290543` |
-| [Stellar software versions](https://developers.stellar.org/docs/networks/software-versions) | Page dated 2026-09-24 |
+| [Stellar software versions](https://developers.stellar.org/docs/networks/software-versions) | Snapshot of the page dated 2026-09-24. Read again 2026-11-16: it listed protocol 29, not 30. |
 | [CAP index](https://github.com/stellar/stellar-protocol/blob/master/core/README.md), [CAP-71](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0071.md), [CAP-71-02](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0071-02.md), [CAP-72](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0072.md) | Read 2026-09-29. CAP-72 last changed in `7699c72c`. |
 | [Zipper, Protocol 27 upgrade guide](https://stellar.org/blog/foundation-news/stellar-zipper-protocol-27-upgrade-guide) | Read 2026-09-29 |
 | [Adapter, Protocol 28 upgrade guide](https://stellar.org/blog/developers/adapter-protocol-28-upgrade-guide) | Read 2026-09-29 |

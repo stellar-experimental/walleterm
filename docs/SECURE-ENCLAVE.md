@@ -38,6 +38,8 @@ The research date is 2026-09-29.
 
 ## Stellar facts
 
+CAP-87 adds ML-DSA verification host functions in protocol 30. The Secure Enclave can hold ML-DSA keys, so check it before a P-256 design.
+
 ### secp256r1 verification (CAP-51)
 
 - CAP-51 is final. It shipped in protocol 21: testnet on 2024-04-12 and mainnet on 2024-06-18.
@@ -267,7 +269,7 @@ Each step ends when its check passes.
 | [CAP-51](https://github.com/stellar/stellar-protocol/blob/9cd703075d87a6ce293752b1532e7b68efe12ae1/core/cap-0051.md), [CAP-72](https://github.com/stellar/stellar-protocol/blob/9cd703075d87a6ce293752b1532e7b68efe12ae1/core/cap-0072.md), [CAP-73](https://github.com/stellar/stellar-protocol/blob/9cd703075d87a6ce293752b1532e7b68efe12ae1/core/cap-0073.md) | `stellar-protocol` `9cd70307`, 2026-09-22 |
 | [rs-soroban-env](https://github.com/stellar/rs-soroban-env/tree/169890d50e27ef948bef66401147aba814d9b04e) `host.rs`, `crypto/mod.rs`, `budget.rs` | `169890d5`, 2026-09-25 |
 | [rs-soroban-sdk `crypto.rs`](https://github.com/stellar/rs-soroban-sdk/blob/1bf2e5fa414d905a3f4586cbab758c718ac41223/soroban-sdk/src/crypto.rs) | `1bf2e5fa` |
-| [Stellar software versions](https://developers.stellar.org/docs/networks/software-versions) | Read 2026-09-29. Protocol 28 on mainnet since 2026-09-16. |
+| [Stellar software versions](https://developers.stellar.org/docs/networks/software-versions) | Read 2026-11-16. Protocol 29 on mainnet since 2026-10-01. It listed protocol 29, not 30. |
 | [OpenZeppelin WebAuthn verifier](https://github.com/OpenZeppelin/stellar-contracts/blob/b40c5eaefe6a29f0030f00bd2d730b7a91cce330/packages/accounts/src/verifiers/webauthn.rs) and [example contract](https://github.com/OpenZeppelin/stellar-contracts/blob/b40c5eaefe6a29f0030f00bd2d730b7a91cce330/examples/multisig-smart-account/webauthn-verifier/src/contract.rs) | `b40c5eae`; v0.7.2 and v0.8.0-rc.3 |
 | [OpenZeppelin Relayer on Stellar](https://developers.stellar.org/docs/tools/openzeppelin-relayer) and [relayer-plugin-channels](https://github.com/OpenZeppelin/relayer-plugin-channels) | Read 2026-09-29 |
 | [stellar/passkey-kit](https://github.com/stellar/passkey-kit) | v0.18.3, 2026-09-09 |

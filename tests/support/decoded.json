@@ -1,0 +1,437 @@
+{
+  "auth-openzeppelin": {
+    "adapter": {
+      "context_rule_ids": [
+        0,
+        4
+      ],
+      "type": "openzeppelin-ed25519",
+      "verifier": "CABQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGAYDAMBQGCK3"
+    },
+    "address": "CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526",
+    "entry": {
+      "credentials": {
+        "address_v2": {
+          "address": "CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526",
+          "nonce": "-123",
+          "signature": "void",
+          "signature_expiration_ledger": 160
+        }
+      },
+      "root_invocation": {
+        "function": {
+          "contract_fn": {
+            "args": [
+              {
+                "u32": 42
+              },
+              {
+                "symbol": "reviewed"
+              }
+            ],
+            "contract_address": "CABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAFNSZ",
+            "function_name": "arbitrary_call"
+          }
+        },
+        "sub_invocations": [
+          {
+            "function": {
+              "contract_fn": {
+                "args": [
+                  {
+                    "u32": 42
+                  },
+                  {
+                    "symbol": "reviewed"
+                  }
+                ],
+                "contract_address": "CABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAFNSZ",
+                "function_name": "arbitrary_call"
+              }
+            },
+            "sub_invocations": []
+          }
+        ]
+      }
+    }
+  },
+  "extra-signers": {
+    "tx": {
+      "signatures": [],
+      "tx": {
+        "cond": {
+          "v2": {
+            "extra_signers": [
+              "PADQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOAAAAABQCAQDAABG2",
+              "<INVALID:GADQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOBYHA4DQOZPI:EMPTY_PAYLOAD>"
+            ],
+            "ledger_bounds": null,
+            "min_seq_age": "0",
+            "min_seq_ledger_gap": 0,
+            "min_seq_num": null,
+            "time_bounds": null
+          }
+        },
+        "ext": "v0",
+        "fee": 250,
+        "memo": "none",
+        "operations": [
+          {
+            "body": {
+              "payment": {
+                "amount": "10000000",
+                "asset": "native",
+                "destination": "GD6ROJBYLKQMOW3E7N4M2YBPUHMZD7PL65VRHRMO24BOVSBV5H3BQRSL"
+              }
+            },
+            "source_account": null
+          }
+        ],
+        "seq_num": "42",
+        "source_account": "MDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCYAAAAAAAAAAAA7CKG"
+      }
+    }
+  },
+  "preimage-contract": {
+    "soroban_authorization_with_address": {
+      "address": "CAAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQC526",
+      "invocation": {
+        "function": {
+          "contract_fn": {
+            "args": [
+              {
+                "u32": 42
+              },
+              {
+                "symbol": "reviewed"
+              }
+            ],
+            "contract_address": "CABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAFNSZ",
+            "function_name": "arbitrary_call"
+          }
+        },
+        "sub_invocations": [
+          {
+            "function": {
+              "contract_fn": {
+                "args": [
+                  {
+                    "u32": 42
+                  },
+                  {
+                    "symbol": "reviewed"
+                  }
+                ],
+                "contract_address": "CABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAFNSZ",
+                "function_name": "arbitrary_call"
+              }
+            },
+            "sub_invocations": []
+          }
+        ]
+      },
+      "network_id": "cee0302d59844d32bdca915c8203dd44b33fbb7edc19051ea37abedf28ecd472",
+      "nonce": "55",
+      "signature_expiration_ledger": 220
+    }
+  },
+  "tx-muxed-operation-source": {
+    "tx": {
+      "signatures": [],
+      "tx": {
+        "cond": {
+          "time": {
+            "max_time": "1800000120",
+            "min_time": "1799999990"
+          }
+        },
+        "ext": "v0",
+        "fee": 250,
+        "memo": "none",
+        "operations": [
+          {
+            "body": {
+              "payment": {
+                "amount": "10000000",
+                "asset": "native",
+                "destination": "GD6ROJBYLKQMOW3E7N4M2YBPUHMZD7PL65VRHRMO24BOVSBV5H3BQRSL"
+              }
+            },
+            "source_account": "MDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCYAAAAAAAAAAABEFEE"
+          }
+        ],
+        "seq_num": "42",
+        "source_account": "GD6ROJBYLKQMOW3E7N4M2YBPUHMZD7PL65VRHRMO24BOVSBV5H3BQRSL"
+      }
+    }
+  },
+  "tx-muxed-source": {
+    "tx": {
+      "signatures": [],
+      "tx": {
+        "cond": {
+          "time": {
+            "max_time": "1800000120",
+            "min_time": "1799999990"
+          }
+        },
+        "ext": "v0",
+        "fee": 250,
+        "memo": "none",
+        "operations": [
+          {
+            "body": {
+              "payment": {
+                "amount": "10000000",
+                "asset": "native",
+                "destination": "GD6ROJBYLKQMOW3E7N4M2YBPUHMZD7PL65VRHRMO24BOVSBV5H3BQRSL"
+              }
+            },
+            "source_account": null
+          }
+        ],
+        "seq_num": "42",
+        "source_account": "MDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCYAAAAAAAAAAAA7CKG"
+      }
+    }
+  },
+  "tx-operation-names": {
+    "tx": {
+      "signatures": [],
+      "tx": {
+        "cond": {
+          "time": {
+            "max_time": "1800000120",
+            "min_time": "1799999990"
+          }
+        },
+        "ext": "v0",
+        "fee": 2500,
+        "memo": "none",
+        "operations": [
+          {
+            "body": {
+              "create_account": {
+                "destination": "GD6ROJBYLKQMOW3E7N4M2YBPUHMZD7PL65VRHRMO24BOVSBV5H3BQRSL",
+                "starting_balance": "10000000"
+              }
+            },
+            "source_account": null
+          },
+          {
+            "body": {
+              "change_trust": {
+                "limit": "9223372036854775807",
+                "line": {
+                  "credit_alphanum4": {
+                    "asset_code": "USD",
+                    "issuer": "GD6ROJBYLKQMOW3E7N4M2YBPUHMZD7PL65VRHRMO24BOVSBV5H3BQRSL"
+                  }
+                }
+              }
+            },
+            "source_account": null
+          },
+          {
+            "body": {
+              "manage_data": {
+                "data_name": "k",
+                "data_value": "76"
+              }
+            },
+            "source_account": null
+          },
+          {
+            "body": {
+              "bump_sequence": {
+                "bump_to": "99"
+              }
+            },
+            "source_account": null
+          },
+          {
+            "body": {
+              "set_options": {
+                "clear_flags": null,
+                "high_threshold": null,
+                "home_domain": "example.com",
+                "inflation_dest": null,
+                "low_threshold": null,
+                "master_weight": null,
+                "med_threshold": null,
+                "set_flags": null,
+                "signer": null
+              }
+            },
+            "source_account": null
+          },
+          {
+            "body": {
+              "account_merge": "GD6ROJBYLKQMOW3E7N4M2YBPUHMZD7PL65VRHRMO24BOVSBV5H3BQRSL"
+            },
+            "source_account": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57"
+          },
+          {
+            "body": {
+              "begin_sponsoring_future_reserves": {
+                "sponsored_id": "GD6ROJBYLKQMOW3E7N4M2YBPUHMZD7PL65VRHRMO24BOVSBV5H3BQRSL"
+              }
+            },
+            "source_account": null
+          },
+          {
+            "body": "end_sponsoring_future_reserves",
+            "source_account": "GD6ROJBYLKQMOW3E7N4M2YBPUHMZD7PL65VRHRMO24BOVSBV5H3BQRSL"
+          },
+          {
+            "body": "inflation",
+            "source_account": null
+          },
+          {
+            "body": {
+              "invoke_host_function": {
+                "auth": [],
+                "host_function": {
+                  "invoke_contract": {
+                    "args": [
+                      {
+                        "u32": 1
+                      }
+                    ],
+                    "contract_address": "CABAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAEAQCAIBAFNSZ",
+                    "function_name": "hello"
+                  }
+                }
+              }
+            },
+            "source_account": null
+          }
+        ],
+        "seq_num": "42",
+        "source_account": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57"
+      }
+    }
+  },
+  "tx-soroban-delegated-auth": {
+    "tx": {
+      "signatures": [],
+      "tx": {
+        "cond": {
+          "time": {
+            "max_time": "1800000120",
+            "min_time": "1799999990"
+          }
+        },
+        "ext": {
+          "v1": {
+            "ext": "v0",
+            "resource_fee": "0",
+            "resources": {
+              "disk_read_bytes": 0,
+              "footprint": {
+                "read_only": [],
+                "read_write": []
+              },
+              "instructions": 0,
+              "write_bytes": 0
+            }
+          }
+        },
+        "fee": 1000000,
+        "memo": "none",
+        "operations": [
+          {
+            "body": {
+              "invoke_host_function": {
+                "auth": [
+                  {
+                    "credentials": {
+                      "address_with_delegates": {
+                        "address_credentials": {
+                          "address": "CAPR6HY7D4PR6HY7D4PR6HY7D4PR6HY7D4PR6HY7D4PR6HY7D4PR77LP",
+                          "nonce": "1",
+                          "signature": "void",
+                          "signature_expiration_ledger": 160
+                        },
+                        "delegates": []
+                      }
+                    },
+                    "root_invocation": {
+                      "function": {
+                        "contract_fn": {
+                          "args": [],
+                          "contract_address": "CAPR6HY7D4PR6HY7D4PR6HY7D4PR6HY7D4PR6HY7D4PR6HY7D4PR77LP",
+                          "function_name": "hello"
+                        }
+                      },
+                      "sub_invocations": []
+                    }
+                  }
+                ],
+                "host_function": {
+                  "invoke_contract": {
+                    "args": [],
+                    "contract_address": "CAPR6HY7D4PR6HY7D4PR6HY7D4PR6HY7D4PR6HY7D4PR6HY7D4PR77LP",
+                    "function_name": "hello"
+                  }
+                }
+              }
+            },
+            "source_account": null
+          }
+        ],
+        "seq_num": "42",
+        "source_account": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57"
+      }
+    }
+  },
+  "tx-soroban-invoke": {
+    "tx": {
+      "signatures": [],
+      "tx": {
+        "cond": {
+          "time": {
+            "max_time": "1800000120",
+            "min_time": "1799999990"
+          }
+        },
+        "ext": {
+          "v1": {
+            "ext": "v0",
+            "resource_fee": "0",
+            "resources": {
+              "disk_read_bytes": 0,
+              "footprint": {
+                "read_only": [],
+                "read_write": []
+              },
+              "instructions": 0,
+              "write_bytes": 0
+            }
+          }
+        },
+        "fee": 1000000,
+        "memo": "none",
+        "operations": [
+          {
+            "body": {
+              "invoke_host_function": {
+                "auth": [],
+                "host_function": {
+                  "invoke_contract": {
+                    "args": [],
+                    "contract_address": "CAPR6HY7D4PR6HY7D4PR6HY7D4PR6HY7D4PR6HY7D4PR6HY7D4PR77LP",
+                    "function_name": "hello"
+                  }
+                }
+              }
+            },
+            "source_account": null
+          }
+        ],
+        "seq_num": "42",
+        "source_account": "GDVEU3DD4KOFECV66VIHWEZOYX4ZKR3WV27L464SIIPOU2IUI3JCZA57"
+      }
+    }
+  }
+}

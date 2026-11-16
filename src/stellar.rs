@@ -74,7 +74,7 @@ pub fn account_key(address: &str) -> Option<[u8; 32]> {
 }
 
 pub fn account_address(key: &[u8; 32]) -> String {
-    ed25519::PublicKey(*key).to_string()
+    ed25519::PublicKey(*key).to_string().as_str().to_owned()
 }
 
 pub fn is_contract(address: &str) -> bool {

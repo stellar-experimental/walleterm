@@ -948,6 +948,55 @@ mod build {
         ))
     }
 
+    /// A protocol 30 (CAP-0084) muxed contract address. Its StrKey starts with `W`.
+    pub fn muxed_contract(contract: [u8; 32], id: u64) -> ScAddress {
+        ScAddress::MuxedContract(MuxedContract { id, contract_id: ContractId(Hash(contract)) })
+    }
+
+    /// A token `transfer` to `to`. CAP-0084 permits a muxed contract address only as this destination.
+    pub fn transfer(from: ScAddress, to: ScAddress) -> InvokeContractArgs {
+        let args = vec![ScVal::Address(from), ScVal::Address(to), ScVal::I128(Int128Parts { hi: 0, lo: 10 })];
+        InvokeContractArgs {
+            contract_address: contract(3),
+            function_name: ScSymbol("transfer".try_into().unwrap()),
+            args: args.try_into().unwrap(),
+        }
+    }
+
+    /// A V1 envelope with one contract call and the entries in `auth`.
+    pub fn invoke(source: [u8; 32], call: InvokeContractArgs, auth: &[String]) -> TransactionEnvelope {
+        let TransactionEnvelope::Tx(mut v1) = transaction(source, None) else { unreachable!() };
+        let auth: Vec<SorobanAuthorizationEntry> = auth
+            .iter()
+            .map(|e| SorobanAuthorizationEntry::from_xdr_base64(e, Limits::none()).unwrap())
+            .collect();
+        let body = OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
+            host_function: HostFunction::InvokeContract(call),
+            auth: auth.try_into().unwrap(),
+        });
+        v1.tx.operations = vec![Operation { source_account: None, body }].try_into().unwrap();
+        TransactionEnvelope::Tx(v1)
+    }
+
+    /// Replace the root invocation of an encoded entry or preimage.
+    pub fn calling(text: &str, call: InvokeContractArgs) -> String {
+        let root = SorobanAuthorizedInvocation {
+            function: SorobanAuthorizedFunction::ContractFn(call),
+            sub_invocations: VecM::default(),
+        };
+        if let Ok(mut entry) = SorobanAuthorizationEntry::from_xdr_base64(text, Limits::none()) {
+            entry.root_invocation = root;
+            return super::build::text(&entry);
+        }
+        let HashIdPreimage::SorobanAuthorizationWithAddress(mut preimage) =
+            HashIdPreimage::from_xdr_base64(text, Limits::none()).unwrap()
+        else {
+            panic!("an address-bound preimage")
+        };
+        preimage.invocation = root;
+        super::build::text(&HashIdPreimage::SorobanAuthorizationWithAddress(preimage))
+    }
+
     pub fn legacy_preimage(passphrase: &str) -> String {
         text(&HashIdPreimage::SorobanAuthorization(HashIdPreimageSorobanAuthorization {
             network_id: Hash(sha256(passphrase.as_bytes())),
@@ -1545,4 +1594,94 @@ fn a_malformed_deny_still_stops_sign() {
         output["risk"]["reasons"],
         serde_json::json!([{ "code": "RISK_RESPONSE_MALFORMED", "source": "walleterm" }])
     );
+}
+
+/// Protocol 30 (CAP-0084): a `W` address signs as a call argument on any network and never as the signer.
+/// The network refuses a `W` argument before its protocol 30 upgrade, so a signature cannot change meaning.
+#[test]
+fn muxed_contract_addresses_sign_as_arguments_but_never_as_the_signer() {
+    use walleterm::artifact::{Artifact, decode};
+    let (me, key) = (mock_public(), mock_address());
+    // `tests/support/muxed-contract.json` holds a SEP-23 test vector and the bytes that `tests/sdk-protocol30.test.ts` checks.
+    // The W text comes from the specification, not from the encoder under test.
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/support/muxed-contract.json");
+    let pinned: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let contract_hash = [
+        0x3f, 0x0c, 0x34, 0xbf, 0x93, 0xad, 0x0d, 0x99, 0x71, 0xd0, 0x4c, 0xcc, 0x90, 0xf7, 0x05, 0x51, 0x1c,
+        0x83, 0x8a, 0xad, 0x97, 0x34, 0xa4, 0xa2, 0xfb, 0x0d, 0x7a, 0x03, 0xfc, 0x7f, 0xe8, 0x9a,
+    ];
+    let w = build::muxed_contract(contract_hash, 9_223_372_036_854_775_808);
+    let w_text = pinned["muxed_contract"].as_str().unwrap();
+    assert_eq!(w.to_string(), w_text);
+    assert_eq!(w_text.parse::<stellar_xdr::ScAddress>().unwrap(), w);
+    let c = stellar_xdr::ScAddress::Contract(stellar_xdr::ContractId(stellar_xdr::Hash(contract_hash)));
+    assert_eq!(c.to_string(), pinned["contract"].as_str().unwrap());
+    assert_eq!(pinned["public_key"], key);
+    let call = build::transfer(build::address(me), w.clone());
+    let shows_w = |artifact: Artifact| {
+        let decoded = decode(&artifact).unwrap().to_string();
+        assert!(decoded.contains(&format!("\"{w_text}\"")), "{decoded}");
+    };
+    // A `W` argument, a `W` invoked contract, and a `W` credential address of another party's entry.
+    let mut at_w = call.clone();
+    at_w.contract_address = w.clone();
+    let party = build::calling(&build::entry(w.clone(), 100, true), call.clone());
+    let envelopes = [
+        (TESTNET, build::invoke(me, call.clone(), &[])),
+        (PUBNET, build::invoke(me, call.clone(), &[])),
+        (TESTNET, build::invoke(me, at_w, &[])),
+        (TESTNET, build::invoke(me, call.clone(), &[party])),
+    ];
+    assert_eq!(build::text(&envelopes[0].1), pinned["transaction_xdr"]);
+    assert_eq!(hex(&build::hash(&envelopes[0].1, TESTNET)), pinned["testnet_digest"]);
+    assert_eq!(hex(&build::hash(&envelopes[1].1, PUBNET)), pinned["mainnet_digest"]);
+    for (network, envelope) in envelopes {
+        let xdr = build::text(&envelope);
+        let (out, notice, _) =
+            signed(&json!({"public_key": key, "network_passphrase": network, "transaction_xdr": xdr}));
+        assert_eq!(out["digest"], hex(&build::hash(&envelope, network)));
+        assert!(
+            notice.starts_with(&format!("Sign transaction {} on ", hex(&build::hash(&envelope, network))))
+        );
+        shows_w(Artifact::Transaction(xdr));
+    }
+    let preimage = build::calling(&build::preimage(build::address(me), 100, TESTNET), call.clone());
+    let (out, notice, _) =
+        signed(&json!({"public_key": key, "network_passphrase": TESTNET, "preimage_xdr": preimage}));
+    assert_eq!(preimage, pinned["preimage_xdr"]);
+    assert_eq!(out["digest"], pinned["preimage_digest"]);
+    assert_eq!(out["digest"], hex(&walleterm::util::sha256(&base64_decode(&preimage))));
+    assert!(notice.contains(&format!(" for {} on testnet", build::address(me))), "{notice}");
+    shows_w(Artifact::Preimage(preimage));
+    let contract = build::contract(1).to_string();
+    let entry = build::calling(&build::entry(build::contract(1), 100, true), call.clone());
+    let request = json!({
+        "public_key": key, "network_passphrase": TESTNET, "auth_entry_xdr": entry,
+        "address": contract, "adapter": {"type": "contract-ed25519"},
+    });
+    let (out, notice, _) = signed(&request);
+    assert!(out["signed_auth_entry_xdr"].is_string());
+    assert!(notice.contains(&format!(" for {contract} (contract-ed25519) on testnet")), "{notice}");
+    shows_w(Artifact::Authorization {
+        entry_xdr: entry,
+        address: contract,
+        adapter: json!({"type": "contract-ed25519"}),
+    });
+    // A `W` address is never the signer, the preimage address, or the entry credential address.
+    refused(
+        json!({"public_key": w_text, "message": "hi"}).to_string().as_bytes(),
+        "The public key must be a canonical Ed25519 G-address.",
+    );
+    let bound = json!({"public_key": key, "network_passphrase": TESTNET, "preimage_xdr": build::preimage(w.clone(), 100, TESTNET)});
+    refused(bound.to_string().as_bytes(), "The authorization address must be a G-address or a C-address.");
+    for (adapter, message) in [
+        ("contract-ed25519", "The contract adapter requires a C-address."),
+        ("account", "The account authorization must match the selected G-address."),
+    ] {
+        let request = json!({
+            "public_key": key, "network_passphrase": TESTNET, "auth_entry_xdr": build::entry(w.clone(), 100, true),
+            "address": w_text, "adapter": {"type": adapter},
+        });
+        refused(request.to_string().as_bytes(), message);
+    }
 }
