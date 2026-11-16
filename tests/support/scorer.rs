@@ -25,6 +25,8 @@ pub enum Mode {
     Decision(&'static str),
     Status(u16),
     Raw(&'static str),
+    /// A valid deny whose `evidence` is this raw JSON text. Walleterm never reads `evidence`.
+    DenyWithEvidence(String),
     /// Answer after this delay.
     Slow(Duration),
 }
@@ -49,6 +51,10 @@ impl Scorer {
             }
         });
         scorer
+    }
+
+    pub fn set(&self, mode: Mode) {
+        *self.mode.lock().unwrap() = mode;
     }
 
     pub fn gate(&self) -> walleterm::risk::Gate {
@@ -97,6 +103,10 @@ impl Scorer {
             (_, Mode::Decision(decision)) => (200, verdict(decision, &request_id).to_string()),
             (_, Mode::Status(status)) => (status, json!({ "error": { "code": "x" } }).to_string()),
             (_, Mode::Raw(raw)) => (200, raw.to_owned()),
+            (_, Mode::DenyWithEvidence(evidence)) => {
+                let text = verdict("deny", &request_id).to_string();
+                (200, text.replacen("\"evidence\":{}", &format!("\"evidence\":{evidence}"), 1))
+            }
             (_, Mode::Slow(delay)) => {
                 std::thread::sleep(delay);
                 (200, verdict("deny", &request_id).to_string())

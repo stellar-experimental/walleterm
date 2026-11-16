@@ -142,9 +142,6 @@ See [the approve command](INTERFACE.md#approve) for the local approval channel.
 
 With the [risk gate](INTERFACE.md#risk-gate) on, the bridge scores each request before the approval wait and before signing.
 A `deny` ends the request as `denied` with `-4` and `walleterm:risk_denied`. Nothing waits and nothing is signed.
-The website gets a generic message. The tunnel line names the vetoes and the score ID.
-`-4` fits, because the wallet declined the request, as an approver does.
-Every other answer continues as before. The approval wait still applies on mainnet and custom networks.
 
 ## Transaction envelopes
 

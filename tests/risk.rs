@@ -84,12 +84,20 @@ async fn a_deny_stops_the_request_before_the_approval_wait_and_1password() {
     assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
     assert_eq!(f.controls.listings.load(Ordering::SeqCst), 1, "only the connection listed signers");
     assert!(f.bridge.waiting().is_null());
-    let lines = f.controls.logs().join("");
-    assert!(!lines.contains("Waiting for approval"), "{lines}");
-    assert!(lines.contains("Risk gate: transaction "), "{lines}");
-    assert!(lines.contains("Vetoes: SIGNER_AUTHORITY_CHANGE. Score ID: score-1."), "{lines}");
-    // One score and no label: nobody answered.
-    tokio::time::sleep(Duration::from_millis(100)).await;
+    let lines = f.controls.logs();
+    assert!(!lines.join("").contains("Waiting for approval"), "{lines:?}");
+    // One terminal line for the denial. It names the vetoes and the score ID.
+    let denied: Vec<&String> = lines.iter().filter(|l| l.contains("denied")).collect();
+    assert_eq!(denied.len(), 1, "{lines:?}");
+    assert!(denied[0].starts_with("Did not sign transaction "), "{lines:?}");
+    assert!(
+        denied[0].ends_with(
+            " The risk scorer denied this request. Vetoes: SIGNER_AUTHORITY_CHANGE. Score ID: score-1.\n"
+        ),
+        "{lines:?}"
+    );
+    // One score and no label: nobody answered. `close` waits for every label in flight.
+    f.close().await;
     let hits = scorer.hits();
     assert_eq!(scorer.paths(), ["/v1/score"]);
     let hit = &hits[0];
@@ -103,7 +111,6 @@ async fn a_deny_stops_the_request_before_the_approval_wait_and_1password() {
     assert_eq!(hit.body["signer"], json!(f.public_key));
     assert_eq!(hit.body["network_passphrase"], mainnet().passphrase);
     assert_no_token(&f, &[&done.body]);
-    f.close().await;
 }
 
 #[tokio::test]
@@ -167,18 +174,60 @@ async fn a_scorer_failure_or_an_unknown_decision_continues_and_shows_its_code() 
         assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
         f.bridge.answer(shown["id"].as_str().unwrap(), true).unwrap();
         assert_eq!(f.result(&site, "request-1").await.body["state"], "signed", "{code}");
-        // A failed score has no request ID for a label.
-        tokio::time::sleep(Duration::from_millis(100)).await;
+        // A failed score has no request ID for a label. `close` waits for every label in flight.
+        f.close().await;
         assert_eq!(scorer.paths(), ["/v1/score"], "{code}");
+        let line = format!("Risk gate: no score ({code}). Requests continue without a score.\n");
+        assert!(f.controls.logs().contains(&line), "{code}: {:?}", f.controls.logs());
+    }
+}
+
+#[tokio::test]
+async fn the_terminal_shows_each_change_of_the_scorer_error_once() {
+    let scorer = Scorer::start(Mode::Status(401));
+    let (f, site) = fixture(network::DEFAULT, Some(&scorer)).await;
+    let mut id = 0;
+    let mut sign = async |mode: Mode| {
+        scorer.set(mode);
+        id += 1;
+        let mut request = transaction_request(&format!("request-{id}"), &f);
+        request["network_passphrase"] = json!(network::DEFAULT.passphrase);
+        assert_eq!(f.post("/v1/requests", request, &site).await.status, 201);
+        let done = f.result(&site, &format!("request-{id}")).await;
+        assert_eq!(done.body["state"], "signed", "{}", done.body);
+    };
+    for mode in [Mode::Status(401), Mode::Status(401), Mode::Status(503), Mode::Decision("escalate")] {
+        sign(mode).await;
+    }
+    sign(Mode::Status(503)).await;
+    let lines: Vec<String> = f.controls.logs().into_iter().filter(|l| l.contains("Risk gate:")).collect();
+    let line = |code: &str| format!("Risk gate: no score ({code}). Requests continue without a score.\n");
+    assert_eq!(lines, [line("http_401"), line("http_503"), line("http_503")]);
+    f.close().await;
+}
+
+#[tokio::test]
+async fn a_deny_stops_even_with_large_or_repeated_unread_fields() {
+    let big = format!("{{\"trace\":\"{}\"}}", "x".repeat(900 * 1024));
+    let repeated = r#"{"a":1,"a":{"b":2,"b":3}}"#.to_owned();
+    for evidence in [big, repeated] {
+        let scorer = Scorer::start(Mode::DenyWithEvidence(evidence));
+        let (f, site) = fixture(network::DEFAULT, Some(&scorer)).await;
+        send(&f, &site, network::DEFAULT).await;
+        let done = f.result(&site, "request-1").await;
+        assert_eq!(done.body["state"], "denied", "{}", done.body);
+        assert_eq!(done.body["error"]["ext"], json!(["walleterm:risk_denied"]));
+        assert_eq!(f.controls.signs.load(Ordering::SeqCst), 0);
+        let lines = f.controls.logs().join("");
+        assert!(lines.contains("Vetoes: SIGNER_AUTHORITY_CHANGE. Score ID: score-1."), "{lines}");
         f.close().await;
     }
 }
 
 #[tokio::test]
 async fn an_unreachable_or_slow_scorer_is_an_error_within_the_hard_limit() {
-    let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-    let port = closed.local_addr().unwrap().port();
-    drop(closed);
+    // Port 0 is reserved. No process can listen on it, so the connection always fails.
+    let port = 0;
     let request = walleterm::risk::request(
         &walleterm::artifact::Artifact::Message("hi".into()),
         None,
@@ -251,7 +300,7 @@ async fn a_malformed_deny_still_stops_the_request() {
 }
 
 #[tokio::test]
-async fn an_entry_sends_its_adapter_type_and_the_signed_hash() {
+async fn an_entry_sends_its_adapter_and_the_signed_hash() {
     let scorer = Scorer::start(Mode::Decision("escalate"));
     let (f, site) = fixture(network::DEFAULT, Some(&scorer)).await;
     let contract = support::auth::contract(1);
@@ -269,8 +318,43 @@ async fn an_entry_sends_its_adapter_type_and_the_signed_hash() {
     assert_eq!(done.body["state"], "signed", "{}", done.body);
     let body = &scorer.hits()[0].body;
     assert_eq!(body["kind"], "auth_entry");
-    assert_eq!(body["adapter"], "contract-ed25519");
+    assert_eq!(body["adapter"], json!({"type": "contract-ed25519"}));
     assert_eq!(body["address"], json!(contract));
     assert_eq!(body["hash"], done.body["hash"]);
+    f.close().await;
+}
+
+/// The scored `hash` is the digest that 1Password signs. Each expected digest is computed independently here.
+#[tokio::test]
+async fn a_fee_bump_and_a_preimage_send_the_signed_hash() {
+    use support::tx::*;
+    let scorer = Scorer::start(Mode::Decision("escalate"));
+    let (f, site) = fixture(network::DEFAULT, Some(&scorer)).await;
+    let (key, other, now) = (f.key.clone(), mock_key(9), f.controls.now());
+    let bump = fee_bump(ed(&key), sign(build(ed(&other), vec![payment(&key, None)], 100, now, 180), &other));
+    let mut transaction = transaction_request("bump", &f);
+    transaction["xdr"] = json!(text(&bump));
+    let preimage = support::auth::preimage(&f.public_key, 220);
+    let entry = json!({
+        "id": "preimage",
+        "kind": "auth_entry",
+        "preimage_xdr": preimage,
+        "network_passphrase": network::TESTNET,
+        "address": f.public_key,
+    });
+    let preimage_bytes =
+        base64::Engine::decode(&base64::engine::general_purpose::STANDARD, &preimage).unwrap();
+    for (request, kind, digest) in [
+        (transaction, "transaction", hash(&bump)),
+        (entry, "preimage", walleterm::util::sha256(&preimage_bytes)),
+    ] {
+        let id = request["id"].as_str().unwrap().to_owned();
+        assert_eq!(f.post("/v1/requests", request, &site).await.status, 201);
+        let done = f.result(&site, &id).await;
+        assert_eq!(done.body["state"], "signed", "{}", done.body);
+        let hit = scorer.hits().into_iter().find(|h| h.body["kind"] == kind).unwrap();
+        assert_eq!(hit.body["hash"], walleterm::util::hex(&digest), "{kind}");
+        assert_eq!(hit.body["hash"], done.body["hash"], "{kind}");
+    }
     f.close().await;
 }

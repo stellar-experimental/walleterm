@@ -56,9 +56,8 @@ install-skill:
 test:
 	bun run build
 	cargo fmt --all --check
-	cargo clippy --workspace --all-targets --locked -- -D warnings
-	cargo test --workspace --locked
-	cargo clippy --locked --features test-host --bin walleterm-test-host -- -D warnings
+	cargo clippy --workspace --all-targets --locked --features walleterm/test-host -- -D warnings
+	cargo test --workspace --locked --features walleterm/test-host
 	cargo build --locked --features test-host --bin walleterm-test-host
 	bun run typecheck
 	bun run test:built

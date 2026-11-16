@@ -229,24 +229,26 @@ Only then does it request the 1Password signature or wait for `walleterm approve
 
 The score request holds only these fields:
 `kind` (`transaction`, `preimage`, `auth_entry`, or `message`), `network_passphrase`, `xdr`, `signer`, `hash`, and a new random `request_id`.
-`hash` is the lowercase hexadecimal digest that 1Password signs. The scorer recomputes it for a transaction, a fee bump, and a preimage. It stores it for an entry and a message.
-For the OpenZeppelin adapter, the digest also covers the context rule IDs.
+`hash` is the lowercase hexadecimal digest that 1Password signs.
 A message goes in `xdr` as Base64 of its exact bytes. A `sign` message has no `network_passphrase`.
-An entry or a preimage adds its `address`. An entry adds its `adapter` type, such as `openzeppelin-ed25519`.
+An entry or a preimage adds its `address`. An entry adds its full `adapter` object, as the request gave it.
 A tunnel request adds the website `origin`.
+Before it sends, `sign` writes `Risk gate: send this request to <host> for a score.` to standard error.
+The tunnel banner also names the scorer host. Neither shows the URL path or the token.
+Terminal and agent logs can keep the host, so do not put a secret in the host name.
 
 | Scorer answer | Result |
 | --- | --- |
 | `deny` | A hard stop. No 1Password request and no approval wait. |
-| `deny` with malformed fields | Still a hard stop. Walleterm keeps the valid codes and adds the reason `RISK_RESPONSE_MALFORMED`. |
+| `deny` with malformed fields, or a repeated `decision` that includes `deny` | Still a hard stop. Walleterm keeps the valid codes and adds the reason `RISK_RESPONSE_MALFORMED`. |
 | `escalate` | Walleterm continues as before. Mainnet tunnel requests still wait for `walleterm approve`. |
 | Any other decision, including `approve` | Walleterm continues as before. `risk` holds `{"error":"unexpected_decision"}`. |
 | No answer, a timeout, a non-2xx status, or a bad body | Walleterm continues as before. `risk` holds the error code. |
 
-The gate can only add a stop. It never removes the approval wait, the 1Password prompt, or another check.
 The gate on `sign` binds only a caller that keeps the variables. It is not a control against the agent itself.
 A process that unsets them, or that calls the 1Password SSH agent directly, skips the gate.
-Phase 0 has no automatic approval.
+A deny must use a 2xx status. Walleterm does not read the body of another status.
+The tunnel prints `Risk gate: no score (<code>). Requests continue without a score.` each time the error code changes.
 
 With the gate on, the `sign` result and the `walleterm approve` request have a `risk` object:
 
@@ -255,9 +257,13 @@ With the gate on, the `sign` result and the `walleterm approve` request have a `
 {"error":"timeout"}
 ```
 
-The error codes are `unreachable`, `timeout`, `http_<status>`, `bad_response`, and `unexpected_decision`.
+The error codes are `unreachable`, `timeout`, `http_<status>`, `too_large`, `bad_response`, and `unexpected_decision`.
+Walleterm reads only `decision`, `request_id`, `score_id`, `vetoes`, and `reasons`. It skips every other field unread.
+The whole body must still be one valid JSON object. The five read fields nest at most 128 levels.
+Each of these fields must appear once. A code with a repeated key is invalid.
 Each response string must have 1–128 characters from `A-Z`, `a-z`, `0-9`, `_`, `-`, `.`, and `:`.
 The response `request_id` must equal the sent ID. Each list has at most 64 codes.
+A scorer code cannot have a source that starts with `walleterm`, in any letter case. Only Walleterm uses that source.
 An escalation that breaks one of these rules is `bad_response`.
 A denial that breaks one of them still denies. Walleterm drops each invalid code and keeps at most 64 of each list.
 An invalid `score_id` becomes empty. A missing or different `request_id` becomes the sent ID.
@@ -270,20 +276,26 @@ A denial from `sign` exits 1 with the `risk_denied` code. The message names the 
 ```
 
 The tunnel ends a denied request as `denied` with `walleterm:risk_denied`. See [the bridge protocol](BRIDGE-PROTOCOL.md#errors).
-The website gets only "The risk scorer denied this request." The tunnel line names the vetoes and the score ID.
+The website gets only "The risk scorer denied this request." The tunnel line adds the vetoes and the score ID.
 
 Walleterm also posts answer labels to `POST <URL>/v1/answer` as `{"request_id","approved"}`:
 
 - After `walleterm approve <id>` or `--deny`, the tunnel posts the answer for that request.
-- After `sign` writes a signature, it posts `approved: true`.
+- After `sign` writes a signature, it posts `approved: true`. After 1Password returns `signing_refused`, it posts `approved: false`.
 
+A `sign` label records the 1Password outcome. A tunnel label records the `walleterm approve` answer.
 A label needs a scored request. It is best effort. It never delays the answer or changes a result.
+A label can delay the exit of `sign` by at most 2 seconds.
 
 Walleterm sends the token only in the `Authorization: Bearer` header. No output, error, or terminal line holds it.
 The client uses only HTTPS and follows no redirect. It reads no proxy setting.
-A score has one 5-second limit. A label has one 2-second limit. A response body has at most 64 KiB.
-The score can delay `sign` by at most 5 seconds. The label can delay its exit by at most 2 seconds more.
-`sign` does not wait for a stalled DNS lookup when it exits. The tunnel waits at most 2 seconds for one when it stops.
+A score has one 5-second limit. A label has one 2-second limit. A response body has at most 1 MiB, or the error is `too_large`.
+See [the risk gate limits](NETWORKS.md#risk-gate-srcriskrs).
+
+Known limits:
+
+- The tunnel scores one request at a time. Each score can add up to 5 seconds before the next request starts.
+- On macOS, a certificate check can block the tunnel for longer than 5 seconds. Serve the full certificate chain.
 
 ## Errors and output
 

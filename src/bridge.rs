@@ -246,8 +246,8 @@ struct Record {
     delivered: bool,
     result: Option<(&'static str, String)>,
     error: Option<Value>,
-    /// The risk gate result, when the gate is on.
-    risk: Option<crate::risk::Outcome>,
+    /// The scorer request ID and the risk gate result, when the gate is on.
+    risk: Option<(String, crate::risk::Outcome)>,
 }
 
 struct Pairing {
@@ -273,6 +273,10 @@ struct State {
     next_seq: u64,
     /// The record key of the one request that waits for `walleterm approve`, its answer, and its job signal.
     waiting: Option<(String, oneshot::Sender<bool>, Cancel)>,
+    /// The last risk gate error code. The terminal shows each change once.
+    risk_error: Option<String>,
+    /// The answer labels that are still in flight. `close` waits for them.
+    labels: Vec<tokio::task::JoinHandle<()>>,
 }
 
 pub struct Bridge {
@@ -449,6 +453,8 @@ impl Bridge {
                 closing: false,
                 next_seq: 0,
                 waiting: None,
+                risk_error: None,
+                labels: Vec::new(),
             }),
             deps,
             global: Cancel::new(),
@@ -552,7 +558,11 @@ impl Bridge {
         }
         r.logged = Some(r.state);
         let (what, origin) = (about(r), &r.origin);
-        let reason = r.error.as_ref().and_then(|e| e["message"].as_str()).unwrap_or_default();
+        let denial = r.risk.as_ref().and_then(|(_, outcome)| outcome.denial());
+        let reason = match &denial {
+            Some(denial) if r.state == RequestState::Denied => &denial.message,
+            _ => r.error.as_ref().and_then(|e| e["message"].as_str()).unwrap_or_default(),
+        };
         match r.state {
             RequestState::Signed => self.log(&format!("Signed {what} for {origin}.\n")),
             RequestState::Denied | RequestState::Expired => {
@@ -956,8 +966,8 @@ impl Bridge {
             "decoded": decoded.as_ref().ok(),
             "decode_error": decoded.as_ref().err().map(|e| e.message.clone()),
         });
-        if let Some(risk) = &r.risk {
-            value["risk"] = risk.json();
+        if let Some((request_id, risk)) = &r.risk {
+            value["risk"] = risk.json(request_id);
         }
         value
     }
@@ -987,14 +997,15 @@ impl Bridge {
         if approved && artifact::decode(&r.artifact).is_err() {
             return Err(Error::new("not_reviewable", "The request cannot be shown for review. Deny it."));
         }
-        let label =
-            self.deps.risk.clone().zip(r.risk.as_ref().and_then(|o| o.request_id()).map(str::to_owned));
+        let scored = r.risk.as_ref().filter(|(_, outcome)| outcome.scored()).map(|(id, _)| id.clone());
+        let label = self.deps.risk.clone().zip(scored);
         let (_, sender, _) = state.waiting.take().expect("a waiting request has a sender");
         // A waiter that already stopped drops its receiver. Then nothing was approved.
         sender.send(approved).map_err(|_| not_found())?;
         // A best-effort label for the scorer. It never delays or changes the answer.
         if let (Some((gate, id)), Ok(runtime)) = (label, tokio::runtime::Handle::try_current()) {
-            runtime.spawn(async move { gate.answer(&id, approved).await });
+            state.labels.retain(|label| !label.is_finished());
+            state.labels.push(runtime.spawn(async move { gate.answer(&id, approved).await }));
         }
         Ok(())
     }
@@ -1024,19 +1035,24 @@ impl Bridge {
             )
         };
         let outcome = signal.run(async { Ok(gate.score(&request).await) }).await?;
-        let denial = outcome.denial();
+        let denied = outcome.denial().is_some();
         let mut state = self.state.lock().unwrap();
-        if let Some(r) = state.records.get_mut(key) {
-            // The terminal gets the vetoes and the score ID. The website gets only the generic message.
-            if let Some(denial) = &denial {
-                self.log(&format!("Risk gate: {} for {}. {}\n", about(r), r.origin, denial.message));
+        // A scorer failure is otherwise silent on a test network. Show each change of the error code once.
+        let error = match &outcome {
+            crate::risk::Outcome::Error(code) => Some(code.clone()),
+            _ => None,
+        };
+        if error != state.risk_error {
+            if let Some(code) = &error {
+                self.log(&format!("Risk gate: no score ({code}). Requests continue without a score.\n"));
             }
-            r.risk = Some(outcome);
+            state.risk_error = error;
         }
-        match denial {
-            Some(_) => Err(Error::new("risk_denied", crate::risk::DENIED)),
-            None => Ok(()),
+        if let Some(r) = state.records.get_mut(key) {
+            r.risk = Some((request.request_id, outcome));
         }
+        // The website gets only the generic message. The terminal line adds the vetoes and the score ID.
+        if denied { Err(Error::new("risk_denied", crate::risk::DENIED)) } else { Ok(()) }
     }
 
     async fn sign_steps(&self, key: &str, session_id: &str, signal: &Cancel) -> Result<()> {
@@ -1682,7 +1698,7 @@ impl Bridge {
     }
 
     /// Stop admitting requests, abort active work, and wait for queued jobs to end.
-    /// Stop the bridge. It returns after the signing worker and any website lookup finish their cleanup.
+    /// Stop the bridge. It returns after the signing worker, any website lookup, and any answer label finish.
     pub async fn close(&self) {
         self.state.lock().unwrap().closing = true;
         self.global.cancel(Error::new("bridge_unavailable", STOPPED));
@@ -1691,9 +1707,14 @@ impl Bridge {
             tokio::pin!(idle);
             idle.as_mut().enable();
             if self.pending_jobs.load(Ordering::SeqCst) == 0 && self.listing.lock().await.is_none() {
-                return;
+                break;
             }
             idle.await;
+        }
+        // Each label has its own 2-second limit.
+        let labels = std::mem::take(&mut self.state.lock().unwrap().labels);
+        for label in labels {
+            let _ = label.await;
         }
     }
 
