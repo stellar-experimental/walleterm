@@ -23,6 +23,7 @@ import {
 import { requireAddressCredentials } from './contracts.ts';
 import { UnknownSubmission } from './submission.ts';
 import {
+  authFailureEvent,
   diagnosticEvent,
   simulationError,
   simulationRestore,
@@ -274,9 +275,17 @@ test('error oracle checks exact contract code and duplicate diagnostic', () => {
         ),
       ],
     });
-  assertRejection(sdk, simulation('Error(Auth, InvalidAction)'), { code: 'Error(Contract, #7101)' });
-  assert.throws(() =>
-    assertRejection(sdk, simulation('Error(Auth, InvalidAction)'), { code: 'Error(Contract, #7102)' }),
+  // stellar-rpc 30.0.1 returns only the top-level error. The cause comes from the host auth failure event.
+  const wrapped = (code: number) =>
+    simulationError('HostError: Error(Auth, InvalidAction)', {
+      events: [authFailureEvent(keys.a.publicKey, sdk.xdr.ScError.sceContract(code))],
+    });
+  assertRejection(sdk, wrapped(7101), { code: 'Error(Contract, #7101)' });
+  assert.throws(() => assertRejection(sdk, wrapped(7101), { code: 'Error(Contract, #7102)' }));
+  // A contract error in another event is no proof of the authentication cause.
+  assert.throws(
+    () => assertRejection(sdk, simulation('Error(Auth, InvalidAction)'), { code: 'Error(Contract, #7101)' }),
+    /account authentication cause/,
   );
   assert.throws(() =>
     assertRejection(sdk, simulation('Error(Auth, InvalidInput)', 'signature has expired'), {

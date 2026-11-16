@@ -22,7 +22,7 @@ import {
   inspectAuthEntry,
 } from '../sdk/authorization.ts';
 import { ozAuthPayload, ozSigner } from './contracts.ts';
-import { simulationError, simulationSuccess } from './simulations.ts';
+import { authFailureEvent, simulationError, simulationSuccess } from './simulations.ts';
 import {
   assembleIncrement,
   authorizeIncrement,
@@ -110,7 +110,9 @@ function fixture(options: Options = {}) {
     const rules = field(credentials.signature, 'context_rule_ids');
     if (rules.type !== 'scvVec' || rules.vec?.length !== 1) return simulationError('Error(Contract, #3014)');
     if (rules.vec[0].type !== 'scvU32' || rules.vec[0].u32 !== 0)
-      return simulationError('HostError: Error(Auth, InvalidAction) Error(Contract, #3000)');
+      return simulationError('HostError: Error(Auth, InvalidAction)', {
+        events: [authFailureEvent(d.account, xdr.ScError.sceContract(3000))],
+      });
     const signers = field(credentials.signature, 'signers');
     if (signers.type !== 'scvMap' || signers.map?.length !== 1)
       return simulationError('Error(Contract, #3016)');
@@ -125,7 +127,9 @@ function fixture(options: Options = {}) {
     );
     const digest = sha256(Buffer.concat([hash(preimage.toXDR()), RULE_0_XDR]));
     if (signature.type !== 'scvBytes' || !key.verify(digest, signature.bytes.toBytes()))
-      return simulationError('HostError: Error(Auth, InvalidAction) Error(Crypto, InvalidInput)');
+      return simulationError('HostError: Error(Auth, InvalidAction)', {
+        events: [authFailureEvent(d.account, xdr.ScError.sceCrypto(xdr.ScErrorCode.scecInvalidInput))],
+      });
     return success(xdr.ScVal.scvU32(count + 1));
   }
   const server: OzRpc = {
@@ -630,6 +634,11 @@ test('negative controls change one element, request no signature, and require th
   const other = fixture({ enforce: () => simulationError('HostError: Error(Budget, ExceededLimit)') });
   for (const control of controls)
     await assert.rejects(rejectControl(other.server, other.d, control), /did not reject/);
+  // A code outside the host auth failure event is no proof of the cause.
+  const loose = fixture({
+    enforce: () => simulationError('HostError: Error(Auth, InvalidAction)\nError(Contract, #3000)'),
+  });
+  await assert.rejects(rejectControl(loose.server, loose.d, controls[1]), /did not reject/);
 });
 
 test('controls measure zero signature requests and submissions at the boundaries', async () => {

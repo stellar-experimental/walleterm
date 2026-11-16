@@ -1,5 +1,5 @@
 // Typed RPC simulation responses for offline tests. No network client is created here.
-import { SorobanDataBuilder, xdr, type rpc } from '@stellar/stellar-sdk';
+import { Address, SorobanDataBuilder, xdr, type rpc } from '@stellar/stellar-sdk';
 
 type Success = rpc.Api.SimulateTransactionSuccessResponse;
 type Failure = rpc.Api.SimulateTransactionErrorResponse;
@@ -50,4 +50,18 @@ export function withoutField<T extends object>(value: T, field: keyof T): T {
   const copy = { ...value };
   Reflect.deleteProperty(copy, field);
   return copy;
+}
+/** The host event for a failed account authentication: the cause under Error(Auth, InvalidAction) (soroban-env-host auth.rs). */
+export function authFailureEvent(address: string, cause: xdr.ScError) {
+  return diagnosticEvent(
+    [
+      xdr.ScVal.scvSymbol('error'),
+      xdr.ScVal.scvError(xdr.ScError.sceAuth(xdr.ScErrorCode.scecInvalidAction)),
+    ],
+    xdr.ScVal.scvVec([
+      xdr.ScVal.scvString('failed account authentication with error'),
+      new Address(address).toScVal(),
+      xdr.ScVal.scvError(cause),
+    ]),
+  );
 }

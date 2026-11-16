@@ -161,6 +161,17 @@ Start the Kit page with `bun fixtures/kit/live/serve.mts` after the Kit fixture 
 - Record actual negative-test errors. Do not count transport failures as authorization rejection.
 - Mark contract-specific and host-protocol restrictions explicitly.
 
+### Expected simulation errors
+
+Since stellar-rpc 30.0.1, the simulation `error` field holds only the top-level host error.
+The diagnostic events stay in the `events` field.
+The host wraps each failed account authentication in `Error(Auth, InvalidAction)`.
+It records the cause in a `failed account authentication with error` event, with the account address.
+A negative row passes only when its expected error is the top-level error or that recorded cause.
+A matching code in another event does not count.
+The evidence records `top_level_error`, `matched_as`, and `failed_accounts`.
+Diagnostic text checks, such as `signature weight is lower than threshold`, still apply.
+
 The runners write local records under `evidence/live/`, which Git ignores.
 See [the evidence index](../evidence/README.md) for the tracked records.
 

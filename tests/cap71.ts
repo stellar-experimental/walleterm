@@ -5,7 +5,13 @@ import { readFileSync, writeFileSync, renameSync, openSync, fsyncSync, closeSync
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { accountSignature, hostOperation, requireAddressCredentials } from './contracts.ts';
+import {
+  accountSignature,
+  errorText,
+  hostOperation,
+  matchRejection,
+  requireAddressCredentials,
+} from './contracts.ts';
 import { UnknownSubmission, errorHash } from './submission.ts';
 import type { Account, Transaction, rpc, xdr } from '@stellar/stellar-sdk';
 import type { Details, KeyName, LiveContext, Sdk, TestKey } from './types.ts';
@@ -258,36 +264,6 @@ export async function signTree(
   };
 }
 
-export function errorText(sdk: Sdk, simulation: rpc.Api.SimulateTransactionErrorResponse) {
-  let text = String(simulation.error ?? '');
-  const errors = (value: xdr.ScVal | undefined) => {
-    if (value?.type === 'scvError') {
-      const error = value.value;
-      text +=
-        error.type === 'sceContract'
-          ? `\nError(Contract, #${error.value})`
-          : `\nError(${error.type.slice(3)}, ${error.value.name.slice(4)})`;
-    }
-    if (value?.type === 'scvVec') (value.vec ?? []).forEach(errors);
-    if (value?.type === 'scvMap')
-      (value.map ?? []).forEach((pair) => {
-        errors(pair.key);
-        errors(pair.val);
-      });
-  };
-  for (const raw of simulation.events ?? []) {
-    const event = typeof raw === 'string' ? sdk.xdr.DiagnosticEvent.fromXdr(raw, 'base64') : raw;
-    // Include topics: contract error codes can occur there, not in the data.
-    const body = event.event.body.v0;
-    body.topics.forEach(errors);
-    errors(body.data);
-    text +=
-      '\n' +
-      stringify({ topics: body.topics.map((x) => sdk.scValToNative(x)), data: sdk.scValToNative(body.data) });
-  }
-  return text;
-}
-
 export function assertRejection(
   sdk: Sdk,
   simulation: rpc.Api.SimulateTransactionResponse,
@@ -295,14 +271,9 @@ export function assertRejection(
 ) {
   assert(sdk.rpc.Api.isSimulationError(simulation), 'Expected enforce simulation rejection');
   const text = errorText(sdk, simulation);
-  assert(text.includes(expected.code), `Expected ${expected.code}, got ${text}`);
+  matchRejection(sdk, simulation, [expected.code], 'Enforce simulation');
   if (expected.reason)
     assert(text.includes(expected.reason), `Expected diagnostic ${expected.reason}, got ${text}`);
-  const top = String(simulation.error).match(/^(?:HostError: )?(Error\([^)]*\))/)?.[1];
-  assert(
-    top !== undefined && [expected.code, 'Error(Auth, InvalidAction)'].includes(top),
-    `Unexpected top-level error ${top}`,
-  );
   return text;
 }
 
