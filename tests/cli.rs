@@ -949,8 +949,8 @@ mod build {
     }
 
     /// A protocol 30 (CAP-0084) muxed contract address. Its StrKey starts with `W`.
-    pub fn muxed_contract(n: u8, id: u64) -> ScAddress {
-        ScAddress::MuxedContract(MuxedContract { id, contract_id: ContractId(Hash([n; 32])) })
+    pub fn muxed_contract(contract: [u8; 32], id: u64) -> ScAddress {
+        ScAddress::MuxedContract(MuxedContract { id, contract_id: ContractId(Hash(contract)) })
     }
 
     /// A token `transfer` to `to`. CAP-0084 permits a muxed contract address only as this destination.
@@ -963,12 +963,16 @@ mod build {
         }
     }
 
-    /// A V1 envelope with one contract call and no authorization entries.
-    pub fn invoke(source: [u8; 32], call: InvokeContractArgs) -> TransactionEnvelope {
+    /// A V1 envelope with one contract call and the entries in `auth`.
+    pub fn invoke(source: [u8; 32], call: InvokeContractArgs, auth: &[String]) -> TransactionEnvelope {
         let TransactionEnvelope::Tx(mut v1) = transaction(source, None) else { unreachable!() };
+        let auth: Vec<SorobanAuthorizationEntry> = auth
+            .iter()
+            .map(|e| SorobanAuthorizationEntry::from_xdr_base64(e, Limits::none()).unwrap())
+            .collect();
         let body = OperationBody::InvokeHostFunction(InvokeHostFunctionOp {
             host_function: HostFunction::InvokeContract(call),
-            auth: VecM::default(),
+            auth: auth.try_into().unwrap(),
         });
         v1.tx.operations = vec![Operation { source_account: None, body }].try_into().unwrap();
         TransactionEnvelope::Tx(v1)
@@ -1598,18 +1602,40 @@ fn a_malformed_deny_still_stops_sign() {
 fn muxed_contract_addresses_sign_as_arguments_but_never_as_the_signer() {
     use walleterm::artifact::{Artifact, decode};
     let (me, key) = (mock_public(), mock_address());
-    let w = build::muxed_contract(4, 77);
-    let w_text = w.to_string();
-    let expected = stellar_strkey::MuxedContract { contract_id: [4; 32], id: 77 };
-    assert_eq!(w_text, expected.to_string().as_str());
-    assert!(w_text.starts_with('W') && w_text.len() == 69, "{w_text}");
+    // `tests/support/muxed-contract.json` holds a SEP-23 test vector and the bytes that `tests/sdk-protocol30.test.ts` checks.
+    // The W text comes from the specification, not from the encoder under test.
+    let path = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/support/muxed-contract.json");
+    let pinned: Value = serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+    let contract_hash = [
+        0x3f, 0x0c, 0x34, 0xbf, 0x93, 0xad, 0x0d, 0x99, 0x71, 0xd0, 0x4c, 0xcc, 0x90, 0xf7, 0x05, 0x51, 0x1c,
+        0x83, 0x8a, 0xad, 0x97, 0x34, 0xa4, 0xa2, 0xfb, 0x0d, 0x7a, 0x03, 0xfc, 0x7f, 0xe8, 0x9a,
+    ];
+    let w = build::muxed_contract(contract_hash, 9_223_372_036_854_775_808);
+    let w_text = pinned["muxed_contract"].as_str().unwrap();
+    assert_eq!(w.to_string(), w_text);
+    assert_eq!(w_text.parse::<stellar_xdr::ScAddress>().unwrap(), w);
+    let c = stellar_xdr::ScAddress::Contract(stellar_xdr::ContractId(stellar_xdr::Hash(contract_hash)));
+    assert_eq!(c.to_string(), pinned["contract"].as_str().unwrap());
+    assert_eq!(pinned["public_key"], key);
     let call = build::transfer(build::address(me), w.clone());
     let shows_w = |artifact: Artifact| {
         let decoded = decode(&artifact).unwrap().to_string();
         assert!(decoded.contains(&format!("\"{w_text}\"")), "{decoded}");
     };
-    for network in [TESTNET, PUBNET] {
-        let envelope = build::invoke(me, call.clone());
+    // A `W` argument, a `W` invoked contract, and a `W` credential address of another party's entry.
+    let mut at_w = call.clone();
+    at_w.contract_address = w.clone();
+    let party = build::calling(&build::entry(w.clone(), 100, true), call.clone());
+    let envelopes = [
+        (TESTNET, build::invoke(me, call.clone(), &[])),
+        (PUBNET, build::invoke(me, call.clone(), &[])),
+        (TESTNET, build::invoke(me, at_w, &[])),
+        (TESTNET, build::invoke(me, call.clone(), &[party])),
+    ];
+    assert_eq!(build::text(&envelopes[0].1), pinned["transaction_xdr"]);
+    assert_eq!(hex(&build::hash(&envelopes[0].1, TESTNET)), pinned["testnet_digest"]);
+    assert_eq!(hex(&build::hash(&envelopes[1].1, PUBNET)), pinned["mainnet_digest"]);
+    for (network, envelope) in envelopes {
         let xdr = build::text(&envelope);
         let (out, notice, _) =
             signed(&json!({"public_key": key, "network_passphrase": network, "transaction_xdr": xdr}));
@@ -1622,6 +1648,8 @@ fn muxed_contract_addresses_sign_as_arguments_but_never_as_the_signer() {
     let preimage = build::calling(&build::preimage(build::address(me), 100, TESTNET), call.clone());
     let (out, notice, _) =
         signed(&json!({"public_key": key, "network_passphrase": TESTNET, "preimage_xdr": preimage}));
+    assert_eq!(preimage, pinned["preimage_xdr"]);
+    assert_eq!(out["digest"], pinned["preimage_digest"]);
     assert_eq!(out["digest"], hex(&walleterm::util::sha256(&base64_decode(&preimage))));
     assert!(notice.contains(&format!(" for {} on testnet", build::address(me))), "{notice}");
     shows_w(Artifact::Preimage(preimage));

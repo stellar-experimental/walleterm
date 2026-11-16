@@ -262,9 +262,23 @@ These facts were checked on 2026-09-29 with Stellar Raven, the `stellar-raven-je
 
 ### Recent protocol upgrades
 
-The [Stellar software versions](https://developers.stellar.org/docs/networks/software-versions) page lists each protocol, its dates, and its CAPs.
+The [Stellar software versions](https://developers.stellar.org/docs/networks/software-versions) page is the current source for protocol dates and CAPs.
+On 2026-11-16 it listed protocol 29 and not protocol 30. The protocol 30 rows are in `stellar-docs` pull request #3138.
 
 - CAP-87 adds ML-DSA verification host functions in protocol 30. It verifies full messages, not digests.
+
+#### Snapshot 2026-09-24
+
+This table copies the page dated 2026-09-24. It does not change.
+
+| Protocol | Testnet | Mainnet | CAPs |
+| --- | --- | --- | --- |
+| 28 "Adapter" | 2026-08-27 | 2026-09-16 | CAP-83 (validators can vote to drop the transaction set), CAP-85 (externally managed contract executables), CAP-86 (sparse map host functions) |
+| 27 "Zipper" | 2026-06-18 | 2026-07-08 | CAP-71, with CAP-71-01 (authentication delegation) and CAP-71-02 (address-bound credentials) |
+| 26 "Yardstick" | 2026-04-16 | 2026-05-06 | CAP-73 (SAC creates G-account balances), CAP-77 (freeze ledger entries), CAP-78 (limited TTL extensions), CAP-79 (muxed strkey conversions), CAP-80 (ZK BN254), CAP-82 (checked 256-bit arithmetic) |
+| 25 "X-Ray" | 2026-01-07 | 2026-01-22 | CAP-74 (BN254), CAP-75 (Poseidon and Poseidon2) |
+| 24 | 2025-10-21 | 2025-10-22 | None. A stability upgrade after Whisk. |
+| 23 "Whisk" | 2025-08-14 | 2025-09-03 | CAP-62 and CAP-66 (state archival), CAP-67 (unified events) |
 
 ### Legacy credentials after protocol 28
 
@@ -332,7 +346,7 @@ The values were current on 2026-11-16.
 | [trezor-firmware Stellar messages](https://github.com/trezor/trezor-firmware/blob/main/common/protob/messages-stellar.proto) | Core 2.12.4 and 2.12.5 |
 | [stellar/stellar-cli](https://github.com/stellar/stellar-cli) | v30.0.1 |
 | [kalepail/walleterm](https://github.com/kalepail/walleterm) | `9290543` |
-| [Stellar software versions](https://developers.stellar.org/docs/networks/software-versions) | Page dated 2026-09-24 |
+| [Stellar software versions](https://developers.stellar.org/docs/networks/software-versions) | Snapshot of the page dated 2026-09-24. Read again 2026-11-16: it listed protocol 29, not 30. |
 | [CAP index](https://github.com/stellar/stellar-protocol/blob/master/core/README.md), [CAP-71](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0071.md), [CAP-71-02](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0071-02.md), [CAP-72](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0072.md) | Read 2026-09-29. CAP-72 last changed in `7699c72c`. |
 | [Zipper, Protocol 27 upgrade guide](https://stellar.org/blog/foundation-news/stellar-zipper-protocol-27-upgrade-guide) | Read 2026-09-29 |
 | [Adapter, Protocol 28 upgrade guide](https://stellar.org/blog/developers/adapter-protocol-28-upgrade-guide) | Read 2026-09-29 |

@@ -298,7 +298,7 @@ GPT-6 Astra, GPT-6.1 Sol, Fable 5.1, and Grok 4.7 reviewed this design and its c
 - RPC `getNetwork` on 2026-11-16: mainnet reported protocol 29, and testnet and futurenet reported protocol 30.
   CAP-71 AddressV2 needs protocol 27, so mainnet accepts the Walleterm authorization formats.
 - `stellar-xdr` 30.0.0 reads protocol 30 XDR for every network, with no protocol switch. Older artifacts keep their bytes and meaning.
-  A protocol 29 network refuses a muxed contract (`W`) address. The signed artifact can still run after that network upgrades, while its sequence number, time bounds, or expiration ledger permit it.
+  A protocol 29 network refuses a muxed contract (`W`) address. The signed artifact can still run after the upgrade, while its sequence number, time bounds, or expiration ledger permit.
 - `stellar-xdr` 28.0.1 with the `serde` feature: 43 more resolved macOS packages and 171424 more release binary bytes, measured on 2026-09-30.
   `stellar-xdr` 30.0.0 with `stellar-strkey` 1.0.0: 3216 more Linux release binary bytes, measured on 2026-11-16.
 - Stellar Wallets Kit 2.7.0 in `fixtures/kit/`: `esm/types/mod.js` (`Networks`).
