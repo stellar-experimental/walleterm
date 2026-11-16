@@ -48,6 +48,7 @@ CI runs all of these checks. The tests run offline with mock keys.
 - `make test` runs rustfmt, Clippy, the Cargo tests, the TypeScript check, and the Bun tests. The Bun tests need the CAP-71 fixture build above.
 - The Cargo tests compare the Rust signer with frozen vectors and transcripts in `fixtures/parity/`.
 - Browser tests run the real SDK against the Rust bridge in `walleterm-test-host`. That binary needs the `test-host` feature and never ships.
+- The risk gate tests need the `test-host` feature for their loopback scorer. `make test` enables it. A bare `cargo test` skips them.
 - `make test-package` builds the release package twice and requires identical files. It then runs the binary with only the system `PATH`.
 - `make test-kit` type-checks the Kit module and checks Stellar Wallets Kit 2.7.0 against the Rust bridge. It also checks the Kit acceptance page offline.
 - `make test-fixtures` runs the Rust tests of the four contract fixture workspaces. CI runs it in a parallel Ubuntu job.

@@ -16,11 +16,12 @@ use hyper_tls::HttpsConnector;
 use hyper_util::client::legacy::Client;
 use hyper_util::client::legacy::connect::HttpConnector;
 use hyper_util::rt::{TokioExecutor, TokioTimer};
-use serde::de::{Deserialize, Deserializer, IgnoredAny, MapAccess, SeqAccess, Visitor};
+use serde::de::{Deserialize, Deserializer, IgnoredAny, MapAccess, Visitor};
 use serde_json::{Map, Value, json};
 
 use crate::artifact::Artifact;
 use crate::error::{Error, Result};
+use crate::json::Strict;
 
 pub const URL_VARIABLE: &str = "WALLETERM_RISK_URL";
 pub const TOKEN_VARIABLE: &str = "WALLETERM_RISK_TOKEN";
@@ -102,6 +103,8 @@ impl Gate {
         authorization.set_sensitive(true);
         let mut http = HttpConnector::new();
         http.enforce_http(false);
+        // A connection that finishes in the background after the outer limit still stops here.
+        http.set_connect_timeout(Some(SCORE_TIMEOUT));
         let tls = native_tls::TlsConnector::new()
             .map_err(|_| Error::new("internal", "TLS is unavailable for the risk scorer."))?;
         let mut https = HttpsConnector::from((http, tls.into()));
@@ -276,74 +279,21 @@ pub const DENIED: &str = "The risk scorer denied this request.";
 /// The reason that marks a denial with malformed fields.
 const MALFORMED: &str = "RISK_RESPONSE_MALFORMED";
 
+/// A source that reads as walleterm's own, in any letter case. Only walleterm uses it.
+fn own(source: &str) -> bool {
+    source.as_bytes().get(..OWN_SOURCE.len()).is_some_and(|p| p.eq_ignore_ascii_case(OWN_SOURCE.as_bytes()))
+}
+
 /// A response string that is safe to print without escapes.
 fn safe(text: &str) -> bool {
     (1..=MAX_TEXT).contains(&text.len())
         && text.bytes().all(|b| b.is_ascii_alphanumeric() || matches!(b, b'_' | b'-' | b'.' | b':'))
 }
 
-/// A JSON value, or `None` when an object inside it repeats a key.
-struct Strict(Option<Value>);
-
-impl<'de> Deserialize<'de> for Strict {
-    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Self, D::Error> {
-        deserializer.deserialize_any(Strict(None))
-    }
-}
-
-impl<'de> Visitor<'de> for Strict {
-    type Value = Strict;
-
-    fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.write_str("JSON")
-    }
-    fn visit_bool<E>(self, b: bool) -> std::result::Result<Self, E> {
-        Ok(Strict(Some(Value::Bool(b))))
-    }
-    fn visit_i64<E>(self, n: i64) -> std::result::Result<Self, E> {
-        Ok(Strict(Some(n.into())))
-    }
-    fn visit_u64<E>(self, n: u64) -> std::result::Result<Self, E> {
-        Ok(Strict(Some(n.into())))
-    }
-    fn visit_f64<E>(self, n: f64) -> std::result::Result<Self, E> {
-        Ok(Strict(Some(n.into())))
-    }
-    fn visit_str<E>(self, s: &str) -> std::result::Result<Self, E> {
-        Ok(Strict(Some(s.into())))
-    }
-    fn visit_unit<E>(self) -> std::result::Result<Self, E> {
-        Ok(Strict(Some(Value::Null)))
-    }
-    fn visit_seq<A: SeqAccess<'de>>(self, mut seq: A) -> std::result::Result<Self, A::Error> {
-        let (mut items, mut clean) = (Vec::new(), true);
-        while let Some(Strict(item)) = seq.next_element()? {
-            match item {
-                Some(item) => items.push(item),
-                None => clean = false,
-            }
-        }
-        Ok(Strict(clean.then_some(Value::Array(items))))
-    }
-    fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> std::result::Result<Self, A::Error> {
-        let (mut object, mut clean) = (Map::new(), true);
-        while let Some(key) = map.next_key::<String>()? {
-            let Strict(value) = map.next_value()?;
-            match value {
-                Some(value) if !object.contains_key(&key) => {
-                    object.insert(key, value);
-                }
-                _ => clean = false,
-            }
-        }
-        Ok(Strict(clean.then_some(Value::Object(object))))
-    }
-}
-
 /// The top-level fields that walleterm reads, in order. A repeated key keeps each value.
 /// The parse skips every other field unread, so its size, depth, and repeated keys change nothing.
 #[derive(Default)]
-struct Response(Vec<(&'static str, Option<Value>)>);
+struct Response(Vec<(&'static str, Strict)>);
 
 const READ: [&str; 5] = ["decision", "request_id", "score_id", "vetoes", "reasons"];
 
@@ -362,7 +312,7 @@ impl<'de> Visitor<'de> for Response {
     fn visit_map<A: MapAccess<'de>>(mut self, mut map: A) -> std::result::Result<Self, A::Error> {
         while let Some(key) = map.next_key::<String>()? {
             match READ.iter().find(|name| **name == key) {
-                Some(name) => self.0.push((*name, map.next_value::<Strict>()?.0)),
+                Some(name) => self.0.push((*name, map.next_value::<Strict>()?)),
                 None => {
                     map.next_value::<IgnoredAny>()?;
                 }
@@ -373,33 +323,35 @@ impl<'de> Visitor<'de> for Response {
 }
 
 impl Response {
-    fn all(&self, name: &str) -> Vec<Option<&Value>> {
-        self.0.iter().filter(|(n, _)| *n == name).map(|(_, v)| v.as_ref()).collect()
+    fn all(&self, name: &str) -> Vec<&Strict> {
+        self.0.iter().filter(|(n, _)| *n == name).map(|(_, v)| v).collect()
     }
 
     /// A safe string field that appears once.
     fn text(&self, name: &str) -> Option<String> {
         match self.all(name)[..] {
-            [Some(Value::String(text))] if safe(text) => Some(text.clone()),
+            [Strict { value: Some(Value::String(text)), clean: true }] if safe(text) => Some(text.clone()),
             _ => None,
         }
     }
 
-    /// The valid codes of a list, at most 64, and whether the list was one clean array.
-    /// A scorer code with the source `walleterm` is not valid.
+    /// The valid codes of a list, at most 64, and whether the list was one clean array of valid codes.
+    /// A code that repeats a key is not valid. A scorer source that starts with `walleterm` is not valid.
     fn codes(&self, name: &str) -> (Vec<Code>, bool) {
         let values = self.all(name);
-        let items: Vec<&Value> = values.iter().flatten().filter_map(|v| v.as_array()).flatten().collect();
+        let items: Vec<&Value> =
+            values.iter().filter_map(|v| v.value.as_ref()?.as_array()).flatten().collect();
         let valid: Vec<Code> = items
             .iter()
             .filter_map(|item| {
                 let field =
                     |n: &str| item.get(n).and_then(Value::as_str).filter(|t| safe(t)).map(str::to_owned);
-                Some(Code { code: field("code")?, source: field("source").filter(|s| s != OWN_SOURCE)? })
+                Some(Code { code: field("code")?, source: field("source").filter(|s| !own(s))? })
             })
             .take(MAX_CODES)
             .collect();
-        let clean = matches!(values[..], [Some(Value::Array(_))]) && valid.len() == items.len();
+        let clean = matches!(values[..], [Strict { value: Some(Value::Array(_)), clean: true }])
+            && valid.len() == items.len();
         (valid, clean)
     }
 }
@@ -412,11 +364,12 @@ fn parse(bytes: &[u8], sent: &str) -> Outcome {
     let bad = || Outcome::Error("bad_response".into());
     let bytes = bytes.strip_prefix(b"\xEF\xBB\xBF").unwrap_or(bytes);
     let Ok(response) = serde_json::from_slice::<Response>(bytes) else { return bad() };
-    let decisions = response.all("decision");
-    let deny = decisions.contains(&Some(&Value::String("deny".into())));
+    let decisions: Vec<Option<&str>> =
+        response.all("decision").iter().map(|d| d.value.as_ref().and_then(Value::as_str)).collect();
+    let deny = decisions.contains(&Some("deny"));
     if !deny {
         match decisions[..] {
-            [Some(Value::String(d))] if d == "escalate" => {}
+            [Some("escalate")] => {}
             [] | [_] => return Outcome::Error("unexpected_decision".into()),
             _ => return bad(),
         }
@@ -559,6 +512,12 @@ mod tests {
         let mut escalate = response("escalate", "r1");
         escalate["reasons"] = json!([{ "code": "LOCAL_CHECKS_PASSED", "source": "walleterm" }]);
         assert_eq!(parsed(&escalate), Outcome::Error("bad_response".into()));
+        for source in ["Walleterm", "WALLETERM", "walleterm-local", "walleterm:x"] {
+            escalate["reasons"] = json!([{ "code": "LOCAL_CHECKS_PASSED", "source": source }]);
+            assert_eq!(parsed(&escalate), Outcome::Error("bad_response".into()), "{source}");
+        }
+        escalate["reasons"] = json!([{ "code": "C", "source": "wallet" }]);
+        assert!(matches!(parsed(&escalate), Outcome::Escalate(_)));
         let mut deny = response("deny", "r1");
         deny["reasons"] =
             json!([{ "code": MALFORMED, "source": "walleterm" }, { "code": "OK", "source": "T0" }]);
@@ -596,9 +555,15 @@ mod tests {
         }));
         // A repeated key inside a list that walleterm reads makes it malformed.
         let text = response("deny", "r1").to_string();
-        let inner = text.replacen(r#""source":"service"}]"#, r#""source":"service","code":"X"}]"#, 1);
+        // A repeated key inside one code drops only that code.
+        let inner = text.replacen(
+            r#""vetoes":[{"code":"PREIMAGE_NETWORK_MISMATCH","source":"service"}]"#,
+            r#""vetoes":[{"code":"KEPT","source":"T0"},{"code":"X","code":"Y","source":"T0"}]"#,
+            1,
+        );
         assert_ne!(inner, text);
-        flagged(&parse(inner.as_bytes(), "r1"));
+        let v = flagged(&parse(inner.as_bytes(), "r1"));
+        assert_eq!(v.vetoes, [Code { code: "KEPT".into(), source: "T0".into() }]);
     }
 
     #[test]

@@ -58,7 +58,6 @@ test:
 	cargo fmt --all --check
 	cargo clippy --workspace --all-targets --locked --features walleterm/test-host -- -D warnings
 	cargo test --workspace --locked --features walleterm/test-host
-	cargo clippy --locked --features test-host --bin walleterm-test-host -- -D warnings
 	cargo build --locked --features test-host --bin walleterm-test-host
 	bun run typecheck
 	bun run test:built

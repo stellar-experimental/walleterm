@@ -15,6 +15,7 @@ use serde_json::Value;
 use walleterm::cli::{DEADLINE, Io, run};
 use walleterm::util::{hex, lower_hex};
 
+#[cfg(feature = "test-host")]
 #[path = "support/scorer.rs"]
 mod scorer;
 
@@ -1456,131 +1457,97 @@ fn strict_refusals_never_reach_the_agent() {
     refused(&vec![b' '; 393_217], "The input must be at most 393216 bytes.");
 }
 
-/// A signing agent: list the mock key, then sign the requested digest.
-fn signing_agent(scratch: &Scratch) -> JoinHandle<Vec<Vec<u8>>> {
-    mock_agent(&scratch.socket(), vec![Reply::Frame(identities_body()), Reply::SignDigest])
-}
+/// The risk gate tests need the mock scorer, which needs the `test-host` feature. `make test` enables it.
+#[cfg(feature = "test-host")]
+mod risk_gate {
+    use super::*;
 
-fn no_token(got: &Outcome) {
-    assert!(!got.stdout.contains(scorer::TOKEN) && !got.stderr.contains(scorer::TOKEN), "{}", got.stdout);
-}
+    /// A signing agent: list the mock key, then sign the requested digest.
+    fn signing_agent(scratch: &Scratch) -> JoinHandle<Vec<Vec<u8>>> {
+        mock_agent(&scratch.socket(), vec![Reply::Frame(identities_body()), Reply::SignDigest])
+    }
 
-#[test]
-fn without_a_gate_sign_makes_no_scorer_call_and_has_no_risk_field() {
-    let scorer = scorer::Scorer::start(scorer::Mode::Decision("deny"));
-    let scratch = Scratch::new();
-    let got =
-        invoke(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(signing_agent(&scratch)));
-    assert_eq!(got.exit, 0, "{}", got.stdout);
-    let output: Value = serde_json::from_str(&got.stdout).unwrap();
-    assert!(output.get("risk").is_none());
-    assert!(scorer.hits().is_empty());
-}
+    fn no_token(got: &Outcome) {
+        assert!(!got.stdout.contains(scorer::TOKEN) && !got.stderr.contains(scorer::TOKEN), "{}", got.stdout);
+    }
 
-#[test]
-fn a_gate_configuration_error_exits_2_before_input_and_the_agent() {
-    let scratch = Scratch::new();
-    let agent = mock_agent(&scratch.socket(), vec![]);
-    let risk = || walleterm::risk::configure(Some("https://scorer.example".into()), None);
-    let got =
-        invoke_with_risk(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(agent), &risk);
-    assert_eq!(got.exit, 2);
-    let output: Value = serde_json::from_str(&got.stdout).unwrap();
-    assert_eq!(output["error"]["code"], "invalid_config");
-    assert!(got.requests.is_empty(), "no agent connection");
-}
+    #[test]
+    fn without_a_gate_sign_makes_no_scorer_call_and_has_no_risk_field() {
+        let scorer = scorer::Scorer::start(scorer::Mode::Decision("deny"));
+        let scratch = Scratch::new();
+        let got = invoke(
+            &["sign"],
+            sign_input().as_bytes(),
+            Some(&scratch.socket()),
+            Some(signing_agent(&scratch)),
+        );
+        assert_eq!(got.exit, 0, "{}", got.stdout);
+        let output: Value = serde_json::from_str(&got.stdout).unwrap();
+        assert!(output.get("risk").is_none());
+        assert!(scorer.hits().is_empty());
+    }
 
-#[test]
-fn a_deny_returns_risk_denied_without_an_agent_request() {
-    let scorer = scorer::Scorer::start(scorer::Mode::Decision("deny"));
-    let scratch = Scratch::new();
-    let agent = mock_agent(&scratch.socket(), vec![]);
-    let risk = || Ok(Some(scorer.gate()));
-    let got =
-        invoke_with_risk(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(agent), &risk);
-    assert_eq!(got.exit, 1, "{}", got.stdout);
-    assert!(got.requests.is_empty(), "no agent request");
-    // The scorer notice names the host before the artifact leaves. No signing notice follows.
-    assert_eq!(got.stderr, SCORER_NOTICE);
-    let output: Value = serde_json::from_str(&got.stdout).unwrap();
-    assert_eq!(output["ok"], false);
-    assert_eq!(output["error"]["code"], "risk_denied");
-    assert_eq!(output["risk"]["decision"], "deny");
-    assert_eq!(output["risk"]["score_id"], "score-1");
-    assert_eq!(
-        output["risk"]["vetoes"],
-        serde_json::json!([{ "code": "SIGNER_AUTHORITY_CHANGE", "source": "T0" }])
-    );
-    assert_eq!(scorer.paths(), ["/v1/score"], "a denial posts no label");
-    no_token(&got);
-}
+    #[test]
+    fn a_gate_configuration_error_exits_2_before_input_and_the_agent() {
+        let scratch = Scratch::new();
+        let agent = mock_agent(&scratch.socket(), vec![]);
+        let risk = || walleterm::risk::configure(Some("https://scorer.example".into()), None);
+        let got =
+            invoke_with_risk(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(agent), &risk);
+        assert_eq!(got.exit, 2);
+        let output: Value = serde_json::from_str(&got.stdout).unwrap();
+        assert_eq!(output["error"]["code"], "invalid_config");
+        assert!(got.requests.is_empty(), "no agent connection");
+    }
 
-const SCORER_NOTICE: &str = "Risk gate: send this request to 127.0.0.1 for a score.\n";
+    #[test]
+    fn a_deny_returns_risk_denied_without_an_agent_request() {
+        let scorer = scorer::Scorer::start(scorer::Mode::Decision("deny"));
+        let scratch = Scratch::new();
+        let agent = mock_agent(&scratch.socket(), vec![]);
+        let risk = || Ok(Some(scorer.gate()));
+        let got =
+            invoke_with_risk(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(agent), &risk);
+        assert_eq!(got.exit, 1, "{}", got.stdout);
+        assert!(got.requests.is_empty(), "no agent request");
+        // The scorer notice names the host before the artifact leaves. No signing notice follows.
+        assert_eq!(got.stderr, SCORER_NOTICE);
+        let output: Value = serde_json::from_str(&got.stdout).unwrap();
+        assert_eq!(output["ok"], false);
+        assert_eq!(output["error"]["code"], "risk_denied");
+        assert_eq!(output["risk"]["decision"], "deny");
+        assert_eq!(output["risk"]["score_id"], "score-1");
+        assert_eq!(
+            output["risk"]["vetoes"],
+            serde_json::json!([{ "code": "SIGNER_AUTHORITY_CHANGE", "source": "T0" }])
+        );
+        assert_eq!(scorer.paths(), ["/v1/score"], "a denial posts no label");
+        no_token(&got);
+    }
 
-#[test]
-fn a_declined_1password_prompt_posts_a_false_label() {
-    let scorer = scorer::Scorer::start(scorer::Mode::Decision("escalate"));
-    let scratch = Scratch::new();
-    let agent = mock_agent(&scratch.socket(), vec![Reply::Frame(identities_body()), Reply::Frame(vec![5])]);
-    let risk = || Ok(Some(scorer.gate()));
-    let got =
-        invoke_with_risk(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(agent), &risk);
-    let output: Value = serde_json::from_str(&got.stdout).unwrap();
-    assert_eq!(output["error"]["code"], "signing_refused", "{}", got.stdout);
-    let hits = scorer.hits();
-    assert_eq!(scorer.paths(), ["/v1/score", "/v1/answer"]);
-    let request_id = hits[0].body["request_id"].clone();
-    assert_eq!(hits[1].body, serde_json::json!({ "request_id": request_id, "approved": false }));
-    no_token(&got);
-}
+    const SCORER_NOTICE: &str = "Risk gate: send this request to 127.0.0.1 for a score.\n";
 
-#[test]
-fn an_escalation_signs_adds_risk_and_posts_an_approved_label() {
-    let scorer = scorer::Scorer::start(scorer::Mode::Decision("escalate"));
-    let scratch = Scratch::new();
-    let risk = || Ok(Some(scorer.gate()));
-    let got = invoke_with_risk(
-        &["sign"],
-        sign_input().as_bytes(),
-        Some(&scratch.socket()),
-        Some(signing_agent(&scratch)),
-        &risk,
-    );
-    assert_eq!(got.exit, 0, "{}", got.stdout);
-    assert_eq!(kinds(&got.requests), [11, 13]);
-    assert!(got.stderr.starts_with(SCORER_NOTICE), "{}", got.stderr);
-    let output: Value = serde_json::from_str(&got.stdout).unwrap();
-    assert_eq!(output["verified"], true);
-    let hits = scorer.hits();
-    let request_id = hits[0].body["request_id"].clone();
-    assert_eq!(
-        output["risk"],
-        serde_json::json!({
-            "decision": "escalate", "score_id": "score-1", "request_id": request_id, "vetoes": [],
-            "reasons": [{ "code": "PHASE0_ADVISORY_ONLY", "source": "service" }],
-        })
-    );
-    // A message goes as Base64 of its exact bytes. The CLI sends no origin and no passphrase for a message.
-    let mut keys: Vec<&str> = hits[0].body.as_object().unwrap().keys().map(String::as_str).collect();
-    keys.sort();
-    assert_eq!(keys, ["hash", "kind", "request_id", "signer", "xdr"]);
-    assert_eq!(hits[0].body["hash"], output["digest"], "the hash is the signed digest");
-    assert_eq!(hits[0].body["kind"], "message");
-    assert_eq!(hits[0].body["xdr"], "d2FsbGV0ZXJtIG9mZmxpbmUgdGVzdA==");
-    assert_eq!(hits[0].authorization.as_deref(), Some(format!("Bearer {}", scorer::TOKEN).as_str()));
-    assert_eq!(hits[1].path, "/v1/answer");
-    assert_eq!(hits[1].body, serde_json::json!({ "request_id": request_id, "approved": true }));
-    no_token(&got);
-}
+    #[test]
+    fn a_declined_1password_prompt_posts_a_false_label() {
+        let scorer = scorer::Scorer::start(scorer::Mode::Decision("escalate"));
+        let scratch = Scratch::new();
+        let agent =
+            mock_agent(&scratch.socket(), vec![Reply::Frame(identities_body()), Reply::Frame(vec![5])]);
+        let risk = || Ok(Some(scorer.gate()));
+        let got =
+            invoke_with_risk(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(agent), &risk);
+        let output: Value = serde_json::from_str(&got.stdout).unwrap();
+        assert_eq!(output["error"]["code"], "signing_refused", "{}", got.stdout);
+        let hits = scorer.hits();
+        assert_eq!(scorer.paths(), ["/v1/score", "/v1/answer"]);
+        let request_id = hits[0].body["request_id"].clone();
+        assert_eq!(hits[1].body, serde_json::json!({ "request_id": request_id, "approved": false }));
+        no_token(&got);
+    }
 
-#[test]
-fn a_scorer_failure_signs_as_before_with_risk_error() {
-    for (mode, code) in [
-        (scorer::Mode::Status(500), "http_500"),
-        (scorer::Mode::Raw("{\"decision\":\"escalate\"}"), "bad_response"),
-        (scorer::Mode::Decision("approve"), "unexpected_decision"),
-    ] {
-        let scorer = scorer::Scorer::start(mode);
+    #[test]
+    fn an_escalation_signs_adds_risk_and_posts_an_approved_label() {
+        let scorer = scorer::Scorer::start(scorer::Mode::Decision("escalate"));
         let scratch = Scratch::new();
         let risk = || Ok(Some(scorer.gate()));
         let got = invoke_with_risk(
@@ -1590,31 +1557,77 @@ fn a_scorer_failure_signs_as_before_with_risk_error() {
             Some(signing_agent(&scratch)),
             &risk,
         );
-        assert_eq!(got.exit, 0, "{code}: {}", got.stdout);
+        assert_eq!(got.exit, 0, "{}", got.stdout);
+        assert_eq!(kinds(&got.requests), [11, 13]);
+        assert!(got.stderr.starts_with(SCORER_NOTICE), "{}", got.stderr);
         let output: Value = serde_json::from_str(&got.stdout).unwrap();
-        assert_eq!(output["risk"], serde_json::json!({ "error": code }));
-        assert_eq!(scorer.paths(), ["/v1/score"], "no label without a score");
+        assert_eq!(output["verified"], true);
+        let hits = scorer.hits();
+        let request_id = hits[0].body["request_id"].clone();
+        assert_eq!(
+            output["risk"],
+            serde_json::json!({
+                "decision": "escalate", "score_id": "score-1", "request_id": request_id, "vetoes": [],
+                "reasons": [{ "code": "PHASE0_ADVISORY_ONLY", "source": "service" }],
+            })
+        );
+        // A message goes as Base64 of its exact bytes. The CLI sends no origin and no passphrase for a message.
+        let mut keys: Vec<&str> = hits[0].body.as_object().unwrap().keys().map(String::as_str).collect();
+        keys.sort();
+        assert_eq!(keys, ["hash", "kind", "request_id", "signer", "xdr"]);
+        assert_eq!(hits[0].body["hash"], output["digest"], "the hash is the signed digest");
+        assert_eq!(hits[0].body["kind"], "message");
+        assert_eq!(hits[0].body["xdr"], "d2FsbGV0ZXJtIG9mZmxpbmUgdGVzdA==");
+        assert_eq!(hits[0].authorization.as_deref(), Some(format!("Bearer {}", scorer::TOKEN).as_str()));
+        assert_eq!(hits[1].path, "/v1/answer");
+        assert_eq!(hits[1].body, serde_json::json!({ "request_id": request_id, "approved": true }));
         no_token(&got);
     }
-}
 
-#[test]
-fn a_malformed_deny_still_stops_sign() {
-    let scorer = scorer::Scorer::start(scorer::Mode::Raw("{\"decision\":\"deny\",\"score_id\":\"bad id\"}"));
-    let scratch = Scratch::new();
-    let agent = mock_agent(&scratch.socket(), vec![]);
-    let risk = || Ok(Some(scorer.gate()));
-    let got =
-        invoke_with_risk(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(agent), &risk);
-    assert_eq!(got.exit, 1, "{}", got.stdout);
-    assert!(got.requests.is_empty(), "no agent request");
-    let output: Value = serde_json::from_str(&got.stdout).unwrap();
-    assert_eq!(output["error"]["code"], "risk_denied");
-    assert_eq!(output["risk"]["score_id"], "");
-    assert_eq!(
-        output["risk"]["reasons"],
-        serde_json::json!([{ "code": "RISK_RESPONSE_MALFORMED", "source": "walleterm" }])
-    );
+    #[test]
+    fn a_scorer_failure_signs_as_before_with_risk_error() {
+        for (mode, code) in [
+            (scorer::Mode::Status(500), "http_500"),
+            (scorer::Mode::Raw("{\"decision\":\"escalate\"}"), "bad_response"),
+            (scorer::Mode::Decision("approve"), "unexpected_decision"),
+        ] {
+            let scorer = scorer::Scorer::start(mode);
+            let scratch = Scratch::new();
+            let risk = || Ok(Some(scorer.gate()));
+            let got = invoke_with_risk(
+                &["sign"],
+                sign_input().as_bytes(),
+                Some(&scratch.socket()),
+                Some(signing_agent(&scratch)),
+                &risk,
+            );
+            assert_eq!(got.exit, 0, "{code}: {}", got.stdout);
+            let output: Value = serde_json::from_str(&got.stdout).unwrap();
+            assert_eq!(output["risk"], serde_json::json!({ "error": code }));
+            assert_eq!(scorer.paths(), ["/v1/score"], "no label without a score");
+            no_token(&got);
+        }
+    }
+
+    #[test]
+    fn a_malformed_deny_still_stops_sign() {
+        let scorer =
+            scorer::Scorer::start(scorer::Mode::Raw("{\"decision\":\"deny\",\"score_id\":\"bad id\"}"));
+        let scratch = Scratch::new();
+        let agent = mock_agent(&scratch.socket(), vec![]);
+        let risk = || Ok(Some(scorer.gate()));
+        let got =
+            invoke_with_risk(&["sign"], sign_input().as_bytes(), Some(&scratch.socket()), Some(agent), &risk);
+        assert_eq!(got.exit, 1, "{}", got.stdout);
+        assert!(got.requests.is_empty(), "no agent request");
+        let output: Value = serde_json::from_str(&got.stdout).unwrap();
+        assert_eq!(output["error"]["code"], "risk_denied");
+        assert_eq!(output["risk"]["score_id"], "");
+        assert_eq!(
+            output["risk"]["reasons"],
+            serde_json::json!([{ "code": "RISK_RESPONSE_MALFORMED", "source": "walleterm" }])
+        );
+    }
 }
 
 /// Protocol 30 (CAP-0084): a `W` address signs as a call argument on any network and never as the signer.

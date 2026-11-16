@@ -235,6 +235,7 @@ An entry or a preimage adds its `address`. An entry adds its full `adapter` obje
 A tunnel request adds the website `origin`.
 Before it sends, `sign` writes `Risk gate: send this request to <host> for a score.` to standard error.
 The tunnel banner also names the scorer host. Neither shows the URL path or the token.
+Terminal and agent logs can keep the host, so do not put a secret in the host name.
 
 | Scorer answer | Result |
 | --- | --- |
@@ -258,11 +259,11 @@ With the gate on, the `sign` result and the `walleterm approve` request have a `
 
 The error codes are `unreachable`, `timeout`, `http_<status>`, `too_large`, `bad_response`, and `unexpected_decision`.
 Walleterm reads only `decision`, `request_id`, `score_id`, `vetoes`, and `reasons`. It skips every other field unread.
-The whole body must still be one valid JSON object, nested at most 128 levels.
-Each of these fields must appear once. A repeated key inside `vetoes` or `reasons` is malformed.
+The whole body must still be one valid JSON object. The five read fields nest at most 128 levels.
+Each of these fields must appear once. A code with a repeated key is invalid.
 Each response string must have 1–128 characters from `A-Z`, `a-z`, `0-9`, `_`, `-`, `.`, and `:`.
 The response `request_id` must equal the sent ID. Each list has at most 64 codes.
-A scorer code cannot have the source `walleterm`. Only Walleterm uses that source.
+A scorer code cannot have a source that starts with `walleterm`, in any letter case. Only Walleterm uses that source.
 An escalation that breaks one of these rules is `bad_response`.
 A denial that breaks one of them still denies. Walleterm drops each invalid code and keeps at most 64 of each list.
 An invalid `score_id` becomes empty. A missing or different `request_id` becomes the sent ID.
@@ -284,6 +285,7 @@ Walleterm also posts answer labels to `POST <URL>/v1/answer` as `{"request_id","
 
 A `sign` label records the 1Password outcome. A tunnel label records the `walleterm approve` answer.
 A label needs a scored request. It is best effort. It never delays the answer or changes a result.
+A label can delay the exit of `sign` by at most 2 seconds.
 
 Walleterm sends the token only in the `Authorization: Bearer` header. No output, error, or terminal line holds it.
 The client uses only HTTPS and follows no redirect. It reads no proxy setting.

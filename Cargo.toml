@@ -35,7 +35,8 @@ sha2 = { version = "=0.10.9", default-features = false, features = ["std"] }
 
 [features]
 default = []
-# Builds only the walleterm-test-host binary for browser tests. Release packages never enable it.
+# Builds the walleterm-test-host binary for browser tests and the loopback risk scorer for the gate tests.
+# `make test` enables it. Release packages never enable it.
 test-host = []
 
 [[bin]]
@@ -45,6 +46,11 @@ path = "src/main.rs"
 [[bin]]
 name = "walleterm-test-host"
 path = "src/bin/walleterm-test-host.rs"
+required-features = ["test-host"]
+
+[[test]]
+name = "risk"
+path = "tests/risk.rs"
 required-features = ["test-host"]
 
 [dev-dependencies]

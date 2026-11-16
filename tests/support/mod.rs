@@ -22,6 +22,8 @@ use walleterm::error::Error;
 use walleterm::stellar::{account_address, encode};
 use walleterm::util::{hex, now_ms};
 
+/// The mock risk scorer needs `Gate::loopback`, which only the `test-host` feature builds.
+#[cfg(feature = "test-host")]
 pub mod scorer;
 
 pub const TESTNET: &str = "Test SDF Network ; September 2015";
