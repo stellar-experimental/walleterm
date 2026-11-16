@@ -292,9 +292,9 @@ GPT-6 Astra, GPT-6.1 Sol, Fable 5.1, and Grok 4.7 reviewed this design and its c
 
 ### Sources
 
-- Stellar CLI 28.1.0, commit `c0f4d0da891bbf214c08b8c5035ae6db80e9a3bd`.
+- Stellar CLI 30.0.1, commit `f2a7b74175c34585f3b30a1abf42a2d41cbcc390`, rechecked on 2026-11-16.
   The checks used `stellar network ls --long` with an empty `--config-dir`, and a stub plugin that printed its `STELLAR_` variables.
-- The `soroban-cli` 28.1.0 crate source: `config/network.rs` (`Args::resolve`) and `config/locator.rs` (`read_network`, `global_config_path`).
+- The `soroban-cli` 30.0.1 crate source: `config/network.rs` (`Args::resolve`) and `config/locator.rs` (`read_network`, `global_config_path`).
 - RPC `getNetwork` on 2026-09-29: mainnet reported protocol 28, and testnet and futurenet reported protocol 29.
   CAP-71 AddressV2 needs protocol 27, so mainnet accepts the Walleterm authorization formats.
 - `stellar-xdr` 28.0.1 with the `serde` feature: 43 more resolved macOS packages and 171424 more release binary bytes, measured on 2026-09-30.
