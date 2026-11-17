@@ -16,6 +16,12 @@ Target macOS first. Permit human approval through 1Password.
 - Add flags, parameters, settings, or prompts only for meaningful choices that cannot be inferred safely.
 - Automate setup and discovery. Keep consequential choices visible for review and preserve required human approval.
 - Do not add speculative abstractions or configuration for hypothetical future needs.
+- Lead a plan with the smallest safe path. List hardening and extras separately as optional, with their cost.
+- Before 1.0.0, work forward only: delete legacy paths, old protocol variants, and old fixtures. Parsing a network-legal foreign format stays allowed.
+  When a reviewed rule change makes `fixtures/parity/` cases obsolete, delete those cases, then update the README count and hash.
+- Use a trusted library that other Stellar tools already use over hand-written code. When a limit such as `tools/src/budgets.rs` blocks one,
+  measure the shipped cost and change the limit. Keep limits that come from the protocol, security, or resource safety.
+- List install paths in this order wherever install text appears: the curl script, `npx skills add`, the Homebrew cask.
 - Keep custom contracts and complex orchestration in test fixtures unless an accepted use case requires runtime support.
 
 ## Read first
@@ -59,8 +65,20 @@ Target macOS first. Permit human approval through 1Password.
 - Run one live runner at a time. Follow the `walleterm` skill to sign and the `walleterm-site-bridge` skill for the tunnel,
   the demo, and websites. `docs/LIVE-TESTS.md` lists the live suites.
 - Do not change existing 1Password items or sign with unrelated keys.
+- Before a live step that shows a 1Password prompt, prepare everything, notify the user, and wait for their reply.
+  The prompt closes after 60 seconds. Start tunnels only after the reply, so connection codes stay fresh.
+- Never start `walleterm tunnel` or `walleterm demo` as hidden background tasks. Tell the user the command, or run it in a visible Herdr terminal when asked.
+  Leave the default ports 8787 and 8788 free. Live checks use 18787 and 18788; the real commands reject `--port 0`.
+  Browser tests use `tests/browser/fixture.ts`, whose test host binds random ports.
+- Keep scam indicators, victim lists, real-incident fixtures, and incident write-ups out of git. Use synthetic fixtures; put incident docs in gitignored `evidence/`.
 - Record live transaction hashes, ledger results, account states, and contract versions.
 - Distinguish local tests, live 1Password tests, and network acceptance. Do not claim a skipped or blocked test passed.
+- `main` accepts only squash-merged PRs. "Commit to main" means open a short-lived PR and merge it at once with
+  `gh pr merge --squash --match-head-commit <sha>`.
+- Keep `make test-package` in the main CI job. Split it into a parallel job only when the user says CI is too slow.
+- `make test` fails `tests/cap71.test.ts` with ENOENT when the ignored fixture WASM is missing, as in a fresh worktree.
+  Build it: `cargo +1.93.0 build --offline --locked --manifest-path fixtures/cap71/Cargo.toml --workspace --release --target wasm32v1-none`.
+- In Claude-in-Chrome the first click after navigation only focuses the window. Click once to focus, or use `find` refs, `form_input`, or script clicks.
 
 ## XDR risk gate
 
