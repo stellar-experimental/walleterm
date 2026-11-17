@@ -62,6 +62,16 @@ Target macOS first. Permit human approval through 1Password.
 - Record live transaction hashes, ledger results, account states, and contract versions.
 - Distinguish local tests, live 1Password tests, and network acceptance. Do not claim a skipped or blocked test passed.
 
+## XDR risk gate
+
+- With `WALLETERM_RISK_URL` and `WALLETERM_RISK_TOKEN` set, `sign` and every tunnel request call the risk scorer
+  after validation and before signing. Deny refuses with no 1Password prompt. Escalate continues as before.
+  An unreachable scorer continues with `risk.error`.
+- The scorer is advisory: models can only say no. A deterministic policy envelope bounds loss.
+- Automated approval (opt-in per key, mainnet included) is a decided future walleterm setting, default manual.
+  Change the "preserve required human approval" rule above only in the same change that adds that setting,
+  with the user's OK. Never ship it silently.
+
 ## Maintainer agent workflow
 
 - Use Stellar Raven MCP for Stellar research and contract discovery when it is available.
